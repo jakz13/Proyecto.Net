@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "UltimaMilla.sln",
+    "projects": [
+      "src/Domain/UltimaMilla.Domain.csproj",
+      "src/Application/UltimaMilla.Application.csproj",
+      "src/Infrastructure/UltimaMilla.Infrastructure.csproj",
+      "src/Api/UltimaMilla.Api.csproj",
+      "src/Web/Backoffice/UltimaMilla.Backoffice.csproj",
+      "src/Web/PortalComercio/UltimaMilla.PortalComercio.csproj",
+      "src/Worker/UltimaMilla.Worker.csproj",
+      "tests/UltimaMilla.Domain.Tests/UltimaMilla.Domain.Tests.csproj"
+    ]
+  }
+}
