@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="UltimaMilla.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:diag="clr-namespace:UltimaMilla.Mobile.Views.Diagnostic"
+    Title="Última Milla Repartidor">
+
+    <TabBar>
+        <Tab Title="Diagnóstico" Icon="{x:Null}">
+            <ShellContent
+                Title="Diagnóstico"
+                ContentTemplate="{DataTemplate diag:DiagnosticPage}"
+                Route="DiagnosticPage" />
+        </Tab>
+    </TabBar>
+
+</Shell>

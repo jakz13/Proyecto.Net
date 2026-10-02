@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Diagnostic"
+             x:Class="UltimaMilla.Mobile.Views.Diagnostic.DiagnosticPage"
+             x:DataType="vm:DiagnosticViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+
+            <!-- Header Card -->
+            <Border>
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="📦 Última Milla Repartidor" Style="{StaticResource TitleLabel}" />
+                    <Label Text="Esqueleto Ejecutable - Walking Skeleton" Style="{StaticResource SubtitleLabel}" />
+                    <Label Text="Validación de Arquitectura MVVM, Offline SQLite y Conectividad con Web API." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- API Connection Card -->
+            <Border>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="🌐 Estado de Conexión Web API" FontAttributes="Bold" FontSize="16" />
+                    
+                    <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto" RowSpacing="6" ColumnSpacing="8">
+                        <Label Grid.Row="0" Grid.Column="0" Text="URL Base:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding ApiUrl}" TextColor="{StaticResource PrimaryDark}" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Text="Estado:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Status}" FontAttributes="Bold" />
+
+                        <Label Grid.Row="2" Grid.Column="0" Text="Entorno:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding ServerEnvironment}" />
+
+                        <Label Grid.Row="3" Grid.Column="0" Text="Hora Servidor:" FontAttributes="Bold" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding ServerTimestamp}" />
+                    </Grid>
+
+                    <Label Text="{Binding StatusMessage}" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+
+                    <!-- Success Message Alert -->
+                    <Border BackgroundColor="#E8F5E9" Stroke="#A5D6A7" IsVisible="{Binding HasSuccess}" Padding="10">
+                        <Label Text="✅ Conexión establecida con éxito con el backend en Docker." TextColor="#2E7D32" FontAttributes="Bold" />
+                    </Border>
+
+                    <!-- Error Message Alert -->
+                    <Border BackgroundColor="#FFEBEE" Stroke="#EF9A9A" IsVisible="{Binding HasError}" Padding="10">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="❌ Fallo de Conectividad:" TextColor="#C62828" FontAttributes="Bold" />
+                            <Label Text="{Binding ErrorMessage}" TextColor="#C62828" FontSize="12" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HeightRequest="30" />
+
+                    <Button Text="🔄 Probar Conexión con API"
+                            Command="{Binding CheckConnectivityCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Offline Storage Card -->
+            <Border>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="💾 Motor Offline-First (SQLite)" FontAttributes="Bold" FontSize="16" />
+                    
+                    <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8">
+                        <Label Text="Operaciones en cola local:" FontAttributes="Bold" />
+                        <Label Grid.Column="1" Text="{Binding PendingOfflineOperationsCount}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+                    </Grid>
+
+                    <Label Text="Permite registrar entregas sin conexión y sincronizarlas de forma diferida." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+
+                    <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                        <Button Grid.Column="0" 
+                                Text="➕ Encolar Operación"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding EnqueueTestOfflineOperationCommand}" />
+                        
+                        <Button Grid.Column="1" 
+                                Text="📋 Refrescar Cola"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding RefreshOfflineCountCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

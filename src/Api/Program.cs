@@ -8,6 +8,8 @@ using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Infrastructure;
 using UltimaMilla.Infrastructure.Persistence;
 
+using UltimaMilla.Application.Queries.Mobile.CheckMobileConnectivity;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
@@ -75,6 +77,17 @@ enviosApi.MapGet("/", async (IMediator mediator) =>
     return Results.Ok(envios);
 })
 .WithName("ListarEnvios")
+.WithOpenApi();
+
+// Mobile Endpoints (Walking Skeleton & Future Sync)
+var mobileApi = app.MapGroup("/api/mobile/v1");
+
+mobileApi.MapGet("/ping", async (IMediator mediator) =>
+{
+    var status = await mediator.Send(new CheckMobileConnectivityQuery());
+    return Results.Ok(status);
+})
+.WithName("CheckMobileConnectivity")
 .WithOpenApi();
 
 app.Run();
