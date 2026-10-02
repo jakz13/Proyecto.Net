@@ -1,0 +1,115 @@
+@page "/"
+@using System.ComponentModel.DataAnnotations
+@using UltimaMilla.PortalComercio.Services
+@inject EnvioApiClient ApiClient
+
+<PageTitle>Portal del Comercio — Alta de Envío</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+
+            <div class="mb-4">
+                <h1 class="fs-4 fw-semibold mb-1">Nuevo envío</h1>
+                <p class="text-muted mb-0" style="font-size: 0.9rem;">Complete los datos del destinatario para registrar una orden de despacho.</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success mb-4" role="alert">
+                    <strong>Envío registrado.</strong>
+                    <div class="small mt-1">@successMessage</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mb-4" role="alert">
+                    <strong>No se pudo registrar el envío.</strong>
+                    <div class="small mt-1">@errorMessage</div>
+                </div>
+            }
+
+            <div class="card border rounded-2 shadow-sm">
+                <div class="card-body p-4">
+                    <EditForm Model="@modelo" OnValidSubmit="HandleSubmit" FormName="AltaEnvioForm">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label for="nombreDestinatario" class="form-label fw-medium">Nombre del destinatario</label>
+                            <InputText id="nombreDestinatario"
+                                       class="form-control"
+                                       placeholder="Ej: Juan Pérez"
+                                       @bind-Value="modelo.NombreDestinatario" />
+                            <ValidationMessage For="@(() => modelo.NombreDestinatario)" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="direccionDestino" class="form-label fw-medium">Dirección de destino</label>
+                            <InputText id="direccionDestino"
+                                       class="form-control"
+                                       placeholder="Ej: Av. 18 de Julio 1234 Apto 101, Montevideo"
+                                       @bind-Value="modelo.DireccionDestino" />
+                            <ValidationMessage For="@(() => modelo.DireccionDestino)" class="text-danger small" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Registrando...</span>
+                            }
+                            else
+                            {
+                                <span>Registrar envío</span>
+                            }
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private FormModel modelo = new();
+    private bool isSubmitting = false;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        successMessage = null;
+        errorMessage = null;
+
+        var (success, envioId, error) = await ApiClient.CrearEnvioAsync(
+            modelo.DireccionDestino,
+            modelo.NombreDestinatario
+        );
+
+        if (success)
+        {
+            successMessage = $"Identificador asignado: {envioId}";
+            modelo = new();
+        }
+        else
+        {
+            errorMessage = error ?? "Ocurrió un error inesperado al procesar la solicitud.";
+        }
+
+        isSubmitting = false;
+    }
+
+    public class FormModel
+    {
+        [Required(ErrorMessage = "El nombre del destinatario es obligatorio.")]
+        [MinLength(2, ErrorMessage = "El nombre debe contener al menos 2 caracteres.")]
+        public string NombreDestinatario { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La dirección de destino es obligatoria.")]
+        [MinLength(5, ErrorMessage = "La dirección debe contener al menos 5 caracteres.")]
+        public string DireccionDestino { get; set; } = string.Empty;
+    }
+}
