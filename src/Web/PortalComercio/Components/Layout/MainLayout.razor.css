@@ -9,7 +9,8 @@ main {
 }
 
 .sidebar {
-    background-color: #1e2433;
+    background-color: #2b3035;
+    border-right: 1px solid #3c4146;
 }
 
 @media (min-width: 641px) {
