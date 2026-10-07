@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="com.ultimamilla.repartidor"
+    Publisher="CN=UltimaMilla"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>Última Milla Repartidor</DisplayName>
+    <PublisherDisplayName>UltimaMilla</PublisherDisplayName>
+    <Logo>Resources\Images\appicon.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametargetsize$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="Última Milla Repartidor"
+        Description="Última Milla Repartidor"
+        Square150x150Logo="Resources\Images\appicon.png"
+        Square44x44Logo="Resources\Images\appicon.png"
+        BackgroundColor="transparent">
+        <uap:DefaultTile ShortName="Última Milla Repartidor">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Resources\Splash\splash.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
