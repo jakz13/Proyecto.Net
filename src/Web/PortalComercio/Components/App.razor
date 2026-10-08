@@ -9,12 +9,19 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="UltimaMilla.PortalComercio.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="ModoWasm" />
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="ModoWasm" />
+    @* Se oculta solo cuando el cliente WASM termina de cargar y dibuja el layout (.page) *@
+    <div class="cargando-wasm">Cargando Portal del Comercio…</div>
     <script src="_framework/blazor.web.js"></script>
 </body>
 
 </html>
+
+@code {
+    // Sin prerenderizado: el cliente WASM necesita el HttpClient hacia la API, que solo existe en el navegador.
+    private static readonly IComponentRenderMode ModoWasm = new InteractiveWebAssemblyRenderMode(prerender: false);
+}

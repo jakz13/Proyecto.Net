@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 
-namespace UltimaMilla.PortalComercio.Services;
+namespace UltimaMilla.PortalComercio.Client.Services;
 
 public class EnvioApiClient
 {

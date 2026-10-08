@@ -1,14 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Application\UltimaMilla.Application.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\UltimaMilla.Infrastructure.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- El Portal solo hospeda el cliente WASM: ya no referencia Application ni Infrastructure -->
+    <ProjectReference Include="..\PortalComercio.Client\UltimaMilla.PortalComercio.Client.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.12" />
+  </ItemGroup>
 
 </Project>

@@ -49,3 +49,14 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Indicador mientras el navegador descarga el runtime de WebAssembly */
+.cargando-wasm {
+    padding: 2rem;
+    text-align: center;
+    color: #6c757d;
+}
+
+.page ~ .cargando-wasm {
+    display: none;
+}

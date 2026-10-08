@@ -3,17 +3,13 @@ WORKDIR /source
 
 # Copy csproj files and restore dependencies
 COPY UltimaMilla.sln ./
-COPY src/Domain/UltimaMilla.Domain.csproj src/Domain/
-COPY src/Application/UltimaMilla.Application.csproj src/Application/
-COPY src/Infrastructure/UltimaMilla.Infrastructure.csproj src/Infrastructure/
+COPY src/Web/PortalComercio.Client/UltimaMilla.PortalComercio.Client.csproj src/Web/PortalComercio.Client/
 COPY src/Web/PortalComercio/UltimaMilla.PortalComercio.csproj src/Web/PortalComercio/
 
 RUN dotnet restore src/Web/PortalComercio/UltimaMilla.PortalComercio.csproj
 
 # Copy source code and publish
-COPY src/Domain/ src/Domain/
-COPY src/Application/ src/Application/
-COPY src/Infrastructure/ src/Infrastructure/
+COPY src/Web/PortalComercio.Client/ src/Web/PortalComercio.Client/
 COPY src/Web/PortalComercio/ src/Web/PortalComercio/
 
 WORKDIR /source/src/Web/PortalComercio
