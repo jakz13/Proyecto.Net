@@ -1,6 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Ports;
-using UltimaMilla.Domain.Entities;
+using UltimaMilla.Domain.Entities.Envios;
 
 namespace UltimaMilla.Application.Commands.AltaEnvio;
 

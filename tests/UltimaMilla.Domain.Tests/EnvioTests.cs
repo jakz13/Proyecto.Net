@@ -1,4 +1,4 @@
-using UltimaMilla.Domain.Entities;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 using Xunit;

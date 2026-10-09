@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using UltimaMilla.Domain.Entities;
+using UltimaMilla.Domain.Entities.Envios;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
