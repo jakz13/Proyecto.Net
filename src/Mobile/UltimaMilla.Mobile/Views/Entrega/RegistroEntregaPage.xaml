@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             x:Class="UltimaMilla.Mobile.Views.Entrega.RegistroEntregaPage"
+             x:DataType="vm:RegistroEntregaViewModel"
+             Title="Confirmar Entrega"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="16" Padding="20">
+
+            <!-- ========================================================= -->
+            <!-- TARJETA RESUMEN DEL ENVÍO / PARADA                        -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="6">
+                    <HorizontalStackLayout Spacing="6">
+                        <Label Text="📦 Parada en Curso"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Primary}" />
+                    </HorizontalStackLayout>
+
+                    <Label Text="{Binding ParadaSeleccionada.Direccion, FallbackValue='Bvar. España 2678, Pocitos'}"
+                           Style="{StaticResource H3Label}" />
+
+                    <Label Text="{Binding ParadaSeleccionada.Destinatario, FallbackValue='Destinatario: Lucía Fernández'}"
+                           Style="{StaticResource CaptionLabel}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- FORMULARIO DE DATOS DEL RECEPTOR                          -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Datos de Quién Recibe"
+                           Style="{StaticResource H3Label}" />
+
+                    <!-- Nombre del Receptor -->
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Nombre y Apellido *"
+                               FontSize="13"
+                               FontAttributes="Bold" />
+
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding NombreReceptor}"
+                                   Placeholder="Ej. María López"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <!-- Documento del Receptor -->
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Documento / C.I. *"
+                               FontSize="13"
+                               FontAttributes="Bold" />
+
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding DocumentoReceptor}"
+                                   Placeholder="Ej. 4.123.456-7"
+                                   Keyboard="Numeric"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- ÁREA DE FIRMA DIGITAL EN PANTALLA                         -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0"
+                               Text="Firma Digital en Pantalla *"
+                               Style="{StaticResource H3Label}" />
+
+                        <Label Grid.Column="1"
+                               Text="Limpiar"
+                               TextColor="{StaticResource Primary}"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding LimpiarFirmaCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Grid>
+
+                    <!-- Recuadro para simular captura de firma -->
+                    <Border HeightRequest="150"
+                            Stroke="{StaticResource InputBorder}"
+                            StrokeThickness="1.5"
+                            StrokeShape="RoundRectangle 10"
+                            BackgroundColor="#FAFAFA"
+                            Padding="12">
+
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding SimularFirmaCommand}" />
+                        </Border.GestureRecognizers>
+
+                        <Grid VerticalOptions="Center" HorizontalOptions="Center">
+                            <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                                <Label Text="✍️"
+                                       FontSize="30"
+                                       HorizontalOptions="Center" />
+
+                                <Label Text="{Binding FirmaStatusText}"
+                                       Style="{StaticResource CaptionLabel}"
+                                       HorizontalOptions="Center" />
+
+                                <Label Text="(Toque este recuadro para registrar la firma)"
+                                       Style="{StaticResource MutedLabel}"
+                                       HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- FOTOGRAFÍA / EVIDENCIA DE ENTREGA                         -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Evidencia Fotográfica"
+                           Style="{StaticResource H3Label}" />
+
+                    <Button Text="📷 Abrir Cámara para Foto"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding AbrirCamaraCommand}" />
+
+                    <Label Text="{Binding FotoStatusText}"
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- BOTÓN PRINCIPAL DE ACCIÓN: GUARDAR ENTREGA                -->
+            <!-- ========================================================= -->
+            <Button Text="✓ Guardar Entrega"
+                    Command="{Binding GuardarEntregaCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    HeightRequest="52"
+                    FontSize="16"
+                    Margin="0,8,0,24" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

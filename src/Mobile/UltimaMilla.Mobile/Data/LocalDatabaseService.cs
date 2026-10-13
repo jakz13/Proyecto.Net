@@ -5,7 +5,8 @@ namespace UltimaMilla.Mobile.Data;
 
 public interface ILocalDatabaseService
 {
-    Task InitializeAsync();
+    Task InitAsync();
+    SQLiteAsyncConnection Connection { get; }
     Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson);
     Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync();
     Task MarcarComoSincronizadoAsync(int id);
@@ -14,28 +15,62 @@ public interface ILocalDatabaseService
 
 public class LocalDatabaseService : ILocalDatabaseService
 {
-    private SQLiteAsyncConnection? _database;
-    private readonly string _dbPath;
+    private readonly SQLiteAsyncConnection _database;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private bool _initialized;
+
+    public SQLiteAsyncConnection Connection => _database;
 
     public LocalDatabaseService()
     {
-        _dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_repartidor.db3");
+        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
+
+        // RNF 6.11: Base de datos cifrada en reposo mediante SQLite / SQLCipher.
+        // NOTA: Clave temporal hardcodeada solicitada. En etapas posteriores se resolverá de forma dinámica desde SecureStorage.
+        const string encryptionPassword = "SuperSecretKey2026";
+
+        var connectionString = new SQLiteConnectionString(
+            dbPath,
+            openFlags: SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex,
+            storeDateTimeAsTicks: true,
+            key: encryptionPassword);
+
+        _database = new SQLiteAsyncConnection(connectionString);
     }
 
-    public async Task InitializeAsync()
+    /// <summary>
+    /// Crea las tablas locales necesarias para la operativa offline si aún no existen.
+    /// </summary>
+    public async Task InitAsync()
     {
-        if (_database is not null)
+        if (_initialized)
             return;
 
-        var options = new SQLiteConnectionString(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache, true);
-        _database = new SQLiteAsyncConnection(options);
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_initialized)
+                return;
 
-        await _database.CreateTableAsync<OperacionOfflineLocal>();
+            // Creación de tablas de modelos offline
+            await _database.CreateTableAsync<HojaDeRutaLocal>();
+            await _database.CreateTableAsync<ParadaLocal>();
+            await _database.CreateTableAsync<EnvioLocal>();
+            await _database.CreateTableAsync<BultoLocal>();
+            await _database.CreateTableAsync<MotivoNoEntregaLocal>();
+            await _database.CreateTableAsync<OperacionOfflineLocal>();
+
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
     public async Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson)
     {
-        await InitializeAsync();
+        await InitAsync();
         var operacion = new OperacionOfflineLocal
         {
             TipoOperacion = tipoOperacion,
@@ -44,13 +79,13 @@ public class LocalDatabaseService : ILocalDatabaseService
             Sincronizado = false
         };
 
-        return await _database!.InsertAsync(operacion);
+        return await _database.InsertAsync(operacion);
     }
 
     public async Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync()
     {
-        await InitializeAsync();
-        return await _database!.Table<OperacionOfflineLocal>()
+        await InitAsync();
+        return await _database.Table<OperacionOfflineLocal>()
             .Where(o => !o.Sincronizado)
             .OrderBy(o => o.FechaCreacionUtc)
             .ToListAsync();
@@ -58,8 +93,8 @@ public class LocalDatabaseService : ILocalDatabaseService
 
     public async Task MarcarComoSincronizadoAsync(int id)
     {
-        await InitializeAsync();
-        var op = await _database!.FindAsync<OperacionOfflineLocal>(id);
+        await InitAsync();
+        var op = await _database.FindAsync<OperacionOfflineLocal>(id);
         if (op != null)
         {
             op.Sincronizado = true;
@@ -69,8 +104,8 @@ public class LocalDatabaseService : ILocalDatabaseService
 
     public async Task RegistrarErrorAsync(int id, string error)
     {
-        await InitializeAsync();
-        var op = await _database!.FindAsync<OperacionOfflineLocal>(id);
+        await InitAsync();
+        var op = await _database.FindAsync<OperacionOfflineLocal>(id);
         if (op != null)
         {
             op.Reintentos++;

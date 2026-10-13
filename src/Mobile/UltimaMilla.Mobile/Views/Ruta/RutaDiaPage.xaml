@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Ruta"
+             x:Class="UltimaMilla.Mobile.Views.Ruta.RutaDiaPage"
+             x:DataType="vm:RutaDiaViewModel"
+             Title="Mi Ruta"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto, *">
+
+        <!-- ========================================================= -->
+        <!-- CABECERA: TÍTULO, FECHA Y BADGE FLOTANTE DE MODO OFFLINE  -->
+        <!-- ========================================================= -->
+        <Border Grid.Row="0"
+                Stroke="{StaticResource CardBorder}"
+                StrokeThickness="0,0,0,1"
+                StrokeShape="Rectangle"
+                BackgroundColor="{StaticResource CardBackground}"
+                Padding="20,16">
+
+            <VerticalStackLayout Spacing="8">
+                <Grid ColumnDefinitions="*, Auto">
+                    <!-- Título y Fecha -->
+                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                        <Label Text="Hoja de Ruta"
+                               Style="{StaticResource H2Label}" />
+
+                        <HorizontalStackLayout Spacing="6">
+                            <Label Text="📅" FontSize="13" />
+                            <Label Text="{Binding FechaHojaRuta, StringFormat='Fecha: {0}'}"
+                                   Style="{StaticResource CaptionLabel}"
+                                   FontAttributes="Bold" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- Indicador Flotante: Modo Offline -->
+                    <Border Grid.Column="1"
+                            Style="{StaticResource OfflinePill}"
+                            VerticalOptions="Center">
+                        <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                            <BoxView WidthRequest="8"
+                                     HeightRequest="8"
+                                     CornerRadius="4"
+                                     Color="#DC2626"
+                                     VerticalOptions="Center" />
+                            <Label Text="Modo Offline"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource OfflineBadgeText}"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- Barra de resumen de progreso -->
+                <Label Text="{Binding ResumenProgreso}"
+                       Style="{StaticResource CaptionLabel}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ========================================================= -->
+        <!-- LISTA DE PARADAS (COLLECTIONVIEW CON TARJETAS / CARDS)    -->
+        <!-- ========================================================= -->
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Paradas}"
+                        SelectionMode="None"
+                        Margin="16,12,16,16">
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:ParadaItemViewModel">
+                    <!-- Tarjeta / Card de la Parada -->
+                    <Border Style="{StaticResource CardView}"
+                            Margin="0,0,0,12">
+
+                        <Grid RowDefinitions="Auto, Auto, Auto"
+                              ColumnDefinitions="*, Auto"
+                              RowSpacing="8">
+
+                            <!-- Fila 1: Número de Parada, Dirección y Badge de Estado -->
+                            <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="10" VerticalOptions="Center">
+                                <!-- Pill de Orden (ej. #1, #2, #3) -->
+                                <Border BackgroundColor="#EFF6FF"
+                                        Stroke="#BFDBFE"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 8"
+                                        Padding="8,2"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding Orden, StringFormat='#{0}'}"
+                                           TextColor="{StaticResource Primary}"
+                                           FontAttributes="Bold"
+                                           FontSize="13" />
+                                </Border>
+
+                                <Label Text="{Binding Direccion}"
+                                       Style="{StaticResource H3Label}"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+
+                            <!-- Badge de Estado (Pendiente / Entregado / Fallido) -->
+                            <Border Grid.Row="0" Grid.Column="1"
+                                    BackgroundColor="{Binding EstadoBgColor}"
+                                    Stroke="{Binding EstadoBorderColor}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 12"
+                                    Padding="10,4"
+                                    VerticalOptions="Center">
+                                <Label Text="{Binding EstadoTextoBadge}"
+                                       TextColor="{Binding EstadoTextColor}"
+                                       FontSize="11"
+                                       FontAttributes="Bold" />
+                            </Border>
+
+                            <!-- Fila 2: Detalles de Zona, Destinatario y Bultos -->
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="4">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Label Text="📍" FontSize="12" />
+                                    <Label Text="{Binding Ciudad}"
+                                           Style="{StaticResource CaptionLabel}" />
+                                </HorizontalStackLayout>
+
+                                <HorizontalStackLayout Spacing="16" Margin="0,2,0,0">
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="👤" FontSize="12" />
+                                        <Label Text="{Binding Destinatario}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </HorizontalStackLayout>
+
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="📦" FontSize="12" />
+                                        <Label Text="{Binding CantidadBultos, StringFormat='{0} bultos'}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               FontAttributes="Bold" />
+                                    </HorizontalStackLayout>
+
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="⏰" FontSize="12" />
+                                        <Label Text="{Binding HoraEstimada}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </HorizontalStackLayout>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+
+                            <!-- Fila 3: Botón de Acción "Ir" -->
+                            <BoxView Grid.Row="2" Grid.Column="0" HeightRequest="1" Color="Transparent" />
+
+                            <Button Grid.Row="2" Grid.Column="1"
+                                    Text="Ir ➔"
+                                    Style="{StaticResource SmallActionButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=IrAParadaCommand}"
+                                    CommandParameter="{Binding .}"
+                                    IsEnabled="{Binding PuedeRegistrar}" />
+
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </Grid>
+
+</ContentPage>

@@ -3,15 +3,28 @@
     x:Class="UltimaMilla.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:diag="clr-namespace:UltimaMilla.Mobile.Views.Diagnostic"
+    xmlns:ruta="clr-namespace:UltimaMilla.Mobile.Views.Ruta"
+    xmlns:carga="clr-namespace:UltimaMilla.Mobile.Views.Carga"
     Title="Última Milla Repartidor">
 
+    <!-- ========================================================= -->
+    <!-- NAVEGACIÓN PRINCIPAL: TABBAR INFERIOR MODERNO             -->
+    <!-- ========================================================= -->
     <TabBar>
-        <Tab Title="Diagnóstico" Icon="{x:Null}">
+        <!-- Pestaña 1: Mi Ruta -->
+        <Tab Title="Mi Ruta" Icon="{x:Null}">
             <ShellContent
-                Title="Diagnóstico"
-                ContentTemplate="{DataTemplate diag:DiagnosticPage}"
-                Route="DiagnosticPage" />
+                Title="Mi Ruta"
+                ContentTemplate="{DataTemplate ruta:RutaDiaPage}"
+                Route="RutaDiaPage" />
+        </Tab>
+
+        <!-- Pestaña 2: Carga de Vehículo -->
+        <Tab Title="Carga" Icon="{x:Null}">
+            <ShellContent
+                Title="Carga"
+                ContentTemplate="{DataTemplate carga:CargaVehiculoPage}"
+                Route="CargaVehiculoPage" />
         </Tab>
     </TabBar>
 

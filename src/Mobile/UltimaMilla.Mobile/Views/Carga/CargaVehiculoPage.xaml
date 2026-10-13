@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Carga"
+             x:Class="UltimaMilla.Mobile.Views.Carga.CargaVehiculoPage"
+             x:DataType="vm:CargaVehiculoViewModel"
+             Title="Carga"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="16" Padding="20">
+
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="🚛 Control de Carga"
+                           Style="{StaticResource H2Label}" />
+                    <Label Text="Verificación de bultos asignados al móvil antes de iniciar ruta."
+                           Style="{StaticResource BodyLabel}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Text="Vehículo Asignado"
+                               Style="{StaticResource CaptionLabel}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding Patente}"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Primary}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Text="Bultos Verificados"
+                               Style="{StaticResource CaptionLabel}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding BultosCargados, StringFormat='{0} de 6'}"
+                               FontAttributes="Bold" />
+                    </Grid>
+
+                    <Button Text="📷 Escanear Bulto (QR / Barras)"
+                            Style="{StaticResource SecondaryButton}" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

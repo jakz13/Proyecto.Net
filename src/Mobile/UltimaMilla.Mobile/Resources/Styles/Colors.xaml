@@ -4,21 +4,57 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <Color x:Key="Primary">#0D6EFD</Color>
-    <Color x:Key="PrimaryDark">#0A58CA</Color>
-    <Color x:Key="Secondary">#6C757D</Color>
-    <Color x:Key="Success">#198754</Color>
-    <Color x:Key="Warning">#FFC107</Color>
-    <Color x:Key="Danger">#DC3545</Color>
-    <Color x:Key="Light">#F8F9FA</Color>
-    <Color x:Key="Dark">#212529</Color>
-    <Color x:Key="CardBackground">#FFFFFF</Color>
-    <Color x:Key="PageBackground">#F4F6F9</Color>
-    <Color x:Key="TextPrimary">#212529</Color>
-    <Color x:Key="TextSecondary">#6C757D</Color>
+    <!-- ================================================================= -->
+    <!-- DESIGN TOKENS: PALETA DE COLORES (Equivalente a :root variables)  -->
+    <!-- ================================================================= -->
 
+    <!-- Marca / Primarios -->
+    <Color x:Key="Primary">#2563EB</Color>            <!-- Azul corporativo moderno (Tailwind blue-600) -->
+    <Color x:Key="PrimaryDark">#1D4ED8</Color>        <!-- Azul oscuro para estados hover/active -->
+    <Color x:Key="PrimaryLight">#EFF6FF</Color>       <!-- Tinte suave para fondos activos -->
+
+    <!-- Secundarios / Acentos -->
+    <Color x:Key="Secondary">#64748B</Color>          <!-- Slate neutral -->
+    <Color x:Key="SecondaryDark">#475569</Color>
+    <Color x:Key="SecondaryLight">#F1F5F9</Color>
+
+    <!-- Superficies y Fondos -->
+    <Color x:Key="PageBackground">#F8FAFC</Color>     <!-- Fondo general de pantalla (Slate-50) -->
+    <Color x:Key="CardBackground">#FFFFFF</Color>     <!-- Superficie de tarjeta blanca -->
+    <Color x:Key="CardBorder">#E2E8F0</Color>         <!-- Borde sutil de tarjeta (Slate-200) -->
+    <Color x:Key="InputBackground">#FFFFFF</Color>    <!-- Fondo de inputs -->
+    <Color x:Key="InputBorder">#CBD5E1</Color>        <!-- Borde de inputs (Slate-300) -->
+    <Color x:Key="InputBorderFocused">#2563EB</Color>
+
+    <!-- Tipografía / Textos -->
+    <Color x:Key="TextPrimary">#0F172A</Color>        <!-- Texto principal de alto contraste (Slate-900) -->
+    <Color x:Key="TextSecondary">#475569</Color>      <!-- Texto secundario descriptivo (Slate-600) -->
+    <Color x:Key="TextMuted">#94A3B8</Color>          <!-- Texto atenuado/placeholders (Slate-400) -->
+    <Color x:Key="TextInverse">#FFFFFF</Color>        <!-- Texto blanco sobre fondos oscuros/primarios -->
+
+    <!-- Semánticos: Éxito (Entregado) -->
+    <Color x:Key="Success">#16A34A</Color>            <!-- Verde éxito (Green-600) -->
+    <Color x:Key="SuccessLight">#DCFCE7</Color>       <!-- Fondo badge verde claro -->
+    <Color x:Key="SuccessText">#15803D</Color>        <!-- Texto badge verde oscuro -->
+
+    <!-- Semánticos: Alerta / Pendiente -->
+    <Color x:Key="Warning">#D97706</Color>            <!-- Ámbar (Amber-600) -->
+    <Color x:Key="WarningLight">#FEF3C7</Color>       <!-- Fondo badge ámbar claro -->
+    <Color x:Key="WarningText">#B45309</Color>
+
+    <!-- Semánticos: Error / Fallido -->
+    <Color x:Key="Danger">#DC2626</Color>             <!-- Rojo error (Red-600) -->
+    <Color x:Key="DangerLight">#FEE2E2</Color>        <!-- Fondo badge rojo claro -->
+    <Color x:Key="DangerText">#B91C1C</Color>
+
+    <!-- Estado Offline / Red -->
+    <Color x:Key="OfflineBadgeBg">#FEF2F2</Color>
+    <Color x:Key="OfflineBadgeText">#991B1B</Color>
+    <Color x:Key="OfflineBadgeBorder">#FCA5A5</Color>
+
+    <!-- Brushes utilitarios -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
-    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Success}"/>
-    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Danger}"/>
-    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackground}"/>
+    <SolidColorBrush x:Key="PageBackgroundBrush" Color="{StaticResource PageBackground}"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorder}"/>
 </ResourceDictionary>

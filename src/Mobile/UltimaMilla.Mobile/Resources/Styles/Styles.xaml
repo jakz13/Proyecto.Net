@@ -4,26 +4,85 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- ActivityIndicator Style -->
-    <Style TargetType="ActivityIndicator">
-        <Setter Property="Color" Value="{StaticResource Primary}" />
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: TIPOGRAFÍA (Equivalente a h1, h2, p en CSS)     -->
+    <!-- ================================================================= -->
+
+    <!-- Estilo implícito para todo Label -->
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="FontSize" Value="14" />
     </Style>
 
-    <!-- Button Styles -->
+    <!-- H1: Títulos de páginas principales -->
+    <Style x:Key="H1Label" TargetType="Label">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="LineHeight" Value="1.2" />
+    </Style>
+
+    <!-- H2: Subtítulos de sección / cabeceras -->
+    <Style x:Key="H2Label" TargetType="Label">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- H3: Títulos de tarjetas / elementos -->
+    <Style x:Key="H3Label" TargetType="Label">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Texto de cuerpo (Body) -->
+    <Style x:Key="BodyLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <!-- Texto secundario / leyendas (Caption) -->
+    <Style x:Key="CaptionLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <!-- Texto atenuado (Muted) -->
+    <Style x:Key="MutedLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: BOTONES (Redondeados, planos, con feedback)     -->
+    <!-- ================================================================= -->
+
+    <!-- Estilo implícito para Button: Botón Primario por defecto -->
     <Style TargetType="Button">
-        <Setter Property="TextColor" Value="White" />
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
         <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="14,10" />
-        <Setter Property="MinimumHeightRequest" Value="46" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18,12" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
                     <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="Scale" Value="0.98" />
+                        </VisualState.Setters>
+                    </VisualState>
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="#ADB5BD" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="TextColor" Value="#F8FAFC" />
+                            <Setter Property="Opacity" Value="0.6" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -31,40 +90,127 @@
         </Setter>
     </Style>
 
+    <!-- Botón Secundario (Gris suave / Outline) -->
     <Style x:Key="SecondaryButton" TargetType="Button">
-        <Setter Property="TextColor" Value="{StaticResource Dark}" />
-        <Setter Property="BackgroundColor" Value="#E9ECEF" />
-        <Setter Property="BorderColor" Value="#CED4DA" />
-        <Setter Property="BorderWidth" Value="1" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="14,10" />
-        <Setter Property="MinimumHeightRequest" Value="46" />
-    </Style>
-
-    <!-- Label Styles -->
-    <Style TargetType="Label">
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
-        <Setter Property="FontSize" Value="14" />
-    </Style>
-
-    <Style x:Key="TitleLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="20" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SecondaryLight}" />
+        <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
+        <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="TextColor" Value="{StaticResource PrimaryDark}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="MinimumHeightRequest" Value="46" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="#E2E8F0" />
+                            <Setter Property="Scale" Value="0.98" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
     </Style>
 
-    <Style x:Key="SubtitleLabel" TargetType="Label">
+    <!-- Botón Pequeño de Acción Rápida (ej. "Ir" en la tarjeta) -->
+    <Style x:Key="SmallActionButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="HeightRequest" Value="36" />
+        <Setter Property="MinimumHeightRequest" Value="36" />
+        <Setter Property="Shadow" Value="{x:Null}" />
     </Style>
 
-    <!-- Frame / Card Style -->
-    <Style TargetType="Border">
-        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
-        <Setter Property="Stroke" Value="#E0E0E0" />
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: INPUTS (Entry y Editor con bordes suaves)       -->
+    <!-- ================================================================= -->
+
+    <!-- Estilo implícito para Entry -->
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Estilo implícito para Editor (Texto multilínea) -->
+    <Style TargetType="Editor">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="MinimumHeightRequest" Value="80" />
+    </Style>
+
+    <!-- Contenedor Border para envolver Inputs con bordes redondeados pulidos -->
+    <Style x:Key="InputContainer" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <Setter Property="Stroke" Value="{StaticResource InputBorder}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="Padding" Value="12,0" />
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: TARJETAS (Cards) Y BORDES                       -->
+    <!-- ================================================================= -->
+
+    <!-- Estilo explícito para Tarjetas de Entregas / Envíos (CardView) -->
+    <Style x:Key="CardView" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+        <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
         <Setter Property="Padding" Value="16" />
+        <Setter Property="Shadow">
+            <Shadow Brush="#000000"
+                    Offset="0,2"
+                    Radius="6"
+                    Opacity="0.05" />
+        </Setter>
+    </Style>
+
+    <!-- Pill / Badge flotante para Modo Offline -->
+    <Style x:Key="OfflinePill" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 20" />
+        <Setter Property="Stroke" Value="{StaticResource OfflineBadgeBorder}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="BackgroundColor" Value="{StaticResource OfflineBadgeBg}" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+
+    <!-- Estilo implícito para Border general -->
+    <Style TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
     </Style>
 
 </ResourceDictionary>

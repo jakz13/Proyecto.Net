@@ -4,8 +4,17 @@ using Polly.Extensions.Http;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
+using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.ViewModels.Auth;
+using UltimaMilla.Mobile.ViewModels.Carga;
 using UltimaMilla.Mobile.ViewModels.Diagnostic;
+using UltimaMilla.Mobile.ViewModels.Entrega;
+using UltimaMilla.Mobile.ViewModels.Ruta;
+using UltimaMilla.Mobile.Views.Auth;
+using UltimaMilla.Mobile.Views.Carga;
 using UltimaMilla.Mobile.Views.Diagnostic;
+using UltimaMilla.Mobile.Views.Entrega;
+using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile;
 
@@ -21,22 +30,44 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // 1. Registro de Servicios de Almacenamiento Local (Offline-First)
+        // 1. Almacenamiento Local Cifrado (RNF 6.11 - SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
 
-        // 2. Registro de Cliente HTTP Resiliente con Polly
+        // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
+        builder.Services.AddTransient<AuthDelegatingHandler>();
+
+        // 3. Registro de Cliente HTTP genérico con el interceptor configurado
+        builder.Services.AddHttpClient("BackendApi", client =>
+        {
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<AuthDelegatingHandler>()
+        .AddPolicyHandler(GetRetryPolicy());
+
+        // Cliente tipado IApiClient existente
         builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
         {
             client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
             client.Timeout = TimeSpan.FromSeconds(15);
         })
+        .AddHttpMessageHandler<AuthDelegatingHandler>()
         .AddPolicyHandler(GetRetryPolicy());
 
-        // 3. Registro de ViewModels
+        // 4. Registro de ViewModels (CommunityToolkit.Mvvm)
+        builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<DiagnosticViewModel>();
+        builder.Services.AddTransient<RutaDiaViewModel>();
+        builder.Services.AddTransient<RegistroEntregaViewModel>();
+        builder.Services.AddTransient<CargaVehiculoViewModel>();
 
-        // 4. Registro de Vistas / Páginas
+        // 5. Registro de Vistas / Páginas
+        builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<DiagnosticPage>();
+        builder.Services.AddTransient<RutaDiaPage>();
+        builder.Services.AddTransient<RegistroEntregaPage>();
+        builder.Services.AddTransient<CargaVehiculoPage>();
+
         builder.Services.AddSingleton<AppShell>();
 
         return builder.Build();
