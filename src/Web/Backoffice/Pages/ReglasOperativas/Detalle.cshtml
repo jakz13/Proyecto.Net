@@ -1,0 +1,93 @@
+@page "{id:guid}"
+@model UltimaMilla.Backoffice.Pages.ReglasOperativas.DetalleModel
+@{
+    ViewData["Title"] = $"Reglas Operativas - Versión {Model.Regla.Version}";
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 fw-bold text-dark mb-0">Reglas Operativas — Versión @Model.Regla.Version</h1>
+            @if (Model.Regla.EsVigente)
+            {
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Vigente</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary text-white">Histórica (Cerrada)</span>
+            }
+        </div>
+        <p class="text-secondary small mb-0 mt-1">
+            Registro inmutable de reglas operativas para trazabilidad y auditoría de envíos iniciados bajo esta versión.
+        </p>
+    </div>
+    <a asp-page="/ReglasOperativas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver a Reglas Operativas</span>
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-4 bg-white border-bottom">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Vigente Desde</span>
+                <div class="fw-bold text-dark">@Model.Regla.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Vigente Hasta</span>
+                <div class="fw-bold text-dark">
+                    @(Model.Regla.VigenteHasta.HasValue ? Model.Regla.VigenteHasta.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Vigente Actual")
+                </div>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Observaciones</span>
+                <div class="small text-secondary">
+                    @(Model.Regla.Comentario ?? "Sin observaciones registradas")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-4 bg-white">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 border">
+                    <span class="text-secondary small fw-semibold text-uppercase">Intentos Máximos</span>
+                    <div class="h3 fw-bold text-dark mb-0">@Model.Regla.MaxIntentosEntrega intentos</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 border">
+                    <span class="text-secondary small fw-semibold text-uppercase">Espera entre Intentos</span>
+                    <div class="h3 fw-bold text-dark mb-0 font-monospace">@Model.Regla.HorasEntreIntentos h</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 border">
+                    <span class="text-secondary small fw-semibold text-uppercase">SLA Estándar / Urgente</span>
+                    <div class="h3 fw-bold text-dark mb-0 font-monospace">
+                        @Model.Regla.HorasPlazoComprometidoEstandar h / @Model.Regla.HorasPlazoComprometidoUrgente h
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mt-3">
+                <div class="p-3 border rounded-3">
+                    <div class="fw-bold text-dark small mb-1">Prueba de Entrega Exigida</div>
+                    <div class="small text-secondary">@Model.Regla.TipoPruebaEntregaExigida</div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mt-3">
+                <div class="p-3 border rounded-3">
+                    <div class="fw-bold text-dark small mb-1">Política de Devolución</div>
+                    <div class="small text-secondary">@Model.Regla.PoliticaDevolucion</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
