@@ -1,0 +1,105 @@
+@page "{id:guid}"
+@model UltimaMilla.Backoffice.Pages.Tarifas.DetalleModel
+@{
+    ViewData["Title"] = $"Cuadro Tarifario - Versión {Model.Cuadro.Version}";
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 fw-bold text-dark mb-0">Cuadro Tarifario — Versión @Model.Cuadro.Version</h1>
+            @if (Model.Cuadro.EsVigente)
+            {
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Vigente</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary text-white">Histórica (Cerrada)</span>
+            }
+        </div>
+        <p class="text-secondary small mb-0 mt-1">
+            Registro inmutable de reglas de precio para trazabilidad y auditoría de envíos calculados bajo esta versión.
+        </p>
+    </div>
+    <a asp-page="/Tarifas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver a Tarifas</span>
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-4 bg-white border-bottom">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Vigente Desde</span>
+                <div class="fw-bold text-dark">@Model.Cuadro.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Vigente Hasta</span>
+                <div class="fw-bold text-dark">
+                    @(Model.Cuadro.VigenteHasta.HasValue ? Model.Cuadro.VigenteHasta.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Vigente Actual")
+                </div>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small fw-semibold text-uppercase">Observaciones</span>
+                <div class="small text-secondary">
+                    @(Model.Cuadro.Comentario ?? "Sin observaciones registradas")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-compacta mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Modalidad</th>
+                    <th>Zona</th>
+                    <th>Peso (kg)</th>
+                    <th>Volumen (m³)</th>
+                    <th class="text-end">Base</th>
+                    <th class="text-end">Recargo</th>
+                    <th class="text-end">Bonificación</th>
+                    <th class="text-end fw-bold">Precio Final</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var regla in Model.Cuadro.ReglasTarifa)
+                {
+                    <tr>
+                        <td class="fw-semibold text-dark">@regla.ModalidadServicio</td>
+                        <td>
+                            @if (regla.ZonaCoberturaId.HasValue)
+                            {
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                    @regla.NombreZona
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                    Todas las zonas
+                                </span>
+                            }
+                        </td>
+                        <td class="small font-monospace">@regla.PesoDesde a @regla.PesoHasta kg</td>
+                        <td class="small font-monospace">@regla.VolumenDesde a @regla.VolumenHasta m³</td>
+                        <td class="text-end font-monospace small">$@regla.PrecioBase.ToString("N0")</td>
+                        <td class="text-end font-monospace small text-danger">@(regla.Recargo > 0 ? $"+${regla.Recargo:N0}" : "-")</td>
+                        <td class="text-end font-monospace small text-success">@(regla.Bonificacion > 0 ? $"-${regla.Bonificacion:N0}" : "-")</td>
+                        <td class="text-end font-monospace fw-bold text-dark">
+                            $@regla.PrecioFinal.ToString("N0")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer bg-white p-3 border-top text-secondary small">
+        Esta versión del cuadro tarifario es <strong>inmutable</strong> para garantizar que los cálculos contables y cotizaciones de envíos ya emitidos permanezcan auditables.
+    </div>
+</div>

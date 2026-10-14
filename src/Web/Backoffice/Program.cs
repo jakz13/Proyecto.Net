@@ -30,6 +30,7 @@ builder.Services.AddRazorPages(opciones =>
     opciones.Conventions.AuthorizeFolder("/Comercios", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Usuarios", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Zonas", "SoloAdministradores");
+    opciones.Conventions.AuthorizeFolder("/Tarifas", "SoloAdministradores");
     opciones.Conventions.AllowAnonymousToPage("/Login");
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
 });
