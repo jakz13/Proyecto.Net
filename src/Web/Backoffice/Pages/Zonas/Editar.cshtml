@@ -1,0 +1,313 @@
+@page "{id:guid}"
+@model UltimaMilla.Backoffice.Pages.Zonas.EditarModel
+@{
+    ViewData["Title"] = "Editar Zona de Cobertura y Franjas";
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-1">Editar Zona de Cobertura y Franjas (UC-02)</h1>
+        <p class="text-secondary small mb-0">
+            Modifique el polígono geográfico y gestione las franjas horarias de entrega asignadas a este operador (RF-02).
+        </p>
+    </div>
+    <a asp-page="/Zonas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver a Zonas</span>
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div>
+                <strong>Error de validación:</strong>
+                <span>@Model.ErrorMessage</span>
+            </div>
+        </div>
+    </div>
+}
+
+<form method="post" id="formularioEdicionZona">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Datos y Polígono -->
+        <div class="col-12 col-lg-5">
+            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                        </svg>
+                        <span>1. Información de la Zona</span>
+                    </h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label asp-for="Zona.Nombre" class="form-label small fw-semibold">Nombre de la Zona *</label>
+                        <input asp-for="Zona.Nombre" class="form-control form-control-sm" required />
+                        <span asp-validation-for="Zona.Nombre" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Zona.ColorHex" class="form-label small fw-semibold">Color Identificador en Mapa</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input asp-for="Zona.ColorHex" type="color" class="form-control form-control-color form-control-sm" id="selectorColor" style="width: 48px;" />
+                            <select class="form-select form-select-sm" onchange="document.getElementById('selectorColor').value = this.value; document.getElementById('Zona_ColorHex').value = this.value; actualizarMapa();">
+                                <option value="#2563eb" selected="@(Model.Zona.ColorHex == "#2563eb")">Azul Clásico (#2563eb)</option>
+                                <option value="#10b981" selected="@(Model.Zona.ColorHex == "#10b981")">Verde Esmeralda (#10b981)</option>
+                                <option value="#f59e0b" selected="@(Model.Zona.ColorHex == "#f59e0b")">Ámbar Dorado (#f59e0b)</option>
+                                <option value="#8b5cf6" selected="@(Model.Zona.ColorHex == "#8b5cf6")">Púrpura Logístico (#8b5cf6)</option>
+                                <option value="#ef4444" selected="@(Model.Zona.ColorHex == "#ef4444")">Rojo Coral (#ef4444)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label asp-for="Zona.PoligonoGeografico" class="form-label small fw-semibold mb-0">Polígono Geográfico (Coordenadas) *</label>
+                            <span class="text-secondary" style="font-size: 0.7rem;">GeoJSON / Lat, Lng</span>
+                        </div>
+                        <textarea asp-for="Zona.PoligonoGeografico" class="form-control form-control-sm font-monospace" rows="4"
+                                  id="campoPoligono" oninput="actualizarMapa()" required></textarea>
+                        <span asp-validation-for="Zona.PoligonoGeografico" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" asp-for="Zona.Activa" id="zonaActiva" />
+                        <label class="form-check-label small fw-semibold" for="zonaActiva">Zona habilitada para despacho y tarifas</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Previsualizador Gráfico del Polígono -->
+            <div class="card border-0 shadow-sm rounded-3">
+                <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                    <span class="small fw-semibold text-secondary">Vista Previa del Polígono</span>
+                    <span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.7rem;">Vectorial 2D</span>
+                </div>
+                <div class="card-body p-3 text-center bg-white">
+                    <svg id="svgMapa" width="100%" height="180" viewBox="0 0 300 180" class="border rounded-2 bg-light">
+                        <polygon id="svgPoligono" points="40,40 180,30 260,110 200,160 50,140"
+                                 fill="@Model.Zona.ColorHex" fill-opacity="0.25" stroke="@Model.Zona.ColorHex" stroke-width="2.5" />
+                    </svg>
+                    <div class="text-muted small mt-2" style="font-size: 0.725rem;">
+                        Límites geográficos del área de distribución.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Franjas Horarias -->
+        <div class="col-12 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-3">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>2. Franjas Horarias de Entrega</span>
+                        </h2>
+                        <span class="text-secondary small" style="font-size: 0.75rem;">
+                            Ventanas horarias disponibles para los envíos de esta zona.
+                        </span>
+                    </div>
+                    <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="agregarFilaFranja()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Agregar Franja</span>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-compacta mb-0 align-middle" id="tablaFranjas">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Día de la Semana *</th>
+                                    <th style="width: 23%;">Hora Inicio *</th>
+                                    <th style="width: 23%;">Hora Fin *</th>
+                                    <th style="width: 20%;">Capacidad (Envíos)</th>
+                                    <th style="width: 9%;" class="text-end"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuerpoTablaFranjas">
+                                @for (int i = 0; i < Model.Franjas.Count; i++)
+                                {
+                                    <tr class="fila-franja">
+                                        <td>
+                                            <select name="Franjas[@i].DiaSemana" class="form-select form-select-sm" required>
+                                                <option value="Monday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Monday)">Lunes</option>
+                                                <option value="Tuesday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Tuesday)">Martes</option>
+                                                <option value="Wednesday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Wednesday)">Miércoles</option>
+                                                <option value="Thursday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Thursday)">Jueves</option>
+                                                <option value="Friday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Friday)">Viernes</option>
+                                                <option value="Saturday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Saturday)">Sábado</option>
+                                                <option value="Sunday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Sunday)">Domingo</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="time" name="Franjas[@i].HoraInicio" value="@Model.Franjas[i].HoraInicio.ToString("HH:mm")"
+                                                   class="form-control form-control-sm" required />
+                                        </td>
+                                        <td>
+                                            <input type="time" name="Franjas[@i].HoraFin" value="@Model.Franjas[i].HoraFin.ToString("HH:mm")"
+                                                   class="form-control form-control-sm" required />
+                                        </td>
+                                        <td>
+                                            <input type="number" name="Franjas[@i].CapacidadMaximaEnvios" value="@Model.Franjas[i].CapacidadMaximaEnvios"
+                                                   class="form-control form-control-sm" min="1" max="500" required />
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar fila" onclick="eliminarFila(this)">
+                                                &times;
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="card-footer bg-white p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="simularSuperposicionDemo()" title="Genera dos franjas solapadas el mismo día para evaluar validación">
+                        Simular Superposición Inconsistente (Demo)
+                    </button>
+
+                    <div class="d-flex gap-2">
+                        <a asp-page="/Zonas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+                        <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Guardar Cambios</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function actualizarMapa() {
+            var color = document.getElementById('selectorColor').value || '#2563eb';
+            var poligono = document.getElementById('svgPoligono');
+            if (poligono) {
+                poligono.setAttribute('fill', color);
+                poligono.setAttribute('stroke', color);
+            }
+        }
+
+        function agregarFilaFranja() {
+            var tbody = document.getElementById('cuerpoTablaFranjas');
+            var indice = tbody.querySelectorAll('tr.fila-franja').length;
+
+            var fila = document.createElement('tr');
+            fila.className = 'fila-franja';
+            fila.innerHTML = `
+                <td>
+                    <select name="Franjas[${indice}].DiaSemana" class="form-select form-select-sm" required>
+                        <option value="Monday">Lunes</option>
+                        <option value="Tuesday">Martes</option>
+                        <option value="Wednesday">Miércoles</option>
+                        <option value="Thursday">Jueves</option>
+                        <option value="Friday">Viernes</option>
+                        <option value="Saturday">Sábado</option>
+                        <option value="Sunday">Domingo</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="time" name="Franjas[${indice}].HoraInicio" value="09:00" class="form-control form-control-sm" required />
+                </td>
+                <td>
+                    <input type="time" name="Franjas[${indice}].HoraFin" value="13:00" class="form-control form-control-sm" required />
+                </td>
+                <td>
+                    <input type="number" name="Franjas[${indice}].CapacidadMaximaEnvios" value="30" class="form-control form-control-sm" min="1" max="500" required />
+                </td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar fila" onclick="eliminarFila(this)">
+                        &times;
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(fila);
+            renumerarFilas();
+        }
+
+        function eliminarFila(btn) {
+            var fila = btn.closest('tr');
+            var tbody = document.getElementById('cuerpoTablaFranjas');
+            if (tbody.querySelectorAll('tr.fila-franja').length <= 1) {
+                alert('Debe conservar al menos una franja horaria para la zona.');
+                return;
+            }
+            fila.remove();
+            renumerarFilas();
+        }
+
+        function renumerarFilas() {
+            var filas = document.querySelectorAll('#cuerpoTablaFranjas tr.fila-franja');
+            filas.forEach(function (fila, idx) {
+                fila.querySelectorAll('select, input').forEach(function (campo) {
+                    var nombre = campo.getAttribute('name');
+                    if (nombre) {
+                        campo.setAttribute('name', nombre.replace(/Franjas\[\d+\]/, 'Franjas[' + idx + ']'));
+                    }
+                });
+            });
+        }
+
+        function simularSuperposicionDemo() {
+            var tbody = document.getElementById('cuerpoTablaFranjas');
+            tbody.innerHTML = '';
+            tbody.innerHTML = `
+                <tr class="fila-franja table-warning">
+                    <td>
+                        <select name="Franjas[0].DiaSemana" class="form-select form-select-sm" required>
+                            <option value="Tuesday" selected>Martes (Franja A)</option>
+                        </select>
+                    </td>
+                    <td><input type="time" name="Franjas[0].HoraInicio" value="10:00" class="form-control form-control-sm" required /></td>
+                    <td><input type="time" name="Franjas[0].HoraFin" value="15:00" class="form-control form-control-sm" required /></td>
+                    <td><input type="number" name="Franjas[0].CapacidadMaximaEnvios" value="30" class="form-control form-control-sm" required /></td>
+                    <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarFila(this)">&times;</button></td>
+                </tr>
+                <tr class="fila-franja table-warning">
+                    <td>
+                        <select name="Franjas[1].DiaSemana" class="form-select form-select-sm" required>
+                            <option value="Tuesday" selected>Martes (Franja B - Conflicto)</option>
+                        </select>
+                    </td>
+                    <td><input type="time" name="Franjas[1].HoraInicio" value="14:00" class="form-control form-control-sm" required /></td>
+                    <td><input type="time" name="Franjas[1].HoraFin" value="19:00" class="form-control form-control-sm" required /></td>
+                    <td><input type="number" name="Franjas[1].CapacidadMaximaEnvios" value="35" class="form-control form-control-sm" required /></td>
+                    <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarFila(this)">&times;</button></td>
+                </tr>
+            `;
+            alert('Se cargaron dos franjas solapadas para el Martes (10:00 - 15:00 y 14:00 - 19:00). Presione "Guardar Cambios" para verificar la validación de superposiciones inconsistentes.');
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            actualizarMapa();
+        });
+    </script>
+}
