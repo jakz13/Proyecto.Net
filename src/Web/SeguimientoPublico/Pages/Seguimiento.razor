@@ -1,0 +1,127 @@
+@page "/"
+@page "/seguimiento/{CodigoUrl?}"
+@inject ISeguimientoApi SeguimientoApi
+@inject NavigationManager Navegador
+
+<PageTitle>LittleBox Envíos — Seguimiento de Envíos</PageTitle>
+
+<div class="container py-4 py-md-5" style="max-width: 720px;">
+    <!-- Componente Modular: Buscador con Validación y Pills Demo -->
+    <BuscadorEnvio CodigoInicial="@codigoBuscado"
+                   EstaCargando="@estaCargando"
+                   AlBuscar="EjecutarConsulta" />
+
+    <!-- Notificaciones y Alertas (Anti-enumeración 404 y Límite de Tasa 429) -->
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <MensajeEstado Titulo="@(esErrorLimiteTasa ? "Límite de consultas temporalmente excedido" : "Código no encontrado")"
+                       Mensaje="@mensajeError"
+                       Tipo="@(esErrorLimiteTasa ? MensajeEstado.TipoAlerta.Aviso : MensajeEstado.TipoAlerta.Error)" />
+    }
+
+    <!-- Información del Envío y Flujo Completo (UC-33) -->
+    @if (seguimiento != null)
+    {
+        <!-- Stepper de Etapas del Viaje -->
+        <StepperEnvio Estado="@seguimiento.EstadoActual" />
+
+        <div class="tarjeta-envio">
+            <header class="tarjeta-envio__cabecera">
+                <div class="tarjeta-envio__codigo-bloque">
+                    <span class="tarjeta-envio__codigo-label">Código de Seguimiento</span>
+                    <h2 class="tarjeta-envio__codigo-valor mb-0">@seguimiento.CodigoSeguimiento</h2>
+                </div>
+                <div>
+                    <BadgeEstadoEnvio Estado="@seguimiento.EstadoActual" EsGrande="true" />
+                </div>
+            </header>
+
+            <div class="tarjeta-envio__cuerpo">
+                <!-- Ventana Horaria Estimada -->
+                <VentanaHoraria Ventana="@seguimiento.VentanaHorariaEstimada" />
+
+                <div class="tarjeta-envio__actualizacion">
+                    <Icono Nombre="reloj" Tamano="14" />
+                    <span>Última actualización: @seguimiento.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs.</span>
+                </div>
+
+                <!-- Reprogramación de Entrega (UC-34) -->
+                @if (seguimiento.PermiteReprogramacion)
+                {
+                    <PanelReprogramacion CodigoSeguimiento="@seguimiento.CodigoSeguimiento"
+                                         AlReprogramarExitoso="RefrescarEnvio" />
+                }
+
+                <!-- Línea de Tiempo de Hitos Históricos -->
+                <LineaTiempoEventos Eventos="@seguimiento.HistorialEventos" />
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? CodigoUrl { get; set; }
+
+    private string codigoBuscado = string.Empty;
+    private SeguimientoPublicoDto? seguimiento;
+    private bool estaCargando = false;
+    private string? mensajeError;
+    private bool esErrorLimiteTasa = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(CodigoUrl))
+        {
+            codigoBuscado = CodigoUrl;
+            await EjecutarConsulta(CodigoUrl);
+        }
+    }
+
+    private async Task EjecutarConsulta(string codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return;
+
+        codigoBuscado = codigo.Trim().ToUpperInvariant();
+        estaCargando = true;
+        seguimiento = null;
+        mensajeError = null;
+        esErrorLimiteTasa = false;
+
+        try
+        {
+            var resultado = await SeguimientoApi.ConsultarSeguimientoAsync(codigoBuscado);
+            if (resultado != null)
+            {
+                seguimiento = resultado;
+            }
+            else
+            {
+                // Regla obligatoria: ante un código inexistente mostrar siempre el mismo mensaje genérico para evitar enumeración
+                mensajeError = "No encontramos un envío asociado a este código. Verifique que esté bien escrito e intente nuevamente.";
+            }
+        }
+        catch (ApiExcepcion ex) when (ex.EsLimiteDeTasa)
+        {
+            // Regla obligatoria: manejar 429 con mensaje claro
+            esErrorLimiteTasa = true;
+            mensajeError = ex.Message;
+        }
+        catch (Exception)
+        {
+            mensajeError = "No fue posible consultar el estado en este momento. Por favor reintente más tarde.";
+        }
+        finally
+        {
+            estaCargando = false;
+        }
+    }
+
+    private async Task RefrescarEnvio()
+    {
+        if (!string.IsNullOrEmpty(codigoBuscado))
+        {
+            await EjecutarConsulta(codigoBuscado);
+        }
+    }
+}

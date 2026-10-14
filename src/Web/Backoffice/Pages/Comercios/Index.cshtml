@@ -1,0 +1,445 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Comercios.IndexModel
+@{
+    ViewData["Title"] = "Gestión de Comercios y Usuarios";
+    var esPestanaComercios = Model.Tab != "usuarios";
+}
+
+<!-- Encabezado del Caso de Uso UC-01 -->
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="h4 fw-bold mb-1">Gestión de Comercios y Usuarios (UC-01)</h1>
+            <p class="text-secondary small mb-0">
+                Administración de comercios clientes asociados, cuentas de acceso y asignación de perfiles (RF-01, RF-31).
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            @if (esPestanaComercios)
+            {
+                <a asp-page="/Comercios/Nuevo" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Registrar Comercio</span>
+                </a>
+            }
+            else
+            {
+                <a asp-page="/Usuarios/Nuevo" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Nuevo Usuario</span>
+                </a>
+            }
+        </div>
+    </div>
+
+    <!-- Navegación por pestañas UC-01 -->
+    <ul class="nav nav-pills mt-3 gap-2">
+        <li class="nav-item">
+            <a class="nav-link px-3 py-2 fw-semibold @(esPestanaComercios ? "active bg-dark" : "text-secondary bg-white border")"
+               asp-page="/Comercios/Index" asp-route-tab="comercios"
+               asp-route-busquedaComercio="@Model.BusquedaComercio"
+               asp-route-estadoComercio="@Model.EstadoComercio">
+                <span class="d-inline-flex align-items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Comercios Clientes</span>
+                    <span class="badge @(esPestanaComercios ? "bg-light text-dark" : "bg-secondary text-white")">@Model.ResultadoComercios.TotalRegistros</span>
+                </span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link px-3 py-2 fw-semibold @(!esPestanaComercios ? "active bg-dark" : "text-secondary bg-white border")"
+               asp-page="/Comercios/Index" asp-route-tab="usuarios"
+               asp-route-busquedaUsuario="@Model.BusquedaUsuario"
+               asp-route-perfilFiltro="@Model.PerfilFiltro"
+               asp-route-estadoUsuario="@Model.EstadoUsuario">
+                <span class="d-inline-flex align-items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Usuarios y Perfiles</span>
+                    <span class="badge @(!esPestanaComercios ? "bg-light text-dark" : "bg-secondary text-white")">@Model.ResultadoUsuarios.TotalRegistros</span>
+                </span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+<!-- Mensajes de Alerta y Retroalimentación -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (esPestanaComercios)
+{
+    <!-- SECCIÓN: COMERCIOS ASOCIADOS (RF-01) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <!-- Barra de Búsqueda y Filtrado (Flujo Alternativo UC-01) -->
+        <div class="card-body p-3 border-bottom bg-white">
+            <form method="get" class="row g-2 align-items-center">
+                <input type="hidden" name="tab" value="comercios" />
+                <div class="col-12 col-md-5">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </span>
+                        <input type="text" name="busquedaComercio" value="@Model.BusquedaComercio"
+                               class="form-control border-start-0" placeholder="Buscar por razón social, RUT, email..." />
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="estadoComercio" class="form-select form-select-sm">
+                        <option value="todos" selected="@(Model.EstadoComercio == "todos")">Todos los estados</option>
+                        <option value="activos" selected="@(Model.EstadoComercio == "activos")">Solo comercios activos</option>
+                        <option value="inactivos" selected="@(Model.EstadoComercio == "inactivos")">Solo comercios inactivos</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-dark btn-sm px-3">
+                        Filtrar
+                    </button>
+                    @if (!string.IsNullOrEmpty(Model.BusquedaComercio) || Model.EstadoComercio != "todos")
+                    {
+                        <a asp-page="/Comercios/Index" asp-route-tab="comercios" class="btn btn-link btn-sm text-secondary text-decoration-none">
+                            Limpiar
+                        </a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabla de Comercios -->
+        <div class="table-responsive">
+            <table class="table table-hover table-compacta mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Razón Social</th>
+                        <th>Nombre Fantasía</th>
+                        <th>RUT</th>
+                        <th>Contacto</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.ResultadoComercios.Elementos.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                No se encontraron comercios asociados con los criterios especificados.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var comercio in Model.ResultadoComercios.Elementos)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@comercio.RazonSocial</td>
+                                <td>@comercio.NombreFantasia</td>
+                                <td class="font-monospace text-muted small">@comercio.Rut</td>
+                                <td>
+                                    <div><a href="mailto:@comercio.Email" class="text-decoration-none small">@comercio.Email</a></div>
+                                    <div class="text-secondary small">@comercio.Telefono</div>
+                                </td>
+                                <td>
+                                    @if (comercio.Activo)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                            Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                            Inactivo (Baja)
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <a asp-page="/Comercios/Editar" asp-route-id="@comercio.Id"
+                                           class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                            Editar
+                                        </a>
+
+                                        <!-- Botón de Alta / Baja Lógica directa -->
+                                        <form method="post" asp-page-handler="CambiarEstadoComercio" class="d-inline">
+                                            <input type="hidden" name="id" value="@comercio.Id" />
+                                            <input type="hidden" name="nuevoEstado" value="@(!comercio.Activo ? "true" : "false")" />
+                                            <input type="hidden" name="BusquedaComercio" value="@Model.BusquedaComercio" />
+                                            <input type="hidden" name="EstadoComercio" value="@Model.EstadoComercio" />
+                                            <input type="hidden" name="PaginaComercio" value="@Model.PaginaComercio" />
+
+                                            @if (comercio.Activo)
+                                            {
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                        style="font-size: 0.775rem;" title="Dar de baja lógica"
+                                                        onclick="return confirm('¿Está seguro de que desea dar de baja este comercio? No podrá despachar nuevos envíos.');">
+                                                    Dar de baja
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2"
+                                                        style="font-size: 0.775rem;" title="Reactivar comercio">
+                                                    Reactivar
+                                                </button>
+                                            }
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginador de Comercios -->
+        @if (Model.ResultadoComercios.TotalPaginas > 1)
+        {
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 px-3 border-top">
+                <span class="small text-muted">
+                    Página @Model.ResultadoComercios.PaginaActual de @Model.ResultadoComercios.TotalPaginas (@Model.ResultadoComercios.TotalRegistros comercios en total)
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary @(!Model.ResultadoComercios.TienePaginaAnterior ? "disabled" : "")"
+                       asp-page="/Comercios/Index" asp-route-tab="comercios"
+                       asp-route-busquedaComercio="@Model.BusquedaComercio"
+                       asp-route-estadoComercio="@Model.EstadoComercio"
+                       asp-route-paginaComercio="@(Model.ResultadoComercios.PaginaActual - 1)">
+                        &laquo; Anterior
+                    </a>
+                    <a class="btn btn-outline-secondary @(!Model.ResultadoComercios.TienePaginaSiguiente ? "disabled" : "")"
+                       asp-page="/Comercios/Index" asp-route-tab="comercios"
+                       asp-route-busquedaComercio="@Model.BusquedaComercio"
+                       asp-route-estadoComercio="@Model.EstadoComercio"
+                       asp-route-paginaComercio="@(Model.ResultadoComercios.PaginaActual + 1)">
+                        Siguiente &raquo;
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <!-- SECCIÓN: USUARIOS Y PERFILES (RF-31) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <!-- Barra de Búsqueda y Filtrado de Usuarios (Flujo Alternativo UC-01) -->
+        <div class="card-body p-3 border-bottom bg-white">
+            <form method="get" class="row g-2 align-items-center">
+                <input type="hidden" name="tab" value="usuarios" />
+                <div class="col-12 col-md-4">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </span>
+                        <input type="text" name="busquedaUsuario" value="@Model.BusquedaUsuario"
+                               class="form-control border-start-0" placeholder="Buscar por nombre o correo..." />
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="perfilFiltro" class="form-select form-select-sm">
+                        <option value="">Todos los perfiles / roles</option>
+                        @foreach (var perfil in Model.Perfiles)
+                        {
+                            <option value="@perfil.Id" selected="@(Model.PerfilFiltro == perfil.Id)">@perfil.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <select name="estadoUsuario" class="form-select form-select-sm">
+                        <option value="todos" selected="@(Model.EstadoUsuario == "todos")">Todos los estados</option>
+                        <option value="activos" selected="@(Model.EstadoUsuario == "activos")">Solo activos</option>
+                        <option value="inactivos" selected="@(Model.EstadoUsuario == "inactivos")">Solo inactivos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-dark btn-sm px-3">
+                        Filtrar
+                    </button>
+                    @if (!string.IsNullOrEmpty(Model.BusquedaUsuario) || Model.PerfilFiltro.HasValue || Model.EstadoUsuario != "todos")
+                    {
+                        <a asp-page="/Comercios/Index" asp-route-tab="usuarios" class="btn btn-link btn-sm text-secondary text-decoration-none">
+                            Limpiar
+                        </a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabla de Usuarios y Perfiles -->
+        <div class="table-responsive">
+            <table class="table table-hover table-compacta mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre y Apellido</th>
+                        <th>Correo Electrónico</th>
+                        <th>Perfil (Rol)</th>
+                        <th>Ámbito / Comercio</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.ResultadoUsuarios.Elementos.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                No se encontraron usuarios registrados con los criterios especificados.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var usuario in Model.ResultadoUsuarios.Elementos)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@usuario.Nombre</td>
+                                <td>
+                                    <a href="mailto:@usuario.Email" class="text-decoration-none small font-monospace">@usuario.Email</a>
+                                </td>
+                                <td>
+                                    @{
+                                        var badgeClase = usuario.NombrePerfil switch
+                                        {
+                                            "Administrador" => "bg-dark text-white",
+                                            "Despachador" => "bg-primary-subtle text-primary border border-primary-subtle",
+                                            "Operario" => "bg-warning-subtle text-dark border border-warning-subtle",
+                                            _ => "bg-info-subtle text-dark border border-info-subtle"
+                                        };
+                                    }
+                                    <span class="badge @badgeClase px-2 py-1">
+                                        @usuario.NombrePerfil
+                                    </span>
+                                </td>
+                                <td class="small text-secondary">
+                                    @(usuario.NombreComercio ?? "Operador Logístico")
+                                </td>
+                                <td>
+                                    @if (usuario.Activo)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                            Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                            Inactivo (Baja)
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <a asp-page="/Usuarios/Editar" asp-route-id="@usuario.Id"
+                                           class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                            Editar y Rol
+                                        </a>
+
+                                        <!-- Botón de Alta / Baja Lógica directa -->
+                                        <form method="post" asp-page-handler="CambiarEstadoUsuario" class="d-inline">
+                                            <input type="hidden" name="id" value="@usuario.Id" />
+                                            <input type="hidden" name="nuevoEstado" value="@(!usuario.Activo ? "true" : "false")" />
+                                            <input type="hidden" name="BusquedaUsuario" value="@Model.BusquedaUsuario" />
+                                            <input type="hidden" name="PerfilFiltro" value="@Model.PerfilFiltro" />
+                                            <input type="hidden" name="EstadoUsuario" value="@Model.EstadoUsuario" />
+                                            <input type="hidden" name="PaginaUsuario" value="@Model.PaginaUsuario" />
+
+                                            @if (usuario.Activo)
+                                            {
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                        style="font-size: 0.775rem;" title="Dar de baja usuario"
+                                                        onclick="return confirm('¿Está seguro de que desea inactivar este usuario? No podrá iniciar sesión en la plataforma.');">
+                                                    Dar de baja
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2"
+                                                        style="font-size: 0.775rem;" title="Reactivar usuario">
+                                                    Reactivar
+                                                </button>
+                                            }
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginador de Usuarios -->
+        @if (Model.ResultadoUsuarios.TotalPaginas > 1)
+        {
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 px-3 border-top">
+                <span class="small text-muted">
+                    Página @Model.ResultadoUsuarios.PaginaActual de @Model.ResultadoUsuarios.TotalPaginas (@Model.ResultadoUsuarios.TotalRegistros usuarios en total)
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary @(!Model.ResultadoUsuarios.TienePaginaAnterior ? "disabled" : "")"
+                       asp-page="/Comercios/Index" asp-route-tab="usuarios"
+                       asp-route-busquedaUsuario="@Model.BusquedaUsuario"
+                       asp-route-perfilFiltro="@Model.PerfilFiltro"
+                       asp-route-estadoUsuario="@Model.EstadoUsuario"
+                       asp-route-paginaUsuario="@(Model.ResultadoUsuarios.PaginaActual - 1)">
+                        &laquo; Anterior
+                    </a>
+                    <a class="btn btn-outline-secondary @(!Model.ResultadoUsuarios.TienePaginaSiguiente ? "disabled" : "")"
+                       asp-page="/Comercios/Index" asp-route-tab="usuarios"
+                       asp-route-busquedaUsuario="@Model.BusquedaUsuario"
+                       asp-route-perfilFiltro="@Model.PerfilFiltro"
+                       asp-route-estadoUsuario="@Model.EstadoUsuario"
+                       asp-route-paginaUsuario="@(Model.ResultadoUsuarios.PaginaActual + 1)">
+                        Siguiente &raquo;
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,17 @@
+@if (!string.IsNullOrWhiteSpace(Ventana))
+{
+    <div class="ventana-horaria" role="region" aria-label="Ventana horaria estimada de entrega">
+        <div class="ventana-horaria__icono-wrapper">
+            <Icono Nombre="calendario" Tamano="20" />
+        </div>
+        <div class="ventana-horaria__texto">
+            <div class="ventana-horaria__etiqueta">Ventana horaria estimada de entrega</div>
+            <div class="ventana-horaria__valor">@Ventana</div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Ventana { get; set; }
+}

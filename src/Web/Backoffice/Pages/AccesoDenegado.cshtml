@@ -1,0 +1,23 @@
+@page
+@model UltimaMilla.Backoffice.Pages.AccesoDenegadoModel
+@{
+    ViewData["Title"] = "Acceso Denegado";
+}
+
+<div class="card border-0 shadow-sm rounded-3 text-center p-5 my-4">
+    <div class="text-danger mb-3">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+        </svg>
+    </div>
+    <h1 class="h4 fw-bold text-danger mb-2">Acceso Denegado</h1>
+    <p class="text-muted mb-4" style="max-width: 500px; margin: 0 auto;">
+        Su perfil actual (<strong>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</strong>)
+        no cuenta con los permisos necesarios para acceder a esta sección de la plataforma.
+    </p>
+    <div>
+        <a asp-page="/Index" class="btn btn-dark btn-sm me-2">Volver al Inicio</a>
+        <a asp-page="/Login" class="btn btn-outline-secondary btn-sm">Cambiar de Perfil</a>
+    </div>
+</div>

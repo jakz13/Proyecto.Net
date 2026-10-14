@@ -1,0 +1,630 @@
+/* ==========================================================================
+   LittleBox Envíos - Sistema de Diseño y Tokens CSS (Metodología BEM)
+   ========================================================================== */
+
+:root {
+    /* Paleta base (Multitenancy visual: se sobreescribe dinámicamente por operador) */
+    --color-primario: #1D4ED8;
+    --color-secundario: #F97316;
+    --color-texto-primario: #FFFFFF;
+    --color-texto-secundario: #0F172A;
+
+    --color-fondo: #F8FAFC;
+    --color-superficie: #FFFFFF;
+    --color-borde: #E2E8F0;
+    --color-texto: #0F172A;
+    --color-texto-mutado: #64748B;
+
+    --color-exito: #15803D;
+    --color-alerta: #B45309;
+    --color-error: #B91C1C;
+    --color-info: #0369A1;
+
+    /* Badges de estados según especificación */
+    --badge-admitido-bg: #64748B;
+    --badge-deposito-bg: #2563EB;
+    --badge-asignado-bg: #4F46E5;
+    --badge-transito-bg: #D97706;
+    --badge-entregado-bg: #16A34A;
+    --badge-no-entregado-bg: #DC2626;
+    --badge-reprogramado-bg: #7C3AED;
+    --badge-en-devolucion-bg: #EA580C;
+    --badge-devuelto-bg: #475569;
+    --badge-extraviado-bg: #991B1B;
+}
+
+body {
+    background-color: var(--color-fondo);
+    color: var(--color-texto);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* ==========================================================================
+   Bloque: LittleBox Header (.littlebox-header)
+   ========================================================================== */
+.littlebox-header {
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.littlebox-header__contenedor {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.littlebox-header__marca {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--color-texto-primario);
+}
+
+.littlebox-header__logo-caja {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-texto-primario);
+}
+
+.littlebox-header__titulos {
+    display: flex;
+    flex-direction: column;
+}
+
+.littlebox-header__nombre-app {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.littlebox-header__subtitulo {
+    font-size: 0.775rem;
+    opacity: 0.85;
+}
+
+.littlebox-header__operador-tag {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 9999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* ==========================================================================
+   Bloque: Buscador de Envíos (.buscador-seguimiento)
+   ========================================================================== */
+.buscador-seguimiento {
+    background-color: var(--color-superficie);
+    border-radius: 12px;
+    border: 1px solid var(--color-borde);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.buscador-seguimiento__titulo {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-texto);
+    margin-bottom: 0.25rem;
+}
+
+.buscador-seguimiento__subtitulo {
+    font-size: 0.85rem;
+    color: var(--color-texto-mutado);
+    margin-bottom: 1rem;
+}
+
+.buscador-seguimiento__form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.buscador-seguimiento__input-wrapper {
+    position: relative;
+    flex-grow: 1;
+}
+
+.buscador-seguimiento__icono-lupa {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-texto-mutado);
+    pointer-events: none;
+}
+
+.buscador-seguimiento__input {
+    width: 100%;
+    padding: 0.65rem 0.85rem 0.65rem 2.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border: 1px solid var(--color-borde);
+    border-radius: 8px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.buscador-seguimiento__input:focus {
+    outline: none;
+    border-color: var(--color-primario);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+}
+
+.buscador-seguimiento__boton {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: filter 0.15s ease-in-out;
+    white-space: nowrap;
+}
+
+.buscador-seguimiento__boton:hover {
+    filter: brightness(0.92);
+}
+
+.buscador-seguimiento__boton:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.buscador-seguimiento__pills-contenedor {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-borde);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-texto-mutado);
+}
+
+.buscador-seguimiento__pill {
+    background-color: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    color: #334155;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.buscador-seguimiento__pill:hover {
+    background-color: #E2E8F0;
+    color: #0F172A;
+}
+
+.buscador-seguimiento__pill--alerta {
+    color: #991B1B;
+    border-color: #FECACA;
+    background-color: #FEF2F2;
+}
+
+/* ==========================================================================
+   Bloque: Stepper de Etapas (.stepper-seguimiento)
+   ========================================================================== */
+.stepper-seguimiento {
+    background-color: var(--color-superficie);
+    border-radius: 12px;
+    border: 1px solid var(--color-borde);
+    padding: 1.25rem 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stepper-seguimiento__lista {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    position: relative;
+}
+
+.stepper-seguimiento__paso {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.stepper-seguimiento__nodo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #E2E8F0;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.stepper-seguimiento__linea {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 100%;
+    height: 3px;
+    background-color: #E2E8F0;
+    z-index: 0;
+}
+
+.stepper-seguimiento__paso:last-child .stepper-seguimiento__linea {
+    display: none;
+}
+
+.stepper-seguimiento__paso--completado .stepper-seguimiento__nodo {
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+}
+
+.stepper-seguimiento__paso--completado .stepper-seguimiento__linea {
+    background-color: var(--color-primario);
+}
+
+.stepper-seguimiento__paso--activo .stepper-seguimiento__nodo {
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+    box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.2);
+}
+
+.stepper-seguimiento__etiqueta {
+    font-size: 0.775rem;
+    font-weight: 600;
+    color: #64748B;
+    text-align: center;
+}
+
+.stepper-seguimiento__paso--activo .stepper-seguimiento__etiqueta,
+.stepper-seguimiento__paso--completado .stepper-seguimiento__etiqueta {
+    color: var(--color-texto);
+}
+
+/* ==========================================================================
+   Bloque: Tarjeta de Envío y Ventana (.tarjeta-envio)
+   ========================================================================== */
+.tarjeta-envio {
+    background-color: var(--color-superficie);
+    border-radius: 12px;
+    border: 1px solid var(--color-borde);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.tarjeta-envio__cabecera {
+    padding: 1.25rem 1.5rem;
+    background-color: #FFFFFF;
+    border-bottom: 1px solid var(--color-borde);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.tarjeta-envio__codigo-label {
+    font-size: 0.725rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-texto-mutado);
+}
+
+.tarjeta-envio__codigo-valor {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    font-family: monospace;
+    color: var(--color-texto);
+}
+
+.tarjeta-envio__cuerpo {
+    padding: 1.5rem;
+}
+
+.tarjeta-envio__actualizacion {
+    font-size: 0.8rem;
+    color: var(--color-texto-mutado);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ==========================================================================
+   Bloque: Ventana Horaria Estimada (.ventana-horaria)
+   ========================================================================== */
+.ventana-horaria {
+    background: linear-gradient(135deg, #F0FDF4 0%, #E0F2FE 100%);
+    border: 1px solid #BAE6FD;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.ventana-horaria__icono-wrapper {
+    width: 42px;
+    height: 42px;
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-info);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
+    flex-shrink: 0;
+}
+
+.ventana-horaria__etiqueta {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #0369A1;
+    letter-spacing: 0.03em;
+}
+
+.ventana-horaria__valor {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+/* ==========================================================================
+   Bloque: Línea de Tiempo Vertical (.linea-tiempo)
+   ========================================================================== */
+.linea-tiempo {
+    position: relative;
+    padding-left: 1.75rem;
+    margin: 1rem 0 0 0;
+    list-style: none;
+}
+
+.linea-tiempo::before {
+    content: '';
+    position: absolute;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.65rem;
+    width: 2px;
+    background-color: var(--color-borde);
+}
+
+.linea-tiempo__item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.linea-tiempo__item:last-child {
+    margin-bottom: 0;
+}
+
+.linea-tiempo__marcador {
+    position: absolute;
+    left: -1.75rem;
+    top: 0.2rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #FFFFFF;
+    border: 2px solid #94A3B8;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px #FFFFFF;
+    z-index: 1;
+}
+
+.linea-tiempo__item--actual .linea-tiempo__marcador {
+    border-color: var(--color-primario);
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.2);
+}
+
+.linea-tiempo__encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.25rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.linea-tiempo__fecha {
+    font-size: 0.8rem;
+    color: var(--color-texto-mutado);
+    font-weight: 500;
+}
+
+.linea-tiempo__descripcion {
+    font-size: 0.875rem;
+    color: var(--color-texto);
+    margin: 0;
+}
+
+/* ==========================================================================
+   Bloque: Panel de Reprogramación (.panel-reprogramacion)
+   ========================================================================== */
+.panel-reprogramacion {
+    background-color: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.panel-reprogramacion__encabezado {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #92400E;
+}
+
+.panel-reprogramacion__titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.panel-reprogramacion__descripcion {
+    font-size: 0.85rem;
+    color: #78350F;
+    margin-bottom: 1rem;
+}
+
+.panel-reprogramacion__form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.panel-reprogramacion__input {
+    border: 1px solid #FCD34D;
+    border-radius: 6px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.panel-reprogramacion__boton-confirmar {
+    background-color: #B45309;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.panel-reprogramacion__boton-confirmar:hover {
+    background-color: #92400E;
+}
+
+/* ==========================================================================
+   Bloque: Alertas de Estado (.alerta-seguimiento)
+   ========================================================================== */
+.alerta-seguimiento {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    border: 1px solid var(--color-borde);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+}
+
+.alerta-seguimiento--aviso {
+    border-left: 4px solid #F59E0B;
+}
+
+.alerta-seguimiento--error {
+    border-left: 4px solid #EF4444;
+}
+
+.alerta-seguimiento--exito {
+    border-left: 4px solid #10B981;
+}
+
+.alerta-seguimiento__icono {
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+}
+
+.alerta-seguimiento--aviso .alerta-seguimiento__icono { color: #D97706; }
+.alerta-seguimiento--error .alerta-seguimiento__icono { color: #DC2626; }
+.alerta-seguimiento--exito .alerta-seguimiento__icono { color: #059669; }
+
+.alerta-seguimiento__titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-texto);
+    margin-bottom: 0.25rem;
+}
+
+.alerta-seguimiento__detalle {
+    font-size: 0.85rem;
+    color: var(--color-texto-mutado);
+    margin: 0;
+}
+
+/* ==========================================================================
+   Bloque: Badges de Estado (.badge-estado)
+   ========================================================================== */
+.badge-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: 0.01em;
+}
+
+.badge-estado--grande {
+    font-size: 0.95rem;
+    padding: 0.45rem 0.95rem;
+}
+
+.badge-estado--admitido      { background-color: var(--badge-admitido-bg); }
+.badge-estado--endeposito    { background-color: var(--badge-deposito-bg); }
+.badge-estado--asignadoaruta { background-color: var(--badge-asignado-bg); }
+.badge-estado--entransito    { background-color: var(--badge-transito-bg); }
+.badge-estado--entregado     { background-color: var(--badge-entregado-bg); }
+.badge-estado--noentregado   { background-color: var(--badge-no-entregado-bg); }
+.badge-estado--reprogramado  { background-color: var(--badge-reprogramado-bg); }
+.badge-estado--endevolucion  { background-color: var(--badge-en-devolucion-bg); }
+.badge-estado--devuelto      { background-color: var(--badge-devuelto-bg); }
+.badge-estado--extraviado    { background-color: var(--badge-extraviado-bg); }
+
+/* Banner demo para desarrollo */
+.banner-demo-dev {
+    background-color: #FEF3C7;
+    border-bottom: 1px solid #FCD34D;
+    color: #92400E;
+    font-size: 0.85rem;
+    padding: 0.4rem 1rem;
+}

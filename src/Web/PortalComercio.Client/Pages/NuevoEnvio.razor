@@ -1,0 +1,146 @@
+@page "/envios/nuevo"
+@inject IEnviosApi EnviosApi
+@inject NavigationManager Navegador
+
+<PageTitle>Portal del Comercio — Nuevo Envío (UC-24)</PageTitle>
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold mb-1">Registrar Nuevo Envío (UC-24)</h1>
+        <p class="text-muted small mb-0">
+            Ingrese los datos del destinatario para generar la orden de despacho. El comercio emisor se asocia automáticamente a partir de su sesión.
+        </p>
+    </div>
+    <a href="envios" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <Icono Nombre="volver" Tamano="14" />
+        <span>Volver a envíos</span>
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(mensajeExito))
+{
+    <div class="alert alert-success shadow-sm rounded-3 mb-4" role="alert">
+        <div class="d-flex align-items-center">
+            <div class="text-success me-3">
+                <Icono Nombre="check" Tamano="24" />
+            </div>
+            <div>
+                <strong>¡Orden de envío registrada exitosamente!</strong>
+                <div class="small mt-1">@mensajeExito</div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <a href="envios" class="btn btn-outline-success btn-sm me-2">Ver en el listado</a>
+            <button type="button" class="btn btn-sm btn-success" @onclick="LimpiarFormulario">Registrar otro envío</button>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(mensajeError))
+{
+    <div class="alert alert-danger shadow-sm rounded-3 mb-4" role="alert">
+        <strong>Error:</strong> @mensajeError
+    </div>
+}
+
+<div class="card border-0 shadow-sm rounded-3" style="max-width: 800px;">
+    <div class="card-body p-4">
+        <EditForm Model="@modelo" OnValidSubmit="GuardarEnvio">
+            <DataAnnotationsValidator />
+
+            <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">1. Datos del Destinatario</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label for="nombreDestinatario" class="form-label small fw-semibold">Nombre y Apellido *</label>
+                    <InputText id="nombreDestinatario" class="form-control" placeholder="Ej: Mariana Pérez" @bind-Value="modelo.NombreDestinatario" />
+                    <ValidationMessage For="@(() => modelo.NombreDestinatario)" class="text-danger small" />
+                </div>
+                <div class="col-md-6">
+                    <label for="telefonoDestinatario" class="form-label small fw-semibold">Teléfono de Contacto</label>
+                    <InputText id="telefonoDestinatario" class="form-control" placeholder="Ej: 099 123 456" @bind-Value="modelo.TelefonoDestinatario" />
+                    <ValidationMessage For="@(() => modelo.TelefonoDestinatario)" class="text-danger small" />
+                </div>
+                <div class="col-12">
+                    <label for="direccionDestino" class="form-label small fw-semibold">Dirección de Entrega Completa *</label>
+                    <InputText id="direccionDestino" class="form-control" placeholder="Ej: Av. 18 de Julio 1520 Apto 302, Montevideo" @bind-Value="modelo.DireccionDestino" />
+                    <ValidationMessage For="@(() => modelo.DireccionDestino)" class="text-danger small" />
+                </div>
+                <div class="col-md-6">
+                    <label for="emailDestinatario" class="form-label small fw-semibold">Correo Electrónico (opcional)</label>
+                    <InputText id="emailDestinatario" class="form-control" placeholder="destinatario@correo.com" @bind-Value="modelo.EmailDestinatario" />
+                    <ValidationMessage For="@(() => modelo.EmailDestinatario)" class="text-danger small" />
+                </div>
+            </div>
+
+            <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">2. Características del Paquete</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label for="pesoKg" class="form-label small fw-semibold">Peso estimado (kg)</label>
+                    <InputNumber id="pesoKg" class="form-control" placeholder="Ej: 1.50" @bind-Value="modelo.PesoKg" />
+                    <ValidationMessage For="@(() => modelo.PesoKg)" class="text-danger small" />
+                </div>
+                <div class="col-md-6">
+                    <label for="volumenM3" class="form-label small fw-semibold">Volumen estimado (m³)</label>
+                    <InputNumber id="volumenM3" class="form-control" placeholder="Ej: 0.015" @bind-Value="modelo.VolumenM3" />
+                    <ValidationMessage For="@(() => modelo.VolumenM3)" class="text-danger small" />
+                </div>
+                <div class="col-12">
+                    <label for="observaciones" class="form-label small fw-semibold">Instrucciones u Observaciones para el Repartidor</label>
+                    <InputTextArea id="observaciones" class="form-control" rows="2" placeholder="Ej: Timbre blanco o dejar en portería." @bind-Value="modelo.Observaciones" />
+                    <ValidationMessage For="@(() => modelo.Observaciones)" class="text-danger small" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="envios" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-marca px-4" disabled="@estaGuardando">
+                    @if (estaGuardando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <span>Registrando envío...</span>
+                    }
+                    else
+                    {
+                        <span>Registrar Envío</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private CrearEnvioDto modelo = new();
+    private bool estaGuardando = false;
+    private string? mensajeExito;
+    private string? mensajeError;
+
+    private async Task GuardarEnvio()
+    {
+        estaGuardando = true;
+        mensajeExito = null;
+        mensajeError = null;
+
+        try
+        {
+            var resultado = await EnviosApi.CrearEnvioAsync(modelo);
+            mensajeExito = $"Se asignó el código de seguimiento: {resultado.CodigoSeguimiento} (Estado inicial: {resultado.Estado})";
+            modelo = new();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No fue posible registrar el envío: {ex.Message}";
+        }
+        finally
+        {
+            estaGuardando = false;
+        }
+    }
+
+    private void LimpiarFormulario()
+    {
+        modelo = new();
+        mensajeExito = null;
+        mensajeError = null;
+    }
+}

@@ -1,19 +1,112 @@
 @inherits LayoutComponentBase
+@inject IIdentidadVisualApi IdentidadApi
+@inject MockContextoOperador ContextoOperador
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+@* Inyección dinámica de variables CSS de identidad visual del operador *@
+<style>
+    :root {
+        --color-primario: @colorPrimarioValido;
+        --color-secundario: @colorSecundarioValido;
+        --color-texto-primario: @colorTextoPrimario;
+        --color-texto-secundario: @colorTextoSecundario;
+    }
+</style>
+
+<div class="d-flex flex-column min-vh-100">
+    <SelectorOperadorDemo AlCambiar="CargarIdentidadVisual" />
+
+    <!-- Barra de Navegación Superior -->
+    <header class="navbar navbar-expand-lg navbar-dark bg-marca-primario shadow-sm py-2">
+        <div class="container-fluid px-3 px-md-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white text-decoration-none" href="">
+                @if (!string.IsNullOrEmpty(identidad.LogoUrl))
+                {
+                    <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" height="32" />
+                }
+                else
+                {
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold"
+                         style="width: 32px; height: 32px; font-size: 0.95rem;">
+                        @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
+                    </div>
+                }
+                <span>@identidad.NombreComercial</span>
+                <span class="badge bg-white text-dark ms-2 fw-semibold" style="font-size: 0.75rem;">Portal del Comercio</span>
+            </a>
+
+            <!-- Usuario Autenticado / Claims Display (Regla 1) -->
+            <div class="d-flex align-items-center gap-3">
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="d-none d-sm-block text-end text-white small">
+                            <div class="fw-semibold">@context.User.Identity?.Name</div>
+                            <div class="opacity-75" style="font-size: 0.8rem;">Perfil: @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <span class="badge bg-secondary">Sin sesión activa</span>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    </header>
+
+    <div class="container-fluid px-3 px-md-4 py-3 flex-grow-1">
+        <div class="row g-3">
+            <!-- Barra Lateral de Navegación -->
+            <aside class="col-12 col-md-3 col-lg-2">
+                <NavMenu />
+            </aside>
+
+            <!-- Contenido Principal -->
+            <main class="col-12 col-md-9 col-lg-10">
+                @Body
+            </main>
+        </div>
     </div>
 
-    <main>
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+    <footer class="bg-white border-top py-3 text-center text-muted small mt-auto">
+        <div class="container-fluid">
+            Operador logístico: <strong>@identidad.NombreComercial</strong> &copy; 2026. Todos los derechos reservados.
+        </div>
+    </footer>
 </div>
 
-<div id="blazor-error-ui">
-    Ocurrió un error inesperado.
-    <a href="" class="reload">Recargar</a>
-    <a class="dismiss">&#x2715;</a>
-</div>
+@code {
+    private IdentidadVisualDto identidad = new();
+    private string colorPrimarioValido = "#1D4ED8";
+    private string colorSecundarioValido = "#F97316";
+    private string colorTextoPrimario = "#FFFFFF";
+    private string colorTextoSecundario = "#0F172A";
+
+    protected override async Task OnInitializedAsync()
+    {
+        ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
+        await CargarIdentidadVisual();
+    }
+
+    private async Task CargarIdentidadVisual()
+    {
+        identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+
+        colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
+        colorSecundarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorSecundario, "#F97316");
+
+        colorTextoPrimario = ColorUtil.ObtenerColorTextoParaFondo(colorPrimarioValido);
+        colorTextoSecundario = ColorUtil.ObtenerColorTextoParaFondo(colorSecundarioValido);
+
+        StateHasChanged();
+    }
+
+    private void ManejarCambioOperador()
+    {
+        _ = InvokeAsync(CargarIdentidadVisual);
+    }
+
+    public void Dispose()
+    {
+        ContextoOperador.AlCambiarOperador -= ManejarCambioOperador;
+    }
+}

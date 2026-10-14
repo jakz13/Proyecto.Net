@@ -1,0 +1,68 @@
+@using UltimaMilla.Frontend.Contracts.Enums
+
+<div class="stepper-seguimiento">
+    <ol class="stepper-seguimiento__lista">
+        <!-- Paso 1: Admitido -->
+        <li class="stepper-seguimiento__paso @ObtenerClasePaso(1)">
+            <div class="stepper-seguimiento__nodo">
+                <Icono Nombre="paquete" Tamano="16" />
+            </div>
+            <span class="stepper-seguimiento__etiqueta">Admitido</span>
+            <div class="stepper-seguimiento__linea"></div>
+        </li>
+
+        <!-- Paso 2: En Depósito -->
+        <li class="stepper-seguimiento__paso @ObtenerClasePaso(2)">
+            <div class="stepper-seguimiento__nodo">
+                <Icono Nombre="deposito" Tamano="16" />
+            </div>
+            <span class="stepper-seguimiento__etiqueta">En depósito</span>
+            <div class="stepper-seguimiento__linea"></div>
+        </li>
+
+        <!-- Paso 3: En Tránsito / Reparto -->
+        <li class="stepper-seguimiento__paso @ObtenerClasePaso(3)">
+            <div class="stepper-seguimiento__nodo">
+                <Icono Nombre="camion" Tamano="16" />
+            </div>
+            <span class="stepper-seguimiento__etiqueta">En reparto</span>
+            <div class="stepper-seguimiento__linea"></div>
+        </li>
+
+        <!-- Paso 4: Entregado -->
+        <li class="stepper-seguimiento__paso @ObtenerClasePaso(4)">
+            <div class="stepper-seguimiento__nodo">
+                <Icono Nombre="check" Tamano="16" />
+            </div>
+            <span class="stepper-seguimiento__etiqueta">Entregado</span>
+        </li>
+    </ol>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public EstadoEnvioDto Estado { get; set; }
+
+    private int PasoActualNumero => Estado switch
+    {
+        EstadoEnvioDto.Admitido => 1,
+        EstadoEnvioDto.EnDeposito => 2,
+        EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito => 3,
+        EstadoEnvioDto.Entregado => 4,
+        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado => 3,
+        _ => 2
+    };
+
+    private string ObtenerClasePaso(int numeroPaso)
+    {
+        if (numeroPaso < PasoActualNumero || Estado == EstadoEnvioDto.Entregado)
+        {
+            return "stepper-seguimiento__paso--completado";
+        }
+        if (numeroPaso == PasoActualNumero)
+        {
+            return "stepper-seguimiento__paso--activo";
+        }
+        return string.Empty;
+    }
+}

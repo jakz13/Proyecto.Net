@@ -1,0 +1,59 @@
+@using UltimaMilla.Frontend.Contracts.Enums
+
+<span class="badge-estado @ObtenerModificadorEstado(Estado) @(EsGrande ? "badge-estado--grande" : "")" role="status">
+    <Icono Nombre="@ObtenerNombreIcono(Estado)" Tamano="@(EsGrande ? 14 : 12)" Clase="me-1" />
+    <span>@ObtenerTextoLegiblePorEstado(Estado)</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public EstadoEnvioDto Estado { get; set; }
+
+    [Parameter]
+    public bool EsGrande { get; set; } = false;
+
+    private static string ObtenerModificadorEstado(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "badge-estado--admitido",
+        EstadoEnvioDto.EnDeposito => "badge-estado--endeposito",
+        EstadoEnvioDto.AsignadoARuta => "badge-estado--asignadoaruta",
+        EstadoEnvioDto.EnTransito => "badge-estado--entransito",
+        EstadoEnvioDto.Entregado => "badge-estado--entregado",
+        EstadoEnvioDto.NoEntregado => "badge-estado--noentregado",
+        EstadoEnvioDto.Reprogramado => "badge-estado--reprogramado",
+        EstadoEnvioDto.EnDevolucion => "badge-estado--endevolucion",
+        EstadoEnvioDto.Devuelto => "badge-estado--devuelto",
+        EstadoEnvioDto.Extraviado => "badge-estado--extraviado",
+        _ => "badge-estado--admitido"
+    };
+
+    private static string ObtenerNombreIcono(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "paquete",
+        EstadoEnvioDto.EnDeposito => "deposito",
+        EstadoEnvioDto.AsignadoARuta => "camion",
+        EstadoEnvioDto.EnTransito => "camion",
+        EstadoEnvioDto.Entregado => "check",
+        EstadoEnvioDto.NoEntregado => "alerta",
+        EstadoEnvioDto.Reprogramado => "reloj",
+        EstadoEnvioDto.EnDevolucion => "alerta",
+        EstadoEnvioDto.Devuelto => "deposito",
+        EstadoEnvioDto.Extraviado => "cerrar",
+        _ => "info"
+    };
+
+    private static string ObtenerTextoLegiblePorEstado(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "Admitido",
+        EstadoEnvioDto.EnDeposito => "En depósito",
+        EstadoEnvioDto.AsignadoARuta => "Asignado a ruta",
+        EstadoEnvioDto.EnTransito => "En tránsito",
+        EstadoEnvioDto.Entregado => "Entregado",
+        EstadoEnvioDto.NoEntregado => "No entregado",
+        EstadoEnvioDto.Reprogramado => "Reprogramado",
+        EstadoEnvioDto.EnDevolucion => "En devolución",
+        EstadoEnvioDto.Devuelto => "Devuelto",
+        EstadoEnvioDto.Extraviado => "Extraviado",
+        _ => estado.ToString()
+    };
+}

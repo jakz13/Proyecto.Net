@@ -1,49 +1,40 @@
-using System.Net.Http.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using UltimaMilla.Frontend.Contracts.Interfaces;
+using UltimaMilla.Frontend.Contracts.Modelos.Envios;
+using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 namespace UltimaMilla.Backoffice.Pages;
 
+[Authorize]
 public class IndexModel : PageModel
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<IndexModel> _logger;
+    private readonly IEnviosApi _enviosApi;
+    private readonly IComerciosApi _comerciosApi;
+    private readonly IUsuariosApi _usuariosApi;
 
-    public IndexModel(IHttpClientFactory httpClientFactory, ILogger<IndexModel> logger)
+    public IndexModel(IEnviosApi enviosApi, IComerciosApi comerciosApi, IUsuariosApi usuariosApi)
     {
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _enviosApi = enviosApi;
+        _comerciosApi = comerciosApi;
+        _usuariosApi = usuariosApi;
     }
 
-    public List<EnvioViewModel> Envios { get; set; } = new();
-    public string? ErrorMessage { get; set; }
-    public bool IsApiReachable { get; set; } = true;
+    public int TotalComercios { get; set; }
+    public int TotalUsuarios { get; set; }
+    public int TotalEnvios { get; set; }
+    public IReadOnlyList<EnvioDto> EnviosRecientes { get; set; } = Array.Empty<EnvioDto>();
 
     public async Task OnGetAsync()
     {
-        try
-        {
-            var client = _httpClientFactory.CreateClient("UltimaMillaApi");
-            var result = await client.GetFromJsonAsync<List<EnvioViewModel>>("/api/envios");
+        var comercios = await _comerciosApi.ListarComerciosAsync(pagina: 1, tamanoPagina: 1);
+        TotalComercios = comercios.TotalRegistros;
 
-            if (result != null)
-            {
-                Envios = result;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al consultar los envíos desde la API.");
-            ErrorMessage = $"No se pudo obtener el listado de envíos: {ex.Message}";
-            IsApiReachable = false;
-        }
+        var usuarios = await _usuariosApi.ListarUsuariosAsync(new FiltroUsuariosDto { Pagina = 1, TamanoPagina = 1 });
+        TotalUsuarios = usuarios.TotalRegistros;
+
+        var envios = await _enviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 5 });
+        TotalEnvios = envios.TotalRegistros;
+        EnviosRecientes = envios.Elementos;
     }
-
-    public record EnvioViewModel(
-        Guid Id,
-        Guid ComercioId,
-        string DireccionDestino,
-        string NombreDestinatario,
-        DateTime FechaCreacion,
-        string Estado
-    );
 }

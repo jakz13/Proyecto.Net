@@ -1,0 +1,80 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Comercios.NuevoModel
+@{
+    ViewData["Title"] = "Registrar Nuevo Comercio";
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-1">Registrar Comercio Asociado (UC-01)</h1>
+        <p class="text-secondary small mb-0">El comercio quedará habilitado para operar exclusivamente con este operador logístico.</p>
+    </div>
+    <a asp-page="/Comercios/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver al listado</span>
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger small py-2 mb-3">
+        @Model.ErrorMessage
+    </div>
+}
+
+<div class="card border-0 shadow-sm rounded-3" style="max-width: 760px;">
+    <div class="card-body p-4">
+        <form method="post">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.RazonSocial" class="form-label small fw-semibold">Razón Social *</label>
+                    <input asp-for="NuevoComercio.RazonSocial" class="form-control form-control-sm" placeholder="Ej: Distribuidora Del Sur S.A." />
+                    <span asp-validation-for="NuevoComercio.RazonSocial" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.NombreFantasia" class="form-label small fw-semibold">Nombre de Fantasía *</label>
+                    <input asp-for="NuevoComercio.NombreFantasia" class="form-control form-control-sm" placeholder="Ej: Distribuidora Central" />
+                    <span asp-validation-for="NuevoComercio.NombreFantasia" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.Rut" class="form-label small fw-semibold">RUT (12 dígitos numéricos) *</label>
+                    <input asp-for="NuevoComercio.Rut" class="form-control form-control-sm" placeholder="Ej: 214567890014" maxlength="12" />
+                    <span asp-validation-for="NuevoComercio.Rut" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.Email" class="form-label small fw-semibold">Correo Electrónico de Contacto *</label>
+                    <input asp-for="NuevoComercio.Email" class="form-control form-control-sm" placeholder="contacto@empresa.uy" />
+                    <span asp-validation-for="NuevoComercio.Email" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.Telefono" class="form-label small fw-semibold">Teléfono *</label>
+                    <input asp-for="NuevoComercio.Telefono" class="form-control form-control-sm" placeholder="Ej: 099 123 456" />
+                    <span asp-validation-for="NuevoComercio.Telefono" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="NuevoComercio.Direccion" class="form-label small fw-semibold">Dirección de Despacho / Fiscal *</label>
+                    <input asp-for="NuevoComercio.Direccion" class="form-control form-control-sm" placeholder="Ej: Av. Italia 2450, Montevideo" />
+                    <span asp-validation-for="NuevoComercio.Direccion" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a asp-page="/Comercios/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+                <button type="submit" class="btn btn-dark btn-sm px-3">Guardar Comercio</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

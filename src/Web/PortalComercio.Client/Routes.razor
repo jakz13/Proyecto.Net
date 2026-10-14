@@ -1,6 +1,26 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <div class="container py-5 text-center">
+                        <div class="alert alert-warning d-inline-block">
+                            <h4>Acceso no autorizado</h4>
+                            <p>No cuenta con los permisos necesarios para acceder a este módulo.</p>
+                        </div>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <div class="container py-5 text-center">
+                    <h4>Página no encontrada</h4>
+                    <p class="text-muted">El recurso solicitado no existe.</p>
+                    <a href="/" class="btn btn-primary">Volver al inicio</a>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

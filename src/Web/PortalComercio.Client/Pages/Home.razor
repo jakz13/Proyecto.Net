@@ -1,115 +1,134 @@
 @page "/"
-@using System.ComponentModel.DataAnnotations
-@using UltimaMilla.PortalComercio.Client.Services
-@inject EnvioApiClient ApiClient
+@inject IEnviosApi EnviosApi
+@inject NavigationManager Navegador
 
-<PageTitle>Portal del Comercio — Alta de Envío</PageTitle>
+<PageTitle>Portal del Comercio — Tablero</PageTitle>
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
+<div class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 fw-bold mb-1">Tablero de Gestión Logística</h1>
+        <p class="text-muted small mb-0">Resumen y estado de las órdenes de despacho de su comercio.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1" @onclick='() => Navegador.NavigateTo("envios/nuevo")'>
+            <Icono Nombre="plus" Tamano="14" />
+            <span>Nuevo Envío (UC-24)</span>
+        </button>
+    </div>
+</div>
 
-            <div class="mb-4">
-                <h1 class="fs-4 fw-semibold mb-1">Nuevo envío</h1>
-                <p class="text-muted mb-0" style="font-size: 0.9rem;">Complete los datos del destinatario para registrar una orden de despacho.</p>
-            </div>
-
-            @if (!string.IsNullOrEmpty(successMessage))
-            {
-                <div class="alert alert-success mb-4" role="alert">
-                    <strong>Envío registrado.</strong>
-                    <div class="small mt-1">@successMessage</div>
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="alert alert-danger mb-4" role="alert">
-                    <strong>No se pudo registrar el envío.</strong>
-                    <div class="small mt-1">@errorMessage</div>
-                </div>
-            }
-
-            <div class="card border rounded-2 shadow-sm">
-                <div class="card-body p-4">
-                    <EditForm Model="@modelo" OnValidSubmit="HandleSubmit" FormName="AltaEnvioForm">
-                        <DataAnnotationsValidator />
-
-                        <div class="mb-3">
-                            <label for="nombreDestinatario" class="form-label fw-medium">Nombre del destinatario</label>
-                            <InputText id="nombreDestinatario"
-                                       class="form-control"
-                                       placeholder="Ej: Juan Pérez"
-                                       @bind-Value="modelo.NombreDestinatario" />
-                            <ValidationMessage For="@(() => modelo.NombreDestinatario)" class="text-danger small" />
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="direccionDestino" class="form-label fw-medium">Dirección de destino</label>
-                            <InputText id="direccionDestino"
-                                       class="form-control"
-                                       placeholder="Ej: Av. 18 de Julio 1234 Apto 101, Montevideo"
-                                       @bind-Value="modelo.DireccionDestino" />
-                            <ValidationMessage For="@(() => modelo.DireccionDestino)" class="text-danger small" />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100" disabled="@isSubmitting">
-                            @if (isSubmitting)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                <span>Registrando...</span>
-                            }
-                            else
-                            {
-                                <span>Registrar envío</span>
-                            }
-                        </button>
-                    </EditForm>
-                </div>
-            </div>
-
+<!-- Métricas y Números Destacados (KPIs) -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="text-muted small fw-semibold text-uppercase">Total Envíos</div>
+            <div class="h2 fw-bold mb-0 text-dark">@totalEnvios</div>
+            <div class="small text-secondary mt-1">Registrados</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="text-muted small fw-semibold text-uppercase">En Tránsito</div>
+            <div class="h2 fw-bold mb-0 text-warning">@enTransito</div>
+            <div class="small text-secondary mt-1">En reparto activo</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="text-muted small fw-semibold text-uppercase">Entregados</div>
+            <div class="h2 fw-bold mb-0 text-success">@entregados</div>
+            <div class="small text-secondary mt-1">Concretados</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="text-muted small fw-semibold text-uppercase">En Depósito</div>
+            <div class="h2 fw-bold mb-0 text-primary">@enDeposito</div>
+            <div class="small text-secondary mt-1">Por salir a ruta</div>
         </div>
     </div>
 </div>
 
+<!-- Envíos Recientes -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+        <h2 class="h6 fw-bold mb-0">Envíos Recientes</h2>
+        <a href="envios" class="small text-decoration-none fw-semibold">Ver todos &rarr;</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small">
+                <tr>
+                    <th>Código</th>
+                    <th>Destinatario</th>
+                    <th>Dirección</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (estaCargando)
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Cargando métricas...
+                        </td>
+                    </tr>
+                }
+                else if (enviosRecientes.Count == 0)
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No hay envíos registrados aún.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var envio in enviosRecientes)
+                    {
+                        <tr>
+                            <td class="fw-bold font-monospace small">@envio.CodigoSeguimiento</td>
+                            <td>@envio.NombreDestinatario</td>
+                            <td class="text-muted small">@envio.DireccionDestino</td>
+                            <td class="small">@envio.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                <BadgeEstadoEnvio Estado="@envio.Estado" />
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
 @code {
-    private FormModel modelo = new();
-    private bool isSubmitting = false;
-    private string? successMessage;
-    private string? errorMessage;
+    private bool estaCargando = true;
+    private int totalEnvios = 0;
+    private int enTransito = 0;
+    private int entregados = 0;
+    private int enDeposito = 0;
+    private List<EnvioDto> enviosRecientes = new();
 
-    private async Task HandleSubmit()
+    protected override async Task OnInitializedAsync()
     {
-        isSubmitting = true;
-        successMessage = null;
-        errorMessage = null;
-
-        var (success, envioId, error) = await ApiClient.CrearEnvioAsync(
-            modelo.DireccionDestino,
-            modelo.NombreDestinatario
-        );
-
-        if (success)
-        {
-            successMessage = $"Identificador asignado: {envioId}";
-            modelo = new();
-        }
-        else
-        {
-            errorMessage = error ?? "Ocurrió un error inesperado al procesar la solicitud.";
-        }
-
-        isSubmitting = false;
+        await CargarMetricas();
     }
 
-    public class FormModel
+    private async Task CargarMetricas()
     {
-        [Required(ErrorMessage = "El nombre del destinatario es obligatorio.")]
-        [MinLength(2, ErrorMessage = "El nombre debe contener al menos 2 caracteres.")]
-        public string NombreDestinatario { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "La dirección de destino es obligatoria.")]
-        [MinLength(5, ErrorMessage = "La dirección debe contener al menos 5 caracteres.")]
-        public string DireccionDestino { get; set; } = string.Empty;
+        estaCargando = true;
+        try
+        {
+            var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 20 });
+            totalEnvios = resultado.TotalRegistros;
+            enTransito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnTransito);
+            entregados = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.Entregado);
+            enDeposito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnDeposito);
+            enviosRecientes = resultado.Elementos.Take(5).ToList();
+        }
+        finally
+        {
+            estaCargando = false;
+        }
     }
 }

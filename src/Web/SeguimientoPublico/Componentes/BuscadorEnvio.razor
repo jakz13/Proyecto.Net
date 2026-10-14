@@ -1,0 +1,82 @@
+<div class="buscador-seguimiento">
+    <h1 class="buscador-seguimiento__titulo">Consultá el estado de tu paquete</h1>
+    <p class="buscador-seguimiento__subtitulo">Ingresá el código de seguimiento provisto por el comercio emisor.</p>
+
+    <form class="buscador-seguimiento__form" @onsubmit="ManejarBusqueda">
+        <div class="buscador-seguimiento__input-wrapper">
+            <Icono Nombre="buscar" Tamano="18" Clase="buscador-seguimiento__icono-lupa" />
+            <input type="text"
+                   class="buscador-seguimiento__input"
+                   placeholder="Ej: TRK-2026-0001"
+                   @bind="codigo"
+                   @bind:event="oninput"
+                   maxlength="30" />
+        </div>
+        <button type="submit" class="buscador-seguimiento__boton" disabled="@EstaCargando">
+            @if (EstaCargando)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Buscando...</span>
+            }
+            else
+            {
+                <Icono Nombre="buscar" Tamano="16" />
+                <span>Rastrear</span>
+            }
+        </button>
+    </form>
+
+    <div class="buscador-seguimiento__pills-contenedor">
+        <span>Códigos de prueba para la demo:</span>
+        <button type="button" class="buscador-seguimiento__pill" @onclick='() => SeleccionarCodigo("TRK-2026-0001")'>
+            <Icono Nombre="check" Tamano="12" /> TRK-0001 (Entregado)
+        </button>
+        <button type="button" class="buscador-seguimiento__pill" @onclick='() => SeleccionarCodigo("TRK-2026-0002")'>
+            <Icono Nombre="camion" Tamano="12" /> TRK-0002 (En camino)
+        </button>
+        <button type="button" class="buscador-seguimiento__pill" @onclick='() => SeleccionarCodigo("TRK-2026-0006")'>
+            <Icono Nombre="reloj" Tamano="12" /> TRK-0006 (Reprogramable)
+        </button>
+        <button type="button" class="buscador-seguimiento__pill buscador-seguimiento__pill--alerta" @onclick='() => SeleccionarCodigo("TRK-TEST-429")'>
+            <Icono Nombre="tiempo" Tamano="12" /> Simular 429 (Tasa)
+        </button>
+        <button type="button" class="buscador-seguimiento__pill" @onclick='() => SeleccionarCodigo("TRK-NO-EXISTE-999")'>
+            <Icono Nombre="alerta" Tamano="12" /> Código Inexistente
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string CodigoInicial { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool EstaCargando { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<string> AlBuscar { get; set; }
+
+    private string codigo = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(CodigoInicial) && string.IsNullOrWhiteSpace(codigo))
+        {
+            codigo = CodigoInicial;
+        }
+    }
+
+    private async Task ManejarBusqueda()
+    {
+        if (!string.IsNullOrWhiteSpace(codigo))
+        {
+            await AlBuscar.InvokeAsync(codigo.Trim().ToUpperInvariant());
+        }
+    }
+
+    private async Task SeleccionarCodigo(string codigoPrueba)
+    {
+        codigo = codigoPrueba;
+        await AlBuscar.InvokeAsync(codigoPrueba);
+    }
+}

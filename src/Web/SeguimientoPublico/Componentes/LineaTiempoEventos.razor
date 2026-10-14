@@ -1,0 +1,47 @@
+@using UltimaMilla.Frontend.Contracts.Modelos.Seguimiento
+@using UltimaMilla.Frontend.Contracts.Enums
+
+<div class="linea-tiempo-bloque">
+    <h3 class="h6 fw-bold text-uppercase text-secondary mb-3">Historial detallado del envío</h3>
+    
+    <ol class="linea-tiempo">
+        @if (Eventos != null)
+        {
+            @foreach (var hito in Eventos.OrderByDescending(h => h.Fecha))
+            {
+                var esElMasReciente = hito == Eventos.OrderByDescending(h => h.Fecha).First();
+                <li class="linea-tiempo__item @(esElMasReciente ? "linea-tiempo__item--actual" : "")">
+                    <span class="linea-tiempo__marcador">
+                        <Icono Nombre="@ObtenerIconoPorEstado(hito.Estado)" Tamano="12" />
+                    </span>
+                    <div class="linea-tiempo__cuerpo">
+                        <div class="linea-tiempo__encabezado">
+                            <BadgeEstadoEnvio Estado="@hito.Estado" />
+                            <time class="linea-tiempo__fecha" datetime="@hito.Fecha.ToString("o")">
+                                @hito.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs
+                            </time>
+                        </div>
+                        <p class="linea-tiempo__descripcion">@hito.DescripcionPublica</p>
+                    </div>
+                </li>
+            }
+        }
+    </ol>
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<HitoSeguimientoDto>? Eventos { get; set; }
+
+    private static string ObtenerIconoPorEstado(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "paquete",
+        EstadoEnvioDto.EnDeposito => "deposito",
+        EstadoEnvioDto.AsignadoARuta => "camion",
+        EstadoEnvioDto.EnTransito => "camion",
+        EstadoEnvioDto.Entregado => "check",
+        EstadoEnvioDto.NoEntregado => "alerta",
+        EstadoEnvioDto.Reprogramado => "reloj",
+        _ => "info"
+    };
+}
