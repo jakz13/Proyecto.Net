@@ -105,6 +105,16 @@
                             <span>Reglas Operativas (UC-04)</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-2 @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/MotivosNoEntrega") == true ? "active" : "")" asp-page="/MotivosNoEntrega/Index">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                            <span>Motivos No Entrega (UC-05)</span>
+                        </a>
+                    </li>
                 }
 
                 @* Menú según perfil: Despachador *@

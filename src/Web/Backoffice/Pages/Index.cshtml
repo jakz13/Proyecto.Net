@@ -6,73 +6,70 @@
 }
 
 <div class="mb-4">
-    <h1 class="h4 fw-bold mb-1">Panel de Control del Operador</h1>
-    <p class="text-muted small mb-0">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Panel de Control del Operador</h1>
+        <partial name="_BotonAyuda" model='"Métricas clave de operación, cuentas activas y flujo reciente de despachos en la red."' />
+    </div>
+    <p class="text-muted small mb-0 mt-1">
         Bienvenido <strong>@User.Identity?.Name</strong>. Sesión activa con perfil <strong>@rol</strong>.
     </p>
 </div>
 
-<!-- Tarjetas de Métricas Rápidas -->
+<!-- Tarjetas de Métricas Rápidas Estandarizadas con Componentes -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Comercios Clientes</div>
-            <div class="h2 fw-bold mb-0 text-dark">@Model.TotalComercios</div>
-            <div class="small text-secondary mt-1">Registrados en la red</div>
-            @if (User.IsInRole("Administrador"))
-            {
-                <div class="mt-2">
-                    <a asp-page="/Comercios/Index" asp-route-tab="comercios" class="btn btn-outline-dark btn-sm py-0 px-2" style="font-size: 0.775rem;">
-                        Gestionar &rarr;
-                    </a>
-                </div>
-            }
-        </div>
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Comercios Clientes",
+            Model.TotalComercios.ToString(),
+            "Comercios clientes registrados en la red del operador logístico.",
+            "text-dark",
+            "Gestionar Comercios →",
+            Url.Page("/Comercios/Index", new { tab = "comercios" })
+        )' />
     </div>
     <div class="col-sm-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Usuarios del Operador</div>
-            <div class="h2 fw-bold mb-0 text-dark">@Model.TotalUsuarios</div>
-            <div class="small text-secondary mt-1">Cuentas con roles (RF-31)</div>
-            @if (User.IsInRole("Administrador"))
-            {
-                <div class="mt-2">
-                    <a asp-page="/Comercios/Index" asp-route-tab="usuarios" class="btn btn-outline-dark btn-sm py-0 px-2" style="font-size: 0.775rem;">
-                        Gestionar &rarr;
-                    </a>
-                </div>
-            }
-        </div>
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Usuarios del Operador",
+            Model.TotalUsuarios.ToString(),
+            "Cuentas internas del operador con perfiles asignados (RF-31).",
+            "text-dark",
+            "Gestionar Usuarios →",
+            Url.Page("/Comercios/Index", new { tab = "usuarios" })
+        )' />
     </div>
     <div class="col-sm-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Total Envíos</div>
-            <div class="h2 fw-bold mb-0 text-primary">@Model.TotalEnvios</div>
-            <div class="small text-secondary mt-1">En el sistema logístico</div>
-        </div>
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Total Envíos",
+            Model.TotalEnvios.ToString(),
+            "Total de órdenes de envío registradas en la plataforma logística.",
+            "text-primary",
+            "Ver Envíos →",
+            "#envios-recientes"
+        )' />
     </div>
     <div class="col-sm-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Mi Perfil Activo</div>
-            <div class="h4 fw-bold mb-0 text-dark">@rol</div>
-            <div class="small text-secondary mt-1">Permisos adaptados al rol</div>
-            <div class="mt-2">
-                <a asp-page="/Login" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
-                    Cambiar Perfil &rarr;
-                </a>
-            </div>
-        </div>
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Mi Perfil Activo",
+            rol,
+            "Perfil y nivel de acceso asociado a la sesión activa.",
+            "text-dark",
+            "Cambiar Perfil →",
+            Url.Page("/Login")
+        )' />
     </div>
 </div>
 
-<!-- Envíos Recientes de la Red -->
-<div class="card border-0 shadow-sm rounded-3">
-    <div class="card-header bg-white py-3 border-bottom">
-        <h2 class="h6 fw-bold mb-0">Últimos Envíos Registrados en la Red</h2>
+<!-- Envíos Recientes de la Red con Panel Estandarizado -->
+<div class="panel-estandar" id="envios-recientes">
+    <div class="panel-estandar-header">
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="h6 fw-bold mb-0 text-dark">Últimos Envíos Registrados en la Red</h2>
+            <partial name="_BotonAyuda" model='"Listado cronológico de los despachos procesados recientemente en la plataforma."' />
+        </div>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover table-compacta mb-0">
-            <thead>
+        <table class="table table-hover table-compacta mb-0 align-middle">
+            <thead class="table-light">
                 <tr>
                     <th>Código</th>
                     <th>Destinatario</th>
@@ -98,9 +95,30 @@
                             <td class="text-muted small">@envio.DireccionDestino</td>
                             <td class="small">@envio.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                             <td>
-                                <span class="badge-estado badge-estado-@envio.Estado.ToString().ToLowerInvariant()">
-                                    ● @envio.Estado
-                                </span>
+                                @switch (envio.Estado)
+                                {
+                                    case EstadoEnvioDto.Admitido:
+                                        <span class="badge badge-estado badge-estado-admitido">Admitido</span>
+                                        break;
+                                    case EstadoEnvioDto.EnDeposito:
+                                        <span class="badge badge-estado badge-estado-endeposito">En Depósito</span>
+                                        break;
+                                    case EstadoEnvioDto.AsignadoARuta:
+                                        <span class="badge badge-estado badge-estado-asignadoaruta">Asignado a Ruta</span>
+                                        break;
+                                    case EstadoEnvioDto.EnTransito:
+                                        <span class="badge badge-estado badge-estado-entransito">En Tránsito</span>
+                                        break;
+                                    case EstadoEnvioDto.Entregado:
+                                        <span class="badge badge-estado badge-estado-entregado">Entregado</span>
+                                        break;
+                                    case EstadoEnvioDto.NoEntregado:
+                                        <span class="badge badge-estado badge-estado-noentregado">No Entregado</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-secondary">@envio.Estado</span>
+                                        break;
+                                }
                             </td>
                         </tr>
                     }
