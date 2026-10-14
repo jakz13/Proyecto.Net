@@ -1,0 +1,14 @@
+@model (string Titulo, string Valor, string? Ayuda, string? ColorValor)
+
+<div class="metrica-card">
+    <div class="metrica-card__header">
+        <span class="metrica-card__label">@Model.Titulo</span>
+        @if (!string.IsNullOrEmpty(Model.Ayuda))
+        {
+            <partial name="_BotonAyuda" model="@Model.Ayuda" />
+        }
+    </div>
+    <div class="metrica-card__valor @(Model.ColorValor ?? "text-dark")">
+        @Model.Valor
+    </div>
+</div>

@@ -5,11 +5,9 @@
 }
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-        <h1 class="h4 fw-bold text-dark mb-1">Publicar Nueva Versión de Reglas Operativas (UC-04)</h1>
-        <p class="text-secondary small mb-0">
-            Defina los nuevos parámetros de entrega, reintentos y devoluciones. Al publicar, esta versión pasará a ser la vigente y la anterior se archivará cerrando su vigencia (RF-04).
-        </p>
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold text-dark mb-0">Publicar Nueva Versión de Reglas Operativas (UC-04)</h1>
+        <partial name="_BotonAyuda" model='"Al publicar, esta versión pasará a ser la vigente y la anterior se archivará cerrando su vigencia (RF-04)."' />
     </div>
     <a asp-page="/ReglasOperativas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -37,24 +35,16 @@
     </div>
 }
 
-<div class="alert alert-info border-0 shadow-sm py-2 px-3 small mb-4 d-flex align-items-center gap-2" role="alert">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-info" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="16" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-    </svg>
-    <div>
-        <strong>Inmutabilidad y Trazabilidad Operativa:</strong> Los envíos ya iniciados conservarán el tratamiento y los plazos bajo los cuales fueron recibidos. La nueva versión entrará en rigor exclusivamente para envíos procesados a partir de su publicación.
-    </div>
-</div>
-
 <form method="post" id="formularioNuevaRegla">
     <!-- 1. Parámetros de la Versión -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
-            <h2 class="h6 fw-bold mb-0 text-dark">1. Identificación y Vigencia de la Versión</h2>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">1. Identificación y Vigencia de la Versión</h2>
+                <partial name="_BotonAyuda" model='"Los envíos ya iniciados conservarán los plazos bajo los que fueron recibidos. La nueva versión aplica a partir de la fecha indicada."' />
+            </div>
         </div>
-        <div class="card-body p-4">
+        <div class="panel-estandar-body">
             <div class="row g-3">
                 <div class="col-md-8">
                     <label asp-for="NuevaVersion.Comentario" class="form-label small fw-semibold">Motivo / Justificación del Cambio Operativo</label>
@@ -72,11 +62,14 @@
     </div>
 
     <!-- 2. Protocolo de Intentos y Reintentos -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
-            <h2 class="h6 fw-bold mb-0 text-dark">2. Intentos de Entrega y Plazos entre Reintentos</h2>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">2. Intentos de Entrega y Plazos entre Reintentos</h2>
+                <partial name="_BotonAyuda" model='"Define la cantidad máxima de visitas antes de devolver el paquete y la separación mínima de horas entre intentos."' />
+            </div>
         </div>
-        <div class="card-body p-4">
+        <div class="panel-estandar-body">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="NuevaVersion.MaxIntentosEntrega" class="form-label small fw-semibold">Cantidad Máxima de Intentos</label>
@@ -85,9 +78,6 @@
                         <span class="input-group-text">intentos</span>
                     </div>
                     <span asp-validation-for="NuevaVersion.MaxIntentosEntrega" class="text-danger small"></span>
-                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Cantidad de visitas al domicilio antes de activar la devolución.
-                    </div>
                 </div>
 
                 <div class="col-md-6">
@@ -97,20 +87,20 @@
                         <span class="input-group-text">horas de espera</span>
                     </div>
                     <span asp-validation-for="NuevaVersion.HorasEntreIntentos" class="text-danger small"></span>
-                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Tiempo reglamentario de separación entre cada visita fallida.
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 3. Prueba de Entrega y Política de Devolución -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
-            <h2 class="h6 fw-bold mb-0 text-dark">3. Prueba de Entrega y Política de Devolución</h2>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">3. Prueba de Entrega y Política de Devolución</h2>
+                <partial name="_BotonAyuda" model='"Determina los requisitos obligatorios para registrar la entrega y el protocolo al agotarse las visitas permitidas."' />
+            </div>
         </div>
-        <div class="card-body p-4">
+        <div class="panel-estandar-body">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="NuevaVersion.TipoPruebaEntregaExigida" class="form-label small fw-semibold">Tipo de Prueba de Entrega Exigida</label>
@@ -141,11 +131,14 @@
     </div>
 
     <!-- 4. Plazos Comprometidos SLA por Modalidad -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
-            <h2 class="h6 fw-bold mb-0 text-dark">4. Plazos Comprometidos SLA por Modalidad</h2>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">4. Plazos Comprometidos SLA por Modalidad</h2>
+                <partial name="_BotonAyuda" model='"Horas máximas comprometidas de entrega desde la admisión según la modalidad contratada."' />
+            </div>
         </div>
-        <div class="card-body p-4">
+        <div class="panel-estandar-body">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="NuevaVersion.HorasPlazoComprometidoEstandar" class="form-label small fw-semibold">Plazo SLA Modalidad Estándar</label>
@@ -154,9 +147,6 @@
                         <span class="input-group-text">horas máximas</span>
                     </div>
                     <span asp-validation-for="NuevaVersion.HorasPlazoComprometidoEstandar" class="text-danger small"></span>
-                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Ejemplo: 48 horas (2 días hábiles) para entregas convencionales.
-                    </div>
                 </div>
 
                 <div class="col-md-6">
@@ -166,14 +156,11 @@
                         <span class="input-group-text">horas máximas</span>
                     </div>
                     <span asp-validation-for="NuevaVersion.HorasPlazoComprometidoUrgente" class="text-danger small"></span>
-                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Ejemplo: 12 horas o 24 horas para entregas express o en el mismo día.
-                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card-footer bg-white p-3 border-top d-flex justify-content-end gap-2">
+        <div class="panel-estandar-footer d-flex justify-content-end gap-2">
             <a asp-page="/ReglasOperativas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
             <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm"
                     onclick="return confirm('¿Confirma la publicación de esta nueva versión de reglas operativas? La versión anterior cerrará su vigencia y los nuevos envíos se regirán bajo estos parámetros.');">

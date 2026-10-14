@@ -5,11 +5,9 @@
 }
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-        <h1 class="h4 fw-bold text-dark mb-1">Publicar Nueva Versión del Cuadro Tarifario (UC-03)</h1>
-        <p class="text-secondary small mb-0">
-            Defina las nuevas reglas de precio. Al publicar, esta versión pasará a ser la vigente y la anterior se archivará con su rango de vigencia cerrado (RF-03).
-        </p>
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold text-dark mb-0">Publicar Nueva Versión del Cuadro Tarifario (UC-03)</h1>
+        <partial name="_BotonAyuda" model='"Al publicar, esta versión pasará a ser la vigente y la anterior se archivará cerrando su vigencia (RF-03)."' />
     </div>
     <a asp-page="/Tarifas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -37,24 +35,16 @@
     </div>
 }
 
-<div class="alert alert-info border-0 shadow-sm py-2 px-3 small mb-4 d-flex align-items-center gap-2" role="alert">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-info" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="16" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-    </svg>
-    <div>
-        <strong>Inmutabilidad y Trazabilidad:</strong> Los envíos ya procesados conservarán la versión bajo la que fueron calculados originalmente. La nueva versión aplicará exclusivamente para cotizaciones y envíos creados a partir de la fecha de vigencia.
-    </div>
-</div>
-
 <form method="post" id="formularioNuevaVersion">
     <!-- 1. Encabezado de la Versión -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
-            <h2 class="h6 fw-bold mb-0 text-dark">1. Parámetros de la Versión</h2>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">1. Parámetros de la Versión</h2>
+                <partial name="_BotonAyuda" model='"Los envíos en curso conservan su cotización original. La nueva versión aplica a partir de la fecha indicada."' />
+            </div>
         </div>
-        <div class="card-body p-4">
+        <div class="panel-estandar-body">
             <div class="row g-3">
                 <div class="col-md-8">
                     <label asp-for="NuevaVersion.Comentario" class="form-label small fw-semibold">Motivo / Descripción de la Nueva Versión</label>
@@ -72,13 +62,11 @@
     </div>
 
     <!-- 2. Definición de Reglas de Precio -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div>
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
                 <h2 class="h6 fw-bold mb-0 text-dark">2. Reglas de Precio por Modalidad, Zona, Peso y Volumen</h2>
-                <div class="text-secondary small" style="font-size: 0.75rem;">
-                    Pre-cargadas desde la versión actual para facilitar modificaciones incrementales de tarifas.
-                </div>
+                <partial name="_BotonAyuda" model='"Se precargaron las reglas vigentes para facilitar incrementos de tarifas. Agregue o modifique las filas deseadas."' />
             </div>
             <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="agregarFilaRegla()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

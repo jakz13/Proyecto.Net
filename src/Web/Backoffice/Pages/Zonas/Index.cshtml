@@ -5,11 +5,9 @@
 }
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <div>
-        <h1 class="h4 fw-bold mb-1">Zonas de Cobertura y Franjas Horarias (UC-02)</h1>
-        <p class="text-secondary small mb-0">
-            Definición de polígonos geográficos de distribución y ventanas horarias de entrega asociadas (RF-02).
-        </p>
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Zonas de Cobertura y Franjas Horarias (UC-02)</h1>
+        <partial name="_BotonAyuda" model='"Polígonos geográficos de entrega y ventanas horarias disponibles para planificación y ruteo (RF-02)."' />
     </div>
     <a asp-page="/Zonas/Nueva" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -20,27 +18,39 @@
     </a>
 </div>
 
-<!-- Tarjetas de Métricas de Cobertura -->
+<!-- Tarjetas de Métricas de Cobertura Estandarizadas -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Zonas Activas</div>
-            <div class="h2 fw-bold mb-0 text-dark">@Model.TotalZonasActivas</div>
-            <div class="small text-secondary mt-1">Con polígono operativo asignado</div>
+        <div class="metrica-card">
+            <div class="metrica-card__header">
+                <span class="metrica-card__label">Zonas Activas</span>
+                <partial name="_BotonAyuda" model='"Zonas con polígono operativo delimitado y disponibles para despacho."' />
+            </div>
+            <div class="metrica-card__valor text-dark">
+                @Model.TotalZonasActivas
+            </div>
         </div>
     </div>
     <div class="col-sm-6 col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Franjas de Entrega</div>
-            <div class="h2 fw-bold mb-0 text-primary">@Model.TotalFranjasConfiguradas</div>
-            <div class="small text-secondary mt-1">Ventanas horarias sin superposición</div>
+        <div class="metrica-card">
+            <div class="metrica-card__header">
+                <span class="metrica-card__label">Franjas de Entrega</span>
+                <partial name="_BotonAyuda" model='"Ventanas horarias configuradas validadas sin superposiciones."' />
+            </div>
+            <div class="metrica-card__valor text-primary">
+                @Model.TotalFranjasConfiguradas
+            </div>
         </div>
     </div>
     <div class="col-sm-6 col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3">
-            <div class="text-muted small fw-semibold text-uppercase">Polígonos Logísticos</div>
-            <div class="h4 fw-bold mb-0 text-dark">GeoJSON Estándar</div>
-            <div class="small text-secondary mt-1">Compatibles con ruteo y tarifas (UC-03)</div>
+        <div class="metrica-card">
+            <div class="metrica-card__header">
+                <span class="metrica-card__label">Polígonos Logísticos</span>
+                <partial name="_BotonAyuda" model='"Coordenadas GeoJSON estándar para cálculo de tarifas y asignación automática de rutas."' />
+            </div>
+            <div class="metrica-card__valor fs-5 text-dark">
+                GeoJSON Estándar
+            </div>
         </div>
     </div>
 </div>

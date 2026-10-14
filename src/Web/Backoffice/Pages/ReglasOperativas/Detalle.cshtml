@@ -16,10 +16,8 @@
             {
                 <span class="badge bg-secondary text-white">Histórica (Cerrada)</span>
             }
+            <partial name="_BotonAyuda" model='"Registro inmutable para auditoría. Los envíos creados bajo esta versión conservan sus plazos y reglas originales."' />
         </div>
-        <p class="text-secondary small mb-0 mt-1">
-            Registro inmutable de reglas operativas para trazabilidad y auditoría de envíos iniciados bajo esta versión.
-        </p>
     </div>
     <a asp-page="/ReglasOperativas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -30,7 +28,7 @@
     </a>
 </div>
 
-<div class="card border-0 shadow-sm rounded-3 mb-4">
+<div class="panel-estandar mb-4">
     <div class="card-body p-4 bg-white border-bottom">
         <div class="row g-3">
             <div class="col-md-4">
@@ -55,21 +53,21 @@
     <div class="card-body p-4 bg-white">
         <div class="row g-3">
             <div class="col-md-4">
-                <div class="p-3 bg-light rounded-3 border">
-                    <span class="text-secondary small fw-semibold text-uppercase">Intentos Máximos</span>
-                    <div class="h3 fw-bold text-dark mb-0">@Model.Regla.MaxIntentosEntrega intentos</div>
+                <div class="metrica-card">
+                    <span class="metrica-card__label">Intentos Máximos</span>
+                    <div class="metrica-card__valor">@Model.Regla.MaxIntentosEntrega <span class="fs-6 fw-normal text-muted">intentos</span></div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="p-3 bg-light rounded-3 border">
-                    <span class="text-secondary small fw-semibold text-uppercase">Espera entre Intentos</span>
-                    <div class="h3 fw-bold text-dark mb-0 font-monospace">@Model.Regla.HorasEntreIntentos h</div>
+                <div class="metrica-card">
+                    <span class="metrica-card__label">Espera entre Intentos</span>
+                    <div class="metrica-card__valor font-monospace">@Model.Regla.HorasEntreIntentos h</div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="p-3 bg-light rounded-3 border">
-                    <span class="text-secondary small fw-semibold text-uppercase">SLA Estándar / Urgente</span>
-                    <div class="h3 fw-bold text-dark mb-0 font-monospace">
+                <div class="metrica-card">
+                    <span class="metrica-card__label">SLA Estándar / Urgente</span>
+                    <div class="metrica-card__valor font-monospace fs-5">
                         @Model.Regla.HorasPlazoComprometidoEstandar h / @Model.Regla.HorasPlazoComprometidoUrgente h
                     </div>
                 </div>

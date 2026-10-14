@@ -6,11 +6,9 @@
 
 <!-- Encabezado del Caso de Uso UC-04 -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <div>
-        <h1 class="h4 fw-bold mb-1">Reglas Operativas de Entrega y Devolución (UC-04)</h1>
-        <p class="text-secondary small mb-0">
-            Definición de intentos máximos, plazos entre reintentos, prueba de entrega exigida y plazos comprometidos por modalidad con versionado inmutable (RF-04).
-        </p>
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Reglas Operativas de Entrega y Devolución (UC-04)</h1>
+        <partial name="_BotonAyuda" model='"Intentos máximos, plazos entre reintentos, prueba de entrega exigida y compromisos SLA con versionado inmutable (RF-04)."' />
     </div>
     <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -54,30 +52,30 @@
     <!-- Columna Principal: Versión Vigente e Historial (8 columnas) -->
     <div class="col-12 col-lg-8">
         <!-- 1. Tarjeta de la Versión Vigente Actual -->
-        <div class="card border-0 shadow-sm rounded-3 mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                            ● Versión Vigente (Versión @(Model.VersionVigente?.Version ?? 1))
-                        </span>
-                        <span class="text-secondary small">
-                            Aplica a todos los envíos despachados desde el @(Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")
-                        </span>
-                    </div>
-                    @if (!string.IsNullOrEmpty(Model.VersionVigente?.Comentario))
-                    {
-                        <div class="text-dark small fw-semibold mt-1">
-                            @Model.VersionVigente.Comentario
-                        </div>
-                    }
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                        ● Versión Vigente (Versión @(Model.VersionVigente?.Version ?? 1))
+                    </span>
+                    <span class="text-secondary small">
+                        Desde: @(Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")
+                    </span>
+                    <partial name="_BotonAyuda" model='"Rige actualmente para todos los envíos despachados desde esta fecha."' />
                 </div>
                 <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
                     Crear versión a partir de esta
                 </a>
             </div>
 
-            <div class="card-body p-4 bg-white">
+            @if (!string.IsNullOrEmpty(Model.VersionVigente?.Comentario))
+            {
+                <div class="px-3 py-2 bg-light border-bottom text-dark small fw-semibold">
+                    @Model.VersionVigente.Comentario
+                </div>
+            }
+
+            <div class="panel-estandar-body">
                 @if (Model.VersionVigente == null)
                 {
                     <div class="text-center py-4 text-muted small">
@@ -86,100 +84,73 @@
                 }
                 else
                 {
-                    <div class="row g-3">
-                        <!-- Métrica 1: Intentos Máximos -->
+                    <!-- Fila 1: 3 Métricas Numéricas de Altura Estandarizada -->
+                    <div class="row g-3 mb-3">
                         <div class="col-12 col-sm-6 col-md-4">
-                            <div class="p-3 bg-light rounded-3 border h-100">
-                                <div class="d-flex align-items-center gap-2 mb-1 text-secondary small fw-semibold text-uppercase">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M1 4v6h6"></path>
-                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                                    </svg>
-                                    <span>Intentos de Entrega</span>
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Intentos de Entrega</span>
+                                    <partial name="_BotonAyuda" model='"Cantidad máxima de visitas permitidas al domicilio antes de iniciar devolución."' />
                                 </div>
-                                <div class="h3 fw-bold text-dark mb-1">
+                                <div class="metrica-card__valor">
                                     @Model.VersionVigente.MaxIntentosEntrega
                                     <span class="fs-6 fw-normal text-muted">máximos</span>
                                 </div>
-                                <div class="small text-muted" style="font-size: 0.75rem;">
-                                    Antes de activar el protocolo de devolución.
-                                </div>
                             </div>
                         </div>
 
-                        <!-- Métrica 2: Plazo entre Intentos -->
                         <div class="col-12 col-sm-6 col-md-4">
-                            <div class="p-3 bg-light rounded-3 border h-100">
-                                <div class="d-flex align-items-center gap-2 mb-1 text-secondary small fw-semibold text-uppercase">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <polyline points="12 6 12 12 16 14"></polyline>
-                                    </svg>
-                                    <span>Espera entre Intentos</span>
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Espera entre Intentos</span>
+                                    <partial name="_BotonAyuda" model='"Intervalo reglamentario mínimo de espera tras una visita fallida."' />
                                 </div>
-                                <div class="h3 fw-bold text-dark mb-1">
+                                <div class="metrica-card__valor font-monospace">
                                     @Model.VersionVigente.HorasEntreIntentos
                                     <span class="fs-6 fw-normal text-muted">horas</span>
                                 </div>
-                                <div class="small text-muted" style="font-size: 0.75rem;">
-                                    Plazo mínimo requerido tras un intento fallido.
-                                </div>
                             </div>
                         </div>
 
-                        <!-- Métrica 3: Compromiso SLA Estándar vs Urgente -->
                         <div class="col-12 col-sm-12 col-md-4">
-                            <div class="p-3 bg-light rounded-3 border h-100">
-                                <div class="d-flex align-items-center gap-2 mb-1 text-secondary small fw-semibold text-uppercase">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                                    </svg>
-                                    <span>Plazos Comprometidos SLA</span>
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">SLA Comprometido</span>
+                                    <partial name="_BotonAyuda" model='"Plazos máximos comprometidos para entrega según modalidad de servicio."' />
                                 </div>
-                                <div class="d-flex justify-content-between align-items-baseline mb-1">
-                                    <span class="small text-dark fw-semibold">Estándar:</span>
+                                <div class="d-flex justify-content-between align-items-baseline mt-1">
+                                    <span class="small text-muted fw-semibold">Estándar:</span>
                                     <span class="badge bg-dark">@Model.VersionVigente.HorasPlazoComprometidoEstandar h</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-baseline">
-                                    <span class="small text-dark fw-semibold">Urgente / Express:</span>
+                                    <span class="small text-muted fw-semibold">Urgente:</span>
                                     <span class="badge bg-primary">@Model.VersionVigente.HorasPlazoComprometidoUrgente h</span>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Detalle 4: Prueba de Entrega Exigida -->
+                    <!-- Fila 2: 2 Paneles de Política y Prueba de Altura Estandarizada -->
+                    <div class="row g-3">
                         <div class="col-12 col-md-6">
-                            <div class="p-3 border rounded-3 bg-white">
-                                <div class="d-flex align-items-center gap-2 mb-2 text-dark small fw-bold">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                    </svg>
-                                    <span>Prueba de Entrega Exigida</span>
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Prueba de Entrega Exigida</span>
+                                    <partial name="_BotonAyuda" model='"Comprobante obligatorio que el transportista debe cargar en la app móvil al entregar."' />
                                 </div>
-                                <div class="small text-secondary mb-1">
-                                    El conductor debe registrar y cargar en la plataforma:
-                                </div>
-                                <div class="fw-semibold text-dark small">
+                                <div class="fw-semibold text-dark small mt-1">
                                     @Model.VersionVigente.TipoPruebaEntregaExigida
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Detalle 5: Política de Devolución -->
                         <div class="col-12 col-md-6">
-                            <div class="p-3 border rounded-3 bg-white">
-                                <div class="d-flex align-items-center gap-2 mb-2 text-dark small fw-bold">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
-                                        <polyline points="9 14 4 9 9 4"></polyline>
-                                        <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
-                                    </svg>
-                                    <span>Política de Devolución al Agotar Intentos</span>
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Política de Devolución</span>
+                                    <partial name="_BotonAyuda" model='"Procedimiento automático aplicado tras agotar los intentos permitidos sin éxito."' />
                                 </div>
-                                <div class="small text-secondary mb-1">
-                                    Procedimiento automático de contingencia:
-                                </div>
-                                <div class="fw-semibold text-dark small">
+                                <div class="fw-semibold text-dark small mt-1">
                                     @Model.VersionVigente.PoliticaDevolucion
                                 </div>
                             </div>
@@ -190,17 +161,12 @@
         </div>
 
         <!-- 2. Historial de Versiones Anteriores (Conservación de Vigencia e Inmutabilidad) -->
-        <div class="card border-0 shadow-sm rounded-3">
-            <div class="card-header bg-white py-3 border-bottom">
-                <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span>Historial de Versiones Anteriores (Trazabilidad Inmutable)</span>
-                </h2>
-                <div class="text-secondary small mt-1">
-                    Los envíos ya iniciados conservan inalteradas las reglas operativas bajo las que fueron creados.
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Historial de Versiones Anteriores</h2>
+                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Archivo Inmutable</span>
+                    <partial name="_BotonAyuda" model='"Los envíos en curso o pasados conservan las reglas vigentes al momento de su admisión."' />
                 </div>
             </div>
 
@@ -262,20 +228,15 @@
 
     <!-- Columna Lateral: Simulador de Cumplimiento de Reglas (4 columnas) -->
     <div class="col-12 col-lg-4">
-        <div class="card border-0 shadow-sm rounded-3">
-            <div class="card-header bg-white py-3 border-bottom">
-                <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                    <span>Simulador de Reglas (Demo UC-04)</span>
-                </h2>
-                <div class="text-secondary small mt-1">
-                    Pruebe el comportamiento operativo sobre un envío hipotético según la versión vigente.
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Simulador de Reglas Operativas</h2>
+                    <partial name="_BotonAyuda" model='"Permite verificar el cumplimiento operativo y cálculo de SLA para un envío hipotético según la versión activa."' />
                 </div>
             </div>
 
-            <div class="card-body p-3">
+            <div class="panel-estandar-body">
                 <form method="post" asp-page-handler="SimularReglas">
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Modalidad de Servicio</label>
@@ -293,7 +254,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Intentos de Entrega Fallidos Ya Realizados</label>
+                        <label class="form-label small fw-semibold">Intentos Fallidos Realizados</label>
                         <input asp-for="ParametrosSimulador.IntentosRealizados" type="number" min="0" max="10" class="form-control form-control-sm" required />
                     </div>
 
@@ -301,7 +262,6 @@
                         <label class="form-label small fw-semibold">Fecha y Hora del Último Intento</label>
                         <input asp-for="ParametrosSimulador.FechaUltimoIntento" type="datetime-local" class="form-control form-control-sm"
                                value="@(Model.ParametrosSimulador.FechaUltimoIntento?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
-                        <span class="text-muted" style="font-size: 0.725rem;">Dejar en blanco si aún no hubo ningún intento previo.</span>
                     </div>
 
                     <button type="submit" class="btn btn-dark btn-sm w-100 py-2 d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
@@ -332,7 +292,7 @@
                             else if (Model.ResultadoSimulacion.PuedeReintentarAhora)
                             {
                                 <span class="badge bg-success text-white py-1 px-2 d-block text-start mb-1">
-                                    Habilitado para reintento (@Model.ResultadoSimulacion.IntentosRestantes intentos restantes)
+                                    Habilitado para reintento (@Model.ResultadoSimulacion.IntentosRestantes restantes)
                                 </span>
                             }
                             else
@@ -355,7 +315,7 @@
                             </div>
 
                             <div class="d-flex justify-content-between mb-1">
-                                <span>Estado del Plazo SLA:</span>
+                                <span>Estado del SLA:</span>
                                 @if (Model.ResultadoSimulacion.SlaVencido)
                                 {
                                     <span class="badge bg-danger">SLA Vencido</span>

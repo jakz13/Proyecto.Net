@@ -142,3 +142,137 @@ body {
     font-size: 0.85rem;
     padding: 0.35rem 1rem;
 }
+
+/* ==========================================================================
+   Estandarización de Paneles y Tarjetas (Clean UI)
+   ========================================================================== */
+.panel-estandar {
+    background-color: var(--color-superficie);
+    border: 1px solid var(--color-borde);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.panel-estandar-header {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid var(--color-borde);
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 54px;
+}
+
+.panel-estandar-body {
+    padding: 1.25rem;
+    flex-grow: 1;
+}
+
+.panel-estandar-footer {
+    background-color: #F8FAFC;
+    border-top: 1px solid var(--color-borde);
+    padding: 0.75rem 1.25rem;
+}
+
+/* ==========================================================================
+   Tarjetas Métricas Estandarizadas
+   ========================================================================== */
+.metrica-card {
+    background-color: #FFFFFF;
+    border: 1px solid var(--color-borde);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    min-height: 104px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.metrica-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+}
+
+.metrica-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.metrica-card__label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #64748B;
+    margin: 0;
+}
+
+.metrica-card__valor {
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-texto);
+    margin: 0;
+}
+
+/* ==========================================================================
+   Botón de Ayuda Contextual (?) y Popover
+   ========================================================================== */
+.btn-ayuda {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid #CBD5E1;
+    background-color: #F8FAFC;
+    color: #64748B;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s ease-in-out;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.btn-ayuda:hover, .btn-ayuda.activo {
+    background-color: #0F172A;
+    border-color: #0F172A;
+    color: #FFFFFF;
+}
+
+.ayuda-popover {
+    position: fixed;
+    z-index: 1070;
+    max-width: 320px;
+    background-color: #0F172A;
+    color: #F8FAFC;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    padding: 0.75rem 0.95rem;
+    border-radius: 0.45rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    display: none;
+    pointer-events: auto;
+}
+
+.ayuda-popover.visible {
+    display: block;
+    animation: fadeIn 0.15s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
