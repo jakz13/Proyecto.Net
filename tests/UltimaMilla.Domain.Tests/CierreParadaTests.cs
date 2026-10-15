@@ -36,6 +36,7 @@ public class CierreParadaTests
             "Estandar",
             "TRK-TEST001");
 
+        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "RecepcionEnDeposito");
         envio.AsignarRuta(rutaId);
         envio.DespacharEnRuta(rutaId);
         return envio;
@@ -182,7 +183,8 @@ public class CierreParadaTests
         Assert.Equal(EstadoEnvio.Reprogramado, envio.EstadoActual);
 
         // Para simular el segundo intento, vuelve a ponerse EnTransito para la siguiente ruta
-        envio.TransicionarEstado(EstadoEnvio.EnTransito, "DespachoSegundoIntento");
+        envio.AsignarRuta(Guid.NewGuid());
+        envio.DespacharEnRuta(rutaId);
 
         // Act 2: Segundo intento fallido -> Debe pasar a EnDevolucion
         var (intento2, estadoFinal2, restantes2) = envio.RegistrarIntentoFallido(

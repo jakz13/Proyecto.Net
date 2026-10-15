@@ -191,6 +191,14 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         double? longitud = null,
         string? payload = null)
     {
+        if (string.IsNullOrWhiteSpace(tipoEvento))
+            throw new DomainValidationException("El tipo de evento no puede ser vacío.");
+
+        // UC-39: toda transición se valida contra la máquina de estados declarativa
+        if (!MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
+            throw new DomainValidationException(
+                $"Transición de estado inválida para el envío {CodigoSeguimientoPublico}: '{EstadoActual}' -> '{nuevoEstado}'.");
+
         var estadoAnterior = EstadoActual;
         EstadoActual = nuevoEstado;
         SelloModificacion = Guid.NewGuid();
