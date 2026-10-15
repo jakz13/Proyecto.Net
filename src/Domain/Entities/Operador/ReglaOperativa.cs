@@ -65,4 +65,26 @@ public class ReglaOperativa : Entity, IMustHaveTenant
 
         VigenteHasta = fechaFin;
     }
+
+    public void ValidarPruebaEntrega(string? firmaDigital, string? fotoEvidencia, string? documentoReceptor)
+    {
+        var tipoNormalizado = TipoPruebaEntregaExigida.ToLowerInvariant();
+
+        bool exigeFirma = tipoNormalizado.Contains("firma");
+        bool exigeFoto = tipoNormalizado.Contains("foto") || tipoNormalizado.Contains("imagen");
+        bool exigeDocumento = tipoNormalizado.Contains("documento") || tipoNormalizado.Contains("ci") || tipoNormalizado.Contains("dni");
+
+        if (exigeFirma && string.IsNullOrWhiteSpace(firmaDigital))
+            throw new DomainValidationException($"La regla operativa vigente (v{Version}) exige firma digital obligatoria del receptor para completar la entrega.");
+
+        if (exigeFoto && string.IsNullOrWhiteSpace(fotoEvidencia))
+            throw new DomainValidationException($"La regla operativa vigente (v{Version}) exige fotografía de evidencia obligatoria en el domicilio para completar la entrega.");
+
+        if (exigeDocumento && string.IsNullOrWhiteSpace(documentoReceptor))
+            throw new DomainValidationException($"La regla operativa vigente (v{Version}) exige documento de identidad obligatorio del receptor para completar la entrega.");
+    }
+
+    public bool SuperaMaximoIntentos(int intentosRealizados) => intentosRealizados >= MaxIntentosEntrega;
+
+    public int CalcularIntentosRestantes(int intentosRealizados) => Math.Max(0, MaxIntentosEntrega - intentosRealizados);
 }

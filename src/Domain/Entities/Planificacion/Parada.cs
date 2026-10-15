@@ -80,11 +80,17 @@ public class Parada : Entity
 
     public void RegistrarEntregaExitosa()
     {
+        if (Estado == "Cancelada")
+            throw new DomainValidationException("No se puede registrar entrega exitosa en una parada cancelada.");
+
         Estado = "Entregada";
     }
 
     public void RegistrarIntentoFallido()
     {
+        if (Estado == "Cancelada")
+            throw new DomainValidationException("No se puede registrar un intento fallido en una parada cancelada.");
+
         Estado = "Fallida";
     }
 

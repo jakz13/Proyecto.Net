@@ -33,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
 
         // Servicios transversales
+        services.AddDistributedMemoryCache();
+        services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
 

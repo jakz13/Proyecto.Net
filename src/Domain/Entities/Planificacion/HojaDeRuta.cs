@@ -149,6 +149,39 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    public Parada RegistrarEntregaExitosaEnParada(Guid paradaId)
+    {
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
+            ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarEntregaExitosa();
+        SelloModificacion = Guid.NewGuid();
+
+        VerificarYActualizarFinDeRuta();
+        return parada;
+    }
+
+    public Parada RegistrarIntentoFallidoEnParada(Guid paradaId)
+    {
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
+            ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarIntentoFallido();
+        SelloModificacion = Guid.NewGuid();
+
+        VerificarYActualizarFinDeRuta();
+        return parada;
+    }
+
+    private void VerificarYActualizarFinDeRuta()
+    {
+        bool todasCompletadas = _paradas.Count > 0 && _paradas.All(p => p.Estado is "Entregada" or "Fallida" or "Cancelada");
+        if (todasCompletadas)
+        {
+            Estado = "Finalizada";
+        }
+    }
+
     public void Finalizar()
     {
         Estado = "Finalizada";
