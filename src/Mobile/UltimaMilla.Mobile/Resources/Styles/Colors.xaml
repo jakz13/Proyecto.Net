@@ -52,6 +52,27 @@
     <Color x:Key="OfflineBadgeText">#991B1B</Color>
     <Color x:Key="OfflineBadgeBorder">#FCA5A5</Color>
 
+    <!-- Semánticos: Variantes Oscuras para Pressed -->
+    <Color x:Key="SuccessDark">#15803D</Color>
+    <Color x:Key="WarningDark">#B45309</Color>
+    <Color x:Key="DangerDark">#B91C1C</Color>
+
+    <!-- Tarjetas de Alerta / Notas de Comercio -->
+    <Color x:Key="WarningCardBg">#FFFBEB</Color>
+    <Color x:Key="WarningCardBorder">#FDE68A</Color>
+
+    <!-- Accesos Rápidos Ergonómicos -->
+    <Color x:Key="PhoneActionBg">#DCFCE7</Color>
+    <Color x:Key="PhoneActionBorder">#86EFAC</Color>
+    <Color x:Key="PhoneActionText">#166534</Color>
+
+    <Color x:Key="MapActionBg">#EFF6FF</Color>
+    <Color x:Key="MapActionBorder">#BFDBFE</Color>
+    <Color x:Key="MapActionText">#1D4ED8</Color>
+
+    <!-- Barra de Progreso -->
+    <Color x:Key="ProgressBarTrack">#E2E8F0</Color>
+
     <!-- Brushes utilitarios -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackground}"/>

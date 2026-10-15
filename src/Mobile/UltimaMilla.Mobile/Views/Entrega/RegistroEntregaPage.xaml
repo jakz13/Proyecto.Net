@@ -16,7 +16,7 @@
             <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="6">
                     <HorizontalStackLayout Spacing="6">
-                        <Label Text="📦 Parada en Curso"
+                        <Label Text="Parada en Curso"
                                FontSize="12"
                                FontAttributes="Bold"
                                TextColor="{StaticResource Primary}" />
@@ -103,15 +103,17 @@
 
                         <Grid VerticalOptions="Center" HorizontalOptions="Center">
                             <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
-                                <Label Text="✍️"
-                                       FontSize="30"
+                                <Label Text="PANEL DE FIRMA"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextMuted}"
                                        HorizontalOptions="Center" />
 
                                 <Label Text="{Binding FirmaStatusText}"
                                        Style="{StaticResource CaptionLabel}"
                                        HorizontalOptions="Center" />
 
-                                <Label Text="(Toque este recuadro para registrar la firma)"
+                                <Label Text="(Toque este recuadro para registrar la firma digital)"
                                        Style="{StaticResource MutedLabel}"
                                        HorizontalOptions="Center" />
                             </VerticalStackLayout>
@@ -128,7 +130,7 @@
                     <Label Text="Evidencia Fotográfica"
                            Style="{StaticResource H3Label}" />
 
-                    <Button Text="📷 Abrir Cámara para Foto"
+                    <Button Text="Abrir Cámara para Foto"
                             Style="{StaticResource SecondaryButton}"
                             Command="{Binding AbrirCamaraCommand}" />
 
@@ -141,7 +143,8 @@
             <!-- ========================================================= -->
             <!-- BOTÓN PRINCIPAL DE ACCIÓN: GUARDAR ENTREGA                -->
             <!-- ========================================================= -->
-            <Button Text="✓ Guardar Entrega"
+            <Button Text="Guardar Entrega"
+                    Style="{StaticResource SuccessButton}"
                     Command="{Binding GuardarEntregaCommand}"
                     IsEnabled="{Binding IsNotBusy}"
                     HeightRequest="52"

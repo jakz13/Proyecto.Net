@@ -55,34 +55,42 @@
     </Style>
 
     <!-- ================================================================= -->
-    <!-- ESTILOS GLOBALES: BOTONES (Redondeados, planos, con feedback)     -->
+    <!-- ESTILOS GLOBALES: BOTONES (Ergonómicos, tacto móvil con feedback) -->
     <!-- ================================================================= -->
 
-    <!-- Estilo implícito para Button: Botón Primario por defecto -->
+    <!-- Estilo implícito para Button: Botón Primario por defecto (Ergonómico para calle 50+ px) -->
     <Style TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
         <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="15" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Padding" Value="18,12" />
-        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="52" />
+        <Setter Property="MinimumHeightRequest" Value="50" />
         <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
-                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
-                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
                             <Setter Property="TextColor" Value="#F8FAFC" />
-                            <Setter Property="Opacity" Value="0.6" />
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Scale" Value="1.0" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -90,25 +98,142 @@
         </Setter>
     </Style>
 
-    <!-- Botón Secundario (Gris suave / Outline) -->
+    <!-- Botón de Éxito / Confirmar Entrega (Verde, alto impacto visual) -->
+    <Style x:Key="SuccessButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Success}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="18,12" />
+        <Setter Property="HeightRequest" Value="52" />
+        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource SuccessDark}" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botón de Peligro / Registro de Incidencia (Rojo, atención prioritaria) -->
+    <Style x:Key="DangerButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Danger}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="18,12" />
+        <Setter Property="HeightRequest" Value="52" />
+        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource DangerDark}" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botón Outline de Fallo / Cancelación (Fondo rojo tenue, borde rojo) -->
+    <Style x:Key="DangerOutlineButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource Danger}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource DangerLight}" />
+        <Setter Property="BorderColor" Value="{StaticResource Danger}" />
+        <Setter Property="BorderWidth" Value="1.5" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="HeightRequest" Value="50" />
+        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="#FECACA" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botón Secundario (Gris neutral con feedback) -->
     <Style x:Key="SecondaryButton" TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="BackgroundColor" Value="{StaticResource SecondaryLight}" />
         <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Padding" Value="16,10" />
-        <Setter Property="MinimumHeightRequest" Value="46" />
+        <Setter Property="HeightRequest" Value="50" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
-                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="#E2E8F0" />
-                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Disabled">
@@ -121,37 +246,32 @@
         </Setter>
     </Style>
 
-    <!-- Botón Pequeño de Acción Rápida (ej. "Ir" en la tarjeta) -->
-    <Style x:Key="SmallActionButton" TargetType="Button">
-        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+    <!-- Botón de Llamar Rápido (Icono teléfono, tarjeta y detalle) -->
+    <Style x:Key="QuickCallButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource PhoneActionText}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource PhoneActionBg}" />
+        <Setter Property="BorderColor" Value="{StaticResource PhoneActionBorder}" />
+        <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="14,6" />
-        <Setter Property="HeightRequest" Value="36" />
-        <Setter Property="MinimumHeightRequest" Value="36" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Shadow" Value="{x:Null}" />
-    </Style>
-
-    <!-- ================================================================= -->
-    <!-- ESTILOS GLOBALES: INPUTS (Entry y Editor con bordes suaves)       -->
-    <!-- ================================================================= -->
-
-    <!-- Estilo implícito para Entry -->
-    <Style TargetType="Entry">
-        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
-        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
-        <Setter Property="FontSize" Value="15" />
-        <Setter Property="HeightRequest" Value="48" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
-                    <VisualState x:Name="Normal" />
-                    <VisualState x:Name="Focused">
+                    <VisualState x:Name="Normal">
                         <VisualState.Setters>
-                            <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="#BBF7D0" />
+                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -159,22 +279,116 @@
         </Setter>
     </Style>
 
+    <!-- Botón de Navegación Rápida (Icono mapa, tarjeta y detalle) -->
+    <Style x:Key="QuickMapButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource MapActionText}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource MapActionBg}" />
+        <Setter Property="BorderColor" Value="{StaticResource MapActionBorder}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="#DBEAFE" />
+                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botón de Acción en Tarjeta ("Gestionar" / "Detalle ➔") -->
+    <Style x:Key="SmallActionButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="Scale" Value="0.95" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: INPUTS (Entry, Editor, Picker)                  -->
+    <!-- ================================================================= -->
+
+    <!-- Estilo implícito para Entry -->
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="HeightRequest" Value="48" />
+    </Style>
+
     <!-- Estilo implícito para Editor (Texto multilínea) -->
     <Style TargetType="Editor">
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="MinimumHeightRequest" Value="80" />
     </Style>
 
+    <!-- Estilo implícito para Picker (Selectores nativos) -->
+    <Style TargetType="Picker">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="TitleColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="HeightRequest" Value="48" />
+    </Style>
+
     <!-- Contenedor Border para envolver Inputs con bordes redondeados pulidos -->
     <Style x:Key="InputContainer" TargetType="Border">
-        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
         <Setter Property="Stroke" Value="{StaticResource InputBorder}" />
-        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeThickness" Value="1.2" />
         <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
-        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Padding" Value="14,0" />
+    </Style>
+
+    <!-- Contenedor Border para Editor multilínea -->
+    <Style x:Key="EditorContainer" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="Stroke" Value="{StaticResource InputBorder}" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="Padding" Value="12,8" />
     </Style>
 
     <!-- ================================================================= -->
@@ -183,7 +397,7 @@
 
     <!-- Estilo explícito para Tarjetas de Entregas / Envíos (CardView) -->
     <Style x:Key="CardView" TargetType="Border">
-        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
         <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
@@ -191,18 +405,44 @@
         <Setter Property="Shadow">
             <Shadow Brush="#000000"
                     Offset="0,2"
-                    Radius="6"
-                    Opacity="0.05" />
+                    Radius="8"
+                    Opacity="0.06" />
         </Setter>
     </Style>
 
-    <!-- Pill / Badge flotante para Modo Offline -->
+    <!-- Tarjeta de Notas Especiales / Advertencias de Comercio -->
+    <Style x:Key="WarningNoticeCard" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+        <Setter Property="Stroke" Value="{StaticResource WarningCardBorder}" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="BackgroundColor" Value="{StaticResource WarningCardBg}" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <!-- Pill / Badge flotante e interactivo para Modo Offline -->
     <Style x:Key="OfflinePill" TargetType="Border">
         <Setter Property="StrokeShape" Value="RoundRectangle 20" />
         <Setter Property="Stroke" Value="{StaticResource OfflineBadgeBorder}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource OfflineBadgeBg}" />
-        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.95" />
+                            <Setter Property="Opacity" Value="0.85" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
     </Style>
 
     <!-- Estilo implícito para Border general -->
@@ -211,6 +451,14 @@
         <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- ESTILOS GLOBALES: PROGRESSBAR NATIVO                             -->
+    <!-- ================================================================= -->
+    <Style x:Key="ModernProgressBar" TargetType="ProgressBar">
+        <Setter Property="ProgressColor" Value="{StaticResource Primary}" />
+        <Setter Property="HeightRequest" Value="8" />
     </Style>
 
 </ResourceDictionary>

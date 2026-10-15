@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Ruta"
+             x:Class="UltimaMilla.Mobile.Views.Ruta.DetalleParadaPage"
+             x:DataType="vm:DetalleParadaViewModel"
+             Title="Detalle de Parada"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="*, Auto">
+
+        <!-- ========================================================= -->
+        <!-- CONTENIDO PRINCIPAL SCROLLEABLE                           -->
+        <!-- ========================================================= -->
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="16" Padding="16,16,16,20">
+
+                <!-- 1. Cabecera de la Parada y Estado -->
+                <Border Style="{StaticResource CardView}">
+                    <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="Auto, *, Auto" RowSpacing="12" ColumnSpacing="12">
+                        <!-- Identificador de Parada -->
+                        <Border Grid.Row="0" Grid.Column="0"
+                                BackgroundColor="#EFF6FF"
+                                Stroke="#BFDBFE"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="10,6"
+                                VerticalOptions="Center">
+                            <Label Text="{Binding Parada.Orden, StringFormat='Parada {0}'}"
+                                   TextColor="{StaticResource Primary}"
+                                   FontAttributes="Bold"
+                                   FontSize="13" />
+                        </Border>
+
+                        <!-- Remito / Seguimiento -->
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                            <Label Text="Código de Envío" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding Parada.CodigoSeguimiento}"
+                                   FontAttributes="Bold"
+                                   FontSize="14"
+                                   TextColor="{StaticResource TextPrimary}" />
+                        </VerticalStackLayout>
+
+                        <!-- Badge de Estado -->
+                        <Border Grid.Row="0" Grid.Column="2"
+                                BackgroundColor="{Binding Parada.EstadoBgColor}"
+                                Stroke="{Binding Parada.EstadoBorderColor}"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 12"
+                                Padding="12,5"
+                                VerticalOptions="Center">
+                            <Label Text="{Binding Parada.EstadoTextoBadge}"
+                                   TextColor="{Binding Parada.EstadoTextColor}"
+                                   FontSize="12"
+                                   FontAttributes="Bold" />
+                        </Border>
+
+                        <!-- Horario Estimado -->
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Spacing="8">
+                            <Label Text="Ventana estimada de entrega:" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding Parada.HoraEstimada, StringFormat='{0} hs'}"
+                                   Style="{StaticResource CaptionLabel}"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+
+                <!-- 2. Información del Destinatario y Ubicación con Acciones Rápidas -->
+                <Border Style="{StaticResource CardView}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="Datos del Destinatario" Style="{StaticResource H3Label}" />
+
+                        <!-- Dirección Completa -->
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Dirección de Destino" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding Parada.Direccion}"
+                                   FontSize="17"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextPrimary}" />
+                            <Label Text="{Binding Parada.Ciudad}"
+                                   Style="{StaticResource CaptionLabel}"
+                                   TextColor="{StaticResource TextSecondary}" />
+                        </VerticalStackLayout>
+
+                        <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" />
+
+                        <!-- Nombre y Teléfono -->
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                <Label Text="Receptor" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding Parada.Destinatario}"
+                                       FontAttributes="Bold"
+                                       FontSize="14"
+                                       TextColor="{StaticResource TextPrimary}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Label Text="Teléfono" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding Parada.Telefono}"
+                                       FontAttributes="Bold"
+                                       FontSize="14"
+                                       TextColor="{StaticResource Primary}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <!-- Botones de Acción Ergonómicos en Calle: Llamada y Navegación GPS -->
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10" Margin="0,4,0,0">
+                            <Button Grid.Column="0"
+                                    Text="Llamar"
+                                    Style="{StaticResource QuickCallButton}"
+                                    HeightRequest="46"
+                                    Command="{Binding LlamarClienteCommand}" />
+
+                            <Button Grid.Column="1"
+                                    Text="Abrir Mapa"
+                                    Style="{StaticResource QuickMapButton}"
+                                    HeightRequest="46"
+                                    Command="{Binding NavegarCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 3. Notas Especiales del Comercio / Remitente -->
+                <Border Style="{StaticResource WarningNoticeCard}"
+                        IsVisible="{Binding TieneNotasComercio}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Instrucciones Especiales del Comercio"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource WarningText}" />
+
+                        <Label Text="{Binding Parada.NotasComercio}"
+                               FontSize="13.5"
+                               LineHeight="1.3"
+                               TextColor="{StaticResource TextPrimary}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 4. Detalle de Bultos que Contiene el Envío -->
+                <Border Style="{StaticResource CardView}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Label Grid.Column="0"
+                                   Text="Bultos del Envío"
+                                   Style="{StaticResource H3Label}" />
+
+                            <Label Grid.Column="1"
+                                   Text="{Binding ResumenBultosTexto}"
+                                   Style="{StaticResource CaptionLabel}"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+                        </Grid>
+
+                        <!-- Lista de bultos declarados -->
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Parada.Bultos}"
+                                             Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BultoItemViewModel">
+                                    <Border Stroke="{StaticResource CardBorder}"
+                                            StrokeThickness="1"
+                                            StrokeShape="RoundRectangle 8"
+                                            BackgroundColor="#F8FAFC"
+                                            Padding="12,10">
+                                        <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
+                                            <!-- Tag de bulto corporativo -->
+                                            <Border Grid.Column="0"
+                                                    BackgroundColor="#EFF6FF"
+                                                    Stroke="#BFDBFE"
+                                                    StrokeThickness="1"
+                                                    StrokeShape="RoundRectangle 6"
+                                                    Padding="8,3"
+                                                    VerticalOptions="Center">
+                                                <Label Text="BULTO"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource Primary}" />
+                                            </Border>
+
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Codigo}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="13"
+                                                       TextColor="{StaticResource TextPrimary}" />
+                                                <Label Text="{Binding Descripcion}"
+                                                       Style="{StaticResource CaptionLabel}" />
+                                            </VerticalStackLayout>
+
+                                            <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="End" VerticalOptions="Center">
+                                                <Label Text="{Binding PesoKg, StringFormat='{0:F1} kg'}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="13"
+                                                       TextColor="{StaticResource TextSecondary}"
+                                                       HorizontalOptions="End" />
+                                                <Label Text="{Binding Icono}"
+                                                       FontSize="11"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource WarningText}"
+                                                       HorizontalOptions="End" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- ========================================================= -->
+        <!-- BARRA INFERIOR DE ACCIONES PRINCIPALES                    -->
+        <!-- ========================================================= -->
+        <Border Grid.Row="1"
+                Stroke="{StaticResource CardBorder}"
+                StrokeThickness="0,1,0,0"
+                StrokeShape="Rectangle"
+                BackgroundColor="{StaticResource CardBackground}"
+                Padding="16,12,16,14">
+
+            <VerticalStackLayout Spacing="10">
+                <!-- Botón Principal: Confirmar Entrega -->
+                <Button Text="Confirmar Entrega"
+                        Style="{StaticResource SuccessButton}"
+                        Command="{Binding IrAConfirmarEntregaCommand}"
+                        IsEnabled="{Binding PuedeAccionar}" />
+
+                <!-- Botón Secundario: Registrar Intento Fallido (UC-21) -->
+                <Button Text="Registrar Intento Fallido (UC-21)"
+                        Style="{StaticResource DangerOutlineButton}"
+                        Command="{Binding IrARegistrarFalloCommand}"
+                        IsEnabled="{Binding PuedeAccionar}" />
+            </VerticalStackLayout>
+        </Border>
+
+    </Grid>
+
+</ContentPage>
