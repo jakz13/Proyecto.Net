@@ -134,6 +134,48 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         TransicionarEstado(EstadoEnvio.AsignadoARuta, "AsignacionRuta");
     }
 
+    public void DespacharEnRuta(Guid hojaDeRutaId, Guid? responsableUsuarioId = null, string? observaciones = null)
+    {
+        if (EstadoActual != EstadoEnvio.AsignadoARuta)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede despachar porque su estado es {EstadoActual} (se requiere estado AsignadoARuta).");
+
+        HojaDeRutaId = hojaDeRutaId;
+        foreach (var bulto in _bultos)
+        {
+            bulto.MarcarCargadoEnVehiculo();
+        }
+
+        TransicionarEstado(
+            EstadoEnvio.EnTransito,
+            "DespachoRuta",
+            responsableUsuarioId,
+            "MobileApp",
+            null,
+            null,
+            observaciones);
+    }
+
+    public void DesasignarDeRutaPorFaltante(string motivo, Guid? responsableUsuarioId = null)
+    {
+        if (EstadoActual != EstadoEnvio.AsignadoARuta)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede desasignar porque su estado es {EstadoActual}.");
+
+        HojaDeRutaId = null;
+        foreach (var bulto in _bultos)
+        {
+            bulto.MarcarFaltanteEnCarga();
+        }
+
+        TransicionarEstado(
+            EstadoEnvio.EnDeposito,
+            "BultoFaltanteEnCarga",
+            responsableUsuarioId,
+            "MobileApp",
+            null,
+            null,
+            motivo);
+    }
+
     public void TransicionarEstado(
         EstadoEnvio nuevoEstado,
         string tipoEvento,

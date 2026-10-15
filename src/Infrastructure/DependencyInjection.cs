@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Infrastructure.Persistence.Repositories;
+using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Infrastructure;
 
@@ -23,7 +24,17 @@ public static class DependencyInjection
             });
         });
 
+        services.AddHttpContextAccessor();
+
+        // Puertos de persistencia y dominio
         services.AddScoped<IEnvioRepository, EfEnvioRepository>();
+        services.AddScoped<IRutaRepository, EfRutaRepository>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<IOutboxStorage, EfOutboxStorage>();
+
+        // Servicios transversales
+        services.AddScoped<ICurrentTenant, CurrentTenant>();
+        services.AddSingleton<IClock, SystemClock>();
 
         return services;
     }

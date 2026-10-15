@@ -57,6 +57,20 @@ public class Bulto : Entity
         EstadoBulto = nuevoEstado.Trim();
     }
 
+    public void MarcarCargadoEnVehiculo()
+    {
+        EstadoBulto = "CargadoEnVehiculo";
+    }
+
+    public void MarcarCargado() => MarcarCargadoEnVehiculo();
+
+    public void MarcarFaltanteEnCarga()
+    {
+        EstadoBulto = "FaltanteEnCarga";
+    }
+
+    public void MarcarFaltante(string? motivo = null) => MarcarFaltanteEnCarga();
+
     public void ActualizarDimensiones(decimal peso, decimal alto, decimal ancho, decimal profundo)
     {
         if (peso <= 0)

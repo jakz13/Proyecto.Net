@@ -66,7 +66,27 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    public void IniciarCarga()
+    {
+        if (!RepartidorId.HasValue || !VehiculoId.HasValue)
+            throw new DomainValidationException("No se puede iniciar la carga sin repartidor y vehículo asignados.");
+
+        if (!_paradas.Any())
+            throw new DomainValidationException("No se puede iniciar la carga de una hoja de ruta sin paradas planificadas.");
+
+        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
+            throw new DomainValidationException($"No se puede iniciar la carga en una hoja de ruta en estado '{Estado}'.");
+
+        Estado = "EnCarga";
+        SelloModificacion = Guid.NewGuid();
+    }
+
     public void Despachar()
+    {
+        DespacharConCarga(Enumerable.Empty<string>());
+    }
+
+    public void DespacharConCarga(IEnumerable<string> bultosCargadosEfectivos, string? observaciones = null)
     {
         if (!RepartidorId.HasValue || !VehiculoId.HasValue)
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin repartidor y vehículo asignados.");
@@ -74,8 +94,58 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (!_paradas.Any())
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin paradas.");
 
+        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
+            throw new DomainValidationException($"La hoja de ruta ya se encuentra en estado '{Estado}'.");
+
         Estado = "Despachada";
         FechaDespacho = DateTime.UtcNow;
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    public Parada IniciarNavegacionHaciaParada(Guid paradaId)
+    {
+        if (Estado != "EnTransito" && Estado != "Despachada")
+            throw new DomainValidationException($"Precondición no cumplida: El vehículo debe estar cargado y la ruta en tránsito (Estado actual: '{Estado}').");
+
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId);
+        if (parada is null)
+            throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        // Si alguna otra parada estaba en camino, se regresa a pendiente (reordenamiento en calle)
+        foreach (var p in _paradas.Where(p => p.Id != paradaId && p.Estado == "EnCamino"))
+        {
+            p.CambiarEstado("Pendiente");
+        }
+
+        parada.IniciarNavegacion();
+        SelloModificacion = Guid.NewGuid();
+        return parada;
+    }
+
+    public Parada RegistrarArriboAParada(Guid paradaId)
+    {
+        if (Estado != "EnTransito" && Estado != "Despachada")
+            throw new DomainValidationException($"No se puede registrar arribo si la ruta no está en tránsito.");
+
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId);
+        if (parada is null)
+            throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarArribo();
+        SelloModificacion = Guid.NewGuid();
+        return parada;
+    }
+
+    public void DesasignarEnvioFaltante(Guid envioId)
+    {
+        var asignacion = _asignaciones.FirstOrDefault(a => a.EnvioId == envioId && a.Vigente);
+        asignacion?.Desactivar();
+
+        var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId);
+        if (parada is not null)
+        {
+            parada.CancelarPorFaltante("Bulto faltante durante escaneo de carga en depósito.");
+        }
         SelloModificacion = Guid.NewGuid();
     }
 

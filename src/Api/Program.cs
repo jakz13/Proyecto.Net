@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using UltimaMilla.Api.Endpoints;
 using UltimaMilla.Application;
 using UltimaMilla.Application.Commands.AltaEnvio;
 using UltimaMilla.Application.DTOs;
@@ -16,6 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -65,6 +68,8 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Auto-migrate database on startup with resilience retry
 ApplyMigrations(app);
@@ -224,6 +229,9 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
 })
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
+
+// Registrar endpoints de operación en calle (UC-18 y UC-19)
+app.MapMobileRutasEndpoints();
 
 app.Run();
 
