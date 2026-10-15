@@ -1,0 +1,8 @@
+@model string
+
+@if (!string.IsNullOrWhiteSpace(Model))
+{
+    <button type="button" class="btn-ayuda" data-ayuda="@Model" aria-label="Ayuda">
+        ?
+    </button>
+}

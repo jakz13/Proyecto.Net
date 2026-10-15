@@ -1,0 +1,97 @@
+@inject ISeguimientoApi SeguimientoApi
+
+<div class="panel-reprogramacion" role="region" aria-label="Solicitud de reprogramación de entrega">
+    <div class="panel-reprogramacion__encabezado">
+        <Icono Nombre="reloj" Tamano="18" />
+        <h3 class="panel-reprogramacion__titulo">¿Deseás reprogramar la fecha de entrega?</h3>
+    </div>
+    <p class="panel-reprogramacion__descripcion">
+        No fue posible concretar la entrega anteriormente. Podés solicitar una nueva fecha para recibir el paquete en tu domicilio.
+    </p>
+
+    @if (!mostrarFormulario)
+    {
+        <button type="button" class="btn btn-outline-dark btn-sm fw-semibold" @onclick="() => mostrarFormulario = true">
+            <Icono Nombre="calendario" Tamano="14" Clase="me-1" />
+            Solicitar nueva fecha de entrega
+        </button>
+    }
+    else
+    {
+        <div class="panel-reprogramacion__form">
+            <label for="inputFechaReprogramar" class="visually-hidden">Nueva fecha de entrega</label>
+            <input id="inputFechaReprogramar"
+                   type="date"
+                   class="panel-reprogramacion__input form-control form-control-sm"
+                   style="max-width: 200px;"
+                   min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")"
+                   @bind="fechaSeleccionada" />
+
+            <button type="button"
+                    class="panel-reprogramacion__boton-confirmar"
+                    disabled="@estaEnviando"
+                    @onclick="ManejarConfirmacion">
+                @if (estaEnviando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <span>Guardando...</span>
+                }
+                else
+                {
+                    <Icono Nombre="check" Tamano="14" />
+                    <span>Confirmar nueva fecha</span>
+                }
+            </button>
+
+            <button type="button" class="btn btn-link btn-sm text-secondary" @onclick="() => mostrarFormulario = false">
+                Cancelar
+            </button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(mensajeFeedback))
+    {
+        <div class="mt-2 text-success small fw-semibold">
+            <Icono Nombre="check" Tamano="14" Clase="me-1" />
+            @mensajeFeedback
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string CodigoSeguimiento { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback AlReprogramarExitoso { get; set; }
+
+    private bool mostrarFormulario = false;
+    private DateTime fechaSeleccionada = DateTime.Today.AddDays(1);
+    private bool estaEnviando = false;
+    private string? mensajeFeedback;
+
+    private async Task ManejarConfirmacion()
+    {
+        estaEnviando = true;
+        mensajeFeedback = null;
+
+        try
+        {
+            var exito = await SeguimientoApi.SolicitarReprogramacionAsync(CodigoSeguimiento, fechaSeleccionada);
+            if (exito)
+            {
+                mensajeFeedback = $"Reprogramación solicitada correctamente para el {fechaSeleccionada:dd/MM/yyyy}.";
+                mostrarFormulario = false;
+                await AlReprogramarExitoso.InvokeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeFeedback = $"No fue posible reprogramar: {ex.Message}";
+        }
+        finally
+        {
+            estaEnviando = false;
+        }
+    }
+}

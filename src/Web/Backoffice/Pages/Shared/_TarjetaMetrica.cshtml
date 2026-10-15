@@ -1,0 +1,24 @@
+@model TarjetaMetricaViewModel
+
+<div class="metrica-card d-flex flex-column justify-content-between h-100">
+    <div>
+        <div class="metrica-card__header">
+            <span class="metrica-card__label">@Model.Titulo</span>
+            @if (!string.IsNullOrEmpty(Model.Ayuda))
+            {
+                <partial name="_BotonAyuda" model="@Model.Ayuda" />
+            }
+        </div>
+        <div class="metrica-card__valor @(Model.ColorValor ?? "text-dark")">
+            @Model.Valor
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(Model.BotonTexto) && !string.IsNullOrEmpty(Model.BotonUrl))
+    {
+        <div class="mt-3 pt-2 border-top">
+            <a href="@Model.BotonUrl" class="btn btn-outline-dark btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                @Model.BotonTexto
+            </a>
+        </div>
+    }
+</div>

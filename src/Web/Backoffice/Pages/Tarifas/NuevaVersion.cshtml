@@ -1,0 +1,253 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Tarifas.NuevaVersionModel
+@{
+    ViewData["Title"] = "Publicar Nueva Versión del Cuadro Tarifario";
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold text-dark mb-0">Publicar Nueva Versión del Cuadro Tarifario (UC-03)</h1>
+        <partial name="_BotonAyuda" model='"Al publicar, esta versión pasará a ser la vigente y la anterior se archivará cerrando su vigencia (RF-03)."' />
+    </div>
+    <a asp-page="/Tarifas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver a Tarifas</span>
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div>
+                <strong>Error de validación:</strong>
+                <span>@Model.ErrorMessage</span>
+            </div>
+        </div>
+    </div>
+}
+
+<form method="post" id="formularioNuevaVersion">
+    <!-- 1. Encabezado de la Versión -->
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">1. Parámetros de la Versión</h2>
+                <partial name="_BotonAyuda" model='"Los envíos en curso conservan su cotización original. La nueva versión aplica a partir de la fecha indicada."' />
+            </div>
+        </div>
+        <div class="panel-estandar-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label asp-for="NuevaVersion.Comentario" class="form-label small fw-semibold">Motivo / Descripción de la Nueva Versión</label>
+                    <input asp-for="NuevaVersion.Comentario" class="form-control form-control-sm" placeholder="Ej: Ajuste general de tarifas y bonificaciones por apertura de nuevas zonas" />
+                    <span asp-validation-for="NuevaVersion.Comentario" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="NuevaVersion.VigenteDesde" class="form-label small fw-semibold">Vigente a partir de</label>
+                    <input asp-for="NuevaVersion.VigenteDesde" type="datetime-local" class="form-control form-control-sm"
+                           value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" required />
+                    <span asp-validation-for="NuevaVersion.VigenteDesde" class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Definición de Reglas de Precio -->
+    <div class="panel-estandar mb-4">
+        <div class="panel-estandar-header">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">2. Reglas de Precio por Modalidad, Zona, Peso y Volumen</h2>
+                <partial name="_BotonAyuda" model='"Se precargaron las reglas vigentes para facilitar incrementos de tarifas. Agregue o modifique las filas deseadas."' />
+            </div>
+            <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="agregarFilaRegla()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Agregar Regla</span>
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-compacta mb-0 align-middle" id="tablaReglas">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 18%;">Modalidad *</th>
+                        <th style="width: 17%;">Zona de Cobertura</th>
+                        <th style="width: 13%;">Peso (kg) *</th>
+                        <th style="width: 13%;">Volumen (m³) *</th>
+                        <th style="width: 11%;">Base ($) *</th>
+                        <th style="width: 11%;">Recargo ($)</th>
+                        <th style="width: 11%;">Bonif. ($)</th>
+                        <th style="width: 6%;" class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpoTablaReglas">
+                    @for (int i = 0; i < Model.Reglas.Count; i++)
+                    {
+                        <tr class="fila-regla">
+                            <td>
+                                <select name="Reglas[@i].ModalidadServicio" class="form-select form-select-sm" required>
+                                    <option value="Estándar 24-48h" selected="@(Model.Reglas[i].ModalidadServicio == "Estándar 24-48h")">Estándar 24-48h</option>
+                                    <option value="Express en el Día" selected="@(Model.Reglas[i].ModalidadServicio == "Express en el Día")">Express en el Día</option>
+                                    <option value="Mismo Día" selected="@(Model.Reglas[i].ModalidadServicio == "Mismo Día")">Mismo Día (Urgente)</option>
+                                    <option value="Carga Pesada" selected="@(Model.Reglas[i].ModalidadServicio == "Carga Pesada")">Carga Pesada</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="Reglas[@i].ZonaCoberturaId" class="form-select form-select-sm">
+                                    <option value="">Todas las zonas</option>
+                                    @foreach (var zona in Model.Zonas)
+                                    {
+                                        <option value="@zona.Id" selected="@(Model.Reglas[i].ZonaCoberturaId == zona.Id)">@zona.Nombre</option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" step="0.1" name="Reglas[@i].PesoDesde" value="@Model.Reglas[i].PesoDesde" class="form-control" placeholder="Min" title="Peso desde" required />
+                                    <span class="input-group-text p-1">-</span>
+                                    <input type="number" step="0.1" name="Reglas[@i].PesoHasta" value="@Model.Reglas[i].PesoHasta" class="form-control" placeholder="Max" title="Peso hasta" required />
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" step="0.001" name="Reglas[@i].VolumenDesde" value="@Model.Reglas[i].VolumenDesde" class="form-control" placeholder="Min" title="Volumen desde" required />
+                                    <span class="input-group-text p-1">-</span>
+                                    <input type="number" step="0.001" name="Reglas[@i].VolumenHasta" value="@Model.Reglas[i].VolumenHasta" class="form-control" placeholder="Max" title="Volumen hasta" required />
+                                </div>
+                            </td>
+                            <td>
+                                <input type="number" step="1" name="Reglas[@i].PrecioBase" value="@Model.Reglas[i].PrecioBase" class="form-control form-control-sm text-end" required />
+                            </td>
+                            <td>
+                                <input type="number" step="1" name="Reglas[@i].Recargo" value="@Model.Reglas[i].Recargo" class="form-control form-control-sm text-end text-danger" />
+                            </td>
+                            <td>
+                                <input type="number" step="1" name="Reglas[@i].Bonificacion" value="@Model.Reglas[i].Bonificacion" class="form-control form-control-sm text-end text-success" />
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar regla" onclick="eliminarFila(this)">
+                                    &times;
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-footer bg-white p-3 border-top d-flex justify-content-between align-items-center">
+            <span class="small text-muted" id="contadorReglas">
+                Total de reglas configuradas: @Model.Reglas.Count
+            </span>
+            <div class="d-flex gap-2">
+                <a asp-page="/Tarifas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+                <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm"
+                        onclick="return confirm('¿Confirma la publicación de esta nueva versión? La versión anterior cerrará su vigencia y los nuevos envíos se tarifarán con estas reglas.');">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Publicar como Versión Vigente</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function agregarFilaRegla() {
+            var tbody = document.getElementById('cuerpoTablaReglas');
+            var indice = tbody.querySelectorAll('tr.fila-regla').length;
+
+            var opcionesZonas = '<option value="">Todas las zonas</option>';
+            @foreach (var z in Model.Zonas)
+            {
+                @:opcionesZonas += '<option value="@z.Id">@z.Nombre</option>';
+            }
+
+            var fila = document.createElement('tr');
+            fila.className = 'fila-regla';
+            fila.innerHTML = `
+                <td>
+                    <select name="Reglas[${indice}].ModalidadServicio" class="form-select form-select-sm" required>
+                        <option value="Estándar 24-48h">Estándar 24-48h</option>
+                        <option value="Express en el Día">Express en el Día</option>
+                        <option value="Mismo Día">Mismo Día (Urgente)</option>
+                        <option value="Carga Pesada">Carga Pesada</option>
+                    </select>
+                </td>
+                <td>
+                    <select name="Reglas[${indice}].ZonaCoberturaId" class="form-select form-select-sm">
+                        ${opcionesZonas}
+                    </select>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.1" name="Reglas[${indice}].PesoDesde" value="0" class="form-control" placeholder="Min" required />
+                        <span class="input-group-text p-1">-</span>
+                        <input type="number" step="0.1" name="Reglas[${indice}].PesoHasta" value="5" class="form-control" placeholder="Max" required />
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.001" name="Reglas[${indice}].VolumenDesde" value="0" class="form-control" placeholder="Min" required />
+                        <span class="input-group-text p-1">-</span>
+                        <input type="number" step="0.001" name="Reglas[${indice}].VolumenHasta" value="0.05" class="form-control" placeholder="Max" required />
+                    </div>
+                </td>
+                <td>
+                    <input type="number" step="1" name="Reglas[${indice}].PrecioBase" value="200" class="form-control form-control-sm text-end" required />
+                </td>
+                <td>
+                    <input type="number" step="1" name="Reglas[${indice}].Recargo" value="0" class="form-control form-control-sm text-end text-danger" />
+                </td>
+                <td>
+                    <input type="number" step="1" name="Reglas[${indice}].Bonificacion" value="0" class="form-control form-control-sm text-end text-success" />
+                </td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar regla" onclick="eliminarFila(this)">
+                        &times;
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(fila);
+            renumerarFilas();
+        }
+
+        function eliminarFila(btn) {
+            var fila = btn.closest('tr');
+            var tbody = document.getElementById('cuerpoTablaReglas');
+            if (tbody.querySelectorAll('tr.fila-regla').length <= 1) {
+                alert('Debe conservar al menos una regla de precio para el cuadro tarifario.');
+                return;
+            }
+            fila.remove();
+            renumerarFilas();
+        }
+
+        function renumerarFilas() {
+            var filas = document.querySelectorAll('#cuerpoTablaReglas tr.fila-regla');
+            filas.forEach(function (fila, idx) {
+                fila.querySelectorAll('select, input').forEach(function (campo) {
+                    var nombre = campo.getAttribute('name');
+                    if (nombre) {
+                        campo.setAttribute('name', nombre.replace(/Reglas\[\d+\]/, 'Reglas[' + idx + ']'));
+                    }
+                });
+            });
+            document.getElementById('contadorReglas').textContent = 'Total de reglas configuradas: ' + filas.length;
+        }
+    </script>
+}

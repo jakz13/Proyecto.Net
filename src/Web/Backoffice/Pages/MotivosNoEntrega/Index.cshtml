@@ -1,0 +1,411 @@
+@page
+@model UltimaMilla.Backoffice.Pages.MotivosNoEntrega.IndexModel
+@{
+    ViewData["Title"] = "Catálogo de Motivos de No Entrega";
+}
+
+<!-- Encabezado del Caso de Uso UC-05 -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Catálogo de Motivos de No Entrega (UC-05)</h1>
+        <partial name="_BotonAyuda" model='"Configuración del catálogo de causales de entrega fallida que descargan los repartidores en su app móvil (RF-04, RF-21)."' />
+    </div>
+    <button type="button" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoMotivo">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Nuevo Motivo</span>
+    </button>
+</div>
+
+<!-- Alertas de Éxito y Error -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Estandarizadas con Componentes -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Total en Catálogo",
+            Model.Resumen.TotalMotivos.ToString(),
+            "Cantidad global de motivos registrados en el sistema.",
+            "text-dark",
+            "Ver Todos →",
+            Url.Page("/MotivosNoEntrega/Index", new { estadoFiltro = "todos" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Activos en App Móvil",
+            Model.Resumen.MotivosActivosParaMovil.ToString(),
+            "Motivos habilitados para descarga y uso por repartidores (RF-21).",
+            "text-success",
+            "Filtrar Activos →",
+            Url.Page("/MotivosNoEntrega/Index", new { estadoFiltro = "activos" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Inactivos / Retirados",
+            Model.Resumen.MotivosInactivos.ToString(),
+            "Motivos dados de baja lógica que no se sincronizan a los móviles.",
+            "text-secondary",
+            "Filtrar Inactivos →",
+            Url.Page("/MotivosNoEntrega/Index", new { estadoFiltro = "inactivos" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Sincronización Móvil",
+            "RF-21 OK",
+            "Los motivos activos se encuentran disponibles para la app SQLite del repartidor.",
+            "text-primary",
+            "Ver Simulación →",
+            "#simulador-movil"
+        )' />
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Columna Principal: Catálogo de Motivos (8 columnas) -->
+    <div class="col-12 col-lg-8">
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                            Listado de Motivos
+                        </span>
+                        <partial name="_BotonAyuda" model='"Cada motivo define una causal operativa de intento fallido. El código se conserva inalterable para auditoría."' />
+                    </div>
+                    <span class="text-muted small">@Model.Motivos.Count motivos encontrados</span>
+                </div>
+            </div>
+
+            <!-- Filtros de Búsqueda y Estado -->
+            <div class="p-3 bg-light border-bottom">
+                <form method="get" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-7">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                            </span>
+                            <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control border-start-0" placeholder="Buscar por código o descripción..." />
+                        </div>
+                    </div>
+                    <div class="col-8 col-md-3">
+                        <select name="estadoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="todos" selected="@(Model.EstadoFiltro == "todos")">Todos los estados</option>
+                            <option value="activos" selected="@(Model.EstadoFiltro == "activos")">Solo Activos (Móvil)</option>
+                            <option value="inactivos" selected="@(Model.EstadoFiltro == "inactivos")">Solo Inactivos</option>
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-2 d-flex gap-1">
+                        <button type="submit" class="btn btn-outline-dark btn-sm w-100">Filtrar</button>
+                        @if (!string.IsNullOrEmpty(Model.Busqueda) || Model.EstadoFiltro != "todos")
+                        {
+                            <a asp-page="/MotivosNoEntrega/Index" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros">✕</a>
+                        }
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabla de Motivos -->
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 28%;">Código</th>
+                            <th>Descripción Operativa</th>
+                            <th class="text-center" style="width: 10%;">Usos</th>
+                            <th class="text-center" style="width: 16%;">Estado</th>
+                            <th class="text-end" style="width: 18%;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Motivos.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    No se encontraron motivos de no entrega con los criterios seleccionados.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var motivo in Model.Motivos)
+                            {
+                                <tr class="@(!motivo.Activo ? "opacity-75 bg-light" : "")">
+                                    <td>
+                                        <span class="badge bg-dark-subtle text-dark border font-monospace px-2 py-1">
+                                            @motivo.Codigo
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small">@motivo.Descripcion</div>
+                                        <div class="text-muted" style="font-size: 0.725rem;">
+                                            Alta: @motivo.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-secondary border">@motivo.CantidadUsos</span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (motivo.Activo)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                                Activo (Móvil)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                                Desactivado
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <!-- Botón Editar -->
+                                            <button type="button"
+                                                    class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                                    style="font-size: 0.75rem;"
+                                                    onclick="abrirModalEdicion('@motivo.Id', '@motivo.Codigo', '@Html.Raw(Html.Encode(motivo.Descripcion))', @motivo.Activo.ToString().ToLower())"
+                                                    title="Editar descripción">
+                                                Editar
+                                            </button>
+
+                                            <!-- Formulario Toggle Estado -->
+                                            <form method="post" asp-page-handler="CambiarEstado" class="d-inline">
+                                                <input type="hidden" name="id" value="@motivo.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@((!motivo.Activo).ToString().ToLower())" />
+                                                @if (motivo.Activo)
+                                                {
+                                                    <button type="submit"
+                                                            class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                            style="font-size: 0.75rem;"
+                                                            title="Desactivar (dejará de aparecer en la app del repartidor)">
+                                                        Desactivar
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="submit"
+                                                            class="btn btn-outline-success btn-sm py-0 px-2"
+                                                            style="font-size: 0.75rem;"
+                                                            title="Activar para la app del repartidor">
+                                                        Activar
+                                                    </button>
+                                                }
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Lateral: Vista Previa y Sincronización Móvil RF-21 (4 columnas) -->
+    <div class="col-12 col-lg-4" id="simulador-movil">
+        <!-- Panel de Sincronización Móvil -->
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center justify-content-between w-100">
+                    <span class="badge bg-dark text-white px-2 py-1">
+                        App del Repartidor (RF-21)
+                    </span>
+                    <partial name="_BotonAyuda" model='"Simulación de la lista desplegable que el repartidor ve en su app móvil al registrar un intento fallido."' />
+                </div>
+            </div>
+            <div class="p-3">
+                <!-- Teléfono / Dispositivo Mockup -->
+                <div class="border rounded-4 p-3 bg-white shadow-sm mb-3" style="border: 2px solid #dee2e6 !important;">
+                    <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom text-muted" style="font-size: 0.72rem;">
+                        <span class="fw-bold text-dark">Ruta Activa #04</span>
+                        <span class="badge bg-success-subtle text-success border">Online</span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-dark mb-1">
+                            Registrar Intento Fallido
+                        </label>
+                        <select class="form-select form-select-sm" aria-label="Motivo en app móvil">
+                            <option selected disabled>-- Seleccione motivo de no entrega --</option>
+                            @foreach (var m in Model.MotivosMovil)
+                            {
+                                <option value="@m.Id">@m.Descripcion (@m.Codigo)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="p-2 rounded bg-light border small text-muted mb-2" style="font-size: 0.72rem;">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Motivos descargados:</span>
+                            <span class="fw-bold text-dark">@Model.MotivosMovil.Count activos</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Sincronización SQLite:</span>
+                            <span class="text-success fw-semibold">Al día</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-secondary btn-sm py-1" disabled style="font-size: 0.75rem;">
+                            Guardar Intento (App Móvil)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Detalle Técnico de Integración RF-04 / RF-21 -->
+                <div class="small text-muted">
+                    <div class="d-flex align-items-center gap-1 fw-bold text-dark mb-1" style="font-size: 0.8rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Comportamiento de Sincronización</span>
+                    </div>
+                    <ul class="mb-0 ps-3" style="font-size: 0.75rem;">
+                        <li>Al dar de alta o activar un motivo, se incluye en el próximo endpoint <code>/api/v1/motivos-no-entrega/sincronizacion-movil</code>.</li>
+                        <li>Al desactivar un motivo, se retira de la app pero se preservan los intentos históricos ya registrados.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Alta de Nuevo Motivo (UC-05) -->
+<div class="modal fade" id="modalNuevoMotivo" tabindex="-1" aria-labelledby="modalNuevoMotivoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" asp-page-handler="Crear">
+                <div class="modal-header bg-light py-2">
+                    <h5 class="modal-title h6 fw-bold mb-0" id="modalNuevoMotivoLabel">Dar de Alta Motivo de No Entrega</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="mb-3">
+                        <label asp-for="NuevoMotivo.Codigo" class="form-label small fw-semibold">
+                            Código Mnemotécnico <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="NuevoMotivo.Codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="EJ: CLIENTE_NO_RESPONDE" required maxlength="30" />
+                        <span asp-validation-for="NuevoMotivo.Codigo" class="text-danger small"></span>
+                        <div class="form-text" style="font-size: 0.72rem;">
+                            Identificador único en mayúsculas y guiones bajos. No podrá modificarse tras crearse.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="NuevoMotivo.Descripcion" class="form-label small fw-semibold">
+                            Descripción Operativa <span class="text-danger">*</span>
+                        </label>
+                        <textarea asp-for="NuevoMotivo.Descripcion" class="form-control form-control-sm" rows="3" placeholder="Descripción clara que verá el repartidor en la app móvil..." required maxlength="200"></textarea>
+                        <span asp-validation-for="NuevoMotivo.Descripcion" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check form-switch mb-0">
+                        <input asp-for="NuevoMotivo.IniciarActivo" class="form-check-input" type="checkbox" id="checkIniciarActivo" checked />
+                        <label class="form-check-label small" for="checkIniciarActivo">
+                            Habilitar de inmediato para descarga en la app del repartidor (RF-21)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark btn-sm">Dar de Alta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: Edición de Motivo Existente (UC-05) -->
+<div class="modal fade" id="modalEditarMotivo" tabindex="-1" aria-labelledby="modalEditarMotivoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" asp-page-handler="Actualizar">
+                <input type="hidden" asp-for="MotivoEditado.Id" id="editarMotivoId" />
+                <div class="modal-header bg-light py-2">
+                    <h5 class="modal-title h6 fw-bold mb-0" id="modalEditarMotivoLabel">Modificar Motivo de No Entrega</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Código Mnemotécnico</label>
+                        <input type="text" id="editarMotivoCodigo" class="form-control form-control-sm font-monospace bg-light text-muted" readonly />
+                        <div class="form-text" style="font-size: 0.72rem;">El código permanece inmutable para mantener la trazabilidad de auditoría.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="MotivoEditado.Descripcion" class="form-label small fw-semibold">
+                            Descripción Operativa <span class="text-danger">*</span>
+                        </label>
+                        <textarea asp-for="MotivoEditado.Descripcion" id="editarMotivoDescripcion" class="form-control form-control-sm" rows="3" required maxlength="200"></textarea>
+                        <span asp-validation-for="MotivoEditado.Descripcion" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check form-switch mb-0">
+                        <input asp-for="MotivoEditado.Activo" class="form-check-input" type="checkbox" id="editarMotivoActivo" />
+                        <label class="form-check-label small" for="editarMotivoActivo">
+                            Disponible en la app móvil del repartidor
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark btn-sm">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function abrirModalEdicion(id, codigo, descripcion, activo) {
+            document.getElementById('editarMotivoId').value = id;
+            document.getElementById('editarMotivoCodigo').value = codigo;
+            document.getElementById('editarMotivoDescripcion').value = descripcion;
+            document.getElementById('editarMotivoActivo').checked = activo;
+
+            var modal = new bootstrap.Modal(document.getElementById('modalEditarMotivo'));
+            modal.show();
+        }
+    </script>
+}

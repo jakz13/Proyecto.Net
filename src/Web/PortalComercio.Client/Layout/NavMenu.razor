@@ -1,17 +1,19 @@
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Última Milla · Portal del Comercio</a>
+<div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+    <div class="card-header bg-white py-2 px-3 border-bottom">
+        <span class="text-uppercase small fw-bold text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em;">Gestión del Comercio</span>
     </div>
-</div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Inicio
-            </NavLink>
-        </div>
-    </nav>
+    <div class="list-group list-group-flush small">
+        <NavLink class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2" href="" Match="NavLinkMatch.All">
+            <Icono Nombre="tablero" Tamano="16" />
+            <span>Tablero / Métricas</span>
+        </NavLink>
+        <NavLink class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2" href="envios/nuevo">
+            <Icono Nombre="plus" Tamano="16" />
+            <span>Nuevo Envío (UC-24)</span>
+        </NavLink>
+        <NavLink class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2" href="envios">
+            <Icono Nombre="lista" Tamano="16" />
+            <span>Listado de Envíos (UC-28)</span>
+        </NavLink>
+    </div>
 </div>

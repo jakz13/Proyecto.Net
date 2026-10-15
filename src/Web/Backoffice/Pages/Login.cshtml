@@ -1,0 +1,59 @@
+@page
+@model UltimaMilla.Backoffice.Pages.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Iniciar Sesión";
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iniciar Sesión — Backoffice del Operador</title>
+    <link rel="stylesheet" href="~/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100 py-4">
+    <div class="card border-0 shadow-sm rounded-3" style="max-width: 440px; width: 100%;">
+        <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-circle mb-3"
+                     style="width: 48px; height: 48px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                </div>
+                <h1 class="h4 fw-bold mb-1">Acceso al Backoffice</h1>
+                <p class="text-muted small mb-0">Seleccione el perfil para simular el inicio de sesión del operador.</p>
+            </div>
+
+            <form method="post">
+                <div class="mb-3">
+                    <label asp-for="NombreUsuario" class="form-label small fw-semibold">Nombre del Operario</label>
+                    <input asp-for="NombreUsuario" class="form-control" />
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="RolSeleccionado" class="form-label small fw-semibold">Perfil / Rol a asumir</label>
+                    <select asp-for="RolSeleccionado" class="form-select">
+                        <option value="Administrador">Administrador (Acceso total, UC-01 ABM)</option>
+                        <option value="Despachador">Despachador (Rutas y Tablero)</option>
+                        <option value="Operario">Operario de depósito (Recepción)</option>
+                    </select>
+                    <div class="form-text small">
+                        El menú del sistema se adaptará dinámicamente según el rol seleccionado.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold">
+                    Iniciar Sesión
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

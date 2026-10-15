@@ -1,0 +1,339 @@
+@page
+@model UltimaMilla.Backoffice.Pages.ReglasOperativas.IndexModel
+@{
+    ViewData["Title"] = "Reglas Operativas";
+}
+
+<!-- Encabezado del Caso de Uso UC-04 -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Reglas Operativas de Entrega y Devolución (UC-04)</h1>
+        <partial name="_BotonAyuda" model='"Intentos máximos, plazos entre reintentos, prueba de entrega exigida y compromisos SLA con versionado inmutable (RF-04)."' />
+    </div>
+    <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Publicar Nueva Versión</span>
+    </a>
+</div>
+
+<!-- Alertas y Mensajes -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Columna Principal: Versión Vigente e Historial (8 columnas) -->
+    <div class="col-12 col-lg-8">
+        <!-- 1. Tarjeta de la Versión Vigente Actual -->
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                        ● Versión Vigente (Versión @(Model.VersionVigente?.Version ?? 1))
+                    </span>
+                    <span class="text-secondary small">
+                        Desde: @(Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")
+                    </span>
+                    <partial name="_BotonAyuda" model='"Rige actualmente para todos los envíos despachados desde esta fecha."' />
+                </div>
+                <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
+                    Crear versión a partir de esta
+                </a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.VersionVigente?.Comentario))
+            {
+                <div class="px-3 py-2 bg-light border-bottom text-dark small fw-semibold">
+                    @Model.VersionVigente.Comentario
+                </div>
+            }
+
+            <div class="panel-estandar-body">
+                @if (Model.VersionVigente == null)
+                {
+                    <div class="text-center py-4 text-muted small">
+                        No hay una versión de reglas operativas configurada como vigente.
+                    </div>
+                }
+                else
+                {
+                    <!-- Fila 1: 3 Métricas Numéricas de Altura Estandarizada -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Intentos de Entrega</span>
+                                    <partial name="_BotonAyuda" model='"Cantidad máxima de visitas permitidas al domicilio antes de iniciar devolución."' />
+                                </div>
+                                <div class="metrica-card__valor">
+                                    @Model.VersionVigente.MaxIntentosEntrega
+                                    <span class="fs-6 fw-normal text-muted">máximos</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Espera entre Intentos</span>
+                                    <partial name="_BotonAyuda" model='"Intervalo reglamentario mínimo de espera tras una visita fallida."' />
+                                </div>
+                                <div class="metrica-card__valor font-monospace">
+                                    @Model.VersionVigente.HorasEntreIntentos
+                                    <span class="fs-6 fw-normal text-muted">horas</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-12 col-md-4">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">SLA Comprometido</span>
+                                    <partial name="_BotonAyuda" model='"Plazos máximos comprometidos para entrega según modalidad de servicio."' />
+                                </div>
+                                <div class="d-flex justify-content-between align-items-baseline mt-1">
+                                    <span class="small text-muted fw-semibold">Estándar:</span>
+                                    <span class="badge bg-dark">@Model.VersionVigente.HorasPlazoComprometidoEstandar h</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-baseline">
+                                    <span class="small text-muted fw-semibold">Urgente:</span>
+                                    <span class="badge bg-primary">@Model.VersionVigente.HorasPlazoComprometidoUrgente h</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: 2 Paneles de Política y Prueba de Altura Estandarizada -->
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Prueba de Entrega Exigida</span>
+                                    <partial name="_BotonAyuda" model='"Comprobante obligatorio que el transportista debe cargar en la app móvil al entregar."' />
+                                </div>
+                                <div class="fw-semibold text-dark small mt-1">
+                                    @Model.VersionVigente.TipoPruebaEntregaExigida
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Política de Devolución</span>
+                                    <partial name="_BotonAyuda" model='"Procedimiento automático aplicado tras agotar los intentos permitidos sin éxito."' />
+                                </div>
+                                <div class="fw-semibold text-dark small mt-1">
+                                    @Model.VersionVigente.PoliticaDevolucion
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- 2. Historial de Versiones Anteriores (Conservación de Vigencia e Inmutabilidad) -->
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Historial de Versiones Anteriores</h2>
+                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Archivo Inmutable</span>
+                    <partial name="_BotonAyuda" model='"Los envíos en curso o pasados conservan las reglas vigentes al momento de su admisión."' />
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Versión</th>
+                            <th>Rango de Vigencia</th>
+                            <th>Max Intentos</th>
+                            <th>Espera</th>
+                            <th>SLA (Est / Urg)</th>
+                            <th>Motivo / Comentario</th>
+                            <th class="text-end">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.HistorialVersiones.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-3 text-muted small">
+                                    No hay versiones anteriores archivadas. La versión actual es la inicial.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var hist in Model.HistorialVersiones)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary text-white">
+                                            Versión @hist.Version
+                                        </span>
+                                    </td>
+                                    <td class="small">
+                                        <div><strong>Desde:</strong> @hist.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                        <div><strong>Hasta:</strong> @(hist.VigenteHasta?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")</div>
+                                    </td>
+                                    <td class="small fw-semibold text-center">@hist.MaxIntentosEntrega</td>
+                                    <td class="small text-center font-monospace">@hist.HorasEntreIntentos h</td>
+                                    <td class="small font-monospace">@hist.HorasPlazoComprometidoEstandar h / @hist.HorasPlazoComprometidoUrgente h</td>
+                                    <td class="small text-secondary">
+                                        @(hist.Comentario ?? "Sin observaciones registradas")
+                                    </td>
+                                    <td class="text-end">
+                                        <a asp-page="/ReglasOperativas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                            Ver Archivo
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Lateral: Simulador de Cumplimiento de Reglas (4 columnas) -->
+    <div class="col-12 col-lg-4">
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Simulador de Reglas Operativas</h2>
+                    <partial name="_BotonAyuda" model='"Permite verificar el cumplimiento operativo y cálculo de SLA para un envío hipotético según la versión activa."' />
+                </div>
+            </div>
+
+            <div class="panel-estandar-body">
+                <form method="post" asp-page-handler="SimularReglas">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Modalidad de Servicio</label>
+                        <select asp-for="ParametrosSimulador.ModalidadServicio" class="form-select form-select-sm">
+                            <option value="Estándar 24-48h">Estándar 24-48h</option>
+                            <option value="Express en el Día">Express en el Día (Urgente)</option>
+                            <option value="Mismo Día">Mismo Día (Urgente)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Fecha y Hora de Despacho</label>
+                        <input asp-for="ParametrosSimulador.FechaDespacho" type="datetime-local" class="form-control form-control-sm"
+                               value="@Model.ParametrosSimulador.FechaDespacho.ToString("yyyy-MM-ddTHH:mm")" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Intentos Fallidos Realizados</label>
+                        <input asp-for="ParametrosSimulador.IntentosRealizados" type="number" min="0" max="10" class="form-control form-control-sm" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Fecha y Hora del Último Intento</label>
+                        <input asp-for="ParametrosSimulador.FechaUltimoIntento" type="datetime-local" class="form-control form-control-sm"
+                               value="@(Model.ParametrosSimulador.FechaUltimoIntento?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
+                    </div>
+
+                    <button type="submit" class="btn btn-dark btn-sm w-100 py-2 d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Evaluar Reglas Operativas</span>
+                    </button>
+                </form>
+
+                <!-- Resultado de la Evaluación -->
+                @if (Model.ResultadoSimulacion != null)
+                {
+                    <div class="mt-3 p-3 bg-light rounded-3 border border-dark-subtle">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-semibold text-secondary">Evaluación Operativa:</span>
+                            <span class="badge bg-dark">Versión @Model.ResultadoSimulacion.VersionAplicada</span>
+                        </div>
+
+                        <!-- Estado del Reintento -->
+                        <div class="mb-2">
+                            @if (Model.ResultadoSimulacion.SuperaMaximoIntentos)
+                            {
+                                <span class="badge bg-danger text-white py-1 px-2 d-block text-start mb-1">
+                                    Límite de intentos superado (@Model.ResultadoSimulacion.MaxIntentosPermitidos max)
+                                </span>
+                            }
+                            else if (Model.ResultadoSimulacion.PuedeReintentarAhora)
+                            {
+                                <span class="badge bg-success text-white py-1 px-2 d-block text-start mb-1">
+                                    Habilitado para reintento (@Model.ResultadoSimulacion.IntentosRestantes restantes)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark py-1 px-2 d-block text-start mb-1">
+                                    En espera reglamentaria entre intentos
+                                </span>
+                            }
+                        </div>
+
+                        <div class="small text-secondary pt-2 border-top">
+                            <div class="mb-1">
+                                <strong>Acción sugerida:</strong>
+                                <div class="text-dark small mt-1">@Model.ResultadoSimulacion.AccionSugerida</div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mb-1 mt-2">
+                                <span>Fecha Límite SLA:</span>
+                                <span class="font-monospace text-dark">@Model.ResultadoSimulacion.FechaLimiteSla.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Estado del SLA:</span>
+                                @if (Model.ResultadoSimulacion.SlaVencido)
+                                {
+                                    <span class="badge bg-danger">SLA Vencido</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">En Plazo Comprometido</span>
+                                }
+                            </div>
+
+                            <div class="mt-2 pt-2 border-top">
+                                <strong>Prueba exigida al chofer:</strong>
+                                <div class="text-dark small">@Model.ResultadoSimulacion.TipoPruebaExigida</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

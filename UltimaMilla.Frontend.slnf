@@ -1,0 +1,13 @@
+{
+  "solution": {
+    "path": "UltimaMilla.sln",
+    "projects": [
+      "src/Web/Frontend.Contracts/UltimaMilla.Frontend.Contracts.csproj",
+      "src/Web/Frontend.Infrastructure/UltimaMilla.Frontend.Infrastructure.csproj",
+      "src/Web/Backoffice/UltimaMilla.Backoffice.csproj",
+      "src/Web/PortalComercio/UltimaMilla.PortalComercio.csproj",
+      "src/Web/PortalComercio.Client/UltimaMilla.PortalComercio.Client.csproj",
+      "src/Web/SeguimientoPublico/UltimaMilla.SeguimientoPublico.csproj"
+    ]
+  }
+}

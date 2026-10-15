@@ -1,0 +1,295 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Tarifas.IndexModel
+@{
+    ViewData["Title"] = "Cuadro Tarifario";
+}
+
+<!-- Encabezado del Caso de Uso UC-03 -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Cuadro Tarifario y Reglas de Precio (UC-03)</h1>
+        <partial name="_BotonAyuda" model='"Precios por zona, peso, volumen y modalidad con recargos, bonificaciones y versionado inmutable (RF-03)."' />
+    </div>
+    <a asp-page="/Tarifas/NuevaVersion" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Publicar Nueva Versión</span>
+    </a>
+</div>
+
+<!-- Alertas y Mensajes de Retroalimentación -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Columna Principal: Versión Vigente e Historial (8 cols) -->
+    <div class="col-12 col-lg-8">
+        <!-- 1. Tarjeta de la Versión Vigente Actual -->
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                        ● Versión Vigente (Versión @(Model.VersionVigente?.Version ?? 1))
+                    </span>
+                    <span class="text-secondary small">
+                        Desde: @(Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")
+                    </span>
+                    <partial name="_BotonAyuda" model='"Rige actualmente para calcular la tarifa de todos los envíos procesados a partir de esta fecha."' />
+                </div>
+                <a asp-page="/Tarifas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
+                    Crear versión a partir de esta
+                </a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.VersionVigente?.Comentario))
+            {
+                <div class="px-3 py-2 bg-light border-bottom text-dark small fw-semibold">
+                    @Model.VersionVigente.Comentario
+                </div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Modalidad</th>
+                            <th>Zona</th>
+                            <th>Peso (kg)</th>
+                            <th>Volumen (m³)</th>
+                            <th class="text-end">Base</th>
+                            <th class="text-end">Recargo</th>
+                            <th class="text-end">Bonif.</th>
+                            <th class="text-end fw-bold">Precio Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.VersionVigente == null || Model.VersionVigente.ReglasTarifa.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    No hay un cuadro tarifario vigente configurado.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var regla in Model.VersionVigente.ReglasTarifa)
+                            {
+                                <tr>
+                                    <td class="fw-semibold text-dark">@regla.ModalidadServicio</td>
+                                    <td>
+                                        @if (regla.ZonaCoberturaId.HasValue)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                                @regla.NombreZona
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                                Todas las zonas
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="small font-monospace">@regla.PesoDesde a @regla.PesoHasta kg</td>
+                                    <td class="small font-monospace">@regla.VolumenDesde a @regla.VolumenHasta m³</td>
+                                    <td class="text-end font-monospace small">$@regla.PrecioBase.ToString("N0")</td>
+                                    <td class="text-end font-monospace small text-danger">@(regla.Recargo > 0 ? $"+${regla.Recargo:N0}" : "-")</td>
+                                    <td class="text-end font-monospace small text-success">@(regla.Bonificacion > 0 ? $"-${regla.Bonificacion:N0}" : "-")</td>
+                                    <td class="text-end font-monospace fw-bold text-dark">
+                                        $@regla.PrecioFinal.ToString("N0")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel-estandar-footer text-secondary small d-flex justify-content-between align-items-center">
+                <span>Reglas activas: <strong>@(Model.VersionVigente?.TotalReglas ?? 0)</strong></span>
+                <span style="font-size: 0.725rem;">Moneda: Pesos Uruguayos ($ UYU)</span>
+            </div>
+        </div>
+
+        <!-- 2. Historial de Versiones Anteriores (Conservación de Vigencia) -->
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Historial de Versiones Anteriores</h2>
+                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Archivo Inmutable</span>
+                    <partial name="_BotonAyuda" model='"Los envíos ya procesados conservan inalterada la versión bajo la que fueron calculados originalmente."' />
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Versión</th>
+                            <th>Rango de Vigencia</th>
+                            <th>Reglas</th>
+                            <th>Motivo / Comentario</th>
+                            <th class="text-end">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.HistorialVersiones.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-3 text-muted small">
+                                    No hay versiones anteriores archivadas. La versión actual es la inicial.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var hist in Model.HistorialVersiones)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary text-white">
+                                            Versión @hist.Version
+                                        </span>
+                                    </td>
+                                    <td class="small">
+                                        <div><strong>Desde:</strong> @hist.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                        <div><strong>Hasta:</strong> @(hist.VigenteHasta?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")</div>
+                                    </td>
+                                    <td class="small">@hist.TotalReglas reglas</td>
+                                    <td class="small text-secondary">
+                                        @(hist.Comentario ?? "Sin observaciones registradas")
+                                    </td>
+                                    <td class="text-end">
+                                        <a asp-page="/Tarifas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                            Ver Archivo
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Lateral: Simulador de Cotización de Envío (4 cols) -->
+    <div class="col-12 col-lg-4">
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Simulador de Cotización</h2>
+                    <partial name="_BotonAyuda" model='"Evalúa en tiempo real el costo de un paquete aplicando las reglas vigentes según modalidad, peso, volumen y zona de entrega."' />
+                </div>
+            </div>
+
+            <div class="panel-estandar-body">
+                <form method="post" asp-page-handler="SimularCotizacion">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Modalidad de Servicio</label>
+                        <select asp-for="ParametrosSimulador.ModalidadServicio" class="form-select form-select-sm">
+                            <option value="Estándar 24-48h">Estándar 24-48h</option>
+                            <option value="Express en el Día">Express en el Día</option>
+                            <option value="Mismo Día">Mismo Día (Urgente)</option>
+                            <option value="Carga Pesada">Carga Pesada / Sobredimensionado</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Zona de Cobertura de Entrega</label>
+                        <select asp-for="ParametrosSimulador.ZonaCoberturaId" class="form-select form-select-sm">
+                            <option value="">Tarifa General (Cualquier zona)</option>
+                            @foreach (var zona in Model.Zonas)
+                            {
+                                <option value="@zona.Id">@zona.Nombre</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Peso (kg)</label>
+                            <input asp-for="ParametrosSimulador.PesoKg" type="number" step="0.1" class="form-control form-control-sm" required />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Volumen (m³)</label>
+                            <input asp-for="ParametrosSimulador.VolumenM3" type="number" step="0.001" class="form-control form-control-sm" required />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-dark btn-sm w-100 py-2 d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Calcular Tarifa</span>
+                    </button>
+                </form>
+
+                <!-- Resultado de la Cotización -->
+                @if (Model.ResultadoCotizacion != null)
+                {
+                    <div class="mt-3 p-3 bg-light rounded-3 border border-dark-subtle">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="small fw-semibold text-secondary">Cotización Resultante:</span>
+                            <span class="badge bg-dark">Versión @Model.ResultadoCotizacion.VersionCuadroAplicada</span>
+                        </div>
+                        <div class="h3 fw-bold text-dark mb-2">
+                            $@Model.ResultadoCotizacion.PrecioFinal.ToString("N0") <span class="fs-6 fw-normal text-muted">UYU</span>
+                        </div>
+
+                        <div class="small text-secondary pt-2 border-top">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Precio Base:</span>
+                                <span class="font-monospace text-dark">$@Model.ResultadoCotizacion.PrecioBase.ToString("N0")</span>
+                            </div>
+                            @if (Model.ResultadoCotizacion.Recargo > 0)
+                            {
+                                <div class="d-flex justify-content-between mb-1 text-danger">
+                                    <span>Recargo:</span>
+                                    <span class="font-monospace">+$@Model.ResultadoCotizacion.Recargo.ToString("N0")</span>
+                                </div>
+                            }
+                            @if (Model.ResultadoCotizacion.Bonificacion > 0)
+                            {
+                                <div class="d-flex justify-content-between mb-1 text-success">
+                                    <span>Bonificación:</span>
+                                    <span class="font-monospace">-$@Model.ResultadoCotizacion.Bonificacion.ToString("N0")</span>
+                                </div>
+                            }
+                            <div class="mt-2 text-muted" style="font-size: 0.725rem;">
+                                Regla: <em>@Model.ResultadoCotizacion.ReglaAplicada</em>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

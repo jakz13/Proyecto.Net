@@ -1,0 +1,185 @@
+@page "/envios"
+@inject IEnviosApi EnviosApi
+@inject NavigationManager Navegador
+
+<PageTitle>Portal del Comercio — Listado de Envíos (UC-28)</PageTitle>
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold mb-1">Listado y Seguimiento de Envíos (UC-28)</h1>
+        <p class="text-muted small mb-0">Consulte el estado, historial y destinatarios de sus despachos.</p>
+    </div>
+    <a href="envios/nuevo" class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1">
+        <Icono Nombre="plus" Tamano="14" />
+        <span>Nuevo Envío (UC-24)</span>
+    </a>
+</div>
+
+<!-- Filtros de Consulta (UC-28) -->
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label for="filtroBusqueda" class="form-label small fw-semibold text-secondary mb-1">Búsqueda rápida</label>
+                <input id="filtroBusqueda" type="text" class="form-control form-control-sm"
+                       placeholder="Código, destinatario o dirección..."
+                       @bind="terminoBusqueda" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label for="filtroEstado" class="form-label small fw-semibold text-secondary mb-1">Estado del envío</label>
+                <select id="filtroEstado" class="form-select form-select-sm" @bind="estadoSeleccionado">
+                    <option value="">Todos los estados</option>
+                    @foreach (var estado in Enum.GetValues<EstadoEnvioDto>())
+                    {
+                        <option value="@estado">@estado</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="filtroFechaDesde" class="form-label small fw-semibold text-secondary mb-1">Desde</label>
+                <input id="filtroFechaDesde" type="date" class="form-control form-control-sm" @bind="fechaDesde" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label for="filtroFechaHasta" class="form-label small fw-semibold text-secondary mb-1">Hasta</label>
+                <input id="filtroFechaHasta" type="date" class="form-control form-control-sm" @bind="fechaHasta" />
+            </div>
+            <div class="col-6 col-md-1 d-flex gap-1">
+                <button type="button" class="btn btn-dark btn-sm w-100" @onclick="AplicarFiltros">Filtrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Envíos Paginada -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small">
+                <tr>
+                    <th>Código de Envío</th>
+                    <th>Destinatario</th>
+                    <th>Dirección de Destino</th>
+                    <th>Fecha de Alta</th>
+                    <th>Estado Actual</th>
+                    <th class="text-end">Peso (kg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (estaCargando)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Cargando envíos...
+                        </td>
+                    </tr>
+                }
+                else if (resultadoPaginado.Elementos.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            No se encontraron órdenes de envío con los filtros seleccionados.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var envio in resultadoPaginado.Elementos)
+                    {
+                        <tr>
+                            <td>
+                                <span class="fw-bold font-monospace text-primary">@envio.CodigoSeguimiento</span>
+                            </td>
+                            <td class="fw-medium">@envio.NombreDestinatario</td>
+                            <td class="text-muted small">@envio.DireccionDestino</td>
+                            <td class="small">@envio.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                <BadgeEstadoEnvio Estado="@envio.Estado" />
+                            </td>
+                            <td class="text-end small">
+                                @(envio.PesoKg.HasValue ? $"{envio.PesoKg:F2} kg" : "-")
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    @if (resultadoPaginado.TotalPaginas > 1)
+    {
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 px-3 border-top">
+            <span class="small text-muted">
+                Mostrando página @resultadoPaginado.PaginaActual de @resultadoPaginado.TotalPaginas (@resultadoPaginado.TotalRegistros registros en total)
+            </span>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" disabled="@(!resultadoPaginado.TienePaginaAnterior)" @onclick="() => CambiarPagina(resultadoPaginado.PaginaActual - 1)">
+                    &laquo; Anterior
+                </button>
+                @for (int i = 1; i <= resultadoPaginado.TotalPaginas; i++)
+                {
+                    var paginaIndice = i;
+                    <button class="btn @(paginaIndice == resultadoPaginado.PaginaActual ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => CambiarPagina(paginaIndice)">
+                        @paginaIndice
+                    </button>
+                }
+                <button class="btn btn-outline-secondary" disabled="@(!resultadoPaginado.TienePaginaSiguiente)" @onclick="() => CambiarPagina(resultadoPaginado.PaginaActual + 1)">
+                    Siguiente &raquo;
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private ResultadoPaginadoDto<EnvioDto> resultadoPaginado = new();
+    private bool estaCargando = true;
+
+    private string? terminoBusqueda;
+    private EstadoEnvioDto? estadoSeleccionado;
+    private DateTime? fechaDesde;
+    private DateTime? fechaHasta;
+    private int paginaActual = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEnvios();
+    }
+
+    private async Task AplicarFiltros()
+    {
+        paginaActual = 1;
+        await CargarEnvios();
+    }
+
+    private async Task CambiarPagina(int nuevaPagina)
+    {
+        paginaActual = nuevaPagina;
+        await CargarEnvios();
+    }
+
+    private async Task CargarEnvios()
+    {
+        estaCargando = true;
+        try
+        {
+            var filtro = new FiltroEnviosDto
+            {
+                TerminoBusqueda = terminoBusqueda,
+                Estado = estadoSeleccionado,
+                FechaDesde = fechaDesde,
+                FechaHasta = fechaHasta,
+                Pagina = paginaActual,
+                TamanoPagina = 8
+            };
+
+            resultadoPaginado = await EnviosApi.ListarEnviosAsync(filtro);
+        }
+        finally
+        {
+            estaCargando = false;
+        }
+    }
+}

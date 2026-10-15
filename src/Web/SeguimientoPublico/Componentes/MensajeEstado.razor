@@ -1,0 +1,41 @@
+<div class="alerta-seguimiento @ObtenerModificador()" role="alert">
+    <div class="alerta-seguimiento__icono">
+        <Icono Nombre="@ObtenerIcono()" Tamano="22" />
+    </div>
+    <div class="alerta-seguimiento__texto">
+        <h4 class="alerta-seguimiento__titulo">@Titulo</h4>
+        <p class="alerta-seguimiento__detalle">@Mensaje</p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Mensaje { get; set; } = string.Empty;
+
+    [Parameter]
+    public TipoAlerta Tipo { get; set; } = TipoAlerta.Aviso;
+
+    public enum TipoAlerta
+    {
+        Aviso,
+        Error,
+        Exito
+    }
+
+    private string ObtenerModificador() => Tipo switch
+    {
+        TipoAlerta.Error => "alerta-seguimiento--error",
+        TipoAlerta.Exito => "alerta-seguimiento--exito",
+        _ => "alerta-seguimiento--aviso"
+    };
+
+    private string ObtenerIcono() => Tipo switch
+    {
+        TipoAlerta.Error => "alerta",
+        TipoAlerta.Exito => "check",
+        _ => "reloj"
+    };
+}

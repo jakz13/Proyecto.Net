@@ -1,0 +1,109 @@
+@inherits LayoutComponentBase
+@inject IIdentidadVisualApi IdentidadApi
+@inject MockContextoOperador ContextoOperador
+@implements IDisposable
+
+@* Inyección dinámica de variables CSS de identidad visual del operador *@
+<style>
+    :root {
+        --color-primario: @colorPrimarioValido;
+        --color-secundario: @colorSecundarioValido;
+        --color-texto-primario: @colorTextoPrimario;
+        --color-texto-secundario: @colorTextoSecundario;
+    }
+</style>
+
+<div class="d-flex flex-column min-vh-100">
+    <SelectorOperadorDemo AlCambiar="CargarIdentidadVisual" />
+
+    <!-- Encabezado LittleBox Envíos -->
+    <header class="littlebox-header">
+        <div class="container littlebox-header__contenedor">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="" class="littlebox-header__marca">
+                    <div class="littlebox-header__logo-caja">
+                        <Icono Nombre="caja" Tamano="22" />
+                    </div>
+                    <div class="littlebox-header__titulos">
+                        <span class="littlebox-header__nombre-app">LittleBox Envíos</span>
+                        <span class="littlebox-header__subtitulo">Sistema de Seguimiento de Envíos</span>
+                    </div>
+                </a>
+
+                <div class="d-flex align-items-center gap-3">
+                    <span class="littlebox-header__operador-tag">
+                        <span>Operador:</span>
+                        <strong>@identidad.NombreComercial</strong>
+                    </span>
+
+                    @if (!string.IsNullOrEmpty(identidad.TelefonoContacto))
+                    {
+                        <div class="d-none d-md-block text-end small" style="color: var(--color-texto-primario);">
+                            <div class="opacity-75">Atención:</div>
+                            <div class="fw-bold">@identidad.TelefonoContacto</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow-1">
+        @Body
+    </main>
+
+    <!-- Pie de Página -->
+    <footer class="bg-white border-top py-4 mt-auto">
+        <div class="container text-center text-muted small">
+            <p class="mb-1">
+                <strong>LittleBox Envíos</strong> · Servicio logístico provisto por <strong>@identidad.NombreComercial</strong>.
+                @if (!string.IsNullOrEmpty(identidad.EmailContacto))
+                {
+                    <span> · Contacto: <a href="mailto:@identidad.EmailContacto" class="text-decoration-none">@identidad.EmailContacto</a></span>
+                }
+            </p>
+            <p class="mb-0 text-secondary">
+                Plataforma de Distribución de Última Milla &copy; 2026. Todos los derechos reservados.
+            </p>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private IdentidadVisualDto identidad = new();
+    private string colorPrimarioValido = "#1D4ED8";
+    private string colorSecundarioValido = "#F97316";
+    private string colorTextoPrimario = "#FFFFFF";
+    private string colorTextoSecundario = "#0F172A";
+
+    protected override async Task OnInitializedAsync()
+    {
+        ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
+        await CargarIdentidadVisual();
+    }
+
+    private async Task CargarIdentidadVisual()
+    {
+        identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+
+        // Validar que el color sea hexadecimal antes de inyectarlo y calcular el contraste según luminancia
+        colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
+        colorSecundarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorSecundario, "#F97316");
+
+        colorTextoPrimario = ColorUtil.ObtenerColorTextoParaFondo(colorPrimarioValido);
+        colorTextoSecundario = ColorUtil.ObtenerColorTextoParaFondo(colorSecundarioValido);
+
+        StateHasChanged();
+    }
+
+    private void ManejarCambioOperador()
+    {
+        _ = InvokeAsync(CargarIdentidadVisual);
+    }
+
+    public void Dispose()
+    {
+        ContextoOperador.AlCambiarOperador -= ManejarCambioOperador;
+    }
+}

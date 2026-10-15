@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LittleBox Envíos — Seguimiento de Envíos</title>
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="d-flex justify-content-center align-items-center vh-100 bg-light">
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <div class="fw-medium text-secondary">Cargando LittleBox Envíos...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="alert alert-danger fixed-bottom m-3 shadow" style="display: none; z-index: 1050;">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <strong>Error al iniciar la aplicación WebAssembly.</strong>
+                <span id="blazor-error-texto" class="d-block small text-muted"></span>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" onclick="location.reload(true)">
+                Forzar Recarga (Ctrl+F5)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Captura errores no controlados en la descarga de WebAssembly / SRI para que no quede en pantalla en blanco
+        window.addEventListener('unhandledrejection', function (evento) {
+            var banner = document.getElementById('blazor-error-ui');
+            var detalle = document.getElementById('blazor-error-texto');
+            if (banner && detalle) {
+                var razon = evento.reason ? (evento.reason.message || evento.reason) : 'Error en la descarga de artefactos WASM.';
+                detalle.textContent = razon;
+                banner.style.display = 'block';
+            }
+        });
+    </script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

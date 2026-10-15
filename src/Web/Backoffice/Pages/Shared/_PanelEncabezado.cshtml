@@ -1,0 +1,13 @@
+@model (string Titulo, string? Badge, string? BadgeClase, string? Ayuda)
+
+<div class="d-flex align-items-center gap-2">
+    <h2 class="h6 fw-bold mb-0 text-dark">@Model.Titulo</h2>
+    @if (!string.IsNullOrEmpty(Model.Badge))
+    {
+        <span class="badge @(Model.BadgeClase ?? "bg-dark") px-2 py-1">@Model.Badge</span>
+    }
+    @if (!string.IsNullOrEmpty(Model.Ayuda))
+    {
+        <partial name="_BotonAyuda" model="@Model.Ayuda" />
+    }
+</div>
