@@ -6,8 +6,9 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Envios;
 
-public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToken
+public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IHasConcurrencyToken
 {
+    public Guid OperadorId { get; private set; }
     public Guid ComercioOperadorId { get; private set; }
     public Guid DestinatarioId { get; private set; }
     public Guid? DireccionEntregaId { get; private set; }
@@ -55,7 +56,8 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         Guid? franjaHorariaComprometidaId = null,
         Guid? loteImportacionId = null,
         string? direccionDestino = null,
-        string? nombreDestinatario = null) : base(id)
+        string? nombreDestinatario = null,
+        Guid? operadorId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -82,6 +84,7 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         // Copia desnormalizada para listados y etiquetas sin necesidad de resolver las entidades relacionadas
         DireccionDestino = direccionDestino?.Trim() ?? string.Empty;
         NombreDestinatario = nombreDestinatario?.Trim() ?? string.Empty;
+        OperadorId = operadorId ?? Guid.Empty;
         FechaAlta = DateTime.UtcNow;
         EstadoActual = EstadoEnvio.Admitido;
         SelloModificacion = Guid.NewGuid();
@@ -228,6 +231,90 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             latitud,
             longitud,
             payload));
+    }
+
+    /// <summary>
+    /// Recepciona el envío en depósito contrastando los bultos escaneados contra los declarados por el comercio.
+    /// Sin discrepancias, el envío pasa a EnDeposito. Con discrepancias solo avanza si el operario las documenta
+    /// en las observaciones; de lo contrario no se modifica nada y se informa el resultado.
+    /// </summary>
+    public ResultadoRecepcion RecepcionarEnDeposito(
+        IEnumerable<string>? codigosEscaneados,
+        IEnumerable<string>? codigosDanados,
+        string? observaciones,
+        Guid usuarioDepositoId)
+    {
+        if (usuarioDepositoId == Guid.Empty)
+            throw new DomainValidationException("El identificador del usuario de depósito no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.Admitido)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede recepcionar porque su estado es '{EstadoActual}' (se requiere '{EstadoEnvio.Admitido}').");
+
+        if (_bultos.Count == 0)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no tiene bultos declarados para recepcionar.");
+
+        static HashSet<string> Normalizar(IEnumerable<string>? codigos) =>
+            (codigos ?? Enumerable.Empty<string>())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim().ToUpperInvariant())
+                .ToHashSet();
+
+        var escaneados = Normalizar(codigosEscaneados);
+        var danados = Normalizar(codigosDanados);
+        var declarados = _bultos.Select(b => b.Identificacion).ToHashSet();
+
+        var fueraDeEnvio = danados.Where(c => !declarados.Contains(c)).ToList();
+        if (fueraDeEnvio.Count > 0)
+            throw new DomainValidationException($"Los bultos marcados como dañados no pertenecen al envío: {string.Join(", ", fueraDeEnvio)}.");
+
+        var danadosNoEscaneados = danados.Where(c => !escaneados.Contains(c)).ToList();
+        if (danadosNoEscaneados.Count > 0)
+            throw new DomainValidationException($"Los bultos marcados como dañados deben haber sido escaneados: {string.Join(", ", danadosNoEscaneados)}.");
+
+        var correctos = _bultos.Where(b => escaneados.Contains(b.Identificacion) && !danados.Contains(b.Identificacion)).ToList();
+        var faltantes = _bultos.Where(b => !escaneados.Contains(b.Identificacion)).ToList();
+        var danadosBultos = _bultos.Where(b => danados.Contains(b.Identificacion)).ToList();
+        var sobrantes = escaneados.Where(c => !declarados.Contains(c)).OrderBy(c => c).ToList();
+
+        var hayDiscrepancias = faltantes.Count > 0 || sobrantes.Count > 0 || danadosBultos.Count > 0;
+        var resultado = new ResultadoRecepcion(
+            !hayDiscrepancias || !string.IsNullOrWhiteSpace(observaciones),
+            correctos.Select(b => b.Identificacion).ToList(),
+            faltantes.Select(b => b.Identificacion).ToList(),
+            sobrantes,
+            danadosBultos.Select(b => b.Identificacion).ToList());
+
+        if (!resultado.Recepcionado)
+            return resultado;
+
+        foreach (var bulto in correctos)
+            bulto.MarcarRecibido();
+
+        foreach (var bulto in faltantes)
+        {
+            bulto.MarcarFaltanteEnRecepcion();
+            RegistrarDiscrepancia(bulto.Id, "Faltante", $"Bulto {bulto.Identificacion} no escaneado en la recepción. {observaciones?.Trim()}", usuarioDepositoId);
+        }
+
+        foreach (var bulto in danadosBultos)
+        {
+            bulto.MarcarDanado();
+            RegistrarDiscrepancia(bulto.Id, "Danado", $"Bulto {bulto.Identificacion} recibido con daños. {observaciones?.Trim()}", usuarioDepositoId);
+        }
+
+        foreach (var codigo in sobrantes)
+            RegistrarDiscrepancia(null, "Sobrante", $"Código {codigo} escaneado y no declarado en el envío. {observaciones?.Trim()}", usuarioDepositoId);
+
+        TransicionarEstado(
+            EstadoEnvio.EnDeposito,
+            "RecepcionEnDeposito",
+            usuarioDepositoId,
+            "Backoffice",
+            payload: hayDiscrepancias
+                ? $"Recepción con discrepancias documentadas: {observaciones!.Trim()}"
+                : "Recepción sin discrepancias.");
+
+        return resultado;
     }
 
     public void RegistrarDiscrepancia(

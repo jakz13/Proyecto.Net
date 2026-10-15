@@ -250,6 +250,9 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
 // Registrar endpoints de operación en calle (UC-18 y UC-19)
 app.MapMobileRutasEndpoints();
 
+// Registrar endpoints de depósito (UC-14)
+app.MapDepositoEndpoints();
+
 app.Run();
 
 static void ApplyMigrations(WebApplication app)

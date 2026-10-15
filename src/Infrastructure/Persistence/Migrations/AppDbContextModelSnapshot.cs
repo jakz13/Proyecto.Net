@@ -293,6 +293,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("ReglaTarifaAplicadaId")
                         .HasColumnType("uuid");
 
@@ -307,6 +310,8 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CodigoSeguimientoPublico")
                         .IsUnique();
+
+                    b.HasIndex("OperadorId");
 
                     b.ToTable("Envios", (string)null);
                 });

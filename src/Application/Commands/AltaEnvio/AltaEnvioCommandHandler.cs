@@ -78,7 +78,8 @@ public class AltaEnvioCommandHandler : IRequestHandler<AltaEnvioCommand, AltaEnv
             request.FranjaHorariaId,
             loteImportacionId: null,
             direccionDestino: direccion.ToString(),
-            nombreDestinatario: destinatario.Nombre);
+            nombreDestinatario: destinatario.Nombre,
+            operadorId: _currentTenant.OperadorId);
 
         var identificaciones = new List<string>(request.Bultos.Count);
         for (var i = 0; i < request.Bultos.Count; i++)

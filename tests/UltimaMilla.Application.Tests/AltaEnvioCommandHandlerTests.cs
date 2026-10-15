@@ -108,6 +108,7 @@ public class AltaEnvioCommandHandlerTests
         Assert.Equal("18 de Julio 1234, Montevideo", envio.DireccionDestino);
         Assert.Equal("Ana Gomez", envio.NombreDestinatario);
         Assert.Equal(_comercioId, envio.ComercioOperadorId);
+        Assert.Equal(_tenant.OperadorId, envio.OperadorId);
     }
 
     [Fact]

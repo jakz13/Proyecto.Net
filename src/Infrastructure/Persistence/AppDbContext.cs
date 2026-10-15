@@ -43,6 +43,8 @@ public class AppDbContext : DbContext
             builder.Ignore(e => e.CantidadIntentos);
             builder.Ignore(e => e.PesoTotal);
             builder.Ignore(e => e.VolumenTotal);
+            builder.Property(e => e.OperadorId).IsRequired();
+            builder.HasIndex(e => e.OperadorId);
             builder.Property(e => e.ComercioOperadorId).IsRequired();
             builder.Property(e => e.DireccionDestino).IsRequired().HasMaxLength(300);
             builder.Property(e => e.NombreDestinatario).IsRequired().HasMaxLength(200);

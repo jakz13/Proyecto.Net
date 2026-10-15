@@ -65,6 +65,12 @@ public class Bulto : Entity
         EstadoBulto = "CargadoEnVehiculo";
     }
 
+    public void MarcarRecibido() => EstadoBulto = "Recibido";
+
+    public void MarcarFaltanteEnRecepcion() => EstadoBulto = "FaltanteEnRecepcion";
+
+    public void MarcarDanado() => EstadoBulto = "Danado";
+
     public void MarcarCargado() => MarcarCargadoEnVehiculo();
 
     public void MarcarFaltanteEnCarga()
