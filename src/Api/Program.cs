@@ -189,12 +189,29 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
 
         var command = new AltaEnvioCommand(
             comercioId,
-            request.DireccionDestino,
-            request.NombreDestinatario
-        );
+            request.ModalidadServicio ?? "Estandar",
+            new DestinatarioAltaDto(request.NombreDestinatario, request.Documento, request.Email, request.Telefono),
+            new DireccionAltaDto(
+                request.Calle,
+                request.Numero,
+                request.Ciudad,
+                request.ZonaCoberturaId,
+                request.Latitud,
+                request.Longitud,
+                request.Referencia),
+            request.Bultos?.Select(b => new BultoAltaDto(b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList()
+                ?? new List<BultoAltaDto>(),
+            request.FranjaHorariaId);
 
-        var id = await mediator.Send(command);
-        return Results.Created($"/api/envios/{id}", new { id });
+        var resultado = await mediator.Send(command);
+        return Results.Created($"/api/envios/{resultado.Id}", new
+        {
+            id = resultado.Id,
+            codigoSeguimiento = resultado.CodigoSeguimiento,
+            estado = resultado.Estado,
+            tarifa = resultado.Tarifa,
+            bultos = resultado.IdentificacionesBultos
+        });
     }
     catch (DomainValidationException ex)
     {
@@ -267,8 +284,22 @@ static void ApplyMigrations(WebApplication app)
 
 public record CreateEnvioRequest(
     Guid? ComercioId,
-    string DireccionDestino,
-    string NombreDestinatario
+    string NombreDestinatario,
+    string Calle,
+    string Numero,
+    string Ciudad,
+    List<CreateBultoRequest>? Bultos,
+    string? ModalidadServicio = null,
+    string? Documento = null,
+    string? Email = null,
+    string? Telefono = null,
+    Guid? ZonaCoberturaId = null,
+    double? Latitud = null,
+    double? Longitud = null,
+    string? Referencia = null,
+    Guid? FranjaHorariaId = null
 );
+
+public record CreateBultoRequest(decimal Peso, decimal Alto, decimal Ancho, decimal Profundo);
 
 public partial class Program { }

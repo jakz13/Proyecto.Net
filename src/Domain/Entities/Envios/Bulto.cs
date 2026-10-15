@@ -13,6 +13,9 @@ public class Bulto : Entity
     public decimal Profundo { get; private set; }
     public string EstadoBulto { get; private set; } = string.Empty;
 
+    /// <summary>Volumen del bulto expresado en la unidad cúbica de las dimensiones informadas.</summary>
+    public decimal Volumen => Alto * Ancho * Profundo;
+
     protected Bulto() { }
 
     public Bulto(

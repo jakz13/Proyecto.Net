@@ -17,14 +17,19 @@ public class EfEnvioRepository : IEnvioRepository
     public async Task AddAsync(Envio envio, CancellationToken cancellationToken = default)
     {
         await _dbContext.Envios.AddAsync(envio, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
+    {
+        var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
+        return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
     public async Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Envios
             .AsNoTracking()
-            .OrderByDescending(e => e.FechaCreacion)
+            .OrderByDescending(e => e.FechaAlta)
             .ToListAsync(cancellationToken);
     }
 

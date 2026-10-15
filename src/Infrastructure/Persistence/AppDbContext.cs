@@ -23,6 +23,10 @@ public class AppDbContext : DbContext
     public DbSet<ReglaOperativa> ReglasOperativas => Set<ReglaOperativa>();
     public DbSet<MotivoNoEntrega> MotivosNoEntrega => Set<MotivoNoEntrega>();
     public DbSet<EventoEnvio> EventosEnvio => Set<EventoEnvio>();
+    public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
+    public DbSet<Direccion> Direcciones => Set<Direccion>();
+    public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
+    public DbSet<ReglaTarifa> ReglasTarifa => Set<ReglaTarifa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,11 +36,22 @@ public class AppDbContext : DbContext
         {
             builder.ToTable("Envios");
             builder.HasKey(e => e.Id);
-            builder.Property(e => e.ComercioId).IsRequired();
+            // Propiedades de compatibilidad calculadas: no se persisten
+            builder.Ignore(e => e.ComercioId);
+            builder.Ignore(e => e.FechaCreacion);
+            builder.Ignore(e => e.Estado);
+            builder.Ignore(e => e.CantidadIntentos);
+            builder.Ignore(e => e.PesoTotal);
+            builder.Ignore(e => e.VolumenTotal);
+            builder.Property(e => e.ComercioOperadorId).IsRequired();
             builder.Property(e => e.DireccionDestino).IsRequired().HasMaxLength(300);
             builder.Property(e => e.NombreDestinatario).IsRequired().HasMaxLength(200);
-            builder.Property(e => e.FechaCreacion).IsRequired();
-            builder.Property(e => e.Estado).IsRequired().HasConversion<string>().HasMaxLength(50);
+            builder.Property(e => e.FechaAlta).IsRequired();
+            builder.Property(e => e.EstadoActual).IsRequired().HasConversion<string>().HasMaxLength(50);
+            builder.Property(e => e.CodigoSeguimientoPublico).IsRequired().HasMaxLength(50);
+            builder.HasIndex(e => e.CodigoSeguimientoPublico).IsUnique();
+            builder.Property(e => e.ModalidadServicio).IsRequired().HasMaxLength(50);
+            builder.Property(e => e.TarifaCalculada).HasPrecision(18, 2);
             builder.Navigation(e => e.Bultos).AutoInclude();
             builder.Navigation(e => e.Eventos).AutoInclude();
             builder.Navigation(e => e.IntentosEntrega).AutoInclude();
@@ -104,6 +119,49 @@ public class AppDbContext : DbContext
             builder.ToTable("EventosEnvio");
             builder.HasKey(ev => ev.Id);
             builder.Property(ev => ev.TipoEvento).IsRequired().HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Destinatario>(builder =>
+        {
+            builder.ToTable("Destinatarios");
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.Nombre).IsRequired().HasMaxLength(200);
+            builder.Property(d => d.Documento).HasMaxLength(50);
+            builder.Property(d => d.Email).HasMaxLength(200);
+            builder.Property(d => d.Telefono).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Direccion>(builder =>
+        {
+            builder.ToTable("Direcciones");
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.Calle).IsRequired().HasMaxLength(200);
+            builder.Property(d => d.Numero).IsRequired().HasMaxLength(30);
+            builder.Property(d => d.Ciudad).IsRequired().HasMaxLength(100);
+            builder.Property(d => d.Referencia).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<CuadroTarifario>(builder =>
+        {
+            builder.ToTable("CuadrosTarifarios");
+            builder.HasKey(c => c.Id);
+            builder.HasIndex(c => new { c.OperadorId, c.Version }).IsUnique();
+            builder.HasMany(c => c.ReglasTarifa).WithOne().HasForeignKey(r => r.CuadroTarifarioId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(c => c.ReglasTarifa).AutoInclude();
+        });
+
+        modelBuilder.Entity<ReglaTarifa>(builder =>
+        {
+            builder.ToTable("ReglasTarifa");
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.ModalidadServicio).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.PesoDesde).HasPrecision(18, 3);
+            builder.Property(r => r.PesoHasta).HasPrecision(18, 3);
+            builder.Property(r => r.VolumenDesde).HasPrecision(18, 3);
+            builder.Property(r => r.VolumenHasta).HasPrecision(18, 3);
+            builder.Property(r => r.PrecioBase).HasPrecision(18, 2);
+            builder.Property(r => r.Recargo).HasPrecision(18, 2);
+            builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
         });
     }
 }

@@ -53,7 +53,9 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         string codigoSeguimientoPublico,
         Guid? direccionEntregaId = null,
         Guid? franjaHorariaComprometidaId = null,
-        Guid? loteImportacionId = null) : base(id)
+        Guid? loteImportacionId = null,
+        string? direccionDestino = null,
+        string? nombreDestinatario = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -77,6 +79,9 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         DireccionEntregaId = direccionEntregaId;
         FranjaHorariaComprometidaId = franjaHorariaComprometidaId;
         LoteImportacionId = loteImportacionId;
+        // Copia desnormalizada para listados y etiquetas sin necesidad de resolver las entidades relacionadas
+        DireccionDestino = direccionDestino?.Trim() ?? string.Empty;
+        NombreDestinatario = nombreDestinatario?.Trim() ?? string.Empty;
         FechaAlta = DateTime.UtcNow;
         EstadoActual = EstadoEnvio.Admitido;
         SelloModificacion = Guid.NewGuid();
@@ -124,8 +129,17 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             "Sistema"));
     }
 
+    public decimal PesoTotal => _bultos.Sum(b => b.Peso);
+    public decimal VolumenTotal => _bultos.Sum(b => b.Volumen);
+
     public void AgregarBulto(string identificacion, decimal peso, decimal alto, decimal ancho, decimal profundo)
     {
+        if (EstadoActual != EstadoEnvio.Admitido)
+            throw new DomainValidationException($"No se pueden agregar bultos a un envío en estado '{EstadoActual}'.");
+
+        if (_bultos.Any(b => b.Identificacion.Equals(identificacion?.Trim(), StringComparison.OrdinalIgnoreCase)))
+            throw new DomainValidationException($"El envío ya contiene un bulto con la identificación '{identificacion}'.");
+
         var bulto = new Bulto(Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
         _bultos.Add(bulto);
         SelloModificacion = Guid.NewGuid();

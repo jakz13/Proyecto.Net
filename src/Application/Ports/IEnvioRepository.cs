@@ -6,6 +6,7 @@ namespace UltimaMilla.Application.Ports;
 public interface IEnvioRepository
 {
     Task AddAsync(Envio envio, CancellationToken cancellationToken = default);
+    Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetByHojaDeRutaIdAsync(Guid hojaDeRutaId, CancellationToken cancellationToken = default);
