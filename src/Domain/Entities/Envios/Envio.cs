@@ -233,6 +233,77 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             payload));
     }
 
+    /// <summary>Indica si todos los bultos recibidos del envío ya fueron clasificados.</summary>
+    public bool EstaClasificado =>
+        _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado").All(b => b.EstaClasificado)
+        && _bultos.Any(b => b.EstadoBulto is "Recibido" or "Danado");
+
+    /// <summary>
+    /// Clasifica bultos del envío (zona, prioridad, tipo) y los deja disponibles para la hoja de ruta.
+    /// La operación es atómica: si algún bulto no es válido no se clasifica ninguno.
+    /// </summary>
+    public void ClasificarBultos(IEnumerable<ClasificacionBulto>? clasificaciones, Guid usuarioDepositoId)
+    {
+        if (usuarioDepositoId == Guid.Empty)
+            throw new DomainValidationException("El identificador del usuario de depósito no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede clasificar porque su estado es '{EstadoActual}' (se requiere '{EstadoEnvio.EnDeposito}').");
+
+        var lista = clasificaciones?.ToList() ?? new List<ClasificacionBulto>();
+        if (lista.Count == 0)
+            throw new DomainValidationException("Debe indicar al menos un bulto a clasificar.");
+
+        if (lista.Any(c => c is null || string.IsNullOrWhiteSpace(c.CodigoBulto)))
+            throw new DomainValidationException("Cada clasificación debe indicar el código del bulto.");
+
+        var codigos = lista.Select(c => c.CodigoBulto.Trim().ToUpperInvariant()).ToList();
+        var repetidos = codigos.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (repetidos.Count > 0)
+            throw new DomainValidationException($"Hay bultos repetidos en la clasificación: {string.Join(", ", repetidos)}.");
+
+        var aplicar = new List<(Bulto Bulto, ClasificacionBulto Clasificacion)>();
+        for (var i = 0; i < lista.Count; i++)
+        {
+            var bulto = _bultos.FirstOrDefault(b => b.Identificacion == codigos[i])
+                ?? throw new DomainValidationException($"El bulto '{codigos[i]}' no pertenece al envío {CodigoSeguimientoPublico}.");
+
+            bulto.ValidarClasificacion(lista[i].Prioridad, lista[i].ZonaCoberturaId, lista[i].Tipo);
+            aplicar.Add((bulto, lista[i]));
+        }
+
+        foreach (var (bulto, clasificacion) in aplicar)
+            bulto.Clasificar(clasificacion.Prioridad, clasificacion.ZonaCoberturaId, clasificacion.Tipo);
+
+        RegistrarEventoSinCambioDeEstado(
+            "ClasificacionBultos",
+            usuarioDepositoId,
+            "Backoffice",
+            $"Bultos clasificados: {string.Join(", ", codigos)}. Clasificación completa del envío: {(EstaClasificado ? "sí" : "no")}.");
+    }
+
+    /// <summary>Registra un hecho relevante del envío en su historial sin alterar su estado.</summary>
+    public void RegistrarEventoSinCambioDeEstado(
+        string tipoEvento,
+        Guid? responsableUsuarioId = null,
+        string? origen = null,
+        string? payload = null)
+    {
+        if (string.IsNullOrWhiteSpace(tipoEvento))
+            throw new DomainValidationException("El tipo de evento no puede ser vacío.");
+
+        _eventos.Add(new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            tipoEvento,
+            EstadoActual,
+            EstadoActual,
+            origen ?? "Sistema",
+            responsableUsuarioId,
+            payload: payload));
+        SelloModificacion = Guid.NewGuid();
+    }
+
     /// <summary>
     /// Recepciona el envío en depósito contrastando los bultos escaneados contra los declarados por el comercio.
     /// Sin discrepancias, el envío pasa a EnDeposito. Con discrepancias solo avanza si el operario las documenta

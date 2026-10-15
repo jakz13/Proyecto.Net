@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using UltimaMilla.Application.Commands.Deposito.ClasificarBultos;
 using UltimaMilla.Application.Commands.Deposito.RecepcionarBultos;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Domain.Exceptions;
@@ -53,9 +54,48 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
+        group.MapPost("/clasificacion", async (
+            [FromRoute] Guid envioId,
+            [FromBody] ClasificarBultosRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new ClasificarBultosCommand(
+                    envioId,
+                    request.Bultos ?? new List<ClasificacionBultoDto>());
+
+                var resultado = await mediator.Send(command, ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("ClasificarBultos")
+        .WithSummary("Clasificar bultos de un envío en depósito")
+        .WithDescription("Registra zona, prioridad y tipo de cada bulto recepcionado. Cuando todos los bultos recibidos están clasificados el envío queda listo para una hoja de ruta.")
+        .Produces<ClasificacionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         return app;
     }
 }
+
+public record ClasificarBultosRequest(List<ClasificacionBultoDto>? Bultos);
 
 public record RecepcionarBultosRequest(
     List<string>? CodigosBultosEscaneados,

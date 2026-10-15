@@ -59,6 +59,14 @@ public class AppDbContext : DbContext
             builder.Navigation(e => e.IntentosEntrega).AutoInclude();
         });
 
+        modelBuilder.Entity<Bulto>(builder =>
+        {
+            builder.Ignore(b => b.Volumen);
+            builder.Ignore(b => b.EstaClasificado);
+            builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
+            builder.Property(b => b.TipoClasificacion).HasMaxLength(50);
+        });
+
         modelBuilder.Entity<HojaDeRuta>(builder =>
         {
             builder.ToTable("HojasDeRuta");

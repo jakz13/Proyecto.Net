@@ -1,4 +1,5 @@
 using UltimaMilla.Domain.Common;
+using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Envios;
@@ -15,6 +16,13 @@ public class Bulto : Entity
 
     /// <summary>Volumen del bulto expresado en la unidad cúbica de las dimensiones informadas.</summary>
     public decimal Volumen => Alto * Ancho * Profundo;
+
+    public PrioridadBulto? Prioridad { get; private set; }
+    public Guid? ZonaClasificadaId { get; private set; }
+    public string? TipoClasificacion { get; private set; }
+    public DateTime? FechaClasificacion { get; private set; }
+
+    public bool EstaClasificado => FechaClasificacion.HasValue;
 
     protected Bulto() { }
 
@@ -63,6 +71,36 @@ public class Bulto : Entity
     public void MarcarCargadoEnVehiculo()
     {
         EstadoBulto = "CargadoEnVehiculo";
+    }
+
+    /// <summary>Valida que el bulto admita la clasificación indicada y devuelve el tipo normalizado.</summary>
+    public string? ValidarClasificacion(PrioridadBulto prioridad, Guid? zonaCoberturaId, string? tipo)
+    {
+        if (!Enum.IsDefined(prioridad))
+            throw new DomainValidationException($"La prioridad '{prioridad}' no es válida.");
+
+        if (zonaCoberturaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la zona de cobertura no puede ser vacío.");
+
+        if (EstadoBulto is not ("Recibido" or "Danado"))
+            throw new DomainValidationException($"El bulto {Identificacion} no se puede clasificar porque su estado es '{EstadoBulto}'.");
+
+        var tipoNormalizado = string.IsNullOrWhiteSpace(tipo) ? null : tipo.Trim();
+        if (tipoNormalizado is { Length: > 50 })
+            throw new DomainValidationException("El tipo de clasificación no puede superar los 50 caracteres.");
+
+        return tipoNormalizado;
+    }
+
+    /// <summary>Registra la clasificación del bulto. Se puede reclasificar mientras el envío siga en depósito.</summary>
+    public void Clasificar(PrioridadBulto prioridad, Guid? zonaCoberturaId, string? tipo)
+    {
+        var tipoNormalizado = ValidarClasificacion(prioridad, zonaCoberturaId, tipo);
+
+        Prioridad = prioridad;
+        ZonaClasificadaId = zonaCoberturaId;
+        TipoClasificacion = tipoNormalizado;
+        FechaClasificacion = DateTime.UtcNow;
     }
 
     public void MarcarRecibido() => EstadoBulto = "Recibido";

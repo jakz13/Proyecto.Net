@@ -124,6 +124,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("FechaClasificacion")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Identificacion")
                         .IsRequired()
                         .HasColumnType("text");
@@ -131,8 +134,19 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Peso")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Prioridad")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<decimal>("Profundo")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("TipoClasificacion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("ZonaClasificadaId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
