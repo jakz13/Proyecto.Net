@@ -58,6 +58,15 @@ public class LoginModel : PageModel
             return LocalRedirect(returnUrl);
         }
 
+        if (RolSeleccionado == "Operario")
+        {
+            return RedirectToPage("/Despacho/Index");
+        }
+        else if (RolSeleccionado == "Despachador")
+        {
+            return RedirectToPage("/Rutas/Index");
+        }
+
         return RedirectToPage("/Index");
     }
 }

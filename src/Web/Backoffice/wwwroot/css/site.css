@@ -374,3 +374,28 @@ body.sidebar-colapsada {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Estandarización de Paneles y Modales con Altura Estable
+   Regla de UX: Los paneles y modales nunca deben variar de tamaño ni producir
+   saltos visuales de interfaz al alternar entre opciones o pestañas.
+   ========================================================================== */
+.contenedor-accion-fija {
+    min-height: 105px;
+    height: 105px;
+    max-height: 105px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.opcion-tarjeta-fija {
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    background-color: #FAFAFA;
+}
+
+.opcion-tarjeta-fija:hover {
+    background-color: #F1F5F9;
+}

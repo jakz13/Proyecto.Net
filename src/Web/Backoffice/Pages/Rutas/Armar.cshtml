@@ -1,0 +1,655 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Rutas.ArmarModel
+@{
+    ViewData["Title"] = "Armar Hoja de Ruta";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-1">Armar Hoja de Ruta</h1>
+        <p class="text-secondary small mb-0">
+            Asignación de repartidor, vehículo y envíos en depósito. El sistema valida capacidades, franjas y orden de paradas antes de liberar la ruta.
+        </p>
+    </div>
+    <a asp-page="/Rutas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Volver a Rutas</span>
+    </a>
+</div>
+
+<!-- Alertas de Colisión Concurrente o Validación Fallida (Flujos Alternativos) -->
+@if (Model.ColisionDetectada)
+{
+    <div class="alert alert-danger border-danger shadow-sm rounded-3 mb-4" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <h2 class="h6 fw-bold mb-0 text-danger">Conflicto de Concurrencia: Asignación Simultánea Rechazada</h2>
+        </div>
+        <p class="small mb-2">
+            Otro despachador acaba de asignar uno de los paquetes seleccionados a otra hoja de ruta activa hace instantes.
+            Para garantizar que ningún envío quede duplicado ni asignado a dos rutas al mismo tiempo, el sistema rechazó la confirmación.
+        </p>
+        <ul class="small mb-0 ps-3">
+            @foreach (var err in Model.ErroresValidacion)
+            {
+                <li>@err</li>
+            }
+        </ul>
+    </div>
+}
+else if (Model.ErroresValidacion.Count > 0)
+{
+    <div class="alert alert-danger border-danger shadow-sm rounded-3 mb-4" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0" aria-hidden="true">
+                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <h2 class="h6 fw-bold mb-0 text-danger">Restricciones de Ruta no Cumplidas</h2>
+        </div>
+        <ul class="small mb-0 ps-3">
+            @foreach (var err in Model.ErroresValidacion)
+            {
+                <li>@err</li>
+            }
+        </ul>
+    </div>
+}
+
+<form method="post" asp-page-handler="Confirmar" id="formArmarRuta">
+    <div class="row g-4">
+        <!-- =========================================================================
+             Columna Izquierda: Parámetros del Despacho y Catálogo de Envíos en Depósito
+             ========================================================================= -->
+        <div class="col-lg-8">
+            <!-- 1. Parámetros de Recursos y Jornada -->
+            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1" style="font-size: 0.75rem;">1</span>
+                        <span>Recursos y Jornada de Entrega</span>
+                    </h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Fecha de Despacho</label>
+                            <input type="date" asp-for="Formulario.Fecha" class="form-control" id="inputFecha" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Viaje de la Jornada</label>
+                            <select asp-for="Formulario.ViajeNumero" class="form-select" id="selectViaje">
+                                <option value="1">Viaje 1 (Principal)</option>
+                                <option value="2">Viaje 2 (Segundo viaje)</option>
+                                <option value="3">Viaje 3 (Viaje adicional)</option>
+                            </select>
+                            <div class="form-text small" style="font-size: 0.72rem;">
+                                Permite armar más de un viaje para el mismo repartidor. Cada uno se valida de forma independiente.
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Turno / Franja Operativa</label>
+                            <select asp-for="Formulario.Turno" class="form-select" id="selectTurno" onchange="actualizarCalculosEnVivo()">
+                                <option value="Mañana">Mañana (09:00 - 13:00)</option>
+                                <option value="Tarde">Tarde (14:00 - 18:00)</option>
+                                <option value="Jornada Completa">Jornada Completa (09:00 - 18:00)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Repartidor Asignado</label>
+                            <select asp-for="Formulario.RepartidorId" class="form-select" id="selectRepartidor" onchange="seleccionarVehiculoHabitual(this.value)">
+                                @foreach (var rep in Model.RepartidoresDisponibles)
+                                {
+                                    <option value="@rep.Id" data-vehiculo="@(rep.VehiculoAsignadoId?.ToString() ?? "")">
+                                        @rep.NombreCompleto (@(rep.VehiculoPatente != null ? "Vehículo: " + rep.VehiculoPatente : "Sin vehículo asignado"))
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Vehículo de la Flota</label>
+                            <select asp-for="Formulario.VehiculoId" class="form-select" id="selectVehiculo" onchange="actualizarCapacidadesVehiculo()">
+                                @foreach (var veh in Model.VehiculosDisponibles)
+                                {
+                                    <option value="@veh.Id" 
+                                            data-pesomax="@veh.CapacidadPeso" 
+                                            data-volumenmax="@veh.CapacidadVolumen"
+                                            data-matricula="@veh.Patente"
+                                            data-modelo="@veh.Tipo">
+                                        @veh.Patente — @veh.Tipo (Máx: @veh.CapacidadPeso kg / @veh.CapacidadVolumen m³)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Selección de Envíos en Depósito -->
+            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1" style="font-size: 0.75rem;">2</span>
+                        <span>Envíos en Depósito Disponibles (@Model.EnviosEnDeposito.Count)</span>
+                    </h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="alternarTodosLosVisibles(true)">
+                            Seleccionar Visibles
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="alternarTodosLosVisibles(false)">
+                            Limpiar Selección
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra de Filtrado Rápido de Envíos -->
+                <div class="p-3 bg-light border-bottom">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-12 col-md-5">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                </span>
+                                <input type="text" id="filtroTexto" class="form-control border-start-0" placeholder="Buscar por código, destinatario o dirección..." onkeyup="filtrarTablaEnvios()" />
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <select id="filtroZona" class="form-select form-select-sm" onchange="filtrarTablaEnvios()">
+                                <option value="">Todas las zonas</option>
+                                <option value="Centro / Cordón">Centro / Cordón</option>
+                                <option value="Pocitos / Punta Carretas">Pocitos / Punta Carretas</option>
+                                <option value="Ciudad Vieja">Ciudad Vieja</option>
+                                <option value="Carrasco / Paso Carrasco">Carrasco / Paso Carrasco</option>
+                                <option value="Paso Molino / Prado">Paso Molino / Prado</option>
+                                <option value="Unión / Maroñas">Unión / Maroñas</option>
+                                <option value="Costa de Oro / Canelones">Costa de Oro / Canelones</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select id="filtroFranja" class="form-select form-select-sm" onchange="filtrarTablaEnvios()">
+                                <option value="">Todas las franjas</option>
+                                <option value="Mañana">Solo Mañana</option>
+                                <option value="Tarde">Solo Tarde</option>
+                                <option value="Todo el día">Todo el día</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Envíos -->
+                <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                    <table class="table table-hover table-compacta align-middle mb-0" id="tablaEnvios">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th style="width: 15%;">Código</th>
+                                <th style="width: 25%;">Destinatario / Dirección</th>
+                                <th style="width: 18%;">Zona</th>
+                                <th style="width: 18%;">Franja Comprometida</th>
+                                <th class="text-end" style="width: 12%;">Peso / Vol.</th>
+                                <th class="text-center" style="width: 10%;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.EnviosEnDeposito.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted small">
+                                        No hay envíos pendientes en depósito en este momento.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var envio in Model.EnviosEnDeposito)
+                                {
+                                    var estaSeleccionado = Model.Formulario.EnviosSeleccionados.Contains(envio.Id);
+                                    <tr class="fila-envio @(estaSeleccionado ? "table-active" : "")" 
+                                        data-id="@envio.Id"
+                                        data-codigo="@envio.CodigoSeguimiento"
+                                        data-destinatario="@envio.Destinatario"
+                                        data-direccion="@envio.Direccion"
+                                        data-zona="@envio.Zona"
+                                        data-franja="@envio.FranjaHoraria"
+                                        data-turno="@envio.Turno"
+                                        data-peso="@envio.PesoKg"
+                                        data-volumen="@envio.VolumenM3">
+                                        <td class="text-center">
+                                            <input class="form-check-input chk-envio" 
+                                                   type="checkbox" 
+                                                   name="Formulario.EnviosSeleccionados" 
+                                                   value="@envio.Id" 
+                                                   checked="@estaSeleccionado"
+                                                   onchange="onCambioSeleccionFila(this)" />
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.725rem;">
+                                                @envio.CodigoSeguimiento
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-dark small">@envio.Destinatario</div>
+                                            <div class="text-muted" style="font-size: 0.725rem;">@envio.Direccion</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.7rem;">
+                                                @envio.Zona
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (envio.Turno == "Mañana")
+                                            {
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.7rem;">
+                                                    ☀ @envio.FranjaHoraria
+                                                </span>
+                                            }
+                                            else if (envio.Turno == "Tarde")
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem;">
+                                                    🌆 @envio.FranjaHoraria
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                                    ⏱ @envio.FranjaHoraria
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="small fw-semibold text-dark">@envio.PesoKg.ToString("N1") kg</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">@envio.VolumenM3.ToString("N3") m³</div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.68rem;">
+                                                En Depósito
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             Columna Derecha: Panel Reactivo de Capacidad, Ordenamiento y Confirmación
+             ========================================================================= -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-3 sticky-top" style="top: 20px;">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center justify-content-between">
+                        <span>Balance de Carga en Vivo</span>
+                        <span class="badge bg-secondary-subtle text-dark border font-monospace" id="txtContadorParadas">0 / 25</span>
+                    </h2>
+                </div>
+
+                <div class="card-body p-3">
+                    <!-- 1. Capacidad de Peso -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-semibold text-dark">Capacidad de Peso:</span>
+                            <span class="small font-monospace" id="lblTextoPeso">0.0 / 0 kg (0%)</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" id="barraProgresoPeso" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small text-danger mt-1 fw-bold" id="alertaExcesoPeso" style="display: none; font-size: 0.75rem;">
+                            ⚠️ Capacidad de peso excedida
+                        </div>
+                    </div>
+
+                    <!-- 2. Capacidad de Volumen -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-semibold text-dark">Capacidad de Volumen:</span>
+                            <span class="small font-monospace" id="lblTextoVolumen">0.00 / 0 m³ (0%)</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-info" id="barraProgresoVolumen" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small text-danger mt-1 fw-bold" id="alertaExcesoVolumen" style="display: none; font-size: 0.75rem;">
+                            ⚠️ Capacidad de volumen excedida
+                        </div>
+                    </div>
+
+                    <!-- Alerta de Compatibilidad de Franja Horaria Comprometida -->
+                    <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3" id="alertaIncompatibilidadFranja" style="display: none;">
+                        <div class="fw-bold mb-1">⚠️ Incompatibilidad de Horario</div>
+                        <div id="txtDetalleIncompatibilidad" style="font-size: 0.75rem;">
+                            Uno o más paquetes seleccionados tienen franja horaria no compatible con el turno.
+                        </div>
+                    </div>
+
+                    <hr class="my-3" />
+
+                    <!-- 3. Criterio de Ordenamiento de Paradas (RF-16) -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-2">Criterio para Ordenar Paradas:</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioFranja" value="FranjaHoraria" checked onchange="actualizarSecuenciaPrevisualizada()">
+                            <label class="form-check-label small" for="criterioFranja">
+                                <strong>Por franja horaria comprometida</strong>
+                                <div class="text-muted" style="font-size: 0.7rem;">Prioriza entregas según ventana pactada con el cliente.</div>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioGeografico" value="OptimoGeografico" onchange="actualizarSecuenciaPrevisualizada()">
+                            <label class="form-check-label small" for="criterioGeografico">
+                                <strong>Secuencia geográfica optimizada</strong>
+                                <div class="text-muted" style="font-size: 0.7rem;">Agrupa entregas por proximidad de zona para reducir recorrido.</div>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioManual" value="Manual" onchange="actualizarSecuenciaPrevisualizada()">
+                            <label class="form-check-label small" for="criterioManual">
+                                <strong>Orden manual de selección</strong>
+                                <div class="text-muted" style="font-size: 0.7rem;">Mantiene la secuencia según el orden en que se seleccionaron.</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 4. Previsualización de la Secuencia de Paradas -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-1">Secuencia Estimada de Paradas:</label>
+                        <div class="border rounded p-2 bg-light" style="max-height: 160px; overflow-y: auto;" id="contenedorPrevisualizacionParadas">
+                            <div class="text-muted text-center py-3 small" id="txtSecuenciaVacia">
+                                Selecciona envíos para previsualizar el recorrido.
+                            </div>
+                            <ol class="ps-3 mb-0 small" id="listaParadasPrevisualizadas" style="display: none;"></ol>
+                        </div>
+                    </div>
+
+                    <!-- 5. Demostración de Colisión Concurrente (Flujo Alternativo) -->
+                    <div class="p-2 bg-light border rounded mb-3">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" asp-for="Formulario.SimularColision" id="checkSimularColision">
+                            <label class="form-check-label small text-secondary" for="checkSimularColision" style="font-size: 0.75rem;">
+                                Simular colisión concurrente con otro despachador
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Confirmación Principal -->
+                    <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2" id="btnConfirmarRuta">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Confirmar y Liberar Hoja de Ruta</span>
+                    </button>
+                    <div class="text-center mt-2">
+                        <span class="text-muted" style="font-size: 0.72rem;">La ruta quedará liberada para la app del repartidor.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        var capacidadPesoMax = 650;
+        var capacidadVolumenMax = 3.3;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            actualizarCapacidadesVehiculo();
+            actualizarCalculosEnVivo();
+        });
+
+        function seleccionarVehiculoHabitual(repartidorId) {
+            var repSelect = document.getElementById('selectRepartidor');
+            var selectedOpt = repSelect.options[repSelect.selectedIndex];
+            var vehId = selectedOpt.getAttribute('data-vehiculo');
+            
+            if (vehId) {
+                var vehSelect = document.getElementById('selectVehiculo');
+                for (var i = 0; i < vehSelect.options.length; i++) {
+                    if (vehSelect.options[i].value === vehId) {
+                        vehSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            actualizarCapacidadesVehiculo();
+        }
+
+        function actualizarCapacidadesVehiculo() {
+            var vehSelect = document.getElementById('selectVehiculo');
+            if (!vehSelect || vehSelect.selectedIndex < 0) return;
+
+            var opt = vehSelect.options[vehSelect.selectedIndex];
+            capacidadPesoMax = parseFloat(opt.getAttribute('data-pesomax') || '650');
+            capacidadVolumenMax = parseFloat(opt.getAttribute('data-volumenmax') || '3.3');
+
+            actualizarCalculosEnVivo();
+        }
+
+        function onCambioSeleccionFila(chk) {
+            var fila = chk.closest('tr');
+            if (chk.checked) {
+                fila.classList.add('table-active');
+            } else {
+                fila.classList.remove('table-active');
+            }
+            actualizarCalculosEnVivo();
+        }
+
+        function alternarTodosLosVisibles(marcado) {
+            var filas = document.querySelectorAll('#tablaEnvios tbody tr');
+            filas.forEach(function (f) {
+                if (f.style.display !== 'none') {
+                    var chk = f.querySelector('.chk-envio');
+                    if (chk) {
+                        chk.checked = marcado;
+                        if (marcado) {
+                            f.classList.add('table-active');
+                        } else {
+                            f.classList.remove('table-active');
+                        }
+                    }
+                }
+            });
+            actualizarCalculosEnVivo();
+        }
+
+        function filtrarTablaEnvios() {
+            var texto = (document.getElementById('filtroTexto').value || '').toLowerCase().trim();
+            var zona = (document.getElementById('filtroZona').value || '').trim();
+            var franja = (document.getElementById('filtroFranja').value || '').trim();
+
+            var filas = document.querySelectorAll('#tablaEnvios tbody tr.fila-envio');
+            filas.forEach(function (f) {
+                var cCodigo = (f.getAttribute('data-codigo') || '').toLowerCase();
+                var cDest = (f.getAttribute('data-destinatario') || '').toLowerCase();
+                var cDir = (f.getAttribute('data-direccion') || '').toLowerCase();
+                var cZona = f.getAttribute('data-zona') || '';
+                var cTurno = f.getAttribute('data-turno') || '';
+
+                var coincideTexto = !texto || cCodigo.includes(texto) || cDest.includes(texto) || cDir.includes(texto);
+                var coincideZona = !zona || cZona === zona;
+                var coincideFranja = !franja || cTurno === franja;
+
+                if (coincideTexto && coincideZona && coincideFranja) {
+                    f.style.display = '';
+                } else {
+                    f.style.display = 'none';
+                }
+            });
+        }
+
+        function actualizarCalculosEnVivo() {
+            var checkboxes = document.querySelectorAll('.chk-envio:checked');
+            var cantidad = checkboxes.length;
+            var pesoTotal = 0;
+            var volumenTotal = 0;
+            var turnoSeleccionado = document.getElementById('selectTurno').value;
+            var hayIncompatibilidad = false;
+            var paquetesIncompatibles = [];
+
+            checkboxes.forEach(function (chk) {
+                var fila = chk.closest('tr');
+                var peso = parseFloat(fila.getAttribute('data-peso') || '0');
+                var vol = parseFloat(fila.getAttribute('data-volumen') || '0');
+                var turnoEnvio = fila.getAttribute('data-turno') || '';
+                var codigo = fila.getAttribute('data-codigo') || '';
+
+                pesoTotal += peso;
+                volumenTotal += vol;
+
+                if (turnoSeleccionado === 'Mañana' && turnoEnvio === 'Tarde') {
+                    hayIncompatibilidad = true;
+                    paquetesIncompatibles.push(codigo + ' (Tarde)');
+                } else if (turnoSeleccionado === 'Tarde' && turnoEnvio === 'Mañana') {
+                    hayIncompatibilidad = true;
+                    paquetesIncompatibles.push(codigo + ' (Mañana)');
+                }
+            });
+
+            // Contador de paradas
+            var txtContador = document.getElementById('txtContadorParadas');
+            txtContador.textContent = cantidad + ' / 25';
+            if (cantidad > 25) {
+                txtContador.className = 'badge bg-danger-subtle text-danger border border-danger-subtle font-monospace';
+            } else {
+                txtContador.className = 'badge bg-secondary-subtle text-dark border font-monospace';
+            }
+
+            // Barra de Peso
+            var pctPeso = capacidadPesoMax > 0 ? Math.round((pesoTotal / capacidadPesoMax) * 100) : 0;
+            var barraPeso = document.getElementById('barraProgresoPeso');
+            barraPeso.style.width = Math.min(pctPeso, 100) + '%';
+            document.getElementById('lblTextoPeso').textContent = pesoTotal.toFixed(1) + ' / ' + capacidadPesoMax + ' kg (' + pctPeso + '%)';
+
+            var alertaPeso = document.getElementById('alertaExcesoPeso');
+            if (pesoTotal > capacidadPesoMax) {
+                barraPeso.className = 'progress-bar bg-danger';
+                alertaPeso.style.display = 'block';
+                alertaPeso.textContent = '⚠️ Exceso de peso: +' + (pesoTotal - capacidadPesoMax).toFixed(1) + ' kg';
+            } else if (pctPeso >= 85) {
+                barraPeso.className = 'progress-bar bg-warning';
+                alertaPeso.style.display = 'none';
+            } else {
+                barraPeso.className = 'progress-bar bg-success';
+                alertaPeso.style.display = 'none';
+            }
+
+            // Barra de Volumen
+            var pctVol = capacidadVolumenMax > 0 ? Math.round((volumenTotal / capacidadVolumenMax) * 100) : 0;
+            var barraVol = document.getElementById('barraProgresoVolumen');
+            barraVol.style.width = Math.min(pctVol, 100) + '%';
+            document.getElementById('lblTextoVolumen').textContent = volumenTotal.toFixed(2) + ' / ' + capacidadVolumenMax.toFixed(1) + ' m³ (' + pctVol + '%)';
+
+            var alertaVol = document.getElementById('alertaExcesoVolumen');
+            if (volumenTotal > capacidadVolumenMax) {
+                barraVol.className = 'progress-bar bg-danger';
+                alertaVol.style.display = 'block';
+                alertaVol.textContent = '⚠️ Exceso de volumen: +' + (volumenTotal - capacidadVolumenMax).toFixed(2) + ' m³';
+            } else if (pctVol >= 85) {
+                barraVol.className = 'progress-bar bg-warning';
+                alertaVol.style.display = 'none';
+            } else {
+                barraVol.className = 'progress-bar bg-info';
+                alertaVol.style.display = 'none';
+            }
+
+            // Alerta de compatibilidad de franjas
+            var alertaFranja = document.getElementById('alertaIncompatibilidadFranja');
+            if (hayIncompatibilidad) {
+                alertaFranja.style.display = 'block';
+                document.getElementById('txtDetalleIncompatibilidad').textContent =
+                    'Paquetes con franja incompatible con ' + turnoSeleccionado + ': ' + paquetesIncompatibles.join(', ');
+            } else {
+                alertaFranja.style.display = 'none';
+            }
+
+            // Habilitar o deshabilitar botón confirmar
+            var btnConfirmar = document.getElementById('btnConfirmarRuta');
+            if (cantidad === 0) {
+                btnConfirmar.disabled = true;
+            } else {
+                btnConfirmar.disabled = false;
+            }
+
+            actualizarSecuenciaPrevisualizada();
+        }
+
+        function actualizarSecuenciaPrevisualizada() {
+            var checkboxes = document.querySelectorAll('.chk-envio:checked');
+            var lista = document.getElementById('listaParadasPrevisualizadas');
+            var txtVacio = document.getElementById('txtSecuenciaVacia');
+
+            if (checkboxes.length === 0) {
+                lista.style.display = 'none';
+                lista.innerHTML = '';
+                txtVacio.style.display = 'block';
+                return;
+            }
+
+            txtVacio.style.display = 'none';
+            lista.style.display = 'block';
+            lista.innerHTML = '';
+
+            var items = [];
+            checkboxes.forEach(function (chk) {
+                var fila = chk.closest('tr');
+                items.push({
+                    codigo: fila.getAttribute('data-codigo'),
+                    dest: fila.getAttribute('data-destinatario'),
+                    dir: fila.getAttribute('data-direccion'),
+                    zona: fila.getAttribute('data-zona'),
+                    turno: fila.getAttribute('data-turno'),
+                    franja: fila.getAttribute('data-franja')
+                });
+            });
+
+            var criterio = 'FranjaHoraria';
+            var radioFranja = document.getElementById('criterioFranja');
+            var radioGeo = document.getElementById('criterioGeografico');
+            if (radioGeo && radioGeo.checked) {
+                criterio = 'OptimoGeografico';
+            } else if (document.getElementById('criterioManual') && document.getElementById('criterioManual').checked) {
+                criterio = 'Manual';
+            }
+
+            if (criterio === 'FranjaHoraria') {
+                items.sort(function (a, b) {
+                    var pesoTurno = { 'Mañana': 1, 'Todo el día': 2, 'Tarde': 3 };
+                    var valA = pesoTurno[a.turno] || 4;
+                    var valB = pesoTurno[b.turno] || 4;
+                    if (valA !== valB) return valA - valB;
+                    return a.zona.localeCompare(b.zona);
+                });
+            } else if (criterio === 'OptimoGeografico') {
+                items.sort(function (a, b) {
+                    return a.zona.localeCompare(b.zona);
+                });
+            }
+
+            items.forEach(function (it, idx) {
+                var li = document.createElement('li');
+                li.className = 'mb-1';
+                li.innerHTML = '<span class="fw-semibold text-dark">' + it.dest + '</span> ' +
+                    '<span class="text-muted" style="font-size: 0.72rem;">(' + it.dir + ')</span> ' +
+                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.65rem;">' + it.franja + '</span>';
+                lista.appendChild(li);
+            });
+        }
+    </script>
+}

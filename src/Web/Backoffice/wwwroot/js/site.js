@@ -98,4 +98,27 @@ document.addEventListener('DOMContentLoaded', function () {
             localStorage.setItem('sidebar_colapsada', colapsar ? 'true' : 'false');
         });
     }
+
+    // ==========================================================================
+    // Control Universal de Cierre de Modales
+    // ==========================================================================
+    document.addEventListener('click', function (e) {
+        var botonCerrar = e.target.closest('[data-bs-dismiss="modal"]');
+        if (botonCerrar) {
+            var modal = botonCerrar.closest('.modal');
+            if (modal) {
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    var instancia = bootstrap.Modal.getInstance(modal);
+                    if (instancia) {
+                        instancia.hide();
+                        return;
+                    }
+                }
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            }
+        }
+    });
 });
