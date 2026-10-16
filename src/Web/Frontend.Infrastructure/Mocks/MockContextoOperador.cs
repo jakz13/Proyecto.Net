@@ -49,4 +49,19 @@ public class MockContextoOperador
             AlCambiarOperador?.Invoke();
         }
     }
+
+    /// <summary>
+    /// Actualiza la configuración de identidad visual del operador activo en memoria y notifica a las superficies vinculadas.
+    /// </summary>
+    public void ActualizarIdentidad(IdentidadVisualDto nuevaIdentidad)
+    {
+        var indice = OperadoresDisponibles.FindIndex(o => o.OperadorId == nuevaIdentidad.OperadorId);
+        if (indice >= 0)
+        {
+            OperadoresDisponibles[indice] = nuevaIdentidad;
+        }
+
+        _operadorActivo = nuevaIdentidad;
+        AlCambiarOperador?.Invoke();
+    }
 }

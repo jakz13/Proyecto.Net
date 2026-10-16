@@ -78,4 +78,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     window.addEventListener('resize', cerrarPopover);
     window.addEventListener('scroll', cerrarPopover, true);
+
+    // ==========================================================================
+    // Control de Barra Lateral Anclada y Colapsable
+    // ==========================================================================
+    var botonColapsar = document.getElementById('btnColapsarSidebar');
+    if (botonColapsar) {
+        // Sincronizar estado inicial guardado en localStorage
+        var estaColapsadaGuardada = localStorage.getItem('sidebar_colapsada') === 'true';
+        if (estaColapsadaGuardada) {
+            document.body.classList.add('sidebar-colapsada');
+            document.documentElement.classList.add('sidebar-colapsada');
+        }
+
+        botonColapsar.addEventListener('click', function () {
+            var colapsar = !document.body.classList.contains('sidebar-colapsada');
+            document.body.classList.toggle('sidebar-colapsada', colapsar);
+            document.documentElement.classList.toggle('sidebar-colapsada', colapsar);
+            localStorage.setItem('sidebar_colapsada', colapsar ? 'true' : 'false');
+        });
+    }
 });

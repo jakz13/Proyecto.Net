@@ -1,0 +1,770 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Flota.IndexModel
+@{
+    ViewData["Title"] = "Repartidores y Vehículos";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Gestión de Repartidores y Vehículos</h1>
+        <partial name="_BotonAyuda" model='"Alta y configuración de vehículos con capacidad de carga y registro de repartidores con asignación de unidades para la planificación de rutas."' />
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="mostrarPanelVehiculoNuevo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            <span>Nuevo Vehículo</span>
+        </button>
+        <button type="button" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm" onclick="mostrarPanelRepartidorNuevo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            <span>Nuevo Repartidor</span>
+        </button>
+    </div>
+</div>
+
+<!-- Alertas y Notificaciones -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Estandarizadas -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Vehículos Activos",
+            $"{Model.VehiculosActivos} / {Model.Vehiculos.Count}",
+            "Unidades de transporte operativas disponibles en la flota.",
+            "text-success",
+            "Ver Flota ↓",
+            "#seccion-vehiculos"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Capacidad Flota",
+            $"{Model.CapacidadPesoTotalKg:N0} kg",
+            "Carga total máxima admisible en peso de las unidades activas.",
+            "text-dark",
+            "Nuevo Vehículo →",
+            "javascript:mostrarPanelVehiculoNuevo()"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Repartidores Activos",
+            $"{Model.RepartidoresActivos} / {Model.Repartidores.Count}",
+            "Conductores y mensajeros en estado disponible o en ruta.",
+            "text-primary",
+            "Ver Padrón ↓",
+            "#seccion-repartidores"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Unidades Asignadas",
+            $"{Model.RepartidoresConVehiculo} asignados",
+            "Repartidores con vehículo asociado para la planificación de rutas.",
+            "text-secondary",
+            "Nuevo Repartidor →",
+            "javascript:mostrarPanelRepartidorNuevo()"
+        )' />
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- =========================================================================
+         Sección 1: Catálogo de Vehículos (RF-06)
+         ========================================================================= -->
+    <div class="col-12" id="seccion-vehiculos">
+        <!-- Panel 1.A: Formulario para Dar de Alta Vehículo (Desplegable) -->
+        <div class="panel-estandar mb-4 border-dark shadow-sm" id="panelVehiculoNuevo" style="display: none; border-top: 3px solid var(--color-primario, #0f172a);">
+            <div class="panel-estandar-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                    <h2 class="h6 fw-bold mb-0 text-dark">Dar de Alta Vehículo en Flota</h2>
+                    <span class="badge bg-dark-subtle text-dark border ms-1" style="font-size: 0.7rem;">Nuevo Registro</span>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarPanel('panelVehiculoNuevo')" title="Cerrar panel">
+                    ✕ Cerrar
+                </button>
+            </div>
+            <form method="post" asp-page-handler="CrearVehiculo" id="formVehiculoNuevo">
+                <div class="panel-estandar-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="NuevoVehiculo.Patente" class="form-label small fw-semibold">
+                                Matrícula / Patente <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="NuevoVehiculo.Patente" id="inputNuevoVehiculoPatente" class="form-control form-control-sm text-uppercase font-monospace" placeholder="Ej: STX 5542" required maxlength="15" />
+                            <span asp-validation-for="NuevoVehiculo.Patente" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NuevoVehiculo.Tipo" class="form-label small fw-semibold">
+                                Tipo de Vehículo <span class="text-danger">*</span>
+                            </label>
+                            <select asp-for="NuevoVehiculo.Tipo" class="form-select form-select-sm" required>
+                                <option value="Utilitario Ligero">Utilitario Ligero (Furgoneta)</option>
+                                <option value="Furgón Mediano">Furgón Mediano</option>
+                                <option value="Furgón Grande">Furgón Grande</option>
+                                <option value="Camioneta Pick-up">Camioneta Pick-up</option>
+                                <option value="Moto Cargo">Moto Cargo / Ciclomotor</option>
+                                <option value="Camión Liviano">Camión Liviano</option>
+                            </select>
+                            <span asp-validation-for="NuevoVehiculo.Tipo" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NuevoVehiculo.CapacidadPeso" class="form-label small fw-semibold">
+                                Capacidad Peso (kg) <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="NuevoVehiculo.CapacidadPeso" type="number" step="1" min="1" max="100000" class="form-control form-control-sm" placeholder="Ej: 800" required />
+                            <span asp-validation-for="NuevoVehiculo.CapacidadPeso" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NuevoVehiculo.CapacidadVolumen" class="form-label small fw-semibold">
+                                Capacidad Volumen (m³) <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="NuevoVehiculo.CapacidadVolumen" type="number" step="0.1" min="0.1" max="1000" class="form-control form-control-sm" placeholder="Ej: 5.5" required />
+                            <span asp-validation-for="NuevoVehiculo.CapacidadVolumen" class="text-danger small"></span>
+                        </div>
+                    </div>
+                    <div class="form-text mt-2" style="font-size: 0.725rem;">
+                        Los valores ingresados se utilizarán para validar los límites de carga durante la optimización de rutas (RF-06).
+                    </div>
+                </div>
+                <div class="panel-estandar-footer d-flex justify-content-end align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarPanel('panelVehiculoNuevo')">Cancelar</button>
+                    <button type="submit" class="btn btn-dark btn-sm px-3">Guardar Vehículo</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Panel 1.B: Formulario para Editar Vehículo (Desplegable) -->
+        <div class="panel-estandar mb-4 border-dark shadow-sm" id="panelVehiculoEdicion" style="display: none; border-top: 3px solid #f59e0b;">
+            <div class="panel-estandar-header bg-light">
+                <div class="d-flex align-items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning" aria-hidden="true">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                    <h2 class="h6 fw-bold mb-0 text-dark">Modificar Vehículo: <span id="spanEditPatente" class="font-monospace text-primary"></span></h2>
+                    <span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.7rem;">Edición</span>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarPanel('panelVehiculoEdicion')" title="Cerrar panel">
+                    ✕ Cerrar
+                </button>
+            </div>
+            <form method="post" asp-page-handler="EditarVehiculo" id="formVehiculoEdicion">
+                <input type="hidden" asp-for="EdicionVehiculo.Id" id="editVehiculoId" />
+                <div class="panel-estandar-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="EdicionVehiculo.Patente" class="form-label small fw-semibold">
+                                Matrícula / Patente <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="EdicionVehiculo.Patente" id="editVehiculoPatente" class="form-control form-control-sm text-uppercase font-monospace" required maxlength="15" />
+                            <span asp-validation-for="EdicionVehiculo.Patente" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EdicionVehiculo.Tipo" class="form-label small fw-semibold">
+                                Tipo de Vehículo <span class="text-danger">*</span>
+                            </label>
+                            <select asp-for="EdicionVehiculo.Tipo" id="editVehiculoTipo" class="form-select form-select-sm" required>
+                                <option value="Utilitario Ligero">Utilitario Ligero (Furgoneta)</option>
+                                <option value="Furgón Mediano">Furgón Mediano</option>
+                                <option value="Furgón Grande">Furgón Grande</option>
+                                <option value="Camioneta Pick-up">Camioneta Pick-up</option>
+                                <option value="Moto Cargo">Moto Cargo / Ciclomotor</option>
+                                <option value="Camión Liviano">Camión Liviano</option>
+                            </select>
+                            <span asp-validation-for="EdicionVehiculo.Tipo" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EdicionVehiculo.CapacidadPeso" class="form-label small fw-semibold">
+                                Capacidad Peso (kg) <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="EdicionVehiculo.CapacidadPeso" id="editVehiculoPeso" type="number" step="1" min="1" max="100000" class="form-control form-control-sm" required />
+                            <span asp-validation-for="EdicionVehiculo.CapacidadPeso" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EdicionVehiculo.CapacidadVolumen" class="form-label small fw-semibold">
+                                Capacidad Volumen (m³) <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="EdicionVehiculo.CapacidadVolumen" id="editVehiculoVolumen" type="number" step="0.1" min="0.1" max="1000" class="form-control form-control-sm" required />
+                            <span asp-validation-for="EdicionVehiculo.CapacidadVolumen" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch pt-1">
+                                <input class="form-check-input" type="checkbox" asp-for="EdicionVehiculo.Activo" id="editVehiculoActivo">
+                                <label class="form-check-label small fw-semibold" for="editVehiculoActivo">
+                                    Unidad Operativa Activa (Disponible para asignación y despacho)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-estandar-footer d-flex justify-content-end align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarPanel('panelVehiculoEdicion')">Cancelar</button>
+                    <button type="submit" class="btn btn-dark btn-sm px-3">Actualizar Vehículo</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Panel 1.C: Tabla de Vehículos Existentes -->
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Vehículos y Capacidades de Carga</h2>
+                    <partial name="_BotonAyuda" model='"Cada unidad de transporte define sus límites de peso y volumen requeridos para la optimización de rutas (RF-06)."' />
+                </div>
+                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;" onclick="mostrarPanelVehiculoNuevo()">
+                    + Registrar Vehículo
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Patente</th>
+                            <th>Tipo de Unidad</th>
+                            <th>Capacidad Peso</th>
+                            <th>Capacidad Volumen</th>
+                            <th>Estado</th>
+                            <th>Conductor Asignado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Vehiculos.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted small">
+                                    No hay vehículos registrados en la flota de este operador.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var vehiculo in Model.Vehiculos)
+                            {
+                                <tr class="@(!vehiculo.Activo ? "opacity-75 bg-light" : "")">
+                                    <td>
+                                        <span class="badge bg-dark font-monospace text-white px-2 py-1 border" style="letter-spacing: 0.08em;">
+                                            @vehiculo.Patente
+                                        </span>
+                                    </td>
+                                    <td class="fw-semibold text-dark">@vehiculo.Tipo</td>
+                                    <td>
+                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadPeso.ToString("N0")</span> <span class="small text-muted">kg</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadVolumen.ToString("N1")</span> <span class="small text-muted">m³</span>
+                                    </td>
+                                    <td>
+                                        @if (vehiculo.Activo)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                                ● Activo
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
+                                                Inactivo / Taller
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(vehiculo.RepartidorAsignadoNombre))
+                                        {
+                                            <div class="d-flex align-items-center gap-1 text-dark small">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                    <circle cx="12" cy="7" r="4"></circle>
+                                                </svg>
+                                                <span class="fw-semibold">@vehiculo.RepartidorAsignadoNombre</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small fst-italic">Disponible (Sin asignar)</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionVehiculo('@vehiculo.Id', '@vehiculo.Patente', '@vehiculo.Tipo', @vehiculo.CapacidadPeso, @vehiculo.CapacidadVolumen, @(vehiculo.Activo ? "true" : "false"))">
+                                                Editar
+                                            </button>
+                                            <form method="post" asp-page-handler="CambiarEstadoVehiculo" class="d-inline">
+                                                <input type="hidden" name="id" value="@vehiculo.Id" />
+                                                <input type="hidden" name="activo" value="@(vehiculo.Activo ? "false" : "true")" />
+                                                <button type="submit" class="btn btn-outline-@(vehiculo.Activo ? "danger" : "success") btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                                    @(vehiculo.Activo ? "Desactivar" : "Activar")
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             Sección 2: Padrón de Repartidores y Asignación de Unidades (RF-06)
+             ========================================================================= -->
+        <div class="panel-estandar" id="seccion-repartidores">
+            <!-- Panel 2.A: Formulario para Dar de Alta Repartidor (Desplegable) -->
+            <div class="panel-estandar mb-4 border-dark shadow-sm" id="panelRepartidorNuevo" style="display: none; border-top: 3px solid var(--color-primario, #0f172a);">
+                <div class="panel-estandar-header bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                        <h2 class="h6 fw-bold mb-0 text-dark">Dar de Alta Repartidor</h2>
+                        <span class="badge bg-dark-subtle text-dark border ms-1" style="font-size: 0.7rem;">Nuevo Registro</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarPanel('panelRepartidorNuevo')" title="Cerrar panel">
+                        ✕ Cerrar
+                    </button>
+                </div>
+                <form method="post" asp-page-handler="CrearRepartidor" id="formRepartidorNuevo">
+                    <div class="panel-estandar-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="NuevoRepartidor.NombreCompleto" class="form-label small fw-semibold">
+                                    Nombre y Apellido <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="NuevoRepartidor.NombreCompleto" id="inputNuevoRepartidorNombre" class="form-control form-control-sm" placeholder="Ej: Santiago Bentancor" required maxlength="100" />
+                                <span asp-validation-for="NuevoRepartidor.NombreCompleto" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="NuevoRepartidor.Email" class="form-label small fw-semibold">
+                                    Correo Electrónico (Acceso a App Móvil) <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="NuevoRepartidor.Email" type="email" class="form-control form-control-sm" placeholder="repartidor@operador.uy" required maxlength="100" />
+                                <span asp-validation-for="NuevoRepartidor.Email" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="NuevoRepartidor.Documento" class="form-label small fw-semibold">
+                                    Cédula / DNI <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="NuevoRepartidor.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 4.512.980-3" required maxlength="30" />
+                                <span asp-validation-for="NuevoRepartidor.Documento" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="NuevoRepartidor.Telefono" class="form-label small fw-semibold">
+                                    Teléfono Celular <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="NuevoRepartidor.Telefono" class="form-control form-control-sm" placeholder="+598 99 111 222" required maxlength="30" />
+                                <span asp-validation-for="NuevoRepartidor.Telefono" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="NuevoRepartidor.VehiculoAsignadoId" class="form-label small fw-semibold">
+                                    Asociar a Vehículo (Opcional)
+                                </label>
+                                <select asp-for="NuevoRepartidor.VehiculoAsignadoId" class="form-select form-select-sm">
+                                    <option value="">-- Sin vehículo asignado inicialmente --</option>
+                                    @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
+                                    {
+                                        <option value="@vehiculo.Id">
+                                            @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
+                                        </option>
+                                    }
+                                </select>
+                                <div class="form-text" style="font-size: 0.725rem;">
+                                    Puede asociarse ahora o en cualquier momento antes del despacho de rutas.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-estandar-footer d-flex justify-content-end align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarPanel('panelRepartidorNuevo')">Cancelar</button>
+                        <button type="submit" class="btn btn-dark btn-sm px-3">Guardar Repartidor</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Panel 2.B: Formulario para Editar Repartidor (Desplegable) -->
+            <div class="panel-estandar mb-4 border-dark shadow-sm" id="panelRepartidorEdicion" style="display: none; border-top: 3px solid #f59e0b;">
+                <div class="panel-estandar-header bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning" aria-hidden="true">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        <h2 class="h6 fw-bold mb-0 text-dark">Modificar Repartidor: <span id="spanEditNombreRepartidor" class="text-primary"></span></h2>
+                        <span class="badge bg-warning-subtle text-dark border ms-1" style="font-size: 0.7rem;">Edición</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarPanel('panelRepartidorEdicion')" title="Cerrar panel">
+                        ✕ Cerrar
+                    </button>
+                </div>
+                <form method="post" asp-page-handler="EditarRepartidor" id="formRepartidorEdicion">
+                    <input type="hidden" asp-for="EdicionRepartidor.Id" id="editRepartidorId" />
+                    <div class="panel-estandar-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.NombreCompleto" class="form-label small fw-semibold">
+                                    Nombre y Apellido <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="EdicionRepartidor.NombreCompleto" id="editRepartidorNombre" class="form-control form-control-sm" required maxlength="100" />
+                                <span asp-validation-for="EdicionRepartidor.NombreCompleto" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.Email" class="form-label small fw-semibold">
+                                    Correo Electrónico <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="EdicionRepartidor.Email" id="editRepartidorEmail" type="email" class="form-control form-control-sm" required maxlength="100" />
+                                <span asp-validation-for="EdicionRepartidor.Email" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.Documento" class="form-label small fw-semibold">
+                                    Cédula / DNI <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="EdicionRepartidor.Documento" id="editRepartidorDocumento" class="form-control form-control-sm font-monospace" required maxlength="30" />
+                                <span asp-validation-for="EdicionRepartidor.Documento" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.Telefono" class="form-label small fw-semibold">
+                                    Teléfono Celular <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="EdicionRepartidor.Telefono" id="editRepartidorTelefono" class="form-control form-control-sm" required maxlength="30" />
+                                <span asp-validation-for="EdicionRepartidor.Telefono" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.Estado" class="form-label small fw-semibold">
+                                    Estado Operativo <span class="text-danger">*</span>
+                                </label>
+                                <select asp-for="EdicionRepartidor.Estado" id="editRepartidorEstado" class="form-select form-select-sm" required>
+                                    <option value="Disponible">Disponible</option>
+                                    <option value="En Ruta">En Ruta</option>
+                                    <option value="Inactivo">Inactivo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.VehiculoAsignadoId" class="form-label small fw-semibold">
+                                    Vehículo Asociado
+                                </label>
+                                <select asp-for="EdicionRepartidor.VehiculoAsignadoId" id="editRepartidorVehiculoId" class="form-select form-select-sm">
+                                    <option value="">-- Sin vehículo --</option>
+                                    @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
+                                    {
+                                        <option value="@vehiculo.Id">
+                                            @vehiculo.Patente (@vehiculo.Tipo - @vehiculo.CapacidadPeso.ToString("N0") kg)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-estandar-footer d-flex justify-content-end align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarPanel('panelRepartidorEdicion')">Cancelar</button>
+                        <button type="submit" class="btn btn-dark btn-sm px-3">Actualizar Repartidor</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Panel 2.C: Asignación Rápida de Vehículo (Desplegable) -->
+            <div class="panel-estandar mb-4 border-dark shadow-sm" id="panelAsignacionVehiculo" style="display: none; border-top: 3px solid #2563eb;">
+                <div class="panel-estandar-header bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        <h2 class="h6 fw-bold mb-0 text-dark">Asociar Unidad a Repartidor: <span id="spanAsignarNombreRepartidor" class="text-primary"></span></h2>
+                        <span class="badge bg-primary-subtle text-primary border ms-1" style="font-size: 0.7rem;">Asignación de Ruta</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarPanel('panelAsignacionVehiculo')" title="Cerrar panel">
+                        ✕ Cerrar
+                    </button>
+                </div>
+                <form method="post" asp-page-handler="AsignarVehiculo" id="formAsignacionVehiculo">
+                    <input type="hidden" name="repartidorId" id="asignarRepartidorId" />
+                    <div class="panel-estandar-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Seleccionar Vehículo de la Flota:</label>
+                            <select name="vehiculoId" id="asignarVehiculoSelect" class="form-select form-select-sm">
+                                <option value="">-- Ninguno (Desasociar unidad) --</option>
+                                @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
+                                {
+                                    <option value="@vehiculo.Id">
+                                        @vehiculo.Patente - @vehiculo.Tipo (Carga: @vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[En uso por {vehiculo.RepartidorAsignadoNombre}]" : "[Libre]")
+                                    </option>
+                                }
+                            </select>
+                            <div class="form-text" style="font-size: 0.725rem;">
+                                Al asociar una unidad, queda vinculada inmediatamente para la planificación y despacho de rutas operativas (RF-06).
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-estandar-footer d-flex justify-content-end align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarPanel('panelAsignacionVehiculo')">Cancelar</button>
+                        <button type="submit" class="btn btn-dark btn-sm px-3">Confirmar Asignación</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Panel 2.D: Tabla de Repartidores -->
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Padrón de Repartidores y Asignación de Vehículos</h2>
+                    <partial name="_BotonAyuda" model='"Registra los repartidores habilitados y asocia opcionalmente una unidad para que queden listos para la planificación de hojas de ruta (RF-06)."' />
+                </div>
+                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;" onclick="mostrarPanelRepartidorNuevo()">
+                    + Registrar Repartidor
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-compacta mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Repartidor</th>
+                            <th>Documento</th>
+                            <th>Teléfono</th>
+                            <th>Estado Operativo</th>
+                            <th>Vehículo Asignado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Repartidores.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted small">
+                                    No hay repartidores registrados en este operador.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var repartidor in Model.Repartidores)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@repartidor.NombreCompleto</div>
+                                        <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">@repartidor.Email</div>
+                                    </td>
+                                    <td class="small font-monospace">@repartidor.Documento</td>
+                                    <td class="small">@repartidor.Telefono</td>
+                                    <td>
+                                        @if (repartidor.Estado == "Disponible")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                                ● Disponible
+                                            </span>
+                                        }
+                                        else if (repartidor.Estado == "En Ruta")
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                                En Ruta
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
+                                                Inactivo
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (repartidor.VehiculoAsignadoId.HasValue)
+                                        {
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div>
+                                                    <span class="badge bg-dark text-white font-monospace" style="font-size: 0.725rem;">@repartidor.VehiculoPatente</span>
+                                                    <span class="text-muted small ms-1">(@repartidor.VehiculoTipo)</span>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Cambiar o retirar unidad" onclick="abrirAsignacionVehiculo('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '@(repartidor.VehiculoAsignadoId?.ToString() ?? "")')">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="text-muted small">Sin vehículo</span>
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="abrirAsignacionVehiculo('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '')">
+                                                    + Asignar
+                                                </button>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionRepartidor('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '@repartidor.Email', '@repartidor.Documento', '@repartidor.Telefono', '@repartidor.Estado', '@(repartidor.VehiculoAsignadoId?.ToString() ?? "")')">
+                                                Editar
+                                            </button>
+                                            <form method="post" asp-page-handler="CambiarEstadoRepartidor" class="d-inline">
+                                                <input type="hidden" name="repartidorId" value="@repartidor.Id" />
+                                                <input type="hidden" name="nuevoEstado" value="@(repartidor.Estado == "Inactivo" ? "Disponible" : "Inactivo")" />
+                                                <button type="submit" class="btn btn-outline-@(repartidor.Estado == "Inactivo" ? "success" : "secondary") btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                                    @(repartidor.Estado == "Inactivo" ? "Habilitar" : "Pausar")
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Oculta un panel por su identificador
+        function ocultarPanel(idPanel) {
+            var elemento = document.getElementById(idPanel);
+            if (elemento) {
+                elemento.style.display = 'none';
+            }
+        }
+
+        // Muestra y enfoca el panel de nuevo vehículo
+        function mostrarPanelVehiculoNuevo() {
+            ocultarPanel('panelVehiculoEdicion');
+            var panel = document.getElementById('panelVehiculoNuevo');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                var inputPatente = document.getElementById('inputNuevoVehiculoPatente');
+                if (inputPatente) {
+                    setTimeout(function() { inputPatente.focus(); }, 150);
+                }
+            }
+        }
+
+        // Muestra y carga los datos en el panel de edición de vehículo
+        function abrirEdicionVehiculo(id, patente, tipo, peso, volumen, activo) {
+            ocultarPanel('panelVehiculoNuevo');
+            var panel = document.getElementById('panelVehiculoEdicion');
+            if (panel) {
+                document.getElementById('editVehiculoId').value = id;
+                document.getElementById('editVehiculoPatente').value = patente;
+                document.getElementById('spanEditPatente').textContent = patente;
+                document.getElementById('editVehiculoTipo').value = tipo;
+                document.getElementById('editVehiculoPeso').value = peso;
+                document.getElementById('editVehiculoVolumen').value = volumen;
+                document.getElementById('editVehiculoActivo').checked = activo;
+
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                var inputPatente = document.getElementById('editVehiculoPatente');
+                if (inputPatente) {
+                    setTimeout(function() { inputPatente.focus(); }, 150);
+                }
+            }
+        }
+
+        // Muestra y enfoca el panel de nuevo repartidor
+        function mostrarPanelRepartidorNuevo() {
+            ocultarPanel('panelRepartidorEdicion');
+            ocultarPanel('panelAsignacionVehiculo');
+            var panel = document.getElementById('panelRepartidorNuevo');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                var inputNombre = document.getElementById('inputNuevoRepartidorNombre');
+                if (inputNombre) {
+                    setTimeout(function() { inputNombre.focus(); }, 150);
+                }
+            }
+        }
+
+        // Muestra y carga los datos en el panel de edición de repartidor
+        function abrirEdicionRepartidor(id, nombre, email, documento, telefono, estado, vehiculoId) {
+            ocultarPanel('panelRepartidorNuevo');
+            ocultarPanel('panelAsignacionVehiculo');
+            var panel = document.getElementById('panelRepartidorEdicion');
+            if (panel) {
+                document.getElementById('editRepartidorId').value = id;
+                document.getElementById('editRepartidorNombre').value = nombre;
+                document.getElementById('spanEditNombreRepartidor').textContent = nombre;
+                document.getElementById('editRepartidorEmail').value = email;
+                document.getElementById('editRepartidorDocumento').value = documento;
+                document.getElementById('editRepartidorTelefono').value = telefono;
+                document.getElementById('editRepartidorEstado').value = estado;
+                document.getElementById('editRepartidorVehiculoId').value = vehiculoId || '';
+
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                var inputNombre = document.getElementById('editRepartidorNombre');
+                if (inputNombre) {
+                    setTimeout(function() { inputNombre.focus(); }, 150);
+                }
+            }
+        }
+
+        // Muestra el panel de asignación rápida de vehículo para un repartidor
+        function abrirAsignacionVehiculo(repartidorId, repartidorNombre, vehiculoIdActual) {
+            ocultarPanel('panelRepartidorNuevo');
+            ocultarPanel('panelRepartidorEdicion');
+            var panel = document.getElementById('panelAsignacionVehiculo');
+            if (panel) {
+                document.getElementById('asignarRepartidorId').value = repartidorId;
+                document.getElementById('spanAsignarNombreRepartidor').textContent = repartidorNombre;
+                document.getElementById('asignarVehiculoSelect').value = vehiculoIdActual || '';
+
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                var selectVehiculo = document.getElementById('asignarVehiculoSelect');
+                if (selectVehiculo) {
+                    setTimeout(function() { selectVehiculo.focus(); }, 150);
+                }
+            }
+        }
+    </script>
+}

@@ -24,6 +24,8 @@ public static class InyeccionDependencias
         servicios.AddSingleton<ICuadroTarifarioApi, MockCuadroTarifarioApi>();
         servicios.AddSingleton<IReglasOperativasApi, MockReglasOperativasApi>();
         servicios.AddSingleton<IMotivosNoEntregaApi, MockMotivosNoEntregaApi>();
+        servicios.AddSingleton<IFlotaApi, MockFlotaApi>();
+        servicios.AddSingleton<IMensajeriaApi, MockMensajeriaApi>();
         servicios.AddSingleton<IEnviosApi, MockEnviosApi>();
         servicios.AddSingleton<ISeguimientoApi, MockSeguimientoApi>();
 
@@ -73,8 +75,25 @@ public static class InyeccionDependencias
             cliente.Timeout = TimeSpan.FromSeconds(15);
         });
 
+        servicios.AddHttpClient<IIdentidadVisualApi, HttpIdentidadVisualApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<IFlotaApi, HttpFlotaApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<IMensajeriaApi, HttpMensajeriaApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         // En caso de que se necesiten mantener mocks auxiliares mientras el backend finaliza otros endpoints:
-        servicios.AddSingleton<IIdentidadVisualApi, MockIdentidadVisualApi>();
         servicios.AddSingleton<IEnviosApi, MockEnviosApi>();
         servicios.AddSingleton<ISeguimientoApi, MockSeguimientoApi>();
 

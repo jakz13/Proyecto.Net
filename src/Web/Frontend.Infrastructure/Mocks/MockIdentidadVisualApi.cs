@@ -31,4 +31,23 @@ public class MockIdentidadVisualApi : IIdentidadVisualApi
     {
         return Task.FromResult(_contexto.ListarOperadores());
     }
+
+    public Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default)
+    {
+        var actual = _contexto.OperadorActivo;
+        var actualizada = actual with
+        {
+            NombreComercial = string.IsNullOrWhiteSpace(dto.NombreComercial) ? actual.NombreComercial : dto.NombreComercial.Trim(),
+            ColorPrimario = dto.ColorPrimario.Trim().ToUpperInvariant(),
+            ColorSecundario = dto.ColorSecundario.Trim().ToUpperInvariant(),
+            LogoUrl = string.IsNullOrWhiteSpace(dto.LogoUrl) ? null : dto.LogoUrl.Trim(),
+            EmailContacto = dto.EmailContacto.Trim().ToLowerInvariant(),
+            TelefonoContacto = dto.TelefonoContacto.Trim(),
+            SitioWeb = string.IsNullOrWhiteSpace(dto.SitioWeb) ? null : dto.SitioWeb.Trim(),
+            MensajeComunicaciones = string.IsNullOrWhiteSpace(dto.MensajeComunicaciones) ? null : dto.MensajeComunicaciones.Trim()
+        };
+
+        _contexto.ActualizarIdentidad(actualizada);
+        return Task.FromResult(actualizada);
+    }
 }

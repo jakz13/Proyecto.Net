@@ -15,6 +15,8 @@ public record IdentidadVisualDto
     public string? LogoUrl { get; init; }
     public string? EmailContacto { get; init; }
     public string? TelefonoContacto { get; init; }
+    public string? SitioWeb { get; init; }
+    public string? MensajeComunicaciones { get; init; }
 
     /// <summary>
     /// Retorna el color de texto con contraste óptimo para el color primario (#FFFFFF o #0F172A).
