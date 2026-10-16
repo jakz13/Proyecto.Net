@@ -10,7 +10,7 @@
     <Grid RowDefinitions="Auto, *">
 
         <!-- ========================================================= -->
-        <!-- CABECERA: TÍTULO, FECHA Y BADGE FLOTANTE DE MODO OFFLINE  -->
+        <!-- CABECERA: TÍTULO, BADGE INTERACTIVO Y BARRA DE PROGRESO   -->
         <!-- ========================================================= -->
         <Border Grid.Row="0"
                 Stroke="{StaticResource CardBorder}"
@@ -19,25 +19,25 @@
                 BackgroundColor="{StaticResource CardBackground}"
                 Padding="20,16">
 
-            <VerticalStackLayout Spacing="8">
+            <VerticalStackLayout Spacing="12">
+                <!-- Fila Superior: Título institucional y Modo Offline -->
                 <Grid ColumnDefinitions="*, Auto">
-                    <!-- Título y Fecha -->
                     <VerticalStackLayout Grid.Column="0" Spacing="2">
                         <Label Text="Hoja de Ruta"
                                Style="{StaticResource H2Label}" />
 
-                        <HorizontalStackLayout Spacing="6">
-                            <Label Text="📅" FontSize="13" />
-                            <Label Text="{Binding FechaHojaRuta, StringFormat='Fecha: {0}'}"
-                                   Style="{StaticResource CaptionLabel}"
-                                   FontAttributes="Bold" />
-                        </HorizontalStackLayout>
+                        <Label Text="{Binding FechaHojaRuta, StringFormat='Fecha de operaciones: {0}'}"
+                               Style="{StaticResource CaptionLabel}"
+                               FontAttributes="Bold" />
                     </VerticalStackLayout>
 
-                    <!-- Indicador Flotante: Modo Offline -->
+                    <!-- Indicador Flotante Interactivo: Modo Offline -->
                     <Border Grid.Column="1"
                             Style="{StaticResource OfflinePill}"
                             VerticalOptions="Center">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding MostrarColaOfflineCommand}" />
+                        </Border.GestureRecognizers>
                         <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
                             <BoxView WidthRequest="8"
                                      HeightRequest="8"
@@ -53,14 +53,31 @@
                     </Border>
                 </Grid>
 
-                <!-- Barra de resumen de progreso -->
-                <Label Text="{Binding ResumenProgreso}"
-                       Style="{StaticResource CaptionLabel}" />
+                <!-- Barra de Progreso Dinámica -->
+                <VerticalStackLayout Spacing="6">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0"
+                               Text="{Binding ResumenProgresoTexto}"
+                               Style="{StaticResource CaptionLabel}"
+                               FontAttributes="Bold" />
+
+                        <Label Grid.Column="1"
+                               Text="{Binding ProgresoPorcentajeTexto}"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource Primary}" />
+                    </Grid>
+
+                    <ProgressBar x:Name="RutaProgressBar"
+                                 Progress="{Binding ProgresoRuta}"
+                                 ProgressColor="{StaticResource Primary}"
+                                 HeightRequest="8" />
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </Border>
 
         <!-- ========================================================= -->
-        <!-- LISTA DE PARADAS (COLLECTIONVIEW CON TARJETAS / CARDS)    -->
+        <!-- LISTA DE PARADAS (TARJETAS CORPORATIVAS Y ERGONÓMICAS)    -->
         <!-- ========================================================= -->
         <CollectionView Grid.Row="1"
                         ItemsSource="{Binding Paradas}"
@@ -69,91 +86,119 @@
 
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:ParadaItemViewModel">
-                    <!-- Tarjeta / Card de la Parada -->
                     <Border Style="{StaticResource CardView}"
-                            Margin="0,0,0,12">
+                            Margin="0,0,0,14">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=IrAParadaCommand}"
+                                                  CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
 
-                        <Grid RowDefinitions="Auto, Auto, Auto"
-                              ColumnDefinitions="*, Auto"
-                              RowSpacing="8">
+                        <VerticalStackLayout Spacing="10">
 
-                            <!-- Fila 1: Número de Parada, Dirección y Badge de Estado -->
-                            <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="10" VerticalOptions="Center">
-                                <!-- Pill de Orden (ej. #1, #2, #3) -->
-                                <Border BackgroundColor="#EFF6FF"
+                            <!-- Fila 1: Secuencia de Parada, Dirección y Badge de Estado -->
+                            <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="10">
+                                <Border Grid.Column="0"
+                                        BackgroundColor="#EFF6FF"
                                         Stroke="#BFDBFE"
                                         StrokeThickness="1"
                                         StrokeShape="RoundRectangle 8"
-                                        Padding="8,2"
+                                        Padding="8,3"
                                         VerticalOptions="Center">
-                                    <Label Text="{Binding Orden, StringFormat='#{0}'}"
+                                    <Label Text="{Binding Orden, StringFormat='Parada {0}'}"
                                            TextColor="{StaticResource Primary}"
                                            FontAttributes="Bold"
-                                           FontSize="13" />
+                                           FontSize="12" />
                                 </Border>
 
-                                <Label Text="{Binding Direccion}"
+                                <Label Grid.Column="1"
+                                       Text="{Binding Direccion}"
                                        Style="{StaticResource H3Label}"
                                        LineBreakMode="TailTruncation"
                                        MaxLines="1"
                                        VerticalOptions="Center" />
-                            </HorizontalStackLayout>
 
-                            <!-- Badge de Estado (Pendiente / Entregado / Fallido) -->
-                            <Border Grid.Row="0" Grid.Column="1"
-                                    BackgroundColor="{Binding EstadoBgColor}"
-                                    Stroke="{Binding EstadoBorderColor}"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 12"
-                                    Padding="10,4"
-                                    VerticalOptions="Center">
-                                <Label Text="{Binding EstadoTextoBadge}"
-                                       TextColor="{Binding EstadoTextColor}"
-                                       FontSize="11"
-                                       FontAttributes="Bold" />
-                            </Border>
+                                <Border Grid.Column="2"
+                                        BackgroundColor="{Binding EstadoBgColor}"
+                                        Stroke="{Binding EstadoBorderColor}"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 12"
+                                        Padding="10,4"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding EstadoTextoBadge}"
+                                           TextColor="{Binding EstadoTextColor}"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+                            </Grid>
 
-                            <!-- Fila 2: Detalles de Zona, Destinatario y Bultos -->
-                            <VerticalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="4">
+                            <!-- Fila 2: Metadatos Estructurados (Zona, Destinatario, Bultos, Horario) -->
+                            <VerticalStackLayout Spacing="6">
                                 <HorizontalStackLayout Spacing="6">
-                                    <Label Text="📍" FontSize="12" />
+                                    <Label Text="Zona:"
+                                           FontSize="12"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource TextSecondary}" />
                                     <Label Text="{Binding Ciudad}"
                                            Style="{StaticResource CaptionLabel}" />
                                 </HorizontalStackLayout>
 
-                                <HorizontalStackLayout Spacing="16" Margin="0,2,0,0">
-                                    <HorizontalStackLayout Spacing="6">
-                                        <Label Text="👤" FontSize="12" />
+                                <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="16" Margin="0,2,0,0">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="Destinatario"
+                                               FontSize="11"
+                                               TextColor="{StaticResource TextMuted}" />
                                         <Label Text="{Binding Destinatario}"
-                                               Style="{StaticResource CaptionLabel}" />
-                                    </HorizontalStackLayout>
+                                               Style="{StaticResource CaptionLabel}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </VerticalStackLayout>
 
-                                    <HorizontalStackLayout Spacing="6">
-                                        <Label Text="📦" FontSize="12" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                        <Label Text="Carga"
+                                               FontSize="11"
+                                               TextColor="{StaticResource TextMuted}" />
                                         <Label Text="{Binding CantidadBultos, StringFormat='{0} bultos'}"
                                                Style="{StaticResource CaptionLabel}"
                                                FontAttributes="Bold" />
-                                    </HorizontalStackLayout>
+                                    </VerticalStackLayout>
 
-                                    <HorizontalStackLayout Spacing="6">
-                                        <Label Text="⏰" FontSize="12" />
-                                        <Label Text="{Binding HoraEstimada}"
+                                    <VerticalStackLayout Grid.Column="2" Spacing="1">
+                                        <Label Text="Horario"
+                                               FontSize="11"
+                                               TextColor="{StaticResource TextMuted}" />
+                                        <Label Text="{Binding HoraEstimada, StringFormat='{0} hs'}"
                                                Style="{StaticResource CaptionLabel}" />
-                                    </HorizontalStackLayout>
-                                </HorizontalStackLayout>
+                                    </VerticalStackLayout>
+                                </Grid>
                             </VerticalStackLayout>
 
-                            <!-- Fila 3: Botón de Acción "Ir" -->
-                            <BoxView Grid.Row="2" Grid.Column="0" HeightRequest="1" Color="Transparent" />
+                            <!-- Divisor Estructural Sutil -->
+                            <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,2" />
 
-                            <Button Grid.Row="2" Grid.Column="1"
-                                    Text="Ir ➔"
-                                    Style="{StaticResource SmallActionButton}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=IrAParadaCommand}"
-                                    CommandParameter="{Binding .}"
-                                    IsEnabled="{Binding PuedeRegistrar}" />
+                            <!-- Fila 3: Accesos Rápidos Ergonómicos -->
+                            <Grid ColumnDefinitions="Auto, Auto, *, Auto" ColumnSpacing="8">
+                                <Button Grid.Column="0"
+                                        Text="Llamar"
+                                        Style="{StaticResource QuickCallButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=LlamarClienteCommand}"
+                                        CommandParameter="{Binding .}" />
 
-                        </Grid>
+                                <Button Grid.Column="1"
+                                        Text="Navegar"
+                                        Style="{StaticResource QuickMapButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=NavegarAParadaCommand}"
+                                        CommandParameter="{Binding .}" />
+
+                                <BoxView Grid.Column="2" Color="Transparent" />
+
+                                <Button Grid.Column="3"
+                                        Text="Ver Detalle"
+                                        Style="{StaticResource SmallActionButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=IrAParadaCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+
+                        </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

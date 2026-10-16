@@ -1,5 +1,7 @@
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
@@ -7,6 +9,8 @@ namespace UltimaMilla.Mobile.ViewModels.Entrega;
 [QueryProperty(nameof(ParadaSeleccionada), "Parada")]
 public partial class RegistroEntregaViewModel : ObservableObject
 {
+    private readonly ILocalDatabaseService? _localDatabaseService;
+
     [ObservableProperty]
     private ParadaItemViewModel? _paradaSeleccionada;
 
@@ -31,8 +35,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public RegistroEntregaViewModel()
+    public RegistroEntregaViewModel() : this(null)
     {
+    }
+
+    public RegistroEntregaViewModel(ILocalDatabaseService? localDatabaseService)
+    {
+        _localDatabaseService = localDatabaseService;
         // Valores mock por defecto si se accede directamente
         _nombreReceptor = "Lucía Fernández";
         _documentoReceptor = "4.567.890-1";
@@ -51,7 +60,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
         if (Shell.Current is not null)
         {
             await Shell.Current.DisplayAlertAsync(
-                "Cámara Mock",
+                "Cámara de Remito",
                 "Fotografía de comprobante capturada correctamente.",
                 "Aceptar");
         }
@@ -94,17 +103,38 @@ public partial class RegistroEntregaViewModel : ObservableObject
             IsBusy = true;
 
             // Simulación de guardado en base de datos cifrada SQLite local (RNF 6.11)
-            await Task.Delay(1000);
+            var payload = JsonSerializer.Serialize(new
+            {
+                ParadaId = ParadaSeleccionada?.Id ?? Guid.NewGuid(),
+                CodigoSeguimiento = ParadaSeleccionada?.CodigoSeguimiento ?? "ENV-MOCK",
+                NombreReceptor = NombreReceptor.Trim(),
+                DocumentoReceptor = DocumentoReceptor.Trim(),
+                TieneFirma = TieneFirma,
+                TieneFoto = TieneFoto,
+                FechaUtc = DateTime.UtcNow
+            });
+
+            if (_localDatabaseService is not null)
+            {
+                await _localDatabaseService.EncolarOperacionAsync("REGISTRAR_ENTREGA", payload);
+            }
+
+            if (ParadaSeleccionada is not null)
+            {
+                ParadaSeleccionada.Estado = "Entregado";
+            }
+
+            await Task.Delay(400);
 
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
-                    "¡Entrega Registrada!",
-                    $"La entrega a {NombreReceptor.Trim()} ha sido guardada en la base de datos local cifrada.",
+                    "¡Entrega Exitosa!",
+                    $"La entrega a {NombreReceptor.Trim()} ha sido guardada en la base de datos cifrada local.",
                     "Finalizar");
 
-                // Retornar a la lista de entregas
-                await Shell.Current.GoToAsync("..");
+                // Retornar a la lista principal de ruta
+                await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }
         finally

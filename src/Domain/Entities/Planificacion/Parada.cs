@@ -61,4 +61,41 @@ public class Parada : Entity
 
         Estado = nuevoEstado.Trim();
     }
+
+    public void IniciarNavegacion()
+    {
+        if (Estado == "Entregada" || Estado == "Cancelada")
+            throw new DomainValidationException($"No se puede iniciar navegación hacia una parada en estado '{Estado}'.");
+
+        Estado = "EnCamino";
+    }
+
+    public void RegistrarArribo()
+    {
+        if (Estado == "Entregada" || Estado == "Cancelada")
+            throw new DomainValidationException($"No se puede registrar arribo a una parada en estado '{Estado}'.");
+
+        Estado = "EnSitio";
+    }
+
+    public void RegistrarEntregaExitosa()
+    {
+        if (Estado == "Cancelada")
+            throw new DomainValidationException("No se puede registrar entrega exitosa en una parada cancelada.");
+
+        Estado = "Entregada";
+    }
+
+    public void RegistrarIntentoFallido()
+    {
+        if (Estado == "Cancelada")
+            throw new DomainValidationException("No se puede registrar un intento fallido en una parada cancelada.");
+
+        Estado = "Fallida";
+    }
+
+    public void CancelarPorFaltante(string motivo)
+    {
+        Estado = "Cancelada";
+    }
 }

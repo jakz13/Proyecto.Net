@@ -58,14 +58,18 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<DiagnosticViewModel>();
         builder.Services.AddTransient<RutaDiaViewModel>();
+        builder.Services.AddTransient<DetalleParadaViewModel>();
         builder.Services.AddTransient<RegistroEntregaViewModel>();
+        builder.Services.AddTransient<IntentoFallidoViewModel>();
         builder.Services.AddTransient<CargaVehiculoViewModel>();
 
         // 5. Registro de Vistas / Páginas
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<DiagnosticPage>();
         builder.Services.AddTransient<RutaDiaPage>();
+        builder.Services.AddTransient<DetalleParadaPage>();
         builder.Services.AddTransient<RegistroEntregaPage>();
+        builder.Services.AddTransient<IntentoFallidoPage>();
         builder.Services.AddTransient<CargaVehiculoPage>();
 
         builder.Services.AddSingleton<AppShell>();
