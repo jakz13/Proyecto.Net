@@ -25,7 +25,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.IntentoEntrega", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("EnvioId")
@@ -65,7 +64,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PruebaDeEntrega", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("DocumentoReceptor")
@@ -108,7 +106,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.Bulto", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Alto")
@@ -158,7 +155,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.Destinatario", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Documento")
@@ -186,7 +182,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.Direccion", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Calle")
@@ -225,7 +220,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.DiscrepanciaRecepcion", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("BultoId")
@@ -258,7 +252,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.Envio", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("CodigoSeguimientoPublico")
@@ -314,6 +307,7 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SelloModificacion")
+                        .IsConcurrencyToken()
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("TarifaCalculada")
@@ -333,7 +327,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.EventoEnvio", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("EnvioId")
@@ -379,7 +372,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Mensajeria.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("AgregadoId")
@@ -414,7 +406,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.CuadroTarifario", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("OperadorId")
@@ -437,10 +428,36 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("CuadrosTarifarios", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.FranjaHoraria", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("DiaSemana")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("HoraFin")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("HoraInicio")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<Guid>("ZonaCoberturaId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ZonaCoberturaId");
+
+                    b.ToTable("FranjasHorarias", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.MotivoNoEntrega", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<bool>("Activo")
@@ -467,10 +484,12 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.ReglaOperativa", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("MaxIntentosEntrega")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxParadasPorRuta")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("OperadorId")
@@ -512,7 +531,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.ReglaTarifa", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Bonificacion")
@@ -561,10 +579,82 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("ReglasTarifa", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.Repartidor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Documento")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Telefono")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VehiculoAsignadoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId");
+
+                    b.ToTable("Repartidores", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.Vehiculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("CapacidadPeso")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal>("CapacidadVolumen")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Patente")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId", "Patente")
+                        .IsUnique();
+
+                    b.ToTable("Vehiculos", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Planificacion.AsignacionEnvioRuta", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("DespachadorUsuarioId")
@@ -580,6 +670,7 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SelloModificacion")
+                        .IsConcurrencyToken()
                         .HasColumnType("uuid");
 
                     b.Property<bool>("Vigente")
@@ -587,15 +678,18 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EnvioId")
+                        .IsUnique()
+                        .HasFilter("\"Vigente\" = true");
+
                     b.HasIndex("HojaDeRutaId");
 
-                    b.ToTable("AsignacionEnvioRuta");
+                    b.ToTable("AsignacionesEnvioRuta", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Planificacion.HojaDeRuta", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Estado")
@@ -609,6 +703,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("FechaDespacho")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("FechaLiberacion")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("OperadorId")
                         .HasColumnType("uuid");
 
@@ -616,6 +713,7 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SelloModificacion")
+                        .IsConcurrencyToken()
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("VehiculoId")
@@ -623,13 +721,14 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OperadorId", "Fecha");
+
                     b.ToTable("HojasDeRuta", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Planificacion.Parada", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("DireccionId")

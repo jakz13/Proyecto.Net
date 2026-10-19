@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
@@ -23,6 +24,10 @@ public class AppDbContext : DbContext
     public DbSet<ReglaOperativa> ReglasOperativas => Set<ReglaOperativa>();
     public DbSet<MotivoNoEntrega> MotivosNoEntrega => Set<MotivoNoEntrega>();
     public DbSet<EventoEnvio> EventosEnvio => Set<EventoEnvio>();
+    public DbSet<Repartidor> Repartidores => Set<Repartidor>();
+    public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
+    public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
+    public DbSet<AsignacionEnvioRuta> AsignacionesEnvioRuta => Set<AsignacionEnvioRuta>();
     public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
     public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
@@ -45,6 +50,7 @@ public class AppDbContext : DbContext
             builder.Ignore(e => e.VolumenTotal);
             builder.Property(e => e.OperadorId).IsRequired();
             builder.HasIndex(e => e.OperadorId);
+            builder.Property(e => e.SelloModificacion).IsConcurrencyToken();
             builder.Property(e => e.ComercioOperadorId).IsRequired();
             builder.Property(e => e.DireccionDestino).IsRequired().HasMaxLength(300);
             builder.Property(e => e.NombreDestinatario).IsRequired().HasMaxLength(200);
@@ -72,6 +78,8 @@ public class AppDbContext : DbContext
             builder.ToTable("HojasDeRuta");
             builder.HasKey(h => h.Id);
             builder.Property(h => h.Estado).IsRequired().HasMaxLength(50);
+            builder.Property(h => h.SelloModificacion).IsConcurrencyToken();
+            builder.HasIndex(h => new { h.OperadorId, h.Fecha });
             builder.Navigation(h => h.Paradas).AutoInclude();
             builder.Navigation(h => h.Asignaciones).AutoInclude();
         });
@@ -173,5 +181,50 @@ public class AppDbContext : DbContext
             builder.Property(r => r.Recargo).HasPrecision(18, 2);
             builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
         });
+
+        modelBuilder.Entity<AsignacionEnvioRuta>(builder =>
+        {
+            builder.ToTable("AsignacionesEnvioRuta");
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.SelloModificacion).IsConcurrencyToken();
+            // Un envío no puede tener dos asignaciones vigentes a la vez: garantiza que dos despachadores no lo tomen simultáneamente
+            builder.HasIndex(a => a.EnvioId).IsUnique().HasFilter("\"Vigente\" = true");
+        });
+
+        modelBuilder.Entity<Repartidor>(builder =>
+        {
+            builder.ToTable("Repartidores");
+            builder.HasKey(r => r.Id);
+            builder.HasIndex(r => r.OperadorId);
+            builder.Property(r => r.Documento).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.Telefono).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.Estado).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Vehiculo>(builder =>
+        {
+            builder.ToTable("Vehiculos");
+            builder.HasKey(v => v.Id);
+            builder.HasIndex(v => new { v.OperadorId, v.Patente }).IsUnique();
+            builder.Property(v => v.Patente).IsRequired().HasMaxLength(20);
+            builder.Property(v => v.Tipo).IsRequired().HasMaxLength(50);
+            builder.Property(v => v.CapacidadPeso).HasPrecision(18, 3);
+            builder.Property(v => v.CapacidadVolumen).HasPrecision(18, 3);
+        });
+
+        modelBuilder.Entity<FranjaHoraria>(builder =>
+        {
+            builder.ToTable("FranjasHorarias");
+            builder.HasKey(f => f.Id);
+            builder.HasIndex(f => f.ZonaCoberturaId);
+        });
+
+        // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clave = entityType.FindPrimaryKey();
+            if (clave is { Properties.Count: 1 } && clave.Properties[0].ClrType == typeof(Guid))
+                clave.Properties[0].ValueGenerated = ValueGenerated.Never;
+        }
     }
 }

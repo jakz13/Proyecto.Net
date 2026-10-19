@@ -132,8 +132,9 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "Sistema"));
     }
 
-    public decimal PesoTotal => _bultos.Sum(b => b.Peso);
-    public decimal VolumenTotal => _bultos.Sum(b => b.Volumen);
+    // Los bultos faltantes en recepción no viajan, por lo tanto no cuentan en el peso ni el volumen
+    public decimal PesoTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Peso);
+    public decimal VolumenTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Volumen);
 
     public void AgregarBulto(string identificacion, decimal peso, decimal alto, decimal ancho, decimal profundo)
     {
@@ -148,13 +149,48 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void AsignarRuta(Guid hojaDeRutaId)
+    public void AsignarRuta(Guid hojaDeRutaId, Guid? responsableUsuarioId = null)
     {
         if (hojaDeRutaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la hoja de ruta no puede ser vacío.");
 
+        TransicionarEstado(
+            EstadoEnvio.AsignadoARuta,
+            "AsignacionRuta",
+            responsableUsuarioId,
+            payload: $"Hoja de ruta {hojaDeRutaId}.");
         HojaDeRutaId = hojaDeRutaId;
-        TransicionarEstado(EstadoEnvio.AsignadoARuta, "AsignacionRuta");
+    }
+
+    /// <summary>Prioridad más alta entre los bultos clasificados del envío.</summary>
+    public PrioridadBulto? PrioridadMaxima
+    {
+        get
+        {
+            var prioridades = _bultos.Where(b => b.Prioridad.HasValue).Select(b => b.Prioridad!.Value).ToList();
+            return prioridades.Count == 0 ? null : prioridades.Max();
+        }
+    }
+
+    /// <summary>Zona operativa con la que se clasificaron los bultos del envío (la menor, para que el orden sea determinístico).</summary>
+    public Guid? ZonaClasificadaId => _bultos.Where(b => b.ZonaClasificadaId.HasValue).Select(b => b.ZonaClasificadaId!.Value).OrderBy(z => z).Cast<Guid?>().FirstOrDefault();
+
+    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable.</summary>
+    public string? ObtenerMotivoNoAsignable()
+    {
+        if (EstadoActual == EstadoEnvio.AsignadoARuta)
+            return "El envío ya fue asignado a otra hoja de ruta.";
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            return $"El envío está en estado '{EstadoActual}' y solo se pueden asignar envíos 'EnDeposito'.";
+
+        if (!EstaClasificado)
+            return "El envío tiene bultos sin clasificar en depósito.";
+
+        if (!DireccionEntregaId.HasValue)
+            return "El envío no tiene dirección de entrega.";
+
+        return null;
     }
 
     public void DespacharEnRuta(Guid hojaDeRutaId, Guid? responsableUsuarioId = null, string? observaciones = null)

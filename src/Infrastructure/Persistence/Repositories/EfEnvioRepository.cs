@@ -56,13 +56,21 @@ public class EfEnvioRepository : IEnvioRepository
 
     public Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default)
     {
-        _dbContext.Envios.Update(envio);
+        // Una entidad ya rastreada detecta sola sus cambios; Update marcaría como modificados los hijos nuevos (eventos, intentos) y fallaría al guardar
+        if (_dbContext.Entry(envio).State == EntityState.Detached)
+            _dbContext.Envios.Update(envio);
+
         return Task.CompletedTask;
     }
 
     public Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default)
     {
-        _dbContext.Envios.UpdateRange(envios);
+        foreach (var envio in envios)
+        {
+            if (_dbContext.Entry(envio).State == EntityState.Detached)
+                _dbContext.Envios.Update(envio);
+        }
+
         return Task.CompletedTask;
     }
 

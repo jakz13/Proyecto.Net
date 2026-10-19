@@ -253,6 +253,9 @@ app.MapMobileRutasEndpoints();
 // Registrar endpoints de depósito (UC-14)
 app.MapDepositoEndpoints();
 
+// Registrar endpoints de planificación (UC-08)
+app.MapPlanificacionEndpoints();
+
 app.Run();
 
 static void ApplyMigrations(WebApplication app)

@@ -27,9 +27,17 @@ public class EfRutaRepository : IRutaRepository
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
     }
 
+    public async Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
+    {
+        await _dbContext.HojasDeRuta.AddAsync(hojaDeRuta, cancellationToken);
+    }
+
     public Task UpdateAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
-        _dbContext.HojasDeRuta.Update(hojaDeRuta);
+        // Una entidad ya rastreada detecta sola sus cambios; Update marcaría como modificados los hijos nuevos y fallaría al guardar
+        if (_dbContext.Entry(hojaDeRuta).State == EntityState.Detached)
+            _dbContext.HojasDeRuta.Update(hojaDeRuta);
+
         return Task.CompletedTask;
     }
 }

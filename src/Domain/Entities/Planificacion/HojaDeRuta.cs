@@ -10,6 +10,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public Guid? VehiculoId { get; private set; }
     public DateOnly Fecha { get; private set; }
     public string Estado { get; private set; } = string.Empty;
+    public DateTime? FechaLiberacion { get; private set; }
     public DateTime? FechaDespacho { get; private set; }
     public Guid SelloModificacion { get; private set; }
 
@@ -63,6 +64,25 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     {
         var asignacion = new AsignacionEnvioRuta(Guid.NewGuid(), envioId, Id, despachadorUsuarioId);
         _asignaciones.Add(asignacion);
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Libera la hoja de ruta una vez armada: queda con sus paradas ordenadas y disponible para su descarga en la app del repartidor.
+    /// </summary>
+    public void Liberar()
+    {
+        if (Estado != "Borrador")
+            throw new DomainValidationException($"Solo se puede liberar una hoja de ruta en estado 'Borrador' (estado actual: '{Estado}').");
+
+        if (!RepartidorId.HasValue || !VehiculoId.HasValue)
+            throw new DomainValidationException("No se puede liberar una hoja de ruta sin repartidor y vehículo asignados.");
+
+        if (!_paradas.Any())
+            throw new DomainValidationException("No se puede liberar una hoja de ruta sin paradas.");
+
+        Estado = "Liberada";
+        FechaLiberacion = DateTime.UtcNow;
         SelloModificacion = Guid.NewGuid();
     }
 
