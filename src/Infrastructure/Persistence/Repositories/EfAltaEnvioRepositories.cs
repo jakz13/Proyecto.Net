@@ -39,6 +39,12 @@ public class EfDestinatarioRepository : IDestinatarioRepository
     {
         await _dbContext.Destinatarios.AddAsync(destinatario, cancellationToken);
     }
+
+    public async Task<List<Destinatario>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        return await _dbContext.Destinatarios.AsNoTracking().Where(d => idSet.Contains(d.Id)).ToListAsync(cancellationToken);
+    }
 }
 
 public class EfDireccionRepository : IDireccionRepository
@@ -53,5 +59,11 @@ public class EfDireccionRepository : IDireccionRepository
     public async Task AddAsync(Direccion direccion, CancellationToken cancellationToken = default)
     {
         await _dbContext.Direcciones.AddAsync(direccion, cancellationToken);
+    }
+
+    public async Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        return await _dbContext.Direcciones.AsNoTracking().Where(d => idSet.Contains(d.Id)).ToListAsync(cancellationToken);
     }
 }

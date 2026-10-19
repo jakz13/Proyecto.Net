@@ -7,6 +7,7 @@ using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Queries.Mobile.DescargarHojasDeRuta;
 using UltimaMilla.Application.Queries.Mobile.Navegacion.ObtenerSecuenciaParadas;
 using UltimaMilla.Domain.Exceptions;
 
@@ -16,6 +17,38 @@ public static class MobileRutasEndpoints
 {
     public static IEndpointRouteBuilder MapMobileRutasEndpoints(this IEndpointRouteBuilder app)
     {
+        // =========================================================================
+        // UC-17: DESCARGAR HOJAS DE RUTA DE LA JORNADA (RF-18)
+        // =========================================================================
+        app.MapGet("/api/mobile/v1/rutas", async (
+            [FromQuery] DateOnly? fecha,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new DescargarHojasDeRutaQuery(fecha), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+        .RequireAuthorization()
+        .WithName("DescargarHojasDeRuta")
+        .WithSummary("UC-17: Descargar las hojas de ruta de la jornada")
+        .WithDescription("Devuelve las hojas de ruta liberadas del repartidor autenticado para la fecha indicada (por defecto hoy), con paradas, destinatarios, bultos y la configuración necesaria para operar sin conexión.")
+        .Produces<DescargaHojasDeRutaDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")
             .RequireAuthorization();

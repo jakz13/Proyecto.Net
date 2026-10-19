@@ -14,5 +14,6 @@ public interface IEnvioRepository
     Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default);
     Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default);
     Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default);
+    Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default);
     Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default);
 }

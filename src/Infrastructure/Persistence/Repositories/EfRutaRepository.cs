@@ -37,6 +37,15 @@ public class EfRutaRepository : IRutaRepository
             cancellationToken);
     }
 
+    public async Task<List<HojaDeRuta>> GetByRepartidorYFechaAsync(Guid repartidorId, DateOnly fecha, IReadOnlyCollection<string> estados, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.HojasDeRuta
+            .AsNoTracking()
+            .Where(h => h.RepartidorId == repartidorId && h.Fecha == fecha && estados.Contains(h.Estado))
+            .OrderBy(h => h.FechaLiberacion)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
         await _dbContext.HojasDeRuta.AddAsync(hojaDeRuta, cancellationToken);

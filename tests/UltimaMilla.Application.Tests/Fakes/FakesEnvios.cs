@@ -53,6 +53,9 @@ public class FakeEnvioRepository : IEnvioRepository
     public Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
         Task.FromResult(ReglaOperativa);
 
+    public Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Motivos.Where(m => m.OperadorId == operadorId && m.Activo).ToList());
+
     public Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(Motivos.FirstOrDefault(m => (motivoId.HasValue && m.Id == motivoId) || (codigo != null && m.Codigo == codigo)));
 }
@@ -66,6 +69,12 @@ public class FakeDestinatarioRepository : IDestinatarioRepository
         Destinatarios.Add(destinatario);
         return Task.CompletedTask;
     }
+
+    public Task<List<Destinatario>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var set = ids.ToHashSet();
+        return Task.FromResult(Destinatarios.Where(d => set.Contains(d.Id)).ToList());
+    }
 }
 
 public class FakeDireccionRepository : IDireccionRepository
@@ -76,6 +85,12 @@ public class FakeDireccionRepository : IDireccionRepository
     {
         Direcciones.Add(direccion);
         return Task.CompletedTask;
+    }
+
+    public Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var set = ids.ToHashSet();
+        return Task.FromResult(Direcciones.Where(d => set.Contains(d.Id)).ToList());
     }
 }
 

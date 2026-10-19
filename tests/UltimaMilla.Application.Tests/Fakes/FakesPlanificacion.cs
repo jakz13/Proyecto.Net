@@ -20,6 +20,9 @@ public class FakeRutaRepository : IRutaRepository
                                        && r.Id != excluirHojaDeRutaId
                                        && r.Estado is "Despachada" or "EnTransito" or "Finalizada"));
 
+    public Task<List<HojaDeRuta>> GetByRepartidorYFechaAsync(Guid repartidorId, DateOnly fecha, IReadOnlyCollection<string> estados, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Rutas.Where(r => r.RepartidorId == repartidorId && r.Fecha == fecha && estados.Contains(r.Estado)).ToList());
+
     public Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
         Rutas.Add(hojaDeRuta);
@@ -35,6 +38,9 @@ public class FakeRepartidorRepository : IRepartidorRepository
 
     public Task<Repartidor?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Repartidores.FirstOrDefault(r => r.Id == id));
+
+    public Task<Repartidor?> GetByUsuarioIdAsync(Guid usuarioId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Repartidores.FirstOrDefault(r => r.UsuarioId == usuarioId));
 }
 
 public class FakeVehiculoRepository : IVehiculoRepository

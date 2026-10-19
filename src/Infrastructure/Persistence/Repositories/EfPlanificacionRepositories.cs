@@ -17,6 +17,11 @@ public class EfRepartidorRepository : IRepartidorRepository
     {
         return await _dbContext.Repartidores.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
+
+    public async Task<Repartidor?> GetByUsuarioIdAsync(Guid usuarioId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Repartidores.FirstOrDefaultAsync(r => r.UsuarioId == usuarioId, cancellationToken);
+    }
 }
 
 public class EfVehiculoRepository : IVehiculoRepository

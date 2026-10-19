@@ -13,10 +13,12 @@ public interface ICuadroTarifarioRepository
 public interface IDestinatarioRepository
 {
     Task AddAsync(Destinatario destinatario, CancellationToken cancellationToken = default);
+    Task<List<Destinatario>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Alta de direcciones de entrega. No confirma cambios: lo hace IUnitOfWork.</summary>
 public interface IDireccionRepository
 {
     Task AddAsync(Direccion direccion, CancellationToken cancellationToken = default);
+    Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 }

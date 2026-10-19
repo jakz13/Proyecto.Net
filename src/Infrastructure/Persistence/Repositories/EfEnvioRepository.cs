@@ -82,6 +82,15 @@ public class EfEnvioRepository : IEnvioRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.MotivosNoEntrega
+            .AsNoTracking()
+            .Where(m => m.OperadorId == operadorId && m.Activo)
+            .OrderBy(m => m.Codigo)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.MotivosNoEntrega.Where(m => m.OperadorId == operadorId);
