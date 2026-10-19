@@ -1,0 +1,148 @@
+@page "{id:guid}"
+@model UltimaMilla.Backoffice.Pages.Despacho.ComprobanteModel
+@{
+    ViewData["Title"] = "Comprobante de Despacho";
+    var ruta = Model.HojaDeRuta;
+}
+
+@if (ruta == null)
+{
+    <div class="alert alert-warning">Hoja de ruta no encontrada.</div>
+}
+else
+{
+    <!-- Encabezado de Confirmación de Despacho Exitoso -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="rounded-circle bg-success-subtle text-success p-2 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="h5 fw-bold text-dark mb-0">Salida del Vehículo y Despacho Confirmados</h1>
+                    <p class="text-secondary small mb-0">
+                        La hoja de ruta pasó formalmente al estado <strong>"Despachada"</strong>. Solo los envíos efectivamente cargados quedaron <strong>"En Tránsito"</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-3 py-2 border-top border-bottom bg-light rounded-2 p-3 my-2">
+                <div class="col-12 col-md-3">
+                    <span class="text-muted small d-block">Hoja de Ruta:</span>
+                    <span class="fw-bold font-monospace text-dark fs-6">@ruta.NumeroRuta</span>
+                </div>
+                <div class="col-12 col-md-3">
+                    <span class="text-muted small d-block">Fecha y Turno:</span>
+                    <span class="fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy") (Viaje @ruta.ViajeNumero · @ruta.Turno)</span>
+                </div>
+                <div class="col-12 col-md-3">
+                    <span class="text-muted small d-block">Repartidor y Vehículo:</span>
+                    <span class="fw-semibold text-dark">@ruta.RepartidorNombre</span>
+                    <span class="badge bg-dark-subtle text-dark border font-monospace ms-1">@ruta.VehiculoMatricula</span>
+                </div>
+                <div class="col-12 col-md-3">
+                    <span class="text-muted small d-block">Operario de Depósito:</span>
+                    <span class="fw-semibold text-dark">@(ruta.OperarioDespacho ?? User.Identity?.Name ?? "Operario de depósito")</span>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                        ● Estado: @ruta.Estado
+                    </span>
+                    <span class="text-muted small">
+                        Despachada: @(ruta.FechaDespacho?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? DateTime.UtcNow.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
+                    </span>
+                </div>
+                <div class="d-flex gap-2">
+                    <a asp-page="/Despacho/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Volver a Salidas</span>
+                    </a>
+                    <a asp-page="/Rutas/Detalle" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <span>Ver Hoja de Ruta</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de Envíos Efectivamente Despachados en Tránsito -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h2 class="h6 fw-bold mb-0 text-dark">
+                Envíos Efectivamente Cargados (En Tránsito)
+            </h2>
+            <span class="badge bg-light text-secondary border font-monospace">
+                @ruta.Paradas.Count paradas · @ruta.PesoTotalKg.ToString("N1") kg · @ruta.VolumenTotalM3.ToString("N3") m³
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 60px;" class="text-center">Orden</th>
+                        <th style="width: 15%;">Código de Envío</th>
+                        <th style="width: 25%;">Destinatario</th>
+                        <th style="width: 25%;">Dirección / Zona</th>
+                        <th style="width: 15%;">Franja Horaria</th>
+                        <th class="text-end" style="width: 10%;">Peso / Vol.</th>
+                        <th class="text-center" style="width: 10%;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var parada in ruta.Paradas)
+                    {
+                        <tr>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border rounded-circle d-inline-flex align-items-center justify-content-center fw-bold" 
+                                      style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                    @parada.Orden
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.75rem;">
+                                    @parada.CodigoSeguimiento
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small">@parada.Destinatario</div>
+                            </td>
+                            <td>
+                                <div class="text-dark small">@parada.Direccion</div>
+                                <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.68rem;">
+                                    @parada.Zona
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.725rem;">
+                                    @parada.FranjaHoraria
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <div class="small fw-semibold text-dark">@parada.PesoKg.ToString("N1") kg</div>
+                                <div class="text-muted" style="font-size: 0.68rem;">@parada.VolumenM3.ToString("N3") m³</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                    ● En Tránsito
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

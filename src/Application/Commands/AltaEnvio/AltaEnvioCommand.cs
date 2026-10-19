@@ -27,7 +27,7 @@ public record DireccionAltaDto(
     double? Longitud = null,
     string? Referencia = null);
 
-/// <summary>Medidas del bulto: peso en kg y dimensiones en las unidades del cuadro tarifario.</summary>
+/// <summary>Medidas del bulto: peso en kg y dimensiones en centímetros.</summary>
 public record BultoAltaDto(decimal Peso, decimal Alto, decimal Ancho, decimal Profundo);
 
 public record AltaEnvioResultDto(

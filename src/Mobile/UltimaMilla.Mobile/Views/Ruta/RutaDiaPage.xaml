@@ -31,9 +31,13 @@
                                FontAttributes="Bold" />
                     </VerticalStackLayout>
 
-                    <!-- Indicador Flotante Interactivo: Modo Offline -->
+                    <!-- Indicador Flotante Interactivo: Modo Offline / En Línea -->
                     <Border Grid.Column="1"
-                            Style="{StaticResource OfflinePill}"
+                            BackgroundColor="{Binding BadgeConectividadBgColor}"
+                            Stroke="{Binding BadgeConectividadBorderColor}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 20"
+                            Padding="10,5"
                             VerticalOptions="Center">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding MostrarColaOfflineCommand}" />
@@ -42,12 +46,12 @@
                             <BoxView WidthRequest="8"
                                      HeightRequest="8"
                                      CornerRadius="4"
-                                     Color="#DC2626"
+                                     Color="{Binding IndicadorConexionDotColor}"
                                      VerticalOptions="Center" />
-                            <Label Text="Modo Offline"
+                            <Label Text="{Binding TextoBadgeConectividad}"
                                    FontSize="11"
                                    FontAttributes="Bold"
-                                   TextColor="{StaticResource OfflineBadgeText}"
+                                   TextColor="{Binding BadgeConectividadTextColor}"
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
                     </Border>

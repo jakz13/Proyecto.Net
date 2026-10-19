@@ -99,7 +99,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     // Constructor supporting initial test suite & simple intake
-    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario) : base(id)
+    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario, string? codigoSeguimientoPublico = null, Guid? operadorId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -118,7 +118,10 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         NombreDestinatario = nombreDestinatario.Trim();
         DestinatarioId = Guid.NewGuid();
         ModalidadServicio = "Estandar";
-        CodigoSeguimientoPublico = $"TRK-{id.ToString()[..8].ToUpperInvariant()}";
+        OperadorId = operadorId ?? Guid.Empty;
+        CodigoSeguimientoPublico = string.IsNullOrWhiteSpace(codigoSeguimientoPublico)
+            ? $"TRK-{id.ToString()[..8].ToUpperInvariant()}"
+            : codigoSeguimientoPublico.Trim().ToUpperInvariant();
         FechaAlta = DateTime.UtcNow;
         EstadoActual = EstadoEnvio.Admitido;
         SelloModificacion = Guid.NewGuid();
@@ -136,7 +139,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     public decimal PesoTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Peso);
     public decimal VolumenTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Volumen);
 
-    public void AgregarBulto(string identificacion, decimal peso, decimal alto, decimal ancho, decimal profundo)
+    public void AgregarBulto(string identificacion, decimal peso, decimal alto = 20, decimal ancho = 20, decimal profundo = 20, Guid? bultoId = null)
     {
         if (EstadoActual != EstadoEnvio.Admitido)
             throw new DomainValidationException($"No se pueden agregar bultos a un envío en estado '{EstadoActual}'.");
@@ -144,7 +147,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (_bultos.Any(b => b.Identificacion.Equals(identificacion?.Trim(), StringComparison.OrdinalIgnoreCase)))
             throw new DomainValidationException($"El envío ya contiene un bulto con la identificación '{identificacion}'.");
 
-        var bulto = new Bulto(Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
+        var bulto = new Bulto(bultoId ?? Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
         _bultos.Add(bulto);
         SelloModificacion = Guid.NewGuid();
     }

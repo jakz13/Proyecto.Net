@@ -1,0 +1,558 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Mensajeria.IndexModel
+@{
+    ViewData["Title"] = "Cola de Mensajes Fallidos";
+}
+
+<!-- Encabezado -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Cola de Mensajes Fallidos</h1>
+        <partial name="_BotonAyuda" model='"Supervisión de la cola interna de mensajes de la plataforma tras agotarse los reintentos automáticos. Permite solicitar el reprocesamiento manual de uno o varios eventos retenidos (mensajería asíncrona)."' />
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="recargarCola()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Actualizar Cola</span>
+        </button>
+    </div>
+</div>
+
+<!-- Alertas y Mensajes de Operación -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Estandarizadas de la Cola -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Mensajes Retenidos",
+            $"{Model.TotalRetenidos} pendientes",
+            "Eventos que agotaron sus reintentos automáticos y requieren intervención.",
+            "text-danger",
+            "Ver Cola ↓",
+            "#seccion-cola"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Operaciones Afectadas",
+            $"{Model.TiposEventosAfectados} tipos",
+            "Tipos de operaciones de la plataforma con fallos pendientes de resolución.",
+            "text-dark",
+            "Ver Todos →",
+            Url.Page("/Mensajeria/Index", new { tipoFiltro = "todos" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Intentos Acumulados",
+            $"{Model.TotalIntentosAcumulados} intentos",
+            "Total de ejecuciones de entrega fallidas antes de derivar a la retención.",
+            "text-secondary",
+            "Solo Fallidos →",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Fallido" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Mensajes Resueltos",
+            $"{Model.TotalResueltos} reprocesados",
+            "Mensajes recuperados exitosamente tras reintento manual por el operador.",
+            "text-success",
+            "Ver Resueltos →",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Resuelto" })
+        )' />
+    </div>
+</div>
+
+<!-- =========================================================================
+     Panel de Detalle del Mensaje Retenido (Inspección Técnica)
+     ========================================================================= -->
+<div class="panel-estandar mb-4 border-dark shadow-sm" id="panelDetalleMensaje" style="display: none; border-top: 3px solid #2563eb;">
+    <div class="panel-estandar-header bg-light">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <h2 class="h6 fw-bold mb-0 text-dark">Inspección de Operación: <span id="spanDetalleTipo" class="text-primary"></span></h2>
+            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1" id="spanDetalleIdCorto" style="font-size: 0.7rem;"></span>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarDetalleMensaje()" title="Cerrar inspección">
+            ✕ Cerrar
+        </button>
+    </div>
+
+    <div class="panel-estandar-body">
+        <div class="row g-4">
+            <!-- Columna 1: Explicación y Metadatos -->
+            <div class="col-md-5">
+                <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">Información del Fallo</h3>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-danger mb-1">Motivo del Fallo:</label>
+                    <div class="p-2 bg-danger-subtle text-danger border border-danger-subtle rounded small fw-semibold" id="lblDetalleMotivoDigerible">
+                        -
+                    </div>
+                </div>
+
+                <dl class="row small mb-3">
+                    <dt class="col-sm-5 text-muted">ID de Mensaje:</dt>
+                    <dd class="col-sm-7 font-monospace text-break" id="lblDetalleId">-</dd>
+
+                    <dt class="col-sm-5 text-muted">Operación:</dt>
+                    <dd class="col-sm-7 fw-semibold text-dark" id="lblDetalleTipoOperacion">-</dd>
+
+                    <dt class="col-sm-5 text-muted">Estado Actual:</dt>
+                    <dd class="col-sm-7" id="lblDetalleEstado">-</dd>
+
+                    <dt class="col-sm-5 text-muted">Intentos Previos:</dt>
+                    <dd class="col-sm-7 fw-bold" id="lblDetalleIntentos">-</dd>
+
+                    <dt class="col-sm-5 text-muted">Primer Fallo:</dt>
+                    <dd class="col-sm-7" id="lblDetallePrimerFallo">-</dd>
+
+                    <dt class="col-sm-5 text-muted">Último Fallo:</dt>
+                    <dd class="col-sm-7" id="lblDetalleUltimoFallo">-</dd>
+                </dl>
+
+                <div>
+                    <label class="form-label small fw-bold text-secondary mb-1">Detalle Técnico del Error:</label>
+                    <pre class="bg-light text-muted p-2 rounded font-monospace border small mb-0" style="max-height: 140px; overflow-y: auto; font-size: 0.72rem; white-space: pre-wrap;" id="lblDetalleExcepcion">-</pre>
+                </div>
+            </div>
+
+            <!-- Columna 2: Payload JSON Original -->
+            <div class="col-md-7">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <h3 class="h6 fw-bold text-dark mb-0">Datos del Mensaje (Payload JSON)</h3>
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="copiarPayload()">
+                        Copiar JSON
+                    </button>
+                </div>
+                <pre class="bg-dark text-light p-3 rounded font-monospace mb-0" style="max-height: 360px; overflow-y: auto; font-size: 0.75rem;" id="lblDetallePayload">-</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-estandar-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarDetalleMensaje()">Cerrar Inspección</button>
+        <div class="d-flex align-items-center gap-2">
+            <form method="post" asp-page-handler="Eliminar" class="d-inline" id="formEliminarDetalle">
+                <input type="hidden" name="id" id="inputEliminarDetalleId" />
+                <button type="submit" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" onclick="return confirm('¿Seguro que deseas eliminar este mensaje?');">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Eliminar Mensaje</span>
+                </button>
+            </form>
+            <form method="post" asp-page-handler="ReintentarIndividual" class="d-inline" id="formReintentarDetalle">
+                <input type="hidden" name="id" id="inputReintentarDetalleId" />
+                <input type="hidden" name="simularFallo" id="inputReintentarDetalleSimular" value="false" />
+                <button type="submit" class="btn btn-dark btn-sm px-3">
+                    Reintentar Mensaje
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     Catálogo de Mensajes en Cola (Tabla Principal con Selección Múltiple)
+     ========================================================================= -->
+<div class="row g-4" id="seccion-cola">
+    <div class="col-12">
+        <div class="panel-estandar">
+            <div class="panel-estandar-header">
+                <h2 class="h6 fw-bold mb-0 text-dark">Mensajes Retenidos para Reprocesamiento</h2>
+
+                <!-- Conmutador para demostración de Flujo Alternativo (Reintento con Nueva Falla) -->
+                <div class="d-flex align-items-center gap-2 bg-light border rounded px-2 py-1">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="checkSimularFallo" onchange="alternarSimulacionFallo(this.checked)">
+                        <label class="form-check-label small fw-semibold text-dark" for="checkSimularFallo" style="font-size: 0.775rem;">
+                            Simular nueva falla (Flujo Alternativo)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros de Búsqueda y Tipo -->
+            <div class="p-3 bg-light border-bottom">
+                <form method="get" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                            </span>
+                            <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control border-start-0" placeholder="Buscar por ID, operación o motivo del fallo..." />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select name="tipoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="todos" selected="@(Model.TipoFiltro == "todos")">Todas las operaciones</option>
+                            <option value="EventoPaqueteDespachado" selected="@(Model.TipoFiltro == "EventoPaqueteDespachado")">Despacho de Paquete</option>
+                            <option value="NotificacionWebhookComercio" selected="@(Model.TipoFiltro == "NotificacionWebhookComercio")">Aviso a Comercio (Webhook)</option>
+                            <option value="SincronizacionOfflineRepartidor" selected="@(Model.TipoFiltro == "SincronizacionOfflineRepartidor")">Sincronización de Repartidor</option>
+                            <option value="GeneracionEtiquetaZPL" selected="@(Model.TipoFiltro == "GeneracionEtiquetaZPL")">Impresión de Etiqueta</option>
+                            <option value="ActualizacionRutaRepartidor" selected="@(Model.TipoFiltro == "ActualizacionRutaRepartidor")">Cálculo de Ruta</option>
+                            <option value="FacturacionEnvioComercio" selected="@(Model.TipoFiltro == "FacturacionEnvioComercio")">Facturación de Envíos</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select name="estadoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="todos" selected="@(Model.EstadoFiltro == "todos")">Todos los estados</option>
+                            <option value="Fallido" selected="@(Model.EstadoFiltro == "Fallido")">Solo Retenidos</option>
+                            <option value="Resuelto" selected="@(Model.EstadoFiltro == "Resuelto")">Solo Resueltos</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2 d-flex gap-1">
+                        <button type="submit" class="btn btn-outline-dark btn-sm w-100">Filtrar</button>
+                        @if (!string.IsNullOrEmpty(Model.Busqueda) || Model.TipoFiltro != "todos" || Model.EstadoFiltro != "todos")
+                        {
+                            <a asp-page="/Mensajeria/Index" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros">✕</a>
+                        }
+                    </div>
+                </form>
+            </div>
+
+            <!-- Formulario de Acciones por Lote (Selección Múltiple) -->
+            <form method="post" asp-page-handler="ReintentarLote" id="formReintentarLote">
+                <input type="hidden" name="simularFallo" id="inputLoteSimularFallo" value="false" />
+
+                <!-- Barra de Herramientas de Selección Múltiple y Limpieza -->
+                <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="checkSeleccionarTodos" onchange="alternarTodosLosMensajes(this.checked)">
+                            <label class="form-check-label small fw-semibold" for="checkSeleccionarTodos">
+                                Seleccionar todos
+                            </label>
+                        </div>
+                        <span class="text-muted small ms-2" id="txtContadorSeleccionados">(0 seleccionados)</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        @if (Model.TotalResueltos > 0)
+                        {
+                            <button type="submit" asp-page-handler="LimpiarResueltos" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" onclick="return confirm('¿Seguro que deseas eliminar todos los fallos que ya fueron resueltos?');" title="Eliminar los registros de fallos que ya fueron reprocesados con éxito">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                <span>Eliminar Resueltos (@Model.TotalResueltos)</span>
+                            </button>
+                        }
+
+                        <button type="submit" class="btn btn-dark btn-sm px-3 shadow-sm d-inline-flex align-items-center gap-1" id="btnReintentarLote" disabled>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            <span id="txtBtnReintentarLote">Reintentar Seleccionados</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-compacta mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th style="width: 10%;">ID</th>
+                                <th style="width: 22%;">Tipo de Operación</th>
+                                <th>Motivo del Fallo</th>
+                                <th class="text-center" style="width: 8%;">Intentos</th>
+                                <th style="width: 15%;">Último Fallo</th>
+                                <th class="text-center" style="width: 10%;">Estado</th>
+                                <th class="text-end" style="width: 12%;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Mensajes.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted small">
+                                        No hay mensajes retenidos en la cola con los criterios seleccionados.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var mensaje in Model.Mensajes)
+                                {
+                                    var claseFila = mensaje.Estado == "Resuelto" ? "opacity-75 bg-light" : "";
+                                    <tr class="@claseFila">
+                                        <td class="text-center">
+                                            @if (mensaje.Estado == "Fallido")
+                                            {
+                                                <input class="form-check-input chk-mensaje" type="checkbox" name="idsSeleccionados" value="@mensaje.Id" onchange="actualizarContadorSeleccionados()" />
+                                            }
+                                            else
+                                            {
+                                                <span class="text-success small fw-bold">✓</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.725rem;">
+                                                #@mensaje.Id.ToString()[..8]
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-dark-subtle text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                                @mensaje.TipoLegible
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="text-dark small fw-semibold" style="line-height: 1.35;">
+                                                @mensaje.MotivoDigerible
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                Primera falla: @mensaje.PrimerFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @(mensaje.Intentos >= 4 ? "bg-danger" : "bg-warning text-dark") px-2 py-1" style="font-size: 0.75rem;">
+                                                @mensaje.Intentos int.
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="small text-dark font-monospace" style="font-size: 0.75rem;">
+                                                @mensaje.UltimoFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (mensaje.Estado == "Fallido")
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                                    ● Retenido
+                                                </span>
+                                            }
+                                            else if (mensaje.Estado == "Resuelto")
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                                    ✓ Resuelto
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
+                                                    @mensaje.Estado
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex align-items-center gap-1">
+                                                <!-- Botón Icono Ojo: Inspeccionar detalle técnico -->
+                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1" title="Inspeccionar detalle del mensaje" onclick="mostrarDetalleMensaje('@mensaje.Id')">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                        <circle cx="12" cy="12" r="3"></circle>
+                                                    </svg>
+                                                </button>
+
+                                                <!-- Botón Icono Basura: Eliminar mensaje de la lista -->
+                                                <button type="button" class="btn btn-outline-danger btn-sm p-1" title="Eliminar mensaje" onclick="ejecutarEliminarIndividual('@mensaje.Id')">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                    </svg>
+                                                </button>
+
+                                                <!-- Reintento directo individual -->
+                                                @if (mensaje.Estado == "Fallido")
+                                                {
+                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="ejecutarReintentoIndividual('@mensaje.Id')" title="Reintentar procesamiento">
+                                                        Reintentar
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario oculto auxiliar para reintentos individuales directos -->
+<form method="post" asp-page-handler="ReintentarIndividual" id="formReintentoIndividualOculto" style="display: none;">
+    <input type="hidden" name="id" id="inputReintentoIndividualId" />
+    <input type="hidden" name="simularFallo" id="inputReintentoIndividualSimular" value="false" />
+</form>
+
+<!-- Formulario oculto auxiliar para eliminación individual directa -->
+<form method="post" asp-page-handler="Eliminar" id="formEliminarIndividualOculto" style="display: none;">
+    <input type="hidden" name="id" id="inputEliminarIndividualId" />
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Datos de mensajes serializados de forma segura para evitar errores de sintaxis por saltos de línea
+        var mensajesData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Mensajes.Select(m => new {
+            id = m.Id.ToString(),
+            tipoLegible = m.TipoLegible,
+            colaOrigen = m.ColaOrigen,
+            estado = m.Estado,
+            intentos = m.Intentos,
+            primerFallo = m.PrimerFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
+            ultimoFallo = m.UltimoFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
+            motivoDigerible = m.MotivoDigerible,
+            detalleExcepcion = m.DetalleExcepcion,
+            payloadOriginal = m.PayloadOriginal
+        })));
+
+        var simularFalloActivo = false;
+        var payloadActual = '';
+
+        function recargarCola() {
+            window.location.reload();
+        }
+
+        function alternarSimulacionFallo(activo) {
+            simularFalloActivo = activo;
+            document.getElementById('inputLoteSimularFallo').value = activo ? 'true' : 'false';
+            document.getElementById('inputReintentoIndividualSimular').value = activo ? 'true' : 'false';
+            document.getElementById('inputReintentarDetalleSimular').value = activo ? 'true' : 'false';
+
+            var btnLote = document.getElementById('txtBtnReintentarLote');
+            if (btnLote) {
+                btnLote.textContent = activo ? 'Reintentar (Simular Falla)' : 'Reintentar Seleccionados';
+            }
+        }
+
+        function alternarTodosLosMensajes(marcado) {
+            var checkboxes = document.querySelectorAll('.chk-mensaje');
+            checkboxes.forEach(function (chk) {
+                chk.checked = marcado;
+            });
+            actualizarContadorSeleccionados();
+        }
+
+        function actualizarContadorSeleccionados() {
+            var checkboxes = document.querySelectorAll('.chk-mensaje:checked');
+            var cantidad = checkboxes.length;
+            var contadorTxt = document.getElementById('txtContadorSeleccionados');
+            var btnReintentar = document.getElementById('btnReintentarLote');
+
+            if (contadorTxt) {
+                contadorTxt.textContent = '(' + cantidad + ' seleccionados)';
+            }
+
+            if (btnReintentar) {
+                btnReintentar.disabled = cantidad === 0;
+            }
+        }
+
+        function ejecutarReintentoIndividual(id) {
+            document.getElementById('inputReintentoIndividualId').value = id;
+            document.getElementById('inputReintentoIndividualSimular').value = simularFalloActivo ? 'true' : 'false';
+            document.getElementById('formReintentoIndividualOculto').submit();
+        }
+
+        function ejecutarEliminarIndividual(id) {
+            if (confirm('¿Seguro que deseas eliminar este mensaje de la lista?')) {
+                document.getElementById('inputEliminarIndividualId').value = id;
+                document.getElementById('formEliminarIndividualOculto').submit();
+            }
+        }
+
+        function mostrarDetalleMensaje(id) {
+            var idNormalizado = (id || '').toString().trim().toLowerCase();
+            var item = mensajesData.find(function(m) { 
+                return (m.id || '').toString().trim().toLowerCase() === idNormalizado; 
+            });
+
+            if (!item) {
+                console.warn('Mensaje no encontrado para ID:', id);
+                return;
+            }
+
+            payloadActual = item.payloadOriginal;
+
+            document.getElementById('spanDetalleTipo').textContent = item.tipoLegible;
+            document.getElementById('spanDetalleIdCorto').textContent = '#' + item.id.substring(0, 8);
+            document.getElementById('lblDetalleId').textContent = item.id;
+            document.getElementById('lblDetalleTipoOperacion').textContent = item.tipoLegible;
+            document.getElementById('lblDetalleEstado').innerHTML = item.estado === 'Fallido'
+                ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">● Retenido</span>'
+                : '<span class="badge bg-success-subtle text-success border border-success-subtle">✓ Resuelto</span>';
+            document.getElementById('lblDetalleIntentos').textContent = item.intentos + ' reintentos';
+            document.getElementById('lblDetallePrimerFallo').textContent = item.primerFallo;
+            document.getElementById('lblDetalleUltimoFallo').textContent = item.ultimoFallo;
+            document.getElementById('lblDetalleMotivoDigerible').textContent = item.motivoDigerible;
+            document.getElementById('lblDetalleExcepcion').textContent = item.detalleExcepcion;
+            document.getElementById('lblDetallePayload').textContent = item.payloadOriginal;
+
+            document.getElementById('inputEliminarDetalleId').value = item.id;
+            document.getElementById('inputReintentarDetalleId').value = item.id;
+            document.getElementById('inputReintentarDetalleSimular').value = simularFalloActivo ? 'true' : 'false';
+
+            var panel = document.getElementById('panelDetalleMensaje');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function ocultarDetalleMensaje() {
+            var panel = document.getElementById('panelDetalleMensaje');
+            if (panel) {
+                panel.style.display = 'none';
+            }
+        }
+
+        function copiarPayload() {
+            if (payloadActual) {
+                navigator.clipboard.writeText(payloadActual).then(function () {
+                    alert('Datos JSON copiados al portapapeles.');
+                }).catch(function () {
+                    alert('No se pudo copiar el JSON automáticamente.');
+                });
+            }
+        }
+    </script>
+}

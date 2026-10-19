@@ -1,0 +1,472 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Reportes.IndexModel
+@{
+    ViewData["Title"] = "Reportes de Gestión Operativa";
+    var tipo = Model.TipoReporte;
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3 d-print-none">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 fw-bold text-dark mb-0">Reportes de Gestión Operativa</h1>
+            <partial name="_BotonAyuda" model='"Generación y consulta de indicadores consolidados de la operación: cumplimiento de SLA por zona/repartidor/comercio, causas de no entrega, evolución de volumen/peso y liquidación tarifaria por cliente."' />
+        </div>
+        <p class="text-secondary small mb-0 mt-1">
+            Información histórica agregada para auditoría, control de calidad y liquidación de servicios.
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" onclick="window.print()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>Imprimir</span>
+        </button>
+        <a asp-page-handler="ExportarCsv"
+           asp-route-tipoReporte="@Model.TipoReporte"
+           asp-route-preajuste="@Model.Preajuste"
+           asp-route-fechaDesde="@Model.FechaDesde"
+           asp-route-fechaHasta="@Model.FechaHasta"
+           class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2 text-white">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span class="fw-semibold">Exportar CSV</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filtros de Parámetros y Período -->
+<div class="card border-0 shadow-sm rounded-3 mb-4 d-print-none">
+    <div class="card-body p-3 bg-white">
+        <form method="get" class="row g-3 align-items-end">
+            <!-- Selector de Tipo de Reporte -->
+            <div class="col-12 col-md-4">
+                <label class="form-label text-dark fw-semibold small mb-1" for="selectTipoReporte">
+                    Tipo de Reporte:
+                </label>
+                <select name="tipoReporte" id="selectTipoReporte" class="form-select form-select-sm text-dark" onchange="this.form.submit()">
+                    <option value="CumplimientoZona" selected="@(tipo == "CumplimientoZona")">Cumplimiento por Zona Geográfica</option>
+                    <option value="CumplimientoRepartidor" selected="@(tipo == "CumplimientoRepartidor")">Cumplimiento por Repartidor</option>
+                    <option value="CumplimientoComercio" selected="@(tipo == "CumplimientoComercio")">Cumplimiento por Comercio Adherido</option>
+                    <option value="MotivosNoEntrega" selected="@(tipo == "MotivosNoEntrega")">Distribución de Motivos de No Entrega</option>
+                    <option value="VolumenPeriodo" selected="@(tipo == "VolumenPeriodo")">Volumen y Peso de Carga por Período</option>
+                    <option value="LiquidacionComercio" selected="@(tipo == "LiquidacionComercio")">Liquidación y Facturación por Comercio</option>
+                </select>
+            </div>
+
+            <!-- Accesos Rápidos de Período -->
+            <div class="col-12 col-md-3">
+                <label class="form-label text-dark fw-semibold small mb-1">
+                    Rango Rápido:
+                </label>
+                <div class="btn-group btn-group-sm w-100" role="group">
+                    <a asp-page="/Reportes/Index" asp-route-tipoReporte="@tipo" asp-route-preajuste="Hoy"
+                       class="btn @(Model.Preajuste == "Hoy" ? "btn-dark text-white fw-semibold" : "btn-outline-secondary text-dark")">
+                        Hoy
+                    </a>
+                    <a asp-page="/Reportes/Index" asp-route-tipoReporte="@tipo" asp-route-preajuste="7Dias"
+                       class="btn @(Model.Preajuste == "7Dias" ? "btn-dark text-white fw-semibold" : "btn-outline-secondary text-dark")">
+                        7 Días
+                    </a>
+                    <a asp-page="/Reportes/Index" asp-route-tipoReporte="@tipo" asp-route-preajuste="EsteMes"
+                       class="btn @(Model.Preajuste == "EsteMes" ? "btn-dark text-white fw-semibold" : "btn-outline-secondary text-dark")">
+                        Mes
+                    </a>
+                    <a asp-page="/Reportes/Index" asp-route-tipoReporte="@tipo" asp-route-preajuste="30Dias"
+                       class="btn @(Model.Preajuste == "30Dias" ? "btn-dark text-white fw-semibold" : "btn-outline-secondary text-dark")">
+                        30 Días
+                    </a>
+                </div>
+            </div>
+
+            <!-- Fechas Manuales -->
+            <div class="col-6 col-md-2">
+                <label class="form-label text-dark fw-semibold small mb-1" for="inputDesde">
+                    Desde:
+                </label>
+                <input type="date" id="inputDesde" name="fechaDesde" value="@Model.FechaDesde" class="form-control form-control-sm text-dark" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label text-dark fw-semibold small mb-1" for="inputHasta">
+                    Hasta:
+                </label>
+                <input type="date" id="inputHasta" name="fechaHasta" value="@Model.FechaHasta" class="form-control form-control-sm text-dark" />
+            </div>
+
+            <div class="col-12 col-md-1">
+                <button type="submit" class="btn btn-dark btn-sm w-100 px-2 fw-semibold">
+                    Generar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     TARJETAS MÉTRICAS DE RESUMEN
+     ========================================================================= -->
+<div class="row g-3 mb-4">
+    @if (tipo == "CumplimientoZona" || tipo == "CumplimientoRepartidor" || tipo == "CumplimientoComercio")
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Total Envíos Asignados</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalEnviosProcesados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En el período seleccionado</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Efectividad en Plazo (SLA)</span>
+                <div class="h3 fw-bold mb-0 text-success">@Model.Reporte.TasaEfectividadGlobal%</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Entregados dentro de la ventana</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Entregados Totales</span>
+                <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.TotalEntregados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En plazo + con demora justificada</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">No Entregados / Reasignados</span>
+                <div class="h3 fw-bold mb-0 text-danger">@Model.Reporte.TotalNoEntregados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Requirieron reprogramación o devolución</div>
+            </div>
+        </div>
+    }
+    else if (tipo == "MotivosNoEntrega")
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Total Fallos de Entrega</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalNoEntregados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Ocurrencias registradas en rendición</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Principal Causa</span>
+                <div class="h5 fw-bold mb-0 text-danger">Destinatario Ausente</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Representa el 46.7% de los casos</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Causas Externas</span>
+                <div class="h3 fw-bold mb-0 text-primary">70.0%</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Ausencia de cliente o dirección errónea</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Causas Operativas</span>
+                <div class="h3 fw-bold mb-0 text-warning">23.3%</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Averías mecánicas o daño de embalaje</div>
+            </div>
+        </div>
+    }
+    else if (tipo == "VolumenPeriodo")
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Total Guías Despachadas</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalEnviosProcesados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Envíos únicos en el período</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Bultos Movilizados</span>
+                <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.ItemsVolumen.Sum(v => v.CantidadBultos)</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Paquetes físicos procesados</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Peso Total Transportado</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.PesoTotalKg).ToString("N1") <span class="fs-6 text-muted">kg</span></div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Carga pesada en depósito</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Volumen Cúbico Total</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.VolumenTotalM3).ToString("N2") <span class="fs-6 text-muted">m³</span></div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Capacidad de estiba ocupada</div>
+            </div>
+        </div>
+    }
+    else if (tipo == "LiquidacionComercio")
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Comercios Liquidados</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsLiquidacion.Count</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Cuentas activas en el período</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Envíos Facturados</span>
+                <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.TotalEnviosProcesados</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Entregas completadas a liquidar</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Subtotal Neto</span>
+                <div class="h3 fw-bold mb-0 text-dark font-monospace">$@Model.Reporte.ItemsLiquidacion.Sum(l => l.Subtotal).ToString("N2")</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Base + recargos - bonificaciones</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-success border-4">
+                <span class="text-secondary small fw-semibold mb-1">Total Facturación (c/IVA)</span>
+                <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.TotalFacturadoLiquidacion.ToString("N2")</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Total final en pesos uruguayos</div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- =========================================================================
+     TABLA DETALLADA SEGÚN EL TIPO DE REPORTE SELECCIONADO
+     ========================================================================= -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h6 fw-bold mb-0 text-dark">
+                @switch (tipo)
+                {
+                    case "CumplimientoZona": <span>Desempeño y Cumplimiento por Zona Geográfica</span>; break;
+                    case "CumplimientoRepartidor": <span>Efectividad y Rendimiento por Repartidor</span>; break;
+                    case "CumplimientoComercio": <span>Nivel de Servicio y Desempeño por Comercio</span>; break;
+                    case "MotivosNoEntrega": <span>Distribución de Motivos de No Entrega (Catálogo Interno)</span>; break;
+                    case "VolumenPeriodo": <span>Evolución Diaria de Envíos, Bultos y Capacidad</span>; break;
+                    case "LiquidacionComercio": <span>Liquidación Detallada de Tarifas por Comercio</span>; break;
+                    default: <span>Resultados del Reporte</span>; break;
+                }
+            </h2>
+            <span class="text-secondary small">
+                Período auditado: @Model.Reporte.Filtro.FechaDesde.ToString("dd/MM/yyyy") al @Model.Reporte.Filtro.FechaHasta.ToString("dd/MM/yyyy")
+            </span>
+        </div>
+        <span class="badge bg-light text-secondary border font-monospace">
+            Actualizado @Model.Reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        @if (tipo == "CumplimientoZona" || tipo == "CumplimientoRepartidor" || tipo == "CumplimientoComercio")
+        {
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 25%;" class="text-dark">
+                            @(tipo == "CumplimientoZona" ? "Zona Geográfica" : (tipo == "CumplimientoRepartidor" ? "Repartidor" : "Comercio Cliente"))
+                        </th>
+                        <th style="width: 20%;" class="text-dark">Detalle / Referencia</th>
+                        <th class="text-center" style="width: 10%;" class="text-dark">Asignados</th>
+                        <th class="text-center" style="width: 12%;" class="text-dark">En Plazo SLA</th>
+                        <th class="text-center" style="width: 11%;" class="text-dark">Con Demora</th>
+                        <th class="text-center" style="width: 11%;" class="text-dark">No Entregados</th>
+                        <th class="text-end" style="width: 11%;" class="text-dark">% Efectividad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Reporte.ItemsCumplimiento)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark">@item.Agrupador</div>
+                            </td>
+                            <td>
+                                <span class="text-secondary small font-monospace">@item.DetalleAdicional</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="fw-bold text-dark">@item.TotalAsignados</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                    @item.EntregadosEnPlazo
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                    @item.EntregadosConDemora
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                    @item.NoEntregados
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <div class="progress flex-grow-1" style="height: 6px; max-width: 60px;">
+                                        <div class="progress-bar @(item.PorcentajeEfectividad >= 92 ? "bg-success" : "bg-warning")" style="width: @item.PorcentajeEfectividad%;"></div>
+                                    </div>
+                                    <strong class="text-dark small">@item.PorcentajeEfectividad%</strong>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (tipo == "MotivosNoEntrega")
+        {
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 15%;" class="text-dark">Código Catálogo</th>
+                        <th style="width: 35%;" class="text-dark">Descripción del Motivo</th>
+                        <th style="width: 15%;" class="text-dark">Categoría de Fallo</th>
+                        <th class="text-center" style="width: 10%;" class="text-dark">Ocurrencias</th>
+                        <th style="width: 12%;" class="text-dark">% del Total</th>
+                        <th class="text-end" style="width: 13%;" class="text-dark">Impacto Operativo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model.Reporte.ItemsMotivos)
+                    {
+                        <tr>
+                            <td>
+                                <span class="badge bg-light text-dark border font-monospace">@m.CodigoMotivo</span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small">@m.DescripcionMotivo</div>
+                            </td>
+                            <td>
+                                @switch (m.Categoria)
+                                {
+                                    case "ExternoDestinatario":
+                                        <span class="badge bg-secondary-subtle text-dark border" style="font-size: 0.725rem;">Destinatario</span>
+                                        break;
+                                    case "Interno":
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.725rem;">Interno / Flota</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.725rem;">Fuerza Mayor</span>
+                                        break;
+                                }
+                            </td>
+                            <td class="text-center">
+                                <span class="fw-bold text-dark">@m.CantidadOcurrencias</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar bg-dark" style="width: @m.PorcentajeDelTotal%;"></div>
+                                    </div>
+                                    <span class="small fw-semibold text-dark">@m.PorcentajeDelTotal%</span>
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <span class="text-secondary small">@m.ImpactoComun</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (tipo == "VolumenPeriodo")
+        {
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 20%;" class="text-dark">Fecha</th>
+                        <th class="text-center" style="width: 15%;" class="text-dark">Guías Despachadas</th>
+                        <th class="text-center" style="width: 15%;" class="text-dark">Bultos Físicos</th>
+                        <th class="text-end" style="width: 18%;" class="text-dark">Peso Total (kg)</th>
+                        <th class="text-end" style="width: 16%;" class="text-dark">Volumen (m³)</th>
+                        <th class="text-center" style="width: 16%;" class="text-dark">Rutas Activas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model.Reporte.ItemsVolumen)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark font-monospace">@v.Fecha.ToString("dd/MM/yyyy")</div>
+                                <div class="text-secondary small">@v.Fecha.DayOfWeek</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="fw-bold text-dark">@v.CantidadGuias</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                    @v.CantidadBultos
+                                </span>
+                            </td>
+                            <td class="text-end font-monospace text-dark">
+                                @v.PesoTotalKg.ToString("N1") kg
+                            </td>
+                            <td class="text-end font-monospace text-dark">
+                                @v.VolumenTotalM3.ToString("N2") m³
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">
+                                    @v.RutasDespachadas rutas
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (tipo == "LiquidacionComercio")
+        {
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 24%;" class="text-dark">Comercio Cliente</th>
+                        <th style="width: 14%;" class="text-dark">RUT</th>
+                        <th class="text-center" style="width: 10%;" class="text-dark">Envíos</th>
+                        <th class="text-end" style="width: 13%;" class="text-dark">Tarifa Base</th>
+                        <th class="text-end" style="width: 13%;" class="text-dark">Recargos Peso</th>
+                        <th class="text-end" style="width: 13%;" class="text-dark">Subtotal</th>
+                        <th class="text-end" style="width: 13%;" class="text-dark">Total Facturado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model.Reporte.ItemsLiquidacion)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark">@l.RazonSocial</div>
+                            </td>
+                            <td>
+                                <span class="text-secondary small font-monospace">@l.Rut</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border font-monospace">@l.CantidadEnviosLiquidados</span>
+                            </td>
+                            <td class="text-end font-monospace text-dark small">
+                                $@l.TarifaBaseTotal.ToString("N2")
+                            </td>
+                            <td class="text-end font-monospace text-secondary small">
+                                +$@l.RecargoPesoTotal.ToString("N2")
+                            </td>
+                            <td class="text-end font-monospace text-dark fw-semibold small">
+                                $@l.Subtotal.ToString("N2")
+                            </td>
+                            <td class="text-end font-monospace text-success fw-bold">
+                                $@l.TotalFacturado.ToString("N2")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

@@ -22,4 +22,9 @@ public interface IIdentidadVisualApi
     /// Lista los operadores disponibles para la demostración en Development.
     /// </summary>
     Task<IReadOnlyList<IdentidadVisualDto>> ListarOperadoresDemoAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Actualiza la identidad visual (marca, colores, contacto) del operador actual (UC-06, RF-05).
+    /// </summary>
+    Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default);
 }

@@ -78,4 +78,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
     window.addEventListener('resize', cerrarPopover);
     window.addEventListener('scroll', cerrarPopover, true);
+
+    // ==========================================================================
+    // Control de Barra Lateral Anclada y Colapsable
+    // ==========================================================================
+    var botonColapsar = document.getElementById('btnColapsarSidebar');
+    if (botonColapsar) {
+        // Sincronizar estado inicial guardado en localStorage
+        var estaColapsadaGuardada = localStorage.getItem('sidebar_colapsada') === 'true';
+        if (estaColapsadaGuardada) {
+            document.body.classList.add('sidebar-colapsada');
+            document.documentElement.classList.add('sidebar-colapsada');
+        }
+
+        botonColapsar.addEventListener('click', function () {
+            var colapsar = !document.body.classList.contains('sidebar-colapsada');
+            document.body.classList.toggle('sidebar-colapsada', colapsar);
+            document.documentElement.classList.toggle('sidebar-colapsada', colapsar);
+            localStorage.setItem('sidebar_colapsada', colapsar ? 'true' : 'false');
+        });
+    }
+
+    // ==========================================================================
+    // Control Universal de Cierre de Modales
+    // ==========================================================================
+    document.addEventListener('click', function (e) {
+        var botonCerrar = e.target.closest('[data-bs-dismiss="modal"]');
+        if (botonCerrar) {
+            var modal = botonCerrar.closest('.modal');
+            if (modal) {
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    var instancia = bootstrap.Modal.getInstance(modal);
+                    if (instancia) {
+                        instancia.hide();
+                        return;
+                    }
+                }
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            }
+        }
+    });
 });

@@ -1,34 +1,69 @@
 using MediatR;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using UltimaMilla.Api.Auth;
 using UltimaMilla.Api.Endpoints;
 using UltimaMilla.Application;
 using UltimaMilla.Application.Commands.AltaEnvio;
 using UltimaMilla.Application.DTOs;
 using UltimaMilla.Application.Queries.ListarEnvios;
+using UltimaMilla.Application.Queries.Mobile.CheckMobileConnectivity;
+using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Infrastructure;
 using UltimaMilla.Infrastructure.Persistence;
-
-using UltimaMilla.Application.Queries.Mobile.CheckMobileConnectivity;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddAuthentication();
+
+// Configuración de autenticación para desarrollo y demo móvil
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = DevMobileAuthHandler.SchemeName;
+    options.DefaultChallengeScheme = DevMobileAuthHandler.SchemeName;
+})
+.AddScheme<AuthenticationSchemeOptions, DevMobileAuthHandler>(DevMobileAuthHandler.SchemeName, _ => { });
+
 builder.Services.AddAuthorization();
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Última Milla · API de Envíos",
+        Title = "Última Milla · API de Envíos y Operación en Calle",
         Version = "v1",
-        Description = "Servicio de alta y gestión operativa de órdenes de envío de última milla.",
+        Description = "Servicio de alta, gestión operativa y sincronización de última milla para apps móviles y backoffice.",
         Contact = new OpenApiContact
         {
             Name = "Plataforma Última Milla"
+        }
+    });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header usando el esquema Bearer. En desarrollo se acepta cualquier token o se auto-autentica el repartidor demo.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
         }
     });
 });
@@ -71,8 +106,8 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Auto-migrate database on startup with resilience retry
-ApplyMigrations(app);
+// Auto-migrate database on startup with resilience retry and idempotent seed data
+await ApplyMigrationsAsync(app);
 
 // Custom CSS for modern Swagger UI
 app.MapGet("/swagger-custom.css", () =>
@@ -247,18 +282,112 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
 
-// Registrar endpoints de operación en calle (UC-18 y UC-19)
+// Registrar endpoints de operación en calle (UC-18, UC-19, UC-20, UC-21)
 app.MapMobileRutasEndpoints();
 
-// Registrar endpoints de depósito (UC-14)
+// Registrar endpoints de depósito (UC-14, UC-15)
 app.MapDepositoEndpoints();
 
-// Registrar endpoints de planificación (UC-08)
+// Registrar endpoints de planificación (UC-08, UC-09)
 app.MapPlanificacionEndpoints();
 
-app.Run();
+// =========================================================================
+// Endpoint de Consulta para Seguimiento Público y Backoffice (Apoyo a Frontend)
+// =========================================================================
+app.MapGet("/api/seguimiento/{codigoSeguimiento}", async (
+    string codigoSeguimiento,
+    AppDbContext db,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(codigoSeguimiento))
+        return Results.BadRequest(new { error = "El código de seguimiento no puede ser vacío." });
 
-static void ApplyMigrations(WebApplication app)
+    var codigoNormalizado = codigoSeguimiento.Trim().ToUpperInvariant();
+
+    var envio = await db.Envios
+        .AsNoTracking()
+        .Include(e => e.Bultos)
+        .Include(e => e.Eventos)
+        .Include(e => e.IntentosEntrega)
+            .ThenInclude(i => i.PruebaDeEntrega)
+        .FirstOrDefaultAsync(e =>
+            e.CodigoSeguimientoPublico == codigoNormalizado ||
+            e.Id.ToString() == codigoNormalizado,
+            ct);
+
+    if (envio is null)
+    {
+        return Results.NotFound(new
+        {
+            error = $"No se encontró ningún envío con el código de seguimiento '{codigoSeguimiento}'."
+        });
+    }
+
+    var eventosOrdenados = envio.Eventos
+        .OrderBy(ev => ev.Timestamp)
+        .Select(ev => new
+        {
+            Fecha = ev.Timestamp,
+            Estado = (int)ev.EstadoNuevo,
+            EstadoNombre = ev.EstadoNuevo.ToString(),
+            TipoEvento = ev.TipoEvento,
+            DescripcionPublica = MapearDescripcionPublicaEvento(ev.TipoEvento, ev.EstadoNuevo),
+            Origen = ev.Origen,
+            Detalle = ev.Payload
+        })
+        .ToList();
+
+    var intentos = envio.IntentosEntrega
+        .OrderBy(i => i.Timestamp)
+        .Select(i => new
+        {
+            Id = i.Id,
+            Resultado = i.Resultado,
+            Timestamp = i.Timestamp,
+            OrigenDatos = i.OrigenDatos,
+            TienePruebaEntrega = i.PruebaDeEntrega != null,
+            NombreReceptor = i.PruebaDeEntrega?.NombreReceptor,
+            DocumentoReceptor = i.PruebaDeEntrega?.DocumentoReceptor,
+            TipoPrueba = i.PruebaDeEntrega?.Tipo,
+            TieneFirma = !string.IsNullOrWhiteSpace(i.PruebaDeEntrega?.FirmaImagenUrl),
+            TieneFoto = !string.IsNullOrWhiteSpace(i.PruebaDeEntrega?.FotoUrl),
+            Latitud = i.Latitud,
+            Longitud = i.Longitud
+        })
+        .ToList();
+
+    var ultimoEvento = envio.Eventos.OrderByDescending(ev => ev.Timestamp).FirstOrDefault();
+
+    var response = new
+    {
+        CodigoSeguimiento = envio.CodigoSeguimientoPublico,
+        EnvioId = envio.Id,
+        EstadoActual = (int)envio.EstadoActual,
+        EstadoNombre = envio.EstadoActual.ToString(),
+        FechaUltimaActualizacion = ultimoEvento?.Timestamp ?? envio.FechaAlta,
+        DireccionDestino = envio.DireccionDestino,
+        NombreDestinatario = envio.NombreDestinatario,
+        CantidadBultos = envio.Bultos.Count,
+        Bultos = envio.Bultos.Select(b => new { b.Id, b.Identificacion, b.Peso, b.EstadoBulto }).ToList(),
+        CantidadIntentos = envio.CantidadIntentos,
+        PermiteReprogramacion = envio.EstadoActual is EstadoEnvio.Reprogramado or EstadoEnvio.NoEntregado,
+        HistorialEventos = eventosOrdenados,
+        IntentosEntrega = intentos
+    };
+
+    return Results.Ok(response);
+})
+.AllowAnonymous()
+.WithName("ConsultarSeguimientoPublico")
+.WithSummary("Consulta pública y backoffice de seguimiento de envío")
+.WithDescription("Permite consultar el estado actual en PostgreSQL, la línea de tiempo de eventos y los intentos/pruebas de entrega en vivo tras sincronización móvil.")
+.Produces(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status404NotFound)
+.WithOpenApi();
+
+await app.RunAsync();
+
+static async Task ApplyMigrationsAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
@@ -271,22 +400,37 @@ static void ApplyMigrations(WebApplication app)
         {
             var db = services.GetRequiredService<AppDbContext>();
             logger.LogInformation("Aplicando migraciones a la base de datos (intento {Retry}/{Max})...", retry, maxRetries);
-            db.Database.Migrate();
+            await db.Database.MigrateAsync();
             logger.LogInformation("Migraciones aplicadas exitosamente.");
+
+            // Ejecución del seeder de datos idempotente para la demo móvil y web (22/10)
+            await DatabaseSeeder.SeedAsync(db, logger);
             break;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Fallo al conectar o migrar la base de datos. Reintentando en 3 segundos ({Retry}/{Max})...", retry, maxRetries);
+            logger.LogWarning(ex, "Fallo al conectar, migrar o sembrar la base de datos. Reintentando en 3 segundos ({Retry}/{Max})...", retry, maxRetries);
             if (retry == maxRetries)
             {
                 logger.LogError(ex, "No se pudo conectar a la base de datos tras {Max} intentos.", maxRetries);
                 throw;
             }
-            Thread.Sleep(3000);
+            await Task.Delay(3000);
         }
     }
 }
+
+static string MapearDescripcionPublicaEvento(string tipoEvento, EstadoEnvio estadoNuevo) => tipoEvento switch
+{
+    "AltaEnvio" => "Envío registrado y admitido en el sistema",
+    "AsignacionRuta" => "Envío asignado a hoja de ruta para distribución",
+    "DespachoRuta" => "Vehículo despachado. Envío en tránsito hacia el domicilio",
+    "EntregaExitosa" => "Envío entregado exitosamente al destinatario",
+    "IntentoFallido" => "Intento de entrega no concretado en domicilio",
+    "Reprogramacion" => "Envío reprogramado para nuevo intento de entrega",
+    "Devolucion" => "Envío derivado a devolución al depósito central",
+    _ => $"Actualización de estado: {estadoNuevo}"
+};
 
 public record CreateEnvioRequest(
     Guid? ComercioId,

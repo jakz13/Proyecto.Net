@@ -18,6 +18,13 @@ public record EnvioDto
     public decimal? PesoKg { get; init; }
     public decimal? VolumenM3 { get; init; }
 
+    public string? ComercioNombre { get; init; }
+    public string? HojaDeRutaNumero { get; init; }
+    public string? RepartidorNombre { get; init; }
+    public DateTime? FechaExtravio { get; init; }
+    public string? MotivoExtravio { get; init; }
+    public string? IncidenciaAsociadaNumero { get; init; }
+
     /// <summary>
     /// Sello de modificación para control de concurrencia optimista al despachar o asignar ruta.
     /// </summary>

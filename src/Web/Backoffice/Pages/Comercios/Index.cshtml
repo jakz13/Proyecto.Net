@@ -5,12 +5,12 @@
     var esPestanaComercios = Model.Tab != "usuarios";
 }
 
-<!-- Encabezado del Caso de Uso UC-01 -->
+<!-- Encabezado Principal -->
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div class="d-flex align-items-center gap-2">
-            <h1 class="h4 fw-bold mb-0">Gestión de Comercios y Usuarios (UC-01)</h1>
-            <partial name="_BotonAyuda" model='"Administración de comercios clientes del operador y cuentas de usuario internas con roles asignados (RF-01, RF-31)."' />
+            <h1 class="h4 fw-bold mb-0">Gestión de Comercios y Usuarios</h1>
+            <partial name="_BotonAyuda" model='"Administración de comercios clientes del operador y cuentas de usuario internas con roles asignados."' />
         </div>
         <div class="d-flex gap-2">
             @if (esPestanaComercios)
@@ -36,7 +36,7 @@
         </div>
     </div>
 
-    <!-- Navegación por pestañas UC-01 -->
+    <!-- Navegación por pestañas -->
     <ul class="nav nav-pills mt-3 gap-2">
         <li class="nav-item">
             <a class="nav-link px-3 py-2 fw-semibold @(esPestanaComercios ? "active bg-dark" : "text-secondary bg-white border")"
@@ -49,7 +49,7 @@
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
                     <span>Comercios Clientes</span>
-                    <span class="badge @(esPestanaComercios ? "bg-light text-dark" : "bg-secondary text-white")">@Model.ResultadoComercios.TotalRegistros</span>
+                    <span class="badge @(esPestanaComercios ? "bg-light text-dark" : "bg-secondary-subtle text-secondary border")">@Model.ResultadoComercios.TotalRegistros</span>
                 </span>
             </a>
         </li>
@@ -67,7 +67,7 @@
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                     </svg>
                     <span>Usuarios y Perfiles</span>
-                    <span class="badge @(!esPestanaComercios ? "bg-light text-dark" : "bg-secondary text-white")">@Model.ResultadoUsuarios.TotalRegistros</span>
+                    <span class="badge @(!esPestanaComercios ? "bg-light text-dark" : "bg-secondary-subtle text-secondary border")">@Model.ResultadoUsuarios.TotalRegistros</span>
                 </span>
             </a>
         </li>
@@ -105,9 +105,9 @@
 
 @if (esPestanaComercios)
 {
-    <!-- SECCIÓN: COMERCIOS ASOCIADOS (RF-01) -->
+    <!-- SECCIÓN: COMERCIOS ASOCIADOS -->
     <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <!-- Barra de Búsqueda y Filtrado (Flujo Alternativo UC-01) -->
+        <!-- Barra de Búsqueda y Filtrado -->
         <div class="card-body p-3 border-bottom bg-white">
             <form method="get" class="row g-2 align-items-center">
                 <input type="hidden" name="tab" value="comercios" />
@@ -261,9 +261,9 @@
 }
 else
 {
-    <!-- SECCIÓN: USUARIOS Y PERFILES (RF-31) -->
+    <!-- SECCIÓN: USUARIOS Y PERFILES -->
     <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <!-- Barra de Búsqueda y Filtrado de Usuarios (Flujo Alternativo UC-01) -->
+        <!-- Barra de Búsqueda y Filtrado de Usuarios -->
         <div class="card-body p-3 border-bottom bg-white">
             <form method="get" class="row g-2 align-items-center">
                 <input type="hidden" name="tab" value="usuarios" />
@@ -344,7 +344,7 @@ else
                                     @{
                                         var badgeClase = usuario.NombrePerfil switch
                                         {
-                                            "Administrador" => "bg-dark text-white",
+                                            "Administrador" => "bg-dark-subtle text-dark border",
                                             "Despachador" => "bg-primary-subtle text-primary border border-primary-subtle",
                                             "Operario" => "bg-warning-subtle text-dark border border-warning-subtle",
                                             _ => "bg-info-subtle text-dark border border-info-subtle"

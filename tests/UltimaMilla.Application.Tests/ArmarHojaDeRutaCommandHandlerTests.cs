@@ -250,8 +250,8 @@ public class ArmarHojaDeRutaCommandHandlerTests
     [Fact]
     public async Task CapacidadDeVolumen_ExcluyeLosEnviosQueNoEntran()
     {
-        // Cada bulto de los envíos de prueba ocupa 1000 de volumen
-        var chico = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB0001", "Moto", 100m, 1500m);
+        // Cada bulto de prueba (10x10x10 cm) ocupa 0.001 m3
+        var chico = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB0001", "Moto", 100m, 0.0015m);
         _vehiculos.Vehiculos.Add(chico);
         var a = CrearEnvioListo(codigo: "TRK-A");
         var b = CrearEnvioListo(codigo: "TRK-B");

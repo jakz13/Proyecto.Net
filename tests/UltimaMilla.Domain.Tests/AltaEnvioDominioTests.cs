@@ -43,7 +43,7 @@ public class AltaEnvioDominioTests
         envio.AgregarBulto("B2", 3m, 2m, 5m, 10m);
 
         Assert.Equal(5m, envio.PesoTotal);
-        Assert.Equal(1100m, envio.VolumenTotal);
+        Assert.Equal(0.0011m, envio.VolumenTotal);
     }
 
     [Fact]

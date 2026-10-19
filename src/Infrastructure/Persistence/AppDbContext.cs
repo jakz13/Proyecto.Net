@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
@@ -18,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Bulto> Bultos => Set<Bulto>();
     public DbSet<HojaDeRuta> HojasDeRuta => Set<HojaDeRuta>();
     public DbSet<Parada> Paradas => Set<Parada>();
+    public DbSet<AsignacionEnvioRuta> AsignacionesEnvioRuta => Set<AsignacionEnvioRuta>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<IntentoEntrega> IntentosEntrega => Set<IntentoEntrega>();
     public DbSet<PruebaDeEntrega> PruebasDeEntrega => Set<PruebaDeEntrega>();
@@ -28,11 +30,13 @@ public class AppDbContext : DbContext
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
     public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
-    public DbSet<AsignacionEnvioRuta> AsignacionesEnvioRuta => Set<AsignacionEnvioRuta>();
     public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
     public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
     public DbSet<ReglaTarifa> ReglasTarifa => Set<ReglaTarifa>();
+    public DbSet<Operador> Operadores => Set<Operador>();
+    public DbSet<Comercio> Comercios => Set<Comercio>();
+    public DbSet<ComercioOperador> ComerciosOperadores => Set<ComercioOperador>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,7 +61,7 @@ public class AppDbContext : DbContext
             builder.Property(e => e.NombreDestinatario).IsRequired().HasMaxLength(200);
             builder.Property(e => e.FechaAlta).IsRequired();
             builder.Property(e => e.EstadoActual).IsRequired().HasConversion<string>().HasMaxLength(50);
-            builder.Property(e => e.CodigoSeguimientoPublico).IsRequired().HasMaxLength(50);
+            builder.Property(e => e.CodigoSeguimientoPublico).IsRequired().HasMaxLength(100);
             builder.HasIndex(e => e.CodigoSeguimientoPublico).IsUnique();
             builder.Property(e => e.ModalidadServicio).IsRequired().HasMaxLength(50);
             builder.Property(e => e.TarifaCalculada).HasPrecision(18, 2);
@@ -68,8 +72,12 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Bulto>(builder =>
         {
+            builder.ToTable("Bultos");
+            builder.HasKey(b => b.Id);
             builder.Ignore(b => b.Volumen);
             builder.Ignore(b => b.EstaClasificado);
+            builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
+            builder.Property(b => b.EstadoBulto).IsRequired().HasMaxLength(50);
             builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
             builder.Property(b => b.TipoClasificacion).HasMaxLength(50);
         });
@@ -92,6 +100,33 @@ public class AppDbContext : DbContext
             builder.ToTable("Paradas");
             builder.HasKey(p => p.Id);
             builder.Property(p => p.Estado).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Operador>(builder =>
+        {
+            builder.ToTable("Operadores");
+            builder.HasKey(o => o.Id);
+            builder.Property(o => o.RazonSocial).IsRequired().HasMaxLength(200);
+            builder.Property(o => o.NombreComercial).IsRequired().HasMaxLength(200);
+            builder.Property(o => o.Estado).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Comercio>(builder =>
+        {
+            builder.ToTable("Comercios");
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.RazonSocial).IsRequired().HasMaxLength(200);
+            builder.Property(c => c.Documento).IsRequired().HasMaxLength(50);
+            builder.Property(c => c.Email).IsRequired().HasMaxLength(200);
+            builder.Property(c => c.Telefono).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ComercioOperador>(builder =>
+        {
+            builder.ToTable("ComerciosOperadores");
+            builder.HasKey(co => co.Id);
+            builder.Property(co => co.ClaveApi).IsRequired().HasMaxLength(200);
+            builder.Property(co => co.Estado).IsRequired().HasMaxLength(50);
         });
 
         modelBuilder.Entity<OutboxMessage>(builder =>

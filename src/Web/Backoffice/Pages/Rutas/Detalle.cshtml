@@ -1,0 +1,679 @@
+@page "{id:guid}"
+@model UltimaMilla.Backoffice.Pages.Rutas.DetalleModel
+@{
+    ViewData["Title"] = "Detalle de Hoja de Ruta";
+    var ruta = Model.HojaDeRuta;
+    var estaDespachada = ruta != null && (ruta.Estado == "Despachada" || ruta.Estado == "EnTransito");
+}
+
+@if (ruta == null)
+{
+    <div class="alert alert-warning text-dark border-warning-subtle">Hoja de ruta no encontrada.</div>
+}
+else
+{
+    <!-- Encabezado Principal -->
+    <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-0 font-monospace">@ruta.NumeroRuta</h1>
+            <div class="text-secondary small mt-1">
+                Planificada para el @ruta.Fecha.ToString("dd/MM/yyyy")
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @if (ruta.Estado == "Liberada")
+            {
+                <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    <span>Despachar Ruta</span>
+                </a>
+            }
+            <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="simularDescargaMovil()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span>Sincronizar App Repartidor</span>
+            </button>
+            <a asp-page="/Rutas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 text-dark">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                <span>Volver al Listado</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas de Éxito o Error -->
+    @if (!string.IsNullOrEmpty(Model.MensajeExito))
+    {
+        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-3 text-dark border-success-subtle" role="alert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <div>@Model.MensajeExito</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.MensajeError))
+    {
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-3 text-dark border-danger-subtle" role="alert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div>@Model.MensajeError</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    }
+
+    <!-- Alerta de Notificación enviada al Repartidor (RF-13, RF-15) -->
+    @if (!string.IsNullOrEmpty(Model.NotificacionRepartidor))
+    {
+        <div class="alert alert-info border-info shadow-sm rounded-3 mb-4 d-flex align-items-start gap-2" role="alert">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary flex-shrink-0 mt-1" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <div>
+                <strong class="d-block text-dark">Aviso Emitido a la App Móvil del Repartidor</strong>
+                <span class="small text-dark">@Model.NotificacionRepartidor</span>
+            </div>
+        </div>
+    }
+
+    <!-- Alerta dinámica de descarga en la app -->
+    <div class="alert alert-primary border-primary shadow-sm rounded-3 mb-4" id="alertaDescargaMovil" style="display: none;">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary flex-shrink-0" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <div>
+                <strong class="d-block text-dark">Sincronización Exitosa con la App del Repartidor</strong>
+                <span class="small text-secondary">
+                    El repartidor <strong>@ruta.RepartidorNombre</strong> descargó la hoja de ruta en su dispositivo móvil. Las @ruta.CantidadParadas paradas y sus códigos de bulto quedaron sincronizados.
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Información de Recursos y Carga -->
+    <div class="row g-3 mb-4">
+        <!-- Repartidor -->
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold mb-1">Repartidor Asignado</div>
+                <div class="h5 fw-bold text-dark mb-0">@ruta.RepartidorNombre</div>
+            </div>
+        </div>
+
+        <!-- Vehículo -->
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold mb-1">Vehículo Asignado</div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-dark-subtle text-dark border font-monospace fs-6">@ruta.VehiculoMatricula</span>
+                    <span class="h6 fw-bold mb-0 text-dark">@ruta.VehiculoModelo</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Balance de Carga -->
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold mb-1">Balance de Ocupación</div>
+                <div class="d-flex justify-content-between align-items-center mb-1 small text-dark">
+                    <span>Peso: <strong>@ruta.PesoTotalKg.ToString("N1")</strong> / @ruta.CapacidadPesoMaxKg.ToString("N0") kg</span>
+                    <span class="fw-bold @(ruta.PorcentajeOcupacionPeso > 90 ? "text-danger" : "text-success")">@ruta.PorcentajeOcupacionPeso%</span>
+                </div>
+                <div class="progress mb-2" style="height: 6px;">
+                    <div class="progress-bar @(ruta.PorcentajeOcupacionPeso > 90 ? "bg-danger" : "bg-success")" style="width: @ruta.PorcentajeOcupacionPeso%"></div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-1 small text-dark">
+                    <span>Volumen: <strong>@ruta.VolumenTotalM3.ToString("N2")</strong> / @ruta.CapacidadVolumenMaxM3.ToString("N1") m³</span>
+                    <span class="fw-bold text-info">@ruta.PorcentajeOcupacionVolumen%</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-info" style="width: @ruta.PorcentajeOcupacionVolumen%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secuencia Ordenada de Paradas -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h2 class="h6 fw-bold mb-0 text-dark">
+                Secuencia Ordenada de Paradas (@ruta.CantidadParadas Entregas)
+            </h2>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;" class="text-center text-dark">#</th>
+                        <th style="width: 15%;" class="text-dark">Código de Envío</th>
+                        <th style="width: 22%;" class="text-dark">Destinatario</th>
+                        <th style="width: 22%;" class="text-dark">Dirección / Zona</th>
+                        <th style="width: 14%;" class="text-dark">Franja Comprometida</th>
+                        <th class="text-end text-dark" style="width: 10%;">Peso / Vol.</th>
+                        <th class="text-center text-dark" style="width: 12%;">Estado Envío</th>
+                        <th class="text-center text-dark" style="width: 12%;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (ruta.Paradas == null || ruta.Paradas.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-secondary">
+                                No hay paradas asignadas actualmente en esta hoja de ruta.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var p in ruta.Paradas)
+                        {
+                            <tr class="@(p.Estado == "NoEntregado" ? "table-light opacity-75" : "")">
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border rounded-circle d-inline-flex align-items-center justify-content-center fw-bold" 
+                                          style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                        @p.Orden
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.75rem;">
+                                        @p.CodigoSeguimiento
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(p.HistorialReasignacion))
+                                    {
+                                        <div class="text-muted small mt-1" style="font-size: 0.68rem;" title="@p.HistorialReasignacion">
+                                            ℹ @p.HistorialReasignacion
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark small">@p.Destinatario</div>
+                                </td>
+                                <td>
+                                    <div class="text-dark small">@p.Direccion</div>
+                                    <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.68rem;">
+                                        @p.Zona
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.725rem;">
+                                        @p.FranjaHoraria
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="small fw-semibold text-dark">@p.PesoKg.ToString("N1") kg</div>
+                                    <div class="text-secondary" style="font-size: 0.68rem;">@p.VolumenM3.ToString("N3") m³</div>
+                                </td>
+                                <td class="text-center">
+                                    @if (p.Estado == "NoEntregado")
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                            No Entregado
+                                        </span>
+                                        <div class="text-danger small mt-1" style="font-size: 0.68rem;">
+                                            @p.MotivoNoEntrega
+                                        </div>
+                                    }
+                                    else if (p.Estado == "EnTransito")
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                            En Tránsito
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                            Asignado a Ruta
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (p.Estado != "NoEntregado")
+                                    {
+                                        <button type="button" 
+                                                class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1 btn-reasignar"
+                                                data-envio-id="@p.EnvioId"
+                                                data-codigo="@p.CodigoSeguimiento"
+                                                data-destinatario="@p.Destinatario"
+                                                data-direccion="@p.Direccion"
+                                                data-franja="@p.FranjaHoraria"
+                                                data-peso="@p.PesoKg.ToString("N1")"
+                                                data-volumen="@p.VolumenM3.ToString("N3")">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="23 4 23 10 17 10"></polyline>
+                                                <polyline points="1 20 1 14 7 14"></polyline>
+                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                            </svg>
+                                            <span>Reasignar</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">
+                                            En retorno
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Registro Histórico de Reasignaciones e Incidencias en Ruta (RF-12, RF-15) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="h6 fw-bold mb-0 text-dark">
+                    Registro de Eventos e Incidencias en Ruta
+                </h3>
+            </div>
+            <span class="badge bg-light text-secondary border">
+                @Model.HistorialEventos.Count eventos registrados
+            </span>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.HistorialEventos.Count == 0)
+            {
+                <div class="text-center py-4 text-secondary small">
+                    No se registran eventos de reasignación ni incidencias para esta hoja de ruta.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 14%;" class="text-dark">Fecha / Hora</th>
+                                <th style="width: 13%;" class="text-dark">Envío</th>
+                                <th style="width: 16%;" class="text-dark">Destinatario</th>
+                                <th style="width: 20%;" class="text-dark">Motivo de Incidencia</th>
+                                <th style="width: 18%;" class="text-dark">Acción / Destino</th>
+                                <th style="width: 19%;" class="text-dark">Notificación Repartidor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ev in Model.HistorialEventos)
+                            {
+                                <tr>
+                                    <td class="text-secondary small">
+                                        @ev.FechaHora.ToString("dd/MM/yyyy HH:mm")
+                                        <div class="text-muted" style="font-size: 0.72rem;">Por: @ev.DespachadorUsuario</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-secondary border font-monospace">
+                                            @ev.CodigoSeguimiento
+                                        </span>
+                                    </td>
+                                    <td class="text-dark fw-semibold">
+                                        @ev.Destinatario
+                                    </td>
+                                    <td>
+                                        <div class="text-dark">@ev.Motivo</div>
+                                        @if (!string.IsNullOrEmpty(ev.Detalle))
+                                        {
+                                            <div class="text-secondary small" style="font-size: 0.72rem;">@ev.Detalle</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary-subtle text-secondary border d-inline-block mb-1">
+                                            @ev.AccionRealizada
+                                        </span>
+                                        <div class="text-dark small fw-semibold" style="font-size: 0.75rem;">
+                                            @ev.DestinoNuevo
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="text-secondary small" style="font-size: 0.75rem;">
+                                            @ev.NotificacionRepartidor
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Modal para Reasignar o Reprogramar Envío (UC-10, RF-13, RF-15) -->
+    <div class="modal fade" id="modalReasignarEnvio" tabindex="-1" aria-labelledby="modalReasignarEnvioLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <form method="post" asp-page-handler="Reasignar">
+                    <input type="hidden" name="ReasignacionInput.HojaDeRutaActualId" value="@ruta.Id" />
+                    <input type="hidden" name="ReasignacionInput.EnvioId" id="inputEnvioId" value="" />
+                    <input type="hidden" name="ReasignacionInput.CodigoSeguimiento" id="inputCodigoSeguimiento" value="" />
+
+                    <div class="modal-header bg-light border-bottom">
+                        <div>
+                            <h5 class="modal-title h6 fw-bold text-dark mb-0" id="modalReasignarEnvioLabel">
+                                Reasignar o Reprogramar Envío en Ruta
+                            </h5>
+                            <span class="small text-secondary">
+                                Hoja de Ruta: <strong class="text-dark">@ruta.NumeroRuta</strong> · Repartidor: <strong class="text-dark">@ruta.RepartidorNombre</strong>
+                            </span>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <div class="modal-body p-4" style="min-height: 470px;">
+                        <!-- Ficha resumen del envío seleccionado -->
+                        <div class="card bg-light border mb-3">
+                            <div class="card-body p-3">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-12 col-md-4">
+                                        <div class="text-secondary small">Código de Seguimiento</div>
+                                        <div class="h6 fw-bold text-dark font-monospace mb-0" id="txtModalCodigoSeguimiento">--</div>
+                                    </div>
+                                    <div class="col-12 col-md-5">
+                                        <div class="text-secondary small">Destinatario y Dirección</div>
+                                        <div class="small fw-semibold text-dark" id="txtModalDestinatario">--</div>
+                                        <div class="small text-secondary" id="txtModalDireccion">--</div>
+                                    </div>
+                                    <div class="col-12 col-md-3 text-md-end">
+                                        <div class="text-secondary small">Franja Actual / Peso</div>
+                                        <div class="small text-dark fw-bold" id="txtModalFranja">--</div>
+                                        <div class="small text-secondary" id="txtModalPesoVolumen">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Motivo de la Incidencia y Observaciones -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label text-dark fw-semibold small mb-1" for="selectMotivoIncidencia">
+                                    Motivo de la Incidencia: <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select form-select-sm text-dark" id="selectMotivoIncidencia" name="ReasignacionInput.MotivoIncidencia" required>
+                                    <option value="AveriaVehiculo">Avería mecánica del vehículo</option>
+                                    <option value="AusenciaRepartidor">Ausencia imprevista del repartidor</option>
+                                    <option value="IncidenciaVial">Incidencia vial o corte de tránsito</option>
+                                    <option value="SolicitudCliente">Solicitud directa del cliente / destinatario</option>
+                                    <option value="AjusteItinerario">Ajuste operativo de itinerario por despachador</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label text-dark fw-semibold small mb-1" for="inputDetalleMotivo">
+                                    Observaciones / Detalle adicional:
+                                </label>
+                                <input type="text" class="form-control form-control-sm text-dark" id="inputDetalleMotivo" name="ReasignacionInput.DetalleMotivo" placeholder="Ej: Pinchadura de neumático en ruta." />
+                            </div>
+                        </div>
+
+                        @if (estaDespachada)
+                        {
+                            <!-- FLUJO ALTERNATIVO (Ruta ya despachada en tránsito) -->
+                            <div class="alert alert-warning border-warning-subtle text-dark p-3 rounded-3 mb-3">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning-emphasis">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <strong class="text-dark">Ruta en Tránsito: Registro de No Entrega</strong>
+                                </div>
+                                <div class="small text-secondary">
+                                    La hoja de ruta ya fue despachada y el repartidor está en calle. El envío se registrará como <strong>No Entregado</strong> en la ruta y se notificará con prioridad a la app móvil del repartidor para omitir la entrega y retener el bulto en el vehículo hasta la rendición en depósito.
+                                </div>
+                            </div>
+
+                            <input type="hidden" name="ReasignacionInput.AccionDestino" value="VolverADeposito" />
+
+                            <div class="mb-3">
+                                <label class="form-label text-dark fw-semibold small mb-1" for="selectCodigoNoEntrega">
+                                    Código del Catálogo de Motivos de No Entrega: <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select form-select-sm text-dark" id="selectCodigoNoEntrega" name="ReasignacionInput.CodigoMotivoNoEntrega" required>
+                                    @if (Model.MotivosCatalogo != null && Model.MotivosCatalogo.Count > 0)
+                                    {
+                                        @foreach (var motivo in Model.MotivosCatalogo)
+                                        {
+                                            <option value="@motivo.Codigo">@motivo.Codigo - @motivo.Descripcion</option>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <option value="AVERIA_VEHICULO">AVERIA_VEHICULO - Avería mecánica o siniestro del vehículo</option>
+                                        <option value="SIN_ACCESO_ZONA">SIN_ACCESO_ZONA - Zona inaccesible o corte de tránsito</option>
+                                        <option value="CLIENTE_SOLICITA_REPROGRAMACION">CLIENTE_SOLICITA_REPROGRAMACION - Solicitud de reprogramación del cliente</option>
+                                        <option value="INCIDENCIA_DESPACHADOR">INCIDENCIA_DESPACHADOR - Desafectación operativa en ruta</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- FLUJO PRINCIPAL (Ruta no despachada: Liberada o Borrador) -->
+                            <div class="mb-2">
+                                <label class="form-label text-dark fw-semibold small mb-2">
+                                    Acción a Ejecutar sobre el Envío: <span class="text-danger">*</span>
+                                </label>
+
+                                <!-- Selector de opciones en 3 columnas de altura idéntica -->
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12 col-md-4">
+                                        <label class="card h-100 p-2 border opcion-tarjeta-fija" for="optReasignarOtraRuta" id="cardOptReasignar">
+                                            <div class="form-check m-0">
+                                                <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optReasignarOtraRuta" value="ReasignarOtraRuta" checked onchange="actualizarOpcionesAccion()" />
+                                                <span class="form-check-label text-dark fw-semibold small d-block">Reasignar ruta</span>
+                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Transferir a otra hoja activa</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="card h-100 p-2 border opcion-tarjeta-fija" for="optReprogramarFranja" id="cardOptReprogramar">
+                                            <div class="form-check m-0">
+                                                <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optReprogramarFranja" value="ReprogramarFranja" onchange="actualizarOpcionesAccion()" />
+                                                <span class="form-check-label text-dark fw-semibold small d-block">Reprogramar</span>
+                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Nueva fecha o franja horaria</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="card h-100 p-2 border opcion-tarjeta-fija" for="optVolverADeposito" id="cardOptDeposito">
+                                            <div class="form-check m-0">
+                                                <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optVolverADeposito" value="VolverADeposito" onchange="actualizarOpcionesAccion()" />
+                                                <span class="form-check-label text-dark fw-semibold small d-block">A depósito</span>
+                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Retirar de la ruta actual</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Contenedor de Parámetros de Altura Fija (No varía de tamaño al cambiar la opción) -->
+                                <div class="card border bg-light p-3 contenedor-accion-fija">
+                                    <!-- Vista 1: Reasignar a otra ruta -->
+                                    <div id="panelOtraRuta" style="display: block;">
+                                        @if (Model.OtrasRutasActivas.Count > 0)
+                                        {
+                                            <label class="form-label text-dark small fw-semibold mb-1" for="selectRutaDestino">
+                                                Hoja de Ruta de Destino:
+                                            </label>
+                                            <select class="form-select form-select-sm text-dark font-monospace" id="selectRutaDestino" name="ReasignacionInput.HojaDeRutaDestinoId">
+                                                @foreach (var rDestino in Model.OtrasRutasActivas)
+                                                {
+                                                    <option value="@rDestino.Id">
+                                                        @rDestino.NumeroRuta - @rDestino.RepartidorNombre (@rDestino.VehiculoMatricula) · Ocupación: @rDestino.PesoTotalKg.ToString("N1")/@rDestino.CapacidadPesoMaxKg.ToString("N0") kg (@rDestino.PorcentajeOcupacionPeso%)
+                                                    </option>
+                                                }
+                                            </select>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-secondary small">
+                                                No hay otras hojas de ruta activas hoy para reasignar directamente. Puede reprogramar la franja o devolver el bulto a depósito.
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Vista 2: Reprogramar fecha / franja -->
+                                    <div id="panelReprogramar" style="display: none;">
+                                        <div class="row g-2">
+                                            <div class="col-4">
+                                                <label class="form-label text-dark small fw-semibold mb-1" for="inputNuevaFecha">Nueva Fecha:</label>
+                                                <input type="date" class="form-control form-control-sm text-dark" id="inputNuevaFecha" name="ReasignacionInput.NuevaFecha" value="@DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")" />
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label text-dark small fw-semibold mb-1" for="selectNuevaFranja">Nueva Franja:</label>
+                                                <select class="form-select form-select-sm text-dark" id="selectNuevaFranja" name="ReasignacionInput.NuevaFranjaHoraria">
+                                                    <option value="09:00 - 13:00">09:00 - 13:00 (Mañana)</option>
+                                                    <option value="14:00 - 18:00">14:00 - 18:00 (Tarde)</option>
+                                                    <option value="09:00 - 18:00">09:00 - 18:00 (Todo el día)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label text-dark small fw-semibold mb-1" for="selectNuevoTurno">Turno:</label>
+                                                <select class="form-select form-select-sm text-dark" id="selectNuevoTurno" name="ReasignacionInput.NuevoTurno">
+                                                    <option value="Mañana">Mañana</option>
+                                                    <option value="Tarde">Tarde</option>
+                                                    <option value="Todo el día">Todo el día</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Vista 3: Devolver a Depósito -->
+                                    <div id="panelDeposito" style="display: none;">
+                                        <div class="d-flex align-items-center gap-2 text-dark small">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-secondary flex-shrink-0" aria-hidden="true">
+                                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                            </svg>
+                                            <div>
+                                                <strong>Retiro y devolución a depósito:</strong> El bulto se retira de la hoja de ruta y vuelve de inmediato al estado <strong>En Depósito</strong> para quedar disponible para otra planificación.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="modal-footer bg-light border-top">
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-dark" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-sm text-white px-3 fw-semibold">
+                            Confirmar Reasignación
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function simularDescargaMovil() {
+            var alerta = document.getElementById('alertaDescargaMovil');
+            if (alerta) {
+                alerta.style.display = 'block';
+                alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Delegación de eventos para abrir modal de reasignación
+        document.addEventListener('click', function (e) {
+            var boton = e.target.closest('.btn-reasignar');
+            if (!boton) return;
+
+            var envioId = boton.getAttribute('data-envio-id') || '';
+            var codigo = boton.getAttribute('data-codigo') || '';
+            var destinatario = boton.getAttribute('data-destinatario') || '';
+            var direccion = boton.getAttribute('data-direccion') || '';
+            var franja = boton.getAttribute('data-franja') || '';
+            var peso = boton.getAttribute('data-peso') || '';
+            var volumen = boton.getAttribute('data-volumen') || '';
+
+            document.getElementById('inputEnvioId').value = envioId;
+            document.getElementById('inputCodigoSeguimiento').value = codigo;
+            document.getElementById('txtModalCodigoSeguimiento').innerText = codigo;
+            document.getElementById('txtModalDestinatario').innerText = destinatario;
+            document.getElementById('txtModalDireccion').innerText = direccion;
+            document.getElementById('txtModalFranja').innerText = franja;
+            document.getElementById('txtModalPesoVolumen').innerText = peso + ' kg · ' + volumen + ' m³';
+
+            actualizarOpcionesAccion();
+
+            var modalElement = document.getElementById('modalReasignarEnvio');
+            if (window.bootstrap && window.bootstrap.Modal) {
+                var modalInstancia = bootstrap.Modal.getOrCreateInstance(modalElement);
+                modalInstancia.show();
+            } else {
+                modalElement.classList.add('show');
+                modalElement.style.display = 'block';
+                document.body.classList.add('modal-open');
+                var backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.id = 'modal-backdrop-custom';
+                document.body.appendChild(backdrop);
+            }
+        });
+
+        function actualizarOpcionesAccion() {
+            var optOtraRuta = document.getElementById('optReasignarOtraRuta');
+            var optReprogramar = document.getElementById('optReprogramarFranja');
+            var optDeposito = document.getElementById('optVolverADeposito');
+
+            var panelOtraRuta = document.getElementById('panelOtraRuta');
+            var panelReprogramar = document.getElementById('panelReprogramar');
+            var panelDeposito = document.getElementById('panelDeposito');
+
+            var cardOtraRuta = document.getElementById('cardOptReasignar');
+            var cardReprogramar = document.getElementById('cardOptReprogramar');
+            var cardDeposito = document.getElementById('cardOptDeposito');
+
+            if (panelOtraRuta && optOtraRuta) {
+                panelOtraRuta.style.display = optOtraRuta.checked ? 'block' : 'none';
+                if (cardOtraRuta) {
+                    cardOtraRuta.classList.toggle('border-dark', optOtraRuta.checked);
+                    cardOtraRuta.classList.toggle('bg-white', optOtraRuta.checked);
+                    cardOtraRuta.classList.toggle('shadow-sm', optOtraRuta.checked);
+                }
+            }
+
+            if (panelReprogramar && optReprogramar) {
+                panelReprogramar.style.display = optReprogramar.checked ? 'block' : 'none';
+                if (cardReprogramar) {
+                    cardReprogramar.classList.toggle('border-dark', optReprogramar.checked);
+                    cardReprogramar.classList.toggle('bg-white', optReprogramar.checked);
+                    cardReprogramar.classList.toggle('shadow-sm', optReprogramar.checked);
+                }
+            }
+
+            if (panelDeposito && optDeposito) {
+                panelDeposito.style.display = optDeposito.checked ? 'block' : 'none';
+                if (cardDeposito) {
+                    cardDeposito.classList.toggle('border-dark', optDeposito.checked);
+                    cardDeposito.classList.toggle('bg-white', optDeposito.checked);
+                    cardDeposito.classList.toggle('shadow-sm', optDeposito.checked);
+                }
+            }
+        }
+    </script>
+}

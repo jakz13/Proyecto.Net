@@ -1,0 +1,165 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Despacho.IndexModel
+@{
+    ViewData["Title"] = "Control de Salida y Despacho";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-1">Control de Salida y Despacho</h1>
+        <p class="text-secondary small mb-0">
+            Verificación de carga física en muelle, validación de estado del repartidor y despacho formal de hojas de ruta liberadas.
+        </p>
+    </div>
+</div>
+
+<!-- Alertas Informativas -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <div>@Model.MensajeExito</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div>@Model.MensajeError</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas de Muelle de Carga -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-secondary small fw-semibold">Rutas Listas para Despacho</span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">En Espera</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Count</div>
+            <div class="text-muted small mt-1">Hojas de ruta liberadas para verificación</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-secondary small fw-semibold">Bultos a Cargar</span>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">En Muelle</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.CantidadParadas)</div>
+            <div class="text-muted small mt-1">Paquetes sincronizados para estiba</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-secondary small fw-semibold">Carga Total Estimada</span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Capacidad</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.PesoTotalKg).ToString("N1") <span class="fs-6 text-muted font-monospace">kg</span></div>
+            <div class="text-muted small mt-1">Volumen: @Model.RutasPendientes.Sum(r => r.VolumenTotalM3).ToString("N2") m³</div>
+        </div>
+    </div>
+</div>
+
+<!-- Listado de Hojas de Ruta Pendientes de Despacho -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+        <h2 class="h6 fw-bold mb-0 text-dark">
+            Hojas de Ruta Listas para Salida
+        </h2>
+        <span class="badge bg-light text-secondary border font-monospace">
+            @Model.RutasPendientes.Count pendientes
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 15%;">Número de Ruta</th>
+                    <th style="width: 15%;">Fecha / Turno</th>
+                    <th style="width: 25%;">Repartidor y Vehículo</th>
+                    <th class="text-center" style="width: 12%;">Bultos</th>
+                    <th style="width: 18%;">Peso / Ocupación</th>
+                    <th class="text-end" style="width: 15%;">Acción de Muelle</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.RutasPendientes.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2 text-secondary opacity-50" aria-hidden="true">
+                                <rect x="1" y="3" width="15" height="13"></rect>
+                                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                            </svg>
+                            <div class="fw-semibold">No hay hojas de ruta pendientes de despacho en este momento</div>
+                            <p class="small mb-0">Las hojas de ruta liberadas por el despachador aparecerán aquí automáticamente.</p>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var ruta in Model.RutasPendientes)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark font-monospace">@ruta.NumeroRuta</div>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                    ● @ruta.Estado
+                                </span>
+                            </td>
+                            <td>
+                                <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
+                                <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem;">
+                                    Viaje @ruta.ViajeNumero · @ruta.Turno
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small">@ruta.RepartidorNombre</div>
+                                <div class="text-muted small" style="font-size: 0.75rem;">
+                                    <span class="badge bg-dark-subtle text-dark border font-monospace me-1">@ruta.VehiculoMatricula</span>
+                                    <span>@ruta.VehiculoModelo</span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border px-2 py-1 fw-bold font-monospace" style="font-size: 0.85rem;">
+                                    @ruta.CantidadParadas
+                                </span>
+                                <div class="text-muted" style="font-size: 0.68rem;">bultos escaneados</div>
+                            </td>
+                            <td>
+                                <div class="small text-dark fw-semibold">@ruta.PesoTotalKg.ToString("N1") / @ruta.CapacidadPesoMaxKg.ToString("N0") kg</div>
+                                <div class="progress mt-1" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: @ruta.PorcentajeOcupacionPeso%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-1">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    <span>Verificar y Despachar</span>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

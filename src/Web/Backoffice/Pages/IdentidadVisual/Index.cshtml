@@ -1,0 +1,396 @@
+@page
+@model UltimaMilla.Backoffice.Pages.IdentidadVisual.IndexModel
+@{
+    ViewData["Title"] = "Identidad Visual";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold mb-0">Identidad Visual y Personalización de Marca</h1>
+        <partial name="_BotonAyuda" model='"Carga de logotipo, colores corporativos y datos de contacto oficial. Se refleja en portal comercio, seguimiento público y notificaciones."' />
+    </div>
+    <form method="post" asp-page-handler="RestablecerPredeterminados" onsubmit="return confirm('¿Deseas restablecer la paleta y datos a los valores predeterminados?');">
+        <button type="submit" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Restablecer Predeterminados</span>
+        </button>
+    </form>
+</div>
+
+<!-- Alertas y Mensajes -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@Model.MensajeExito</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2 small mb-3 border-0 shadow-sm" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>@Model.MensajeError</span>
+        </div>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Estandarizadas con Componentes -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Marca Oficial",
+            Model.IdentidadActual.NombreComercial,
+            "Nombre oficial comercial configurado para el operador logístico actual.",
+            "text-dark",
+            "Configurar Marca ↓",
+            "#form-identidad"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Color Primario",
+            Model.IdentidadActual.ColorPrimario,
+            "Color representativo aplicado a cabeceras, botones y elementos destacados.",
+            "text-primary",
+            "Cambiar Color ↓",
+            "#campo-colores"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Color Secundario",
+            Model.IdentidadActual.ColorSecundario,
+            "Color de acento complementario para insignias y llamados secundarios.",
+            "text-dark",
+            "Cambiar Color ↓",
+            "#campo-colores"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Superficies Activas",
+            "3 Portales",
+            "La identidad se propaga de inmediato al portal del comercio, seguimiento público y notificaciones.",
+            "text-success",
+            "Ver Superficies ↓",
+            "#superficies-marca"
+        )' />
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Panel Principal: Formulario de Configuración (12 columnas) -->
+    <div class="col-12" id="form-identidad">
+        <div class="panel-estandar mb-4">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Configuración de Logotipo, Colores y Contacto</h2>
+                    <partial name="_BotonAyuda" model='"Toda modificación guardada se replica en tiempo real en los portales públicos y de comercio."' />
+                </div>
+            </div>
+
+            <div class="panel-estandar-body">
+                <form method="post" asp-page-handler="Guardar">
+                    <!-- Fila 1: Datos de la Marca y Logotipo -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Modelo.NombreComercial" class="form-label small fw-semibold">
+                                Nombre Comercial del Operador <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Modelo.NombreComercial" class="form-control form-control-sm" placeholder="Ej: TransLogística Express" required maxlength="100" />
+                            <span asp-validation-for="Modelo.NombreComercial" class="text-danger small"></span>
+                            <div class="form-text" style="font-size: 0.725rem;">
+                                Se mostrará en los encabezados, correos y ventanas de seguimiento dirigidas al cliente final.
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Modelo.LogoUrl" class="form-label small fw-semibold">
+                                URL del Logotipo Oficial (Opcional)
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <input asp-for="Modelo.LogoUrl" id="inputLogoUrl" class="form-control" placeholder="https://ejemplo.com/logo.png" maxlength="300" />
+                                <button type="button" class="btn btn-outline-secondary" onclick="probarLogoSugerido()" title="Cargar logo de ejemplo">
+                                    Logo Demo
+                                </button>
+                            </div>
+                            <span asp-validation-for="Modelo.LogoUrl" class="text-danger small"></span>
+                            <div class="form-text" style="font-size: 0.725rem;">
+                                Si se deja vacío, el sistema genera automáticamente un isotipo circular con las iniciales de la marca.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: Paleta Cromática y Contraste Automático -->
+                    <div class="row g-3 mb-4 p-3 rounded border bg-light" id="campo-colores">
+                        <div class="col-12">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                <span class="fw-bold small text-dark">Paleta Cromática Corporativa</span>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="text-muted small me-1" style="font-size: 0.75rem;">Paletas sugeridas:</span>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#1D4ED8', '#F97316')">Azul/Naranja</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#047857', '#F59E0B')">Verde/Ámbar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#6D28D9', '#EC4899')">Púrpura/Rosa</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#0F172A', '#0EA5E9')">Grafito/Cian</button>
+                                </div>
+                            </div>
+                            <div class="text-muted small" style="font-size: 0.725rem;">
+                                El sistema calcula automáticamente el contraste óptimo de texto (blanco o negro) según el estándar WCAG.
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Modelo.ColorPrimario" class="form-label small fw-semibold">
+                                Color Primario (Identidad Principal) <span class="text-danger">*</span>
+                            </label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" id="pickerColorPrimario" class="form-control form-control-color" value="@Model.Modelo.ColorPrimario" title="Elegir color primario" oninput="actualizarDesdePicker('pickerColorPrimario', 'inputColorPrimario', 'muestraPrimario')" onchange="actualizarDesdePicker('pickerColorPrimario', 'inputColorPrimario', 'muestraPrimario')" />
+                                <input asp-for="Modelo.ColorPrimario" id="inputColorPrimario" class="form-control form-control-sm font-monospace text-uppercase" placeholder="#1D4ED8" required maxlength="7" oninput="actualizarDesdeInput('inputColorPrimario', 'pickerColorPrimario', 'muestraPrimario')" />
+                                <div id="muestraPrimario" class="p-2 rounded border text-center small fw-semibold font-monospace" style="min-width: 110px; background-color: @Model.IdentidadActual.ColorPrimario; color: @Model.IdentidadActual.ColorTextoSobrePrimario;">
+                                    Texto Demo
+                                </div>
+                            </div>
+                            <span asp-validation-for="Modelo.ColorPrimario" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Modelo.ColorSecundario" class="form-label small fw-semibold">
+                                Color Secundario (Acento / Destacados) <span class="text-danger">*</span>
+                            </label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" id="pickerColorSecundario" class="form-control form-control-color" value="@Model.Modelo.ColorSecundario" title="Elegir color secundario" oninput="actualizarDesdePicker('pickerColorSecundario', 'inputColorSecundario', 'muestraSecundario')" onchange="actualizarDesdePicker('pickerColorSecundario', 'inputColorSecundario', 'muestraSecundario')" />
+                                <input asp-for="Modelo.ColorSecundario" id="inputColorSecundario" class="form-control form-control-sm font-monospace text-uppercase" placeholder="#F97316" required maxlength="7" oninput="actualizarDesdeInput('inputColorSecundario', 'pickerColorSecundario', 'muestraSecundario')" />
+                                <div id="muestraSecundario" class="p-2 rounded border text-center small fw-semibold font-monospace" style="min-width: 110px; background-color: @Model.IdentidadActual.ColorSecundario; color: @Model.IdentidadActual.ColorTextoSobreSecundario;">
+                                    Acento Demo
+                                </div>
+                            </div>
+                            <span asp-validation-for="Modelo.ColorSecundario" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Fila 3: Canales Oficiales de Contacto -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Modelo.EmailContacto" class="form-label small fw-semibold">
+                                Correo de Soporte / Contacto <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Modelo.EmailContacto" type="email" class="form-control form-control-sm" placeholder="soporte@operador.uy" required maxlength="100" />
+                            <span asp-validation-for="Modelo.EmailContacto" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Modelo.TelefonoContacto" class="form-label small fw-semibold">
+                                Teléfono Oficial de Contacto <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Modelo.TelefonoContacto" class="form-control form-control-sm" placeholder="+598 2900 1122" required maxlength="50" />
+                            <span asp-validation-for="Modelo.TelefonoContacto" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Modelo.SitioWeb" class="form-label small fw-semibold">
+                                Sitio Web Institucional
+                            </label>
+                            <input asp-for="Modelo.SitioWeb" class="form-control form-control-sm" placeholder="https://translogistica.uy" maxlength="150" />
+                            <span asp-validation-for="Modelo.SitioWeb" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Fila 4: Firma en Notificaciones -->
+                    <div class="mb-4">
+                        <label asp-for="Modelo.MensajeComunicaciones" class="form-label small fw-semibold">
+                            Firma Institucional para Comunicaciones al Destinatario
+                        </label>
+                        <textarea asp-for="Modelo.MensajeComunicaciones" class="form-control form-control-sm" rows="2" placeholder="Mensaje al pie de notificaciones de despacho y seguimiento..." maxlength="300"></textarea>
+                        <span asp-validation-for="Modelo.MensajeComunicaciones" class="text-danger small"></span>
+                        <div class="form-text" style="font-size: 0.725rem;">
+                            Se añade al pie de los correos automáticos y avisos de estado de envío enviados a los destinatarios.
+                        </div>
+                    </div>
+
+                    <!-- Botón de Envío con feedback de color de marca -->
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-marca btn-sm px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span class="fw-semibold">Guardar Identidad Visual</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Panel 2: Superficies donde se Aplica la Marca -->
+        <div class="panel-estandar" id="superficies-marca">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Superficies Conectadas a la Identidad del Operador</h2>
+                    <partial name="_BotonAyuda" model='"Verifica dónde y cómo se manifiesta la identidad personalizada configurada en este apartado."' />
+                </div>
+            </div>
+
+            <div class="p-3">
+                <div class="row g-3">
+                    <!-- Superficie 1: Portal Comercio -->
+                    <div class="col-12 col-md-4">
+                        <div class="p-3 rounded border bg-light h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="rounded-circle p-1 text-white d-flex align-items-center justify-content-center" style="background-color: @Model.IdentidadActual.ColorPrimario; width: 28px; height: 28px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                                            <path d="M16 10a4 4 0 0 1-8 0"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="fw-bold small text-dark">Portal del Comercio Cliente</span>
+                                </div>
+                                <p class="small text-secondary mb-2" style="font-size: 0.775rem;">
+                                    Tus clientes comerciales ven el logotipo de tu empresa, tu paleta de color en la barra superior y tus canales de soporte para liquidaciones y reclamos.
+                                </p>
+                            </div>
+                            <div class="pt-2 border-top">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                    ● En Línea · Multioperador
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Superficie 2: Seguimiento Público -->
+                    <div class="col-12 col-md-4">
+                        <div class="p-3 rounded border bg-light h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="rounded-circle p-1 text-white d-flex align-items-center justify-content-center" style="background-color: @Model.IdentidadActual.ColorPrimario; width: 28px; height: 28px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                                        </svg>
+                                    </div>
+                                    <span class="fw-bold small text-dark">Seguimiento Público (Destinatario)</span>
+                                </div>
+                                <p class="small text-secondary mb-2" style="font-size: 0.775rem;">
+                                    El receptor que rastrea su paquete mediante el código ve exclusivamente la marca de tu operador logístico, brindando una experiencia 100% white-label.
+                                </p>
+                            </div>
+                            <div class="pt-2 border-top">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                    ● En Línea · Vista al Destinatario
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Superficie 3: Comunicaciones -->
+                    <div class="col-12 col-md-4">
+                        <div class="p-3 rounded border bg-light h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="rounded-circle p-1 text-white d-flex align-items-center justify-content-center" style="background-color: @Model.IdentidadActual.ColorSecundario; width: 28px; height: 28px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                            <polyline points="22,6 12,13 2,6"></polyline>
+                                        </svg>
+                                    </div>
+                                    <span class="fw-bold small text-dark">Comunicaciones y Notificaciones</span>
+                                </div>
+                                <p class="small text-secondary mb-2" style="font-size: 0.775rem;">
+                                    Plantillas de notificación de despacho, aviso de arribo y comprobante de entrega emitidas bajo tu razón social y datos oficiales de contacto.
+                                </p>
+                            </div>
+                            <div class="pt-2 border-top">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
+                                    ● Firma Automática Activa
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function actualizarDesdePicker(pickerId, inputId, muestraId) {
+            var color = document.getElementById(pickerId).value.toUpperCase();
+            document.getElementById(inputId).value = color;
+            actualizarMuestra(muestraId, color);
+            aplicarColorAlSistema(muestraId, color);
+        }
+
+        function actualizarDesdeInput(inputId, pickerId, muestraId) {
+            var valor = document.getElementById(inputId).value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(valor)) {
+                document.getElementById(pickerId).value = valor;
+                actualizarMuestra(muestraId, valor);
+                aplicarColorAlSistema(muestraId, valor);
+            }
+        }
+
+        function aplicarPaleta(primario, secundario) {
+            document.getElementById('inputColorPrimario').value = primario;
+            document.getElementById('pickerColorPrimario').value = primario;
+            actualizarMuestra('muestraPrimario', primario);
+            aplicarColorAlSistema('muestraPrimario', primario);
+
+            document.getElementById('inputColorSecundario').value = secundario;
+            document.getElementById('pickerColorSecundario').value = secundario;
+            actualizarMuestra('muestraSecundario', secundario);
+            aplicarColorAlSistema('muestraSecundario', secundario);
+        }
+
+        function calcularLuminosidad(hexColor) {
+            var c = hexColor.replace('#', '');
+            var r = parseInt(c.substr(0, 2), 16) / 255;
+            var g = parseInt(c.substr(2, 2), 16) / 255;
+            var b = parseInt(c.substr(4, 2), 16) / 255;
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+
+        function actualizarMuestra(muestraId, hexColor) {
+            var el = document.getElementById(muestraId);
+            if (!el) return;
+            el.style.backgroundColor = hexColor;
+            var lumin = calcularLuminosidad(hexColor);
+            el.style.color = lumin > 0.5 ? '#0F172A' : '#FFFFFF';
+        }
+
+        function aplicarColorAlSistema(muestraId, hexColor) {
+            var lumin = calcularLuminosidad(hexColor);
+            var colorTexto = lumin > 0.5 ? '#0F172A' : '#FFFFFF';
+
+            if (muestraId === 'muestraPrimario') {
+                document.documentElement.style.setProperty('--color-primario', hexColor);
+                document.documentElement.style.setProperty('--color-texto-primario', colorTexto);
+            } else if (muestraId === 'muestraSecundario') {
+                document.documentElement.style.setProperty('--color-secundario', hexColor);
+                document.documentElement.style.setProperty('--color-texto-secundario', colorTexto);
+            }
+        }
+
+        function probarLogoSugerido() {
+            var input = document.getElementById('inputLogoUrl');
+            input.value = 'https://raw.githubusercontent.com/feathericons/feather/master/icons/truck.svg';
+        }
+    </script>
+}

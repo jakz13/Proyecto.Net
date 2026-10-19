@@ -4,11 +4,11 @@
     ViewData["Title"] = "Cuadro Tarifario";
 }
 
-<!-- Encabezado del Caso de Uso UC-03 -->
+<!-- Encabezado Principal -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
-        <h1 class="h4 fw-bold mb-0">Cuadro Tarifario y Reglas de Precio (UC-03)</h1>
-        <partial name="_BotonAyuda" model='"Precios por zona, peso, volumen y modalidad con recargos, bonificaciones y versionado inmutable (RF-03)."' />
+        <h1 class="h4 fw-bold mb-0">Cuadro Tarifario y Reglas de Precio</h1>
+        <partial name="_BotonAyuda" model='"Precios por zona, peso, volumen y modalidad con recargos, bonificaciones y versionado inmutable."' />
     </div>
     <a asp-page="/Tarifas/NuevaVersion" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -48,19 +48,57 @@
     </div>
 }
 
+<!-- Tarjetas Métricas Estandarizadas -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Último Cambio",
+            Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy") ?? "-",
+            "Fecha en la que entró en vigencia el cuadro tarifario actual.",
+            "text-success",
+            "Ver Reglas ↓",
+            "#reglas-vigentes"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Reglas Activas",
+            (Model.VersionVigente?.TotalReglas ?? 0).ToString(),
+            "Total de reglas de cálculo configuradas para la versión vigente.",
+            "text-dark",
+            "Nueva Versión →",
+            Url.Page("/Tarifas/NuevaVersion")
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Versiones Archivadas",
+            Model.HistorialVersiones.Count.ToString(),
+            "Historial de cuadros tarifarios anteriores archivados para auditoría.",
+            "text-secondary",
+            "Ver Historial ↓",
+            "#historial-versiones"
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Moneda Oficial",
+            "UYU ($)",
+            "Moneda oficial en la que se calculan y liquidan los costos de envío.",
+            "text-primary",
+            "Publicar Nueva →",
+            Url.Page("/Tarifas/NuevaVersion")
+        )' />
+    </div>
+</div>
+
 <div class="row g-4">
-    <!-- Columna Principal: Versión Vigente e Historial (8 cols) -->
-    <div class="col-12 col-lg-8">
-        <!-- 1. Tarjeta de la Versión Vigente Actual -->
+    <!-- Panel 1: Reglas del Cuadro Tarifario Vigente a Ancho Completo -->
+    <div class="col-12" id="reglas-vigentes">
         <div class="panel-estandar mb-4">
             <div class="panel-estandar-header">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                        ● Versión Vigente (Versión @(Model.VersionVigente?.Version ?? 1))
-                    </span>
-                    <span class="text-secondary small">
-                        Desde: @(Model.VersionVigente?.VigenteDesde.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")
-                    </span>
+                    <h2 class="h6 fw-bold mb-0 text-dark">Reglas del Cuadro Tarifario Vigente</h2>
                     <partial name="_BotonAyuda" model='"Rige actualmente para calcular la tarifa de todos los envíos procesados a partir de esta fecha."' />
                 </div>
                 <a asp-page="/Tarifas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
@@ -138,8 +176,8 @@
             </div>
         </div>
 
-        <!-- 2. Historial de Versiones Anteriores (Conservación de Vigencia) -->
-        <div class="panel-estandar">
+        <!-- Panel 2: Historial de Versiones Anteriores (Conservación de Vigencia) a Ancho Completo -->
+        <div class="panel-estandar" id="historial-versiones">
             <div class="panel-estandar-header">
                 <div class="d-flex align-items-center gap-2">
                     <h2 class="h6 fw-bold mb-0 text-dark">Historial de Versiones Anteriores</h2>
@@ -174,7 +212,7 @@
                             {
                                 <tr>
                                     <td>
-                                        <span class="badge bg-secondary text-white">
+                                        <span class="badge bg-secondary-subtle text-secondary border">
                                             Versión @hist.Version
                                         </span>
                                     </td>
@@ -196,99 +234,6 @@
                         }
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Columna Lateral: Simulador de Cotización de Envío (4 cols) -->
-    <div class="col-12 col-lg-4">
-        <div class="panel-estandar">
-            <div class="panel-estandar-header">
-                <div class="d-flex align-items-center gap-2">
-                    <h2 class="h6 fw-bold mb-0 text-dark">Simulador de Cotización</h2>
-                    <partial name="_BotonAyuda" model='"Evalúa en tiempo real el costo de un paquete aplicando las reglas vigentes según modalidad, peso, volumen y zona de entrega."' />
-                </div>
-            </div>
-
-            <div class="panel-estandar-body">
-                <form method="post" asp-page-handler="SimularCotizacion">
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Modalidad de Servicio</label>
-                        <select asp-for="ParametrosSimulador.ModalidadServicio" class="form-select form-select-sm">
-                            <option value="Estándar 24-48h">Estándar 24-48h</option>
-                            <option value="Express en el Día">Express en el Día</option>
-                            <option value="Mismo Día">Mismo Día (Urgente)</option>
-                            <option value="Carga Pesada">Carga Pesada / Sobredimensionado</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Zona de Cobertura de Entrega</label>
-                        <select asp-for="ParametrosSimulador.ZonaCoberturaId" class="form-select form-select-sm">
-                            <option value="">Tarifa General (Cualquier zona)</option>
-                            @foreach (var zona in Model.Zonas)
-                            {
-                                <option value="@zona.Id">@zona.Nombre</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label small fw-semibold">Peso (kg)</label>
-                            <input asp-for="ParametrosSimulador.PesoKg" type="number" step="0.1" class="form-control form-control-sm" required />
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-semibold">Volumen (m³)</label>
-                            <input asp-for="ParametrosSimulador.VolumenM3" type="number" step="0.001" class="form-control form-control-sm" required />
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-dark btn-sm w-100 py-2 d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>Calcular Tarifa</span>
-                    </button>
-                </form>
-
-                <!-- Resultado de la Cotización -->
-                @if (Model.ResultadoCotizacion != null)
-                {
-                    <div class="mt-3 p-3 bg-light rounded-3 border border-dark-subtle">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="small fw-semibold text-secondary">Cotización Resultante:</span>
-                            <span class="badge bg-dark">Versión @Model.ResultadoCotizacion.VersionCuadroAplicada</span>
-                        </div>
-                        <div class="h3 fw-bold text-dark mb-2">
-                            $@Model.ResultadoCotizacion.PrecioFinal.ToString("N0") <span class="fs-6 fw-normal text-muted">UYU</span>
-                        </div>
-
-                        <div class="small text-secondary pt-2 border-top">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>Precio Base:</span>
-                                <span class="font-monospace text-dark">$@Model.ResultadoCotizacion.PrecioBase.ToString("N0")</span>
-                            </div>
-                            @if (Model.ResultadoCotizacion.Recargo > 0)
-                            {
-                                <div class="d-flex justify-content-between mb-1 text-danger">
-                                    <span>Recargo:</span>
-                                    <span class="font-monospace">+$@Model.ResultadoCotizacion.Recargo.ToString("N0")</span>
-                                </div>
-                            }
-                            @if (Model.ResultadoCotizacion.Bonificacion > 0)
-                            {
-                                <div class="d-flex justify-content-between mb-1 text-success">
-                                    <span>Bonificación:</span>
-                                    <span class="font-monospace">-$@Model.ResultadoCotizacion.Bonificacion.ToString("N0")</span>
-                                </div>
-                            }
-                            <div class="mt-2 text-muted" style="font-size: 0.725rem;">
-                                Regla: <em>@Model.ResultadoCotizacion.ReglaAplicada</em>
-                            </div>
-                        </div>
-                    </div>
-                }
             </div>
         </div>
     </div>

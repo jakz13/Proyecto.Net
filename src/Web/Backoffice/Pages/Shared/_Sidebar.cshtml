@@ -1,0 +1,313 @@
+@inject MockContextoOperador ContextoOperador
+@{
+    var operadorActivo = ContextoOperador.OperadorActivo;
+    var esAdmin = User.IsInRole("Administrador");
+    var esDespachador = User.IsInRole("Despachador");
+    var esOperario = User.IsInRole("Operario");
+    var paginaActual = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+}
+
+<!-- Barra Lateral Oscura Anclada y Colapsable (Sidebar) -->
+<nav class="sidebar-oscura d-flex flex-column flex-shrink-0" id="sidebarPrincipal" aria-label="Navegación principal">
+    <!-- Cabecera de la Marca y Botón para Colapsar -->
+    <div class="sidebar-cabecera d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+        <div class="d-flex align-items-center gap-2 overflow-hidden">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 overflow-hidden"
+                 style="width: 34px; height: 34px; background-color: var(--color-primario); color: var(--color-texto-primario);">
+                @if (!string.IsNullOrEmpty(operadorActivo.LogoUrl))
+                {
+                    <img src="@operadorActivo.LogoUrl" alt="@operadorActivo.NombreComercial" style="width: 22px; height: 22px; object-fit: contain;" />
+                }
+                else
+                {
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                }
+            </div>
+            <div class="sidebar-marca-texto text-truncate">
+                <div class="fw-bold text-white small text-truncate">@operadorActivo.NombreComercial</div>
+                <div class="text-secondary" style="font-size: 0.725rem;">Backoffice Logístico</div>
+            </div>
+        </div>
+
+        <!-- Botón para achicar/expandir la barra lateral -->
+        <button type="button" class="btn btn-sm btn-colapsar-sidebar text-secondary p-1 border-0"
+                id="btnColapsarSidebar"
+                title="Achicar / Expandir menú lateral"
+                aria-label="Alternar tamaño del menú lateral">
+            <svg class="icono-colapsar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="11 17 6 12 11 7"></polyline>
+                <polyline points="18 17 13 12 18 7"></polyline>
+            </svg>
+            <svg class="icono-expandir" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="13 17 18 12 13 7"></polyline>
+                <polyline points="6 17 11 12 6 7"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Lista de Navegación -->
+    <ul class="nav nav-pills flex-column mb-auto gap-1 p-2">
+        <li class="nav-item">
+            <a class="nav-link d-flex align-items-center gap-2 @(paginaActual == "/Index" ? "active" : "")"
+               asp-page="/Index"
+               title="Inicio">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span class="sidebar-texto text-truncate">Inicio</span>
+            </a>
+        </li>
+
+        @* Menú según perfil: Administrador *@
+        @if (esAdmin)
+        {
+            <li class="sidebar-seccion">Administración</li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Comercios") || paginaActual.StartsWith("/Usuarios") ? "active" : "")"
+                   asp-page="/Comercios/Index"
+                   title="Comercios y Usuarios">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Comercios y Usuarios</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Zonas") ? "active" : "")"
+                   asp-page="/Zonas/Index"
+                   title="Zonas y Franjas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                        <line x1="8" y1="2" x2="8" y2="18"></line>
+                        <line x1="16" y1="6" x2="16" y2="22"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Zonas y Franjas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Tarifas") ? "active" : "")"
+                   asp-page="/Tarifas/Index"
+                   title="Cuadro Tarifario">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Cuadro Tarifario</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/ReglasOperativas") ? "active" : "")"
+                   asp-page="/ReglasOperativas/Index"
+                   title="Reglas Operativas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Reglas Operativas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/MotivosNoEntrega") ? "active" : "")"
+                   asp-page="/MotivosNoEntrega/Index"
+                   title="Motivos No Entrega">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Motivos No Entrega</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/IdentidadVisual") ? "active" : "")"
+                   asp-page="/IdentidadVisual/Index"
+                   title="Identidad Visual">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Identidad Visual</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Flota") ? "active" : "")"
+                   asp-page="/Flota/Index"
+                   title="Repartidores y Vehículos">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <rect x="1" y="3" width="15" height="13"></rect>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Repartidores y Vehículos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Envios") ? "active" : "")"
+                   asp-page="/Envios/Index"
+                   title="Gestión de Envíos">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Gestión de Envíos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Mensajeria") ? "active" : "")"
+                   asp-page="/Mensajeria/Index"
+                   title="Cola de Mensajes Fallidos">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Cola de Fallidos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Reportes") ? "active" : "")"
+                   asp-page="/Reportes/Index"
+                   title="Reportes de Gestión">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Reportes de Gestión</span>
+                </a>
+            </li>
+        }
+
+        @* Menú según perfil: Despachador *@
+        @if (esDespachador)
+        {
+            <li class="sidebar-seccion">Despacho & Rutas</li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Rutas") ? "active" : "")"
+                   asp-page="/Rutas/Index"
+                   title="Hojas de Ruta">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                        <line x1="8" y1="2" x2="8" y2="18"></line>
+                        <line x1="16" y1="6" x2="16" y2="22"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Hojas de Ruta</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Despacho") ? "active" : "")"
+                   asp-page="/Despacho/Index"
+                   title="Control de Despacho">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Control de Despacho</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Envios") ? "active" : "")"
+                   asp-page="/Envios/Index"
+                   title="Gestión de Envíos">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Gestión de Envíos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Incidencias") ? "active" : "")"
+                   asp-page="/Incidencias/Index"
+                   title="Gestión de Incidencias">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Incidencias</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Tablero") ? "active" : "")"
+                   asp-page="/Tablero/Index"
+                   title="Tablero de Operación en Vivo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="2"></circle>
+                        <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Tablero en Vivo</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Reportes") ? "active" : "")"
+                   asp-page="/Reportes/Index"
+                   title="Reportes de Gestión">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Reportes de Gestión</span>
+                </a>
+            </li>
+        }
+
+        @* Menú según perfil: Operario *@
+        @if (esOperario)
+        {
+            <li class="sidebar-seccion">Depósito</li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Despacho") ? "active" : "")"
+                   asp-page="/Despacho/Index"
+                   title="Despacho de Rutas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Despacho de Rutas</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <span class="nav-link d-flex align-items-center gap-2 text-muted" style="cursor: not-allowed;" title="Recepción Depósito">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Recepción Depósito</span>
+                </span>
+            </li>
+        }
+    </ul>
+
+    <!-- Pie de Barra Lateral: Perfil y Cierre de Sesión -->
+    <div class="sidebar-pie p-3 border-top border-secondary mt-auto">
+        <div class="d-flex align-items-center justify-content-between gap-2 overflow-hidden">
+            <div class="sidebar-texto small text-truncate" style="max-width: 140px;">
+                <div class="fw-semibold text-white text-truncate">@User.Identity?.Name</div>
+                <div class="text-secondary text-truncate" style="font-size: 0.725rem;">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
+            </div>
+            <a asp-page="/Logout" class="btn btn-outline-danger btn-sm p-1 d-inline-flex align-items-center justify-content-center flex-shrink-0"
+               title="Cerrar Sesión"
+               aria-label="Cerrar Sesión"
+               style="width: 28px; height: 28px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </a>
+        </div>
+    </div>
+</nav>

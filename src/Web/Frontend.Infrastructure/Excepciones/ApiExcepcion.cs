@@ -10,6 +10,11 @@ public class ApiExcepcion : Exception
     public HttpStatusCode CodigoEstado { get; }
     public IReadOnlyDictionary<string, string[]>? ErroresValidacion { get; }
 
+    public ApiExcepcion(string mensaje)
+        : this(HttpStatusCode.BadRequest, mensaje)
+    {
+    }
+
     public ApiExcepcion(HttpStatusCode codigoEstado, string mensaje, IReadOnlyDictionary<string, string[]>? erroresValidacion = null)
         : base(mensaje)
     {

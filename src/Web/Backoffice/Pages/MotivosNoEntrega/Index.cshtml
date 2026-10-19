@@ -4,11 +4,11 @@
     ViewData["Title"] = "Catálogo de Motivos de No Entrega";
 }
 
-<!-- Encabezado del Caso de Uso UC-05 -->
+<!-- Encabezado Principal -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
-        <h1 class="h4 fw-bold mb-0">Catálogo de Motivos de No Entrega (UC-05)</h1>
-        <partial name="_BotonAyuda" model='"Configuración del catálogo de causales de entrega fallida que descargan los repartidores en su app móvil (RF-04, RF-21)."' />
+        <h1 class="h4 fw-bold mb-0">Catálogo de Motivos de No Entrega</h1>
+        <partial name="_BotonAyuda" model='"Configuración del catálogo de causales de entrega fallida que descargan los repartidores en su app móvil."' />
     </div>
     <button type="button" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoMotivo">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -86,15 +86,15 @@
             "RF-21 OK",
             "Los motivos activos se encuentran disponibles para la app SQLite del repartidor.",
             "text-primary",
-            "Ver Simulación →",
-            "#simulador-movil"
+            "Ver Catálogo ↓",
+            "#catalogo-motivos"
         )' />
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- Columna Principal: Catálogo de Motivos (8 columnas) -->
-    <div class="col-12 col-lg-8">
+<div class="row g-4" id="catalogo-motivos">
+    <!-- Columna Principal: Catálogo de Motivos a Ancho Completo (12 columnas) -->
+    <div class="col-12">
         <div class="panel-estandar">
             <div class="panel-estandar-header">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
@@ -144,10 +144,10 @@
                 <table class="table table-hover table-compacta mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 28%;">Código</th>
+                            <th style="width: 25%;">Código</th>
                             <th>Descripción Operativa</th>
                             <th class="text-center" style="width: 10%;">Usos</th>
-                            <th class="text-center" style="width: 16%;">Estado</th>
+                            <th class="text-center" style="width: 15%;">Estado</th>
                             <th class="text-end" style="width: 18%;">Acciones</th>
                         </tr>
                     </thead>
@@ -237,79 +237,9 @@
             </div>
         </div>
     </div>
-
-    <!-- Columna Lateral: Vista Previa y Sincronización Móvil RF-21 (4 columnas) -->
-    <div class="col-12 col-lg-4" id="simulador-movil">
-        <!-- Panel de Sincronización Móvil -->
-        <div class="panel-estandar mb-4">
-            <div class="panel-estandar-header">
-                <div class="d-flex align-items-center justify-content-between w-100">
-                    <span class="badge bg-dark text-white px-2 py-1">
-                        App del Repartidor (RF-21)
-                    </span>
-                    <partial name="_BotonAyuda" model='"Simulación de la lista desplegable que el repartidor ve en su app móvil al registrar un intento fallido."' />
-                </div>
-            </div>
-            <div class="p-3">
-                <!-- Teléfono / Dispositivo Mockup -->
-                <div class="border rounded-4 p-3 bg-white shadow-sm mb-3" style="border: 2px solid #dee2e6 !important;">
-                    <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom text-muted" style="font-size: 0.72rem;">
-                        <span class="fw-bold text-dark">Ruta Activa #04</span>
-                        <span class="badge bg-success-subtle text-success border">Online</span>
-                    </div>
-
-                    <div class="mb-2">
-                        <label class="form-label small fw-bold text-dark mb-1">
-                            Registrar Intento Fallido
-                        </label>
-                        <select class="form-select form-select-sm" aria-label="Motivo en app móvil">
-                            <option selected disabled>-- Seleccione motivo de no entrega --</option>
-                            @foreach (var m in Model.MotivosMovil)
-                            {
-                                <option value="@m.Id">@m.Descripcion (@m.Codigo)</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="p-2 rounded bg-light border small text-muted mb-2" style="font-size: 0.72rem;">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Motivos descargados:</span>
-                            <span class="fw-bold text-dark">@Model.MotivosMovil.Count activos</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Sincronización SQLite:</span>
-                            <span class="text-success fw-semibold">Al día</span>
-                        </div>
-                    </div>
-
-                    <div class="d-grid">
-                        <button type="button" class="btn btn-secondary btn-sm py-1" disabled style="font-size: 0.75rem;">
-                            Guardar Intento (App Móvil)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Detalle Técnico de Integración RF-04 / RF-21 -->
-                <div class="small text-muted">
-                    <div class="d-flex align-items-center gap-1 fw-bold text-dark mb-1" style="font-size: 0.8rem;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                        </svg>
-                        <span>Comportamiento de Sincronización</span>
-                    </div>
-                    <ul class="mb-0 ps-3" style="font-size: 0.75rem;">
-                        <li>Al dar de alta o activar un motivo, se incluye en el próximo endpoint <code>/api/v1/motivos-no-entrega/sincronizacion-movil</code>.</li>
-                        <li>Al desactivar un motivo, se retira de la app pero se preservan los intentos históricos ya registrados.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Modal 1: Alta de Nuevo Motivo (UC-05) -->
+<!-- Modal 1: Alta de Nuevo Motivo -->
 <div class="modal fade" id="modalNuevoMotivo" tabindex="-1" aria-labelledby="modalNuevoMotivoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -354,7 +284,7 @@
     </div>
 </div>
 
-<!-- Modal 2: Edición de Motivo Existente (UC-05) -->
+<!-- Modal 2: Edición de Motivo Existente -->
 <div class="modal fade" id="modalEditarMotivo" tabindex="-1" aria-labelledby="modalEditarMotivoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">

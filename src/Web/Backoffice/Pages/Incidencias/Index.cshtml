@@ -1,0 +1,700 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Incidencias.IndexModel
+@{
+    ViewData["Title"] = "Gestión de Incidencias Operativas";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold text-dark mb-0">Gestión de Incidencias Operativas</h1>
+        <partial name="_BotonAyuda" model='"Registro, seguimiento y resolución de anomalías durante la jornada (averías, ausencias, reclamos y paquetes dañados). Permite trazabilidad completa hasta el cierre formal."' />
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-2 shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalNuevaIncidencia">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="fw-semibold">Registrar Incidencia</span>
+        </button>
+    </div>
+</div>
+
+<!-- Alertas Informativas -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-4 text-dark border-success-subtle" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <div>@Model.MensajeExito</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-4 text-dark border-danger-subtle" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div>@Model.MensajeError</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Superiores -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Total Registradas</span>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.TotalIncidencias</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Abiertas / Pendientes</span>
+            <div class="h3 fw-bold mb-0 text-danger">@Model.CantidadAbiertas</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">En Investigación</span>
+            <div class="h3 fw-bold mb-0 text-primary">@Model.CantidadEnInvestigacion</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Cerradas / Resueltas</span>
+            <div class="h3 fw-bold mb-0 text-success">@Model.CantidadCerradas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Búsqueda -->
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3 bg-white">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-12 col-md-3">
+                <select name="estadoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="Todos" selected="@(Model.EstadoFiltro == "Todos")">Todos los estados</option>
+                    <option value="Abierta" selected="@(Model.EstadoFiltro == "Abierta")">Abierta</option>
+                    <option value="EnInvestigacion" selected="@(Model.EstadoFiltro == "EnInvestigacion")">En Investigación</option>
+                    <option value="Cerrada" selected="@(Model.EstadoFiltro == "Cerrada")">Cerrada / Resuelta</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="tipoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todos los tipos</option>
+                    <option value="AveriaVehiculo" selected="@(Model.TipoFiltro == "AveriaVehiculo")">Avería Mecánica</option>
+                    <option value="AusenciaRepartidor" selected="@(Model.TipoFiltro == "AusenciaRepartidor")">Ausencia Repartidor</option>
+                    <option value="PaqueteDanado" selected="@(Model.TipoFiltro == "PaqueteDanado")">Paquete Dañado</option>
+                    <option value="ReclamoDestinatario" selected="@(Model.TipoFiltro == "ReclamoDestinatario")">Reclamo Destinatario</option>
+                    <option value="CorteTransito" selected="@(Model.TipoFiltro == "CorteTransito")">Incidencia Vial</option>
+                    <option value="Otro" selected="@(Model.TipoFiltro == "Otro")">Otro</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 d-flex gap-1">
+                <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control form-control-sm" placeholder="Buscar por número, envío o texto..." />
+                <button type="submit" class="btn btn-dark btn-sm px-3">Buscar</button>
+                @if (Model.EstadoFiltro != "Todos" || !string.IsNullOrEmpty(Model.TipoFiltro) || !string.IsNullOrEmpty(Model.Busqueda))
+                {
+                    <a asp-page="/Incidencias/Index" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros">Limpiar</a>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla Principal de Incidencias -->
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 15%;" class="text-dark">Número / Fecha</th>
+                    <th style="width: 17%;" class="text-dark">Tipo</th>
+                    <th style="width: 32%;" class="text-dark">Descripción</th>
+                    <th style="width: 18%;" class="text-dark">Afectación</th>
+                    <th class="text-center" style="width: 10%;" class="text-dark">Estado</th>
+                    <th class="text-end" style="width: 8%;" class="text-dark">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Incidencias.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-secondary">
+                            <div class="fw-semibold mb-1">No se encontraron incidencias para los filtros aplicados.</div>
+                            <div class="small">Puede registrar un nuevo reporte utilizando el botón superior.</div>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var inc in Model.Incidencias)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark font-monospace">@inc.NumeroIncidencia</div>
+                                <div class="text-secondary small" style="font-size: 0.725rem;">
+                                    @inc.FechaRegistro.ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small">
+                                    @switch (inc.Tipo)
+                                    {
+                                        case "AveriaVehiculo": <span>Avería Mecánica</span>; break;
+                                        case "AusenciaRepartidor": <span>Ausencia Repartidor</span>; break;
+                                        case "PaqueteDanado": <span>Paquete Dañado</span>; break;
+                                        case "ReclamoDestinatario": <span>Reclamo Destinatario</span>; break;
+                                        case "CorteTransito": <span>Corte de Tránsito</span>; break;
+                                        default: <span>@inc.Tipo</span>; break;
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-dark small text-truncate-2" title="@inc.Descripcion">
+                                    @inc.Descripcion
+                                </div>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(inc.CodigoSeguimientoEnvio))
+                                {
+                                    <div class="small">
+                                        <span class="text-secondary">Envío:</span> 
+                                        <strong class="font-monospace text-dark">@inc.CodigoSeguimientoEnvio</strong>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(inc.DestinatarioEnvio))
+                                    {
+                                        <div class="text-secondary small" style="font-size: 0.7rem;">@inc.DestinatarioEnvio</div>
+                                    }
+                                }
+                                @if (!string.IsNullOrEmpty(inc.NumeroRuta) || !string.IsNullOrEmpty(inc.VehiculoMatricula))
+                                {
+                                    <div class="text-secondary small" style="font-size: 0.725rem;">
+                                        @if (!string.IsNullOrEmpty(inc.NumeroRuta))
+                                        {
+                                            <span>Ruta: <strong>@inc.NumeroRuta</strong></span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(inc.VehiculoMatricula))
+                                        {
+                                            <span class="badge bg-dark-subtle text-dark border ms-1 font-monospace" style="font-size: 0.65rem;">@inc.VehiculoMatricula</span>
+                                        }
+                                    </div>
+                                }
+                                @if (string.IsNullOrEmpty(inc.CodigoSeguimientoEnvio) && string.IsNullOrEmpty(inc.NumeroRuta))
+                                {
+                                    <span class="text-secondary small">General de flota</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @switch (inc.Estado)
+                                {
+                                    case "Abierta":
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                            Abierta
+                                        </span>
+                                        break;
+                                    case "EnInvestigacion":
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                            En Seguimiento
+                                        </span>
+                                        break;
+                                    case "Cerrada":
+                                    case "Resuelta":
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                            Cerrada
+                                        </span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                            @inc.Estado
+                                        </span>
+                                        break;
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex align-items-center gap-1 justify-content-end">
+                                    @if ((inc.Estado == "Cerrada" || inc.Estado == "Resuelta") && !string.IsNullOrEmpty(inc.ResolucionDetalle))
+                                    {
+                                        <button type="button" 
+                                                class="btn btn-outline-success btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                data-bs-toggle="tooltip" 
+                                                data-bs-placement="top" 
+                                                title="Ver resolución"
+                                                onclick="abrirModalResolucion('@inc.NumeroIncidencia', '@(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? "")', '@(inc.DespachadorCierre ?? "Despachador")', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(inc.ResolucionDetalle)))">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </button>
+                                    }
+                                    <button type="button" 
+                                            class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark btn-ver-bitacora"
+                                            data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
+                                            title="Seguimiento"
+                                            data-inc-id="@inc.Id"
+                                            data-inc-numero="@inc.NumeroIncidencia"
+                                            data-inc-tipo="@inc.Tipo"
+                                            data-inc-severidad="@inc.Severidad"
+                                            data-inc-estado="@inc.Estado"
+                                            data-inc-descripcion="@inc.Descripcion"
+                                            data-inc-fecha="@inc.FechaRegistro.ToString("dd/MM/yyyy HH:mm")"
+                                            data-inc-envio="@(inc.CodigoSeguimientoEnvio ?? "")"
+                                            data-inc-destinatario="@(inc.DestinatarioEnvio ?? "")"
+                                            data-inc-ruta="@(inc.NumeroRuta ?? "")"
+                                            data-inc-vehiculo="@(inc.VehiculoMatricula ?? "")"
+                                            data-inc-repartidor="@(inc.RepartidorNombre ?? "")"
+                                            data-inc-resolucion="@(inc.ResolucionDetalle ?? "")"
+                                            data-inc-cierre="@(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? "")"
+                                            data-inc-historial='@System.Text.Json.JsonSerializer.Serialize(inc.HistorialSeguimiento)'>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL 1: REGISTRAR NUEVA INCIDENCIA
+     ========================================================================= -->
+<div class="modal fade" id="modalNuevaIncidencia" tabindex="-1" aria-labelledby="modalNuevaIncidenciaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" asp-page-handler="Registrar">
+                <div class="modal-header bg-light border-bottom">
+                    <div>
+                        <h5 class="modal-title h6 fw-bold text-dark mb-0" id="modalNuevaIncidenciaLabel">
+                            Registrar Incidencia Operativa
+                        </h5>
+                        <span class="small text-secondary">
+                            Apertura de caso para seguimiento y control de anomalías de la jornada
+                        </span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body p-4" style="min-height: 420px;">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-dark fw-semibold small mb-1" for="selectTipoIncidencia">
+                                Tipo de Incidencia: <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-sm text-dark" id="selectTipoIncidencia" name="NuevaIncidencia.Tipo" required>
+                                <option value="AveriaVehiculo">Avería Mecánica del Vehículo</option>
+                                <option value="AusenciaRepartidor">Ausencia Imprevista de Repartidor</option>
+                                <option value="PaqueteDanado">Paquete Dañado o Deteriorado</option>
+                                <option value="ReclamoDestinatario">Reclamo o Solicitud de Destinatario</option>
+                                <option value="CorteTransito">Corte Vial o Retraso Climático</option>
+                                <option value="Otro">Otro Incidente Operativo</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-dark fw-semibold small mb-1" for="selectSeveridad">
+                                Nivel de Severidad: <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-sm text-dark" id="selectSeveridad" name="NuevaIncidencia.Severidad" required>
+                                <option value="Baja">Baja (Sin impacto en plazos comprometidos)</option>
+                                <option value="Media" selected>Media (Riesgo moderado de demora)</option>
+                                <option value="Alta">Alta (Parada detenida o reprogramación inminente)</option>
+                                <option value="Critica">Crítica (Vehículo inmovilizado o siniestro)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-dark fw-semibold small mb-1" for="selectEnvioAfectado">
+                                Envío Afectado (Opcional):
+                            </label>
+                            <select class="form-select form-select-sm text-dark font-monospace" id="selectEnvioAfectado" name="NuevaIncidencia.CodigoSeguimientoEnvio">
+                                <option value="">-- No aplica / Incidencia general --</option>
+                                @foreach (var env in Model.EnviosDisponibles)
+                                {
+                                    <option value="@env.CodigoSeguimiento">@env.CodigoSeguimiento - @env.Destinatario (@env.EstadoEnvio)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-dark fw-semibold small mb-1" for="selectRutaAfectada">
+                                Hoja de Ruta / Repartidor (Opcional):
+                            </label>
+                            <select class="form-select form-select-sm text-dark font-monospace" id="selectRutaAfectada" name="NuevaIncidencia.RepartidorNombre">
+                                <option value="">-- No aplica / Flota general --</option>
+                                @foreach (var r in Model.RutasDisponibles)
+                                {
+                                    <option value="@r.RepartidorNombre">@r.NumeroRuta - @r.RepartidorNombre (@r.VehiculoMatricula)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark fw-semibold small mb-1" for="txtDescripcionIncidencia">
+                            Descripción de la Situación: <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control form-control-sm text-dark" id="txtDescripcionIncidencia" name="NuevaIncidencia.Descripcion" rows="3" placeholder="Detalle qué ocurrió, ubicación o motivo que originó la incidencia..." required></textarea>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label text-dark fw-semibold small mb-1" for="txtAccionInmediata">
+                            Acción Inmediata Adoptada (Opcional):
+                        </label>
+                        <input type="text" class="form-control form-control-sm text-dark" id="txtAccionInmediata" name="NuevaIncidencia.AccionInmediata" placeholder="Ej: Se instruyó al repartidor esperar remolque o se coordinó sustituto..." />
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-outline-secondary btn-sm text-dark" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm text-white px-3 fw-semibold">
+                        Registrar Incidencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL 2: BITÁCORA Y SEGUIMIENTO / CIERRE DE INCIDENCIA
+     ========================================================================= -->
+<div class="modal fade" id="modalBitacoraIncidencia" tabindex="-1" aria-labelledby="modalBitacoraLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom">
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="modal-title h6 fw-bold text-dark mb-0 font-monospace" id="modalBitacoraNumero">--</h5>
+                        <span class="badge" id="modalBitacoraEstadoBadge">--</span>
+                        <span class="badge" id="modalBitacoraSeveridadBadge">--</span>
+                    </div>
+                    <span class="small text-secondary" id="modalBitacoraFecha">--</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body p-4" style="min-height: 480px;">
+                <!-- Ficha de Datos del Caso -->
+                <div class="card bg-light border mb-3">
+                    <div class="card-body p-3">
+                        <div class="row g-2">
+                            <div class="col-12 col-md-8">
+                                <div class="text-secondary small">Tipo / Descripción</div>
+                                <div class="fw-bold text-dark small" id="modalBitacoraTipo">--</div>
+                                <div class="text-dark small mt-1" id="modalBitacoraDescripcion">--</div>
+                            </div>
+                            <div class="col-12 col-md-4 border-start-md ps-md-3">
+                                <div class="text-secondary small">Afectación</div>
+                                <div class="small text-dark" id="modalBitacoraAfectacion">--</div>
+                                <div class="text-secondary small mt-1" id="modalBitacoraCierreBox" style="display: none;">
+                                    Cerrada el: <span id="modalBitacoraFechaCierre" class="text-success fw-semibold"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historial Cronológico de Bitácora -->
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-semibold small mb-2 d-flex justify-content-between align-items-center">
+                        <span>Bitácora de Seguimiento y Acciones Realizadas</span>
+                        <span class="text-secondary small" id="modalBitacoraConteo">0 entradas</span>
+                    </label>
+                    <div class="border rounded-2 p-3 bg-white" style="max-height: 180px; min-height: 120px; overflow-y: auto;" id="listaEntradasBitacora">
+                        <!-- Las entradas se inyectan dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Contenedor Fijo de Acciones de Seguimiento / Cierre (Sin saltos de tamaño) -->
+                <div id="panelAccionesIncidencia" class="card border p-3 bg-light" style="min-height: 155px; height: 155px;">
+                    <!-- Solapas internas: Agregar Nota vs Cerrar Incidencia -->
+                    <div class="d-flex gap-2 mb-2 border-bottom pb-2">
+                        <button type="button" class="btn btn-sm btn-outline-dark active" id="btnTabNota" onclick="mostrarTabAccion('nota')">
+                            + Agregar Seguimiento
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="btnTabCerrar" onclick="mostrarTabAccion('cerrar')">
+                            Cerrar y Resolver
+                        </button>
+                    </div>
+
+                    <!-- Vista A: Agregar Nota de Seguimiento -->
+                    <div id="vistaAccionNota">
+                        <form method="post" asp-page-handler="Seguimiento">
+                            <input type="hidden" name="SeguimientoInput.IncidenciaId" id="inputSeguimientoIncidenciaId" />
+                            <div class="row g-2 align-items-center">
+                                <div class="col-12 col-md-7">
+                                    <input type="text" class="form-control form-control-sm text-dark" name="SeguimientoInput.Comentario" placeholder="Escriba la actualización de seguimiento..." required />
+                                </div>
+                                <div class="col-8 col-md-3">
+                                    <select class="form-select form-select-sm text-dark" name="SeguimientoInput.NuevoEstado">
+                                        <option value="EnInvestigacion">Pasar a: En Seguimiento</option>
+                                        <option value="Abierta">Mantener: Abierta</option>
+                                    </select>
+                                </div>
+                                <div class="col-4 col-md-2 text-end">
+                                    <button type="submit" class="btn btn-dark btn-sm w-100 fw-semibold">
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Vista B: Cerrar Caso -->
+                    <div id="vistaAccionCerrar" style="display: none;">
+                        <form method="post" asp-page-handler="Cerrar">
+                            <input type="hidden" name="CierreInput.IncidenciaId" id="inputCierreIncidenciaId" />
+                            <div class="row g-2 align-items-center">
+                                <div class="col-12 col-md-10">
+                                    <input type="text" class="form-control form-control-sm text-dark" name="CierreInput.ResolucionDetalle" placeholder="Detalle de resolución formal (ej: paquete reasignado, auxilio concluido)..." required />
+                                </div>
+                                <div class="col-12 col-md-2 text-end">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold">
+                                        Confirmar Cierre
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Vista C: Si ya está cerrada -->
+                    <div id="vistaAccionYaCerrada" style="display: none;">
+                        <div class="d-flex align-items-center gap-2 text-success small py-2">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            <div>
+                                <strong>Incidencia cerrada y archivada:</strong> Este caso completó su ciclo de resolución y se encuentra disponible en reportes históricos.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm text-dark px-3" data-bs-dismiss="modal">
+                    Cerrar Ventana
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL 3: VER RESOLUCIÓN DE LA INCIDENCIA CERRADA
+     ========================================================================= -->
+<div class="modal fade" id="modalVerResolucion" tabindex="-1" aria-labelledby="modalVerResolucionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white py-3">
+                <h5 class="modal-title fs-6 fw-bold d-flex align-items-center gap-2 mb-0" id="modalVerResolucionLabel">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Resolución de la Incidencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div>
+                        <span class="text-secondary small d-block">Número de Incidencia:</span>
+                        <strong class="font-monospace text-dark fs-6" id="lblResolucionNumero">-</strong>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-secondary small d-block">Fecha de Cierre:</span>
+                        <span class="text-dark small" id="lblResolucionFecha">-</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <span class="text-secondary small d-block mb-1">Cerrado por:</span>
+                    <strong class="text-dark small" id="lblResolucionDespachador">-</strong>
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold text-secondary mb-1">Detalle de la Resolución:</label>
+                    <div class="p-3 bg-light border rounded-3 text-dark small" id="lblResolucionDetalle" style="white-space: pre-wrap;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3 border-top">
+                <button type="button" class="btn btn-sm btn-secondary px-3" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function abrirModalResolucion(numero, fecha, despachador, detalle) {
+            document.getElementById('lblResolucionNumero').innerText = numero;
+            document.getElementById('lblResolucionFecha').innerText = fecha || '-';
+            document.getElementById('lblResolucionDespachador').innerText = despachador || 'Despachador';
+            document.getElementById('lblResolucionDetalle').innerText = detalle || 'Sin detalle de resolución registrado.';
+            var modalEl = document.getElementById('modalVerResolucion');
+            var modalInst = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modalInst.show();
+        }
+
+        // Inicializar tooltips de Bootstrap
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            var boton = e.target.closest('.btn-ver-bitacora');
+            if (!boton) return;
+
+            var id = boton.getAttribute('data-inc-id');
+            var numero = boton.getAttribute('data-inc-numero');
+            var tipo = boton.getAttribute('data-inc-tipo');
+            var severidad = boton.getAttribute('data-inc-severidad');
+            var estado = boton.getAttribute('data-inc-estado');
+            var descripcion = boton.getAttribute('data-inc-descripcion');
+            var fecha = boton.getAttribute('data-inc-fecha');
+            var envio = boton.getAttribute('data-inc-envio');
+            var destinatario = boton.getAttribute('data-inc-destinatario');
+            var ruta = boton.getAttribute('data-inc-ruta');
+            var vehiculo = boton.getAttribute('data-inc-vehiculo');
+            var repartidor = boton.getAttribute('data-inc-repartidor');
+            var resolucion = boton.getAttribute('data-inc-resolucion');
+            var fechaCierre = boton.getAttribute('data-inc-cierre');
+            var rawHistorial = boton.getAttribute('data-inc-historial') || '[]';
+
+            document.getElementById('modalBitacoraNumero').innerText = numero;
+            document.getElementById('modalBitacoraFecha').innerText = 'Registrada el ' + fecha;
+            document.getElementById('modalBitacoraTipo').innerText = tipo;
+            document.getElementById('modalBitacoraDescripcion').innerText = descripcion;
+
+            // Badges
+            var bEstado = document.getElementById('modalBitacoraEstadoBadge');
+            bEstado.innerText = estado;
+            bEstado.className = 'badge ' + (estado === 'Abierta' ? 'bg-danger-subtle text-danger border border-danger-subtle' : (estado === 'EnInvestigacion' ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-success-subtle text-success border border-success-subtle'));
+
+            var bSev = document.getElementById('modalBitacoraSeveridadBadge');
+            bSev.innerText = severidad;
+            bSev.className = 'badge ' + (severidad === 'Critica' ? 'bg-danger text-white' : (severidad === 'Alta' ? 'bg-danger-subtle text-danger border' : 'bg-secondary-subtle text-secondary border'));
+
+            // Afectación
+            var afectacionTexto = '';
+            if (envio) afectacionTexto += 'Envío: ' + envio + (destinatario ? ' (' + destinatario + ')' : '') + '<br/>';
+            if (ruta) afectacionTexto += 'Ruta: ' + ruta + ' ';
+            if (vehiculo) afectacionTexto += '[' + vehiculo + '] ';
+            if (repartidor) afectacionTexto += 'Repartidor: ' + repartidor;
+            if (!afectacionTexto) afectacionTexto = 'General / Sin unidad específica';
+            document.getElementById('modalBitacoraAfectacion').innerHTML = afectacionTexto;
+
+            // Cierre box
+            var boxCierre = document.getElementById('modalBitacoraCierreBox');
+            if (estado === 'Cerrada' || estado === 'Resuelta') {
+                boxCierre.style.display = 'block';
+                document.getElementById('modalBitacoraFechaCierre').innerText = (fechaCierre || fecha) + ' - ' + resolucion;
+            } else {
+                boxCierre.style.display = 'none';
+            }
+
+            // Historial / Bitácora
+            var entradas = [];
+            try {
+                entradas = JSON.parse(rawHistorial);
+            } catch (err) {
+                entradas = [];
+            }
+
+            var contEl = document.getElementById('modalBitacoraConteo');
+            if (contEl) contEl.innerText = entradas.length + ' entradas registradas';
+
+            var lista = document.getElementById('listaEntradasBitacora');
+            lista.innerHTML = '';
+            if (entradas.length === 0) {
+                lista.innerHTML = '<div class="text-secondary small text-center py-3">Sin notas de bitácora previas.</div>';
+            } else {
+                entradas.forEach(function (ent) {
+                    var fechaStr = ent.FechaHora ? new Date(ent.FechaHora).toLocaleString() : '';
+                    var d = document.createElement('div');
+                    d.className = 'border-bottom pb-2 mb-2 small';
+                    d.innerHTML = '<div class="d-flex justify-content-between align-items-center text-secondary" style="font-size: 0.725rem;">' +
+                                  '<span><strong>' + (ent.Usuario || 'Sistema') + '</strong></span>' +
+                                  '<span>' + fechaStr + '</span>' +
+                                  '</div>' +
+                                  '<div class="text-dark mt-1">' + ent.Comentario + '</div>';
+                    lista.appendChild(d);
+                });
+            }
+
+            // IDs en inputs
+            document.getElementById('inputSeguimientoIncidenciaId').value = id;
+            document.getElementById('inputCierreIncidenciaId').value = id;
+
+            // Vistas de acción según si está cerrada o no
+            var yaCerrada = (estado === 'Cerrada' || estado === 'Resuelta');
+            var btnNota = document.getElementById('btnTabNota');
+            var btnCerrar = document.getElementById('btnTabCerrar');
+
+            if (yaCerrada) {
+                if (btnNota) btnNota.style.display = 'none';
+                if (btnCerrar) btnCerrar.style.display = 'none';
+                document.getElementById('vistaAccionNota').style.display = 'none';
+                document.getElementById('vistaAccionCerrar').style.display = 'none';
+                document.getElementById('vistaAccionYaCerrada').style.display = 'block';
+            } else {
+                if (btnNota) btnNota.style.display = 'inline-block';
+                if (btnCerrar) btnCerrar.style.display = 'inline-block';
+                document.getElementById('vistaAccionYaCerrada').style.display = 'none';
+                mostrarTabAccion('nota');
+            }
+
+            // Abrir modal
+            var modalEl = document.getElementById('modalBitacoraIncidencia');
+            if (window.bootstrap && window.bootstrap.Modal) {
+                var inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+                inst.show();
+            } else {
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+                document.body.classList.add('modal-open');
+                var backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.id = 'modal-backdrop-custom';
+                document.body.appendChild(backdrop);
+            }
+        });
+
+        function mostrarTabAccion(tab) {
+            var vNota = document.getElementById('vistaAccionNota');
+            var vCerrar = document.getElementById('vistaAccionCerrar');
+            var btnNota = document.getElementById('btnTabNota');
+            var btnCerrar = document.getElementById('btnTabCerrar');
+
+            if (tab === 'nota') {
+                if (vNota) vNota.style.display = 'block';
+                if (vCerrar) vCerrar.style.display = 'none';
+                if (btnNota) { btnNota.classList.add('active'); btnNota.classList.remove('btn-outline-dark'); btnNota.classList.add('btn-dark'); }
+                if (btnCerrar) { btnCerrar.classList.remove('active'); btnCerrar.classList.remove('btn-success'); btnCerrar.classList.add('btn-outline-success'); }
+            } else {
+                if (vNota) vNota.style.display = 'none';
+                if (vCerrar) vCerrar.style.display = 'block';
+                if (btnNota) { btnNota.classList.remove('active'); btnNota.classList.remove('btn-dark'); btnNota.classList.add('btn-outline-dark'); }
+                if (btnCerrar) { btnCerrar.classList.add('active'); btnCerrar.classList.remove('btn-outline-success'); btnCerrar.classList.add('btn-success'); }
+            }
+        }
+    </script>
+}
