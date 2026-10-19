@@ -199,7 +199,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede despachar porque su estado es {EstadoActual} (se requiere estado AsignadoARuta).");
 
         HojaDeRutaId = hojaDeRutaId;
-        foreach (var bulto in _bultos)
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado"))
         {
             bulto.MarcarCargadoEnVehiculo();
         }
@@ -208,28 +208,28 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             EstadoEnvio.EnTransito,
             "DespachoRuta",
             responsableUsuarioId,
-            "MobileApp",
+            "Backoffice",
             null,
             null,
             observaciones);
     }
 
+    /// <summary>
+    /// Retira el envío de la hoja de ruta cuando sus bultos no se cargaron (UC-09): vuelve a depósito, conserva su
+    /// clasificación y queda disponible para otra hoja de ruta.
+    /// </summary>
     public void DesasignarDeRutaPorFaltante(string motivo, Guid? responsableUsuarioId = null)
     {
         if (EstadoActual != EstadoEnvio.AsignadoARuta)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede desasignar porque su estado es {EstadoActual}.");
 
         HojaDeRutaId = null;
-        foreach (var bulto in _bultos)
-        {
-            bulto.MarcarFaltanteEnCarga();
-        }
 
         TransicionarEstado(
             EstadoEnvio.EnDeposito,
             "BultoFaltanteEnCarga",
             responsableUsuarioId,
-            "MobileApp",
+            "Backoffice",
             null,
             null,
             motivo);

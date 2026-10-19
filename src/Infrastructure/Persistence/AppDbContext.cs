@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<Repartidor> Repartidores => Set<Repartidor>();
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
+    public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
     public DbSet<AsignacionEnvioRuta> AsignacionesEnvioRuta => Set<AsignacionEnvioRuta>();
     public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
@@ -82,6 +83,8 @@ public class AppDbContext : DbContext
             builder.HasIndex(h => new { h.OperadorId, h.Fecha });
             builder.Navigation(h => h.Paradas).AutoInclude();
             builder.Navigation(h => h.Asignaciones).AutoInclude();
+            builder.HasMany(h => h.EscaneosCarga).WithOne().HasForeignKey(e => e.HojaDeRutaId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(h => h.EscaneosCarga).AutoInclude();
         });
 
         modelBuilder.Entity<Parada>(builder =>
@@ -180,6 +183,14 @@ public class AppDbContext : DbContext
             builder.Property(r => r.PrecioBase).HasPrecision(18, 2);
             builder.Property(r => r.Recargo).HasPrecision(18, 2);
             builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<EscaneoCargaVehiculo>(builder =>
+        {
+            builder.ToTable("EscaneosCargaVehiculo");
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Resultado).IsRequired().HasMaxLength(50);
+            builder.HasIndex(e => new { e.HojaDeRutaId, e.BultoId }).IsUnique();
         });
 
         modelBuilder.Entity<AsignacionEnvioRuta>(builder =>

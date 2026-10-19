@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
+using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Domain.Exceptions;
 
@@ -57,9 +58,49 @@ public static class PlanificacionEndpoints
         .Produces(StatusCodes.Status409Conflict)
         .WithOpenApi();
 
+        group.MapPost("/{hojaDeRutaId:guid}/despacho", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromBody] DespacharHojaDeRutaRequest? request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new DespacharHojaDeRutaCommand(hojaDeRutaId, request?.Observaciones), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (ConflictoDeConcurrenciaException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("DespacharHojaDeRuta")
+        .WithSummary("Despachar una hoja de ruta (UC-09)")
+        .WithDescription("El operario confirma la salida del vehículo: los envíos con todos sus bultos cargados pasan a EnTransito y los demás vuelven a depósito. Es idempotente.")
+        .Produces<DespachoResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status409Conflict)
+        .WithOpenApi();
+
         return app;
     }
 }
+
+public record DespacharHojaDeRutaRequest(string? Observaciones = null);
 
 public record ArmarHojaDeRutaRequest(
     Guid RepartidorId,

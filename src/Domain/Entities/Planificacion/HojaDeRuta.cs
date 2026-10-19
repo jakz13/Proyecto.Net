@@ -1,4 +1,5 @@
 using UltimaMilla.Domain.Common;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Planificacion;
@@ -19,6 +20,9 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     private readonly List<AsignacionEnvioRuta> _asignaciones = new();
     public IReadOnlyCollection<AsignacionEnvioRuta> Asignaciones => _asignaciones.AsReadOnly();
+
+    private readonly List<EscaneoCargaVehiculo> _escaneosCarga = new();
+    public IReadOnlyCollection<EscaneoCargaVehiculo> EscaneosCarga => _escaneosCarga.AsReadOnly();
 
     protected HojaDeRuta() { }
 
@@ -86,27 +90,36 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void IniciarCarga()
+    /// <summary>
+    /// Registra qué bultos se cargaron efectivamente en el vehículo (UC-18). Cada registro reemplaza al anterior,
+    /// por lo que reenviar la misma carga es idempotente. Esa información es la que usa el operario para despachar.
+    /// </summary>
+    public void RegistrarCargaEscaneada(IEnumerable<Guid> bultosCargadosIds)
     {
-        if (!RepartidorId.HasValue || !VehiculoId.HasValue)
-            throw new DomainValidationException("No se puede iniciar la carga sin repartidor y vehículo asignados.");
+        if (Estado is not ("Liberada" or "EnCarga"))
+            throw new DomainValidationException($"No se puede registrar la carga de una hoja de ruta en estado '{Estado}'.");
 
-        if (!_paradas.Any())
-            throw new DomainValidationException("No se puede iniciar la carga de una hoja de ruta sin paradas planificadas.");
+        var ids = (bultosCargadosIds ?? Enumerable.Empty<Guid>()).Distinct().ToList();
+        if (ids.Count == 0)
+            throw new DomainValidationException("Debe registrar al menos un bulto cargado.");
 
-        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
-            throw new DomainValidationException($"No se puede iniciar la carga en una hoja de ruta en estado '{Estado}'.");
+        if (ids.Contains(Guid.Empty))
+            throw new DomainValidationException("La carga contiene un identificador de bulto inválido.");
+
+        _escaneosCarga.Clear();
+        foreach (var bultoId in ids)
+            _escaneosCarga.Add(new EscaneoCargaVehiculo(Guid.NewGuid(), Id, bultoId, "Cargado"));
 
         Estado = "EnCarga";
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void Despachar()
-    {
-        DespacharConCarga(Enumerable.Empty<string>());
-    }
+    public bool BultoFueCargado(Guid bultoId) => _escaneosCarga.Any(e => e.BultoId == bultoId);
 
-    public void DespacharConCarga(IEnumerable<string> bultosCargadosEfectivos, string? observaciones = null)
+    /// <summary>
+    /// Despacha la hoja de ruta (UC-09). Requiere que la carga del vehículo ya haya sido escaneada y sincronizada.
+    /// </summary>
+    public void Despachar()
     {
         if (!RepartidorId.HasValue || !VehiculoId.HasValue)
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin repartidor y vehículo asignados.");
@@ -114,8 +127,11 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (!_paradas.Any())
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin paradas.");
 
-        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
+        if (Estado is "Despachada" or "EnTransito" or "Finalizada")
             throw new DomainValidationException($"La hoja de ruta ya se encuentra en estado '{Estado}'.");
+
+        if (Estado != "EnCarga")
+            throw new DomainValidationException($"No se puede despachar una hoja de ruta en estado '{Estado}': la carga del vehículo debe estar escaneada y sincronizada.");
 
         Estado = "Despachada";
         FechaDespacho = DateTime.UtcNow;

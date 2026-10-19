@@ -15,6 +15,11 @@ public class FakeRutaRepository : IRutaRepository
     public Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Rutas.FirstOrDefault(r => r.Id == id));
 
+    public Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Rutas.Any(r => r.RepartidorId == repartidorId
+                                       && r.Id != excluirHojaDeRutaId
+                                       && r.Estado is "Despachada" or "EnTransito" or "Finalizada"));
+
     public Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
         Rutas.Add(hojaDeRuta);

@@ -27,6 +27,16 @@ public class EfRutaRepository : IRutaRepository
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
     }
 
+    public async Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default)
+    {
+        // Despachada o finalizada en calle, pero aún sin rendición en depósito
+        return await _dbContext.HojasDeRuta.AnyAsync(
+            h => h.RepartidorId == repartidorId
+                 && h.Id != excluirHojaDeRutaId
+                 && (h.Estado == "Despachada" || h.Estado == "EnTransito" || h.Estado == "Finalizada"),
+            cancellationToken);
+    }
+
     public async Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
         await _dbContext.HojasDeRuta.AddAsync(hojaDeRuta, cancellationToken);

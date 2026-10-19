@@ -90,6 +90,23 @@ public class FakeCuadroTarifarioRepository : ICuadroTarifarioRepository
             .FirstOrDefault());
 }
 
+public class FakeOutboxStorage : IOutboxStorage
+{
+    public List<UltimaMilla.Domain.Entities.Mensajeria.OutboxMessage> Mensajes { get; } = new();
+
+    public Task SaveAsync(UltimaMilla.Domain.Entities.Mensajeria.OutboxMessage message, CancellationToken cancellationToken = default)
+    {
+        Mensajes.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveRangeAsync(IEnumerable<UltimaMilla.Domain.Entities.Mensajeria.OutboxMessage> messages, CancellationToken cancellationToken = default)
+    {
+        Mensajes.AddRange(messages);
+        return Task.CompletedTask;
+    }
+}
+
 public class FakeUnitOfWork : IUnitOfWork
 {
     public int Confirmaciones { get; private set; }

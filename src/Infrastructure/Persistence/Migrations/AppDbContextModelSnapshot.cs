@@ -22,6 +22,33 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.EscaneoCargaVehiculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BultoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HojaDeRutaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HojaDeRutaId", "BultoId")
+                        .IsUnique();
+
+                    b.ToTable("EscaneosCargaVehiculo", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.IntentoEntrega", b =>
                 {
                     b.Property<Guid>("Id")
@@ -758,6 +785,15 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("Paradas", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.EscaneoCargaVehiculo", b =>
+                {
+                    b.HasOne("UltimaMilla.Domain.Entities.Planificacion.HojaDeRuta", null)
+                        .WithMany("EscaneosCarga")
+                        .HasForeignKey("HojaDeRutaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.IntentoEntrega", b =>
                 {
                     b.HasOne("UltimaMilla.Domain.Entities.Envios.Envio", null)
@@ -854,6 +890,8 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Planificacion.HojaDeRuta", b =>
                 {
                     b.Navigation("Asignaciones");
+
+                    b.Navigation("EscaneosCarga");
 
                     b.Navigation("Paradas");
                 });

@@ -68,11 +68,10 @@ public static class MobileRutasEndpoints
         {
             try
             {
-                var command = new ConfirmarCargaYDespacharRutaCommand(
+                var command = new ConfirmarCargaCommand(
                     hojaDeRutaId,
                     request.CodigosBultosCargados,
-                    request.IdempotencyKey,
-                    request.ObservacionesDiscrepancia);
+                    request.IdempotencyKey);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Ok(resultado);
@@ -90,9 +89,9 @@ public static class MobileRutasEndpoints
                 return Results.Forbid();
             }
         })
-        .WithName("ConfirmarCargaYDespacharRuta")
-        .WithSummary("UC-18: Confirmar carga y despachar hoja de ruta")
-        .WithDescription("Confirma la carga efectiva de bultos, transiciona envíos cargados a EnTransito, desasigna faltantes y despacha la ruta de manera idempotente.")
+        .WithName("ConfirmarCarga")
+        .WithSummary("UC-18: Confirmar la carga del vehículo")
+        .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache (UC-09). No transiciona envíos.")
         .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -332,8 +331,7 @@ public record ValidarCargaRequest(List<string> CodigosBultosEscaneados);
 
 public record ConfirmarCargaRequest(
     List<string> CodigosBultosCargados,
-    string IdempotencyKey,
-    string? ObservacionesDiscrepancia = null
+    string IdempotencyKey
 );
 
 public record SeleccionarParadaRequest(

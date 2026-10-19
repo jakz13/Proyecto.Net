@@ -245,6 +245,8 @@ public class CierreParadaTests
         var envioId2 = Guid.NewGuid();
         ruta.AgregarParada(envioId1, 1, Guid.NewGuid());
         ruta.AgregarParada(envioId2, 2, Guid.NewGuid());
+        ruta.Liberar();
+        ruta.RegistrarCargaEscaneada(new[] { Guid.NewGuid() });
         ruta.Despachar();
 
         var parada1 = ruta.Paradas.First(p => p.EnvioId == envioId1);
