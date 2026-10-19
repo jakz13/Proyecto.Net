@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -18,6 +19,8 @@ public class BultoItemViewModel
 public partial class ParadaItemViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid HojaDeRutaId { get; set; } = Guid.Empty;
+    public Guid EnvioId { get; set; } = Guid.Empty;
     public int Orden { get; init; }
     public string Direccion { get; init; } = string.Empty;
     public string Ciudad { get; init; } = string.Empty;
@@ -75,6 +78,7 @@ public partial class ParadaItemViewModel : ObservableObject
 public partial class RutaDiaViewModel : ObservableObject
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -83,46 +87,158 @@ public partial class RutaDiaViewModel : ObservableObject
     private bool _isOffline = true;
 
     [ObservableProperty]
-    private double _progresoRuta = 0.33;
+    private bool _isOfflineSimulado = false;
 
     [ObservableProperty]
-    private string _resumenProgresoTexto = "1 de 3 paradas completadas";
+    private double _progresoRuta = 0.0;
 
     [ObservableProperty]
-    private string _progresoPorcentajeTexto = "33%";
+    private string _resumenProgresoTexto = "0 de 0 paradas completadas";
 
     [ObservableProperty]
-    private int _colaOfflineCount = 2;
+    private string _progresoPorcentajeTexto = "0%";
+
+    [ObservableProperty]
+    private int _colaOfflineCount = 0;
+
+    [ObservableProperty]
+    private string _textoBadgeConectividad = "Modo Offline";
+
+    [ObservableProperty]
+    private Color _badgeConectividadBgColor = Color.FromArgb("#FEF2F2");
+
+    [ObservableProperty]
+    private Color _badgeConectividadBorderColor = Color.FromArgb("#FCA5A5");
+
+    [ObservableProperty]
+    private Color _badgeConectividadTextColor = Color.FromArgb("#991B1B");
+
+    [ObservableProperty]
+    private Color _indicadorConexionDotColor = Color.FromArgb("#DC2626");
+
+    [ObservableProperty]
+    private bool _isBusy;
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null)
+    public RutaDiaViewModel() : this(null, null)
     {
     }
 
-    public RutaDiaViewModel(ILocalDatabaseService? localDatabaseService)
+    public RutaDiaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService)
     {
         _localDatabaseService = localDatabaseService;
+        _syncService = syncService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
-        CargarDatosMock();
-        RecalcularProgreso();
+
+        if (_syncService != null)
+        {
+            _syncService.OnSyncStateChanged += OnSyncStateChangedHandler;
+        }
+
+        ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, 0);
+    }
+
+    private void OnSyncStateChangedHandler(object? sender, SyncStateChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            ActualizarEstadoVisualConectividad(e.IsOnline, e.OperacionesPendientes);
+            await RefrescarParadasDesdeSQLiteAsync();
+        });
     }
 
     public async Task InicializarAsync()
     {
-        if (_localDatabaseService is not null)
+        if (IsBusy)
+            return;
+
+        try
         {
-            try
+            IsBusy = true;
+
+            if (_syncService is not null)
             {
-                var ops = await _localDatabaseService.ObtenerOperacionesPendientesAsync();
-                ColaOfflineCount = ops.Count;
+                var paradas = await _syncService.DescargarRutaDelDiaAsync();
+                Paradas.Clear();
+                foreach (var p in paradas)
+                {
+                    Paradas.Add(p);
+                }
+
+                int pendientes = await _syncService.ObtenerCantidadPendientesAsync();
+                ActualizarEstadoVisualConectividad(_syncService.IsOnline, pendientes);
             }
-            catch
+            else if (_localDatabaseService is not null)
             {
-                // Mantiene el valor mock
+                var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                Paradas.Clear();
+                if (local != null)
+                {
+                    foreach (var p in local.Paradas)
+                    {
+                        Paradas.Add(p);
+                    }
+                }
+                int pendientes = await _localDatabaseService.ObtenerCantidadPendientesAsync();
+                ActualizarEstadoVisualConectividad(false, pendientes);
             }
+
+            RecalcularProgreso();
         }
-        RecalcularProgreso();
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task RefrescarParadasDesdeSQLiteAsync()
+    {
+        if (_localDatabaseService is null)
+            return;
+
+        try
+        {
+            var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+            if (local != null && local.Paradas.Count > 0)
+            {
+                Paradas.Clear();
+                foreach (var p in local.Paradas)
+                {
+                    Paradas.Add(p);
+                }
+            }
+            RecalcularProgreso();
+        }
+        catch
+        {
+            // Fallback
+        }
+    }
+
+    public void ActualizarEstadoVisualConectividad(bool isOnline, int pendientes)
+    {
+        IsOffline = !isOnline;
+        IsOfflineSimulado = _syncService?.IsOfflineSimulado ?? false;
+        ColaOfflineCount = pendientes;
+
+        if (isOnline)
+        {
+            TextoBadgeConectividad = pendientes > 0 ? $"En Línea ({pendientes} pend.)" : "En Línea";
+            BadgeConectividadBgColor = Color.FromArgb("#F0FDF4"); // Verde suave
+            BadgeConectividadBorderColor = Color.FromArgb("#86EFAC");
+            BadgeConectividadTextColor = Color.FromArgb("#166534");
+            IndicadorConexionDotColor = Color.FromArgb("#16A34A");
+        }
+        else
+        {
+            string motivo = IsOfflineSimulado ? "Offline (Demo)" : "Modo Offline";
+            TextoBadgeConectividad = pendientes > 0 ? $"{motivo} ({pendientes} pend.)" : motivo;
+            BadgeConectividadBgColor = Color.FromArgb("#FEF2F2"); // Rojo suave
+            BadgeConectividadBorderColor = Color.FromArgb("#FCA5A5");
+            BadgeConectividadTextColor = Color.FromArgb("#991B1B");
+            IndicadorConexionDotColor = Color.FromArgb("#DC2626");
+        }
     }
 
     public void RecalcularProgreso()
@@ -142,72 +258,58 @@ public partial class RutaDiaViewModel : ObservableObject
         ProgresoPorcentajeTexto = $"{Math.Round(ProgresoRuta * 100)}%";
     }
 
-    private void CargarDatosMock()
+    [RelayCommand]
+    private async Task MostrarColaOfflineAsync()
     {
-        Paradas.Clear();
+        if (Shell.Current is null)
+            return;
 
-        Paradas.Add(new ParadaItemViewModel
-        {
-            Orden = 1,
-            Direccion = "Av. 18 de Julio 1450, Apto 402",
-            Ciudad = "Centro, Montevideo",
-            Destinatario = "Martín Rodríguez",
-            Telefono = "+598 99 123 456",
-            CantidadBultos = 2,
-            Estado = "Entregado",
-            HoraEstimada = "09:30",
-            CodigoSeguimiento = "ENV-2026-00108",
-            NotasComercio = "Tocar timbre 402. Si no atiende, dejar en portería con guardia de turno.",
-            Latitud = -34.9056,
-            Longitud = -56.1852,
-            Bultos = new List<BultoItemViewModel>
-            {
-                new() { Codigo = "BLT-001-A", Descripcion = "Caja mediana - Repuestos", PesoKg = 2.4m, EsFragil = false },
-                new() { Codigo = "BLT-001-B", Descripcion = "Sobre acolchado - Facturas", PesoKg = 0.3m, EsFragil = false }
-            }
-        });
+        int pendientes = _syncService != null
+            ? await _syncService.ObtenerCantidadPendientesAsync()
+            : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
 
-        Paradas.Add(new ParadaItemViewModel
-        {
-            Orden = 2,
-            Direccion = "Bvar. España 2678, Apto 501",
-            Ciudad = "Pocitos, Montevideo",
-            Destinatario = "Lucía Fernández",
-            Telefono = "+598 99 765 432",
-            CantidadBultos = 1,
-            Estado = "Pendiente",
-            HoraEstimada = "10:15",
-            CodigoSeguimiento = "ENV-2026-00109",
-            NotasComercio = "Llamar al móvil 5 minutos antes de llegar. Producto frágil, mantener posición vertical.",
-            Latitud = -34.9124,
-            Longitud = -56.1589,
-            Bultos = new List<BultoItemViewModel>
-            {
-                new() { Codigo = "BLT-002-A", Descripcion = "Caja cristalería - Delicado", PesoKg = 1.8m, EsFragil = true }
-            }
-        });
+        ColaOfflineCount = pendientes;
 
-        Paradas.Add(new ParadaItemViewModel
+        string opcionToggle = (_syncService?.IsOfflineSimulado ?? false)
+            ? "Desactivar Modo Offline (Pasar a Online)"
+            : "Activar Modo Offline Simulado (Demo)";
+
+        const string opcionSync = "Sincronizar Ahora con Backend";
+
+        var seleccion = await Shell.Current.DisplayActionSheetAsync(
+            $"Conectividad y Cola Offline ({pendientes} pendientes)",
+            "Cerrar",
+            null,
+            opcionToggle,
+            opcionSync);
+
+        if (seleccion == opcionToggle && _syncService is not null)
         {
-            Orden = 3,
-            Direccion = "Rambla Gandhi 456, Piso 8",
-            Ciudad = "Punta Carretas, Montevideo",
-            Destinatario = "Esteban Morales",
-            Telefono = "+598 98 999 111",
-            CantidadBultos = 3,
-            Estado = "Pendiente",
-            HoraEstimada = "11:00",
-            CodigoSeguimiento = "ENV-2026-00110",
-            NotasComercio = "Horario estricto de entrega entre 10:45 y 11:30. Solicitar C.I. obligatoria.",
-            Latitud = -34.9271,
-            Longitud = -56.1534,
-            Bultos = new List<BultoItemViewModel>
+            await _syncService.AlternarModoOfflineSimuladoAsync();
+            ActualizarEstadoVisualConectividad(_syncService.IsOnline, await _syncService.ObtenerCantidadPendientesAsync());
+
+            string mensaje = _syncService.IsOnline
+                ? "Modo Online activado. Se inició automáticamente la sincronización de operaciones pendientes en segundo plano."
+                : "Modo Offline Simulado activado para demostración. Las operaciones se registrarán de forma 100% local en SQLite cifrado.";
+
+            await Shell.Current.DisplayAlertAsync("Modo de Conexión", mensaje, "Aceptar");
+            await RefrescarParadasDesdeSQLiteAsync();
+        }
+        else if (seleccion == opcionSync && _syncService is not null)
+        {
+            if (!_syncService.IsOnline)
             {
-                new() { Codigo = "BLT-003-A", Descripcion = "Bulto pesas / Deporte", PesoKg = 5.0m, EsFragil = false },
-                new() { Codigo = "BLT-003-B", Descripcion = "Indumentaria deportiva", PesoKg = 1.2m, EsFragil = false },
-                new() { Codigo = "BLT-003-C", Descripcion = "Calzado técnico", PesoKg = 1.1m, EsFragil = false }
+                await Shell.Current.DisplayAlertAsync(
+                    "No es posible sincronizar",
+                    "El dispositivo se encuentra en Modo Offline. Desactive el modo offline simulado para transferir la cola al backend.",
+                    "Entendido");
+                return;
             }
-        });
+
+            var resultado = await _syncService.SincronizarOperacionesPendientesAsync();
+            await Shell.Current.DisplayAlertAsync("Sincronización de Cola", resultado.Mensaje, "Aceptar");
+            await RefrescarParadasDesdeSQLiteAsync();
+        }
     }
 
     [RelayCommand]
@@ -216,7 +318,6 @@ public partial class RutaDiaViewModel : ObservableObject
         if (parada is null)
             return;
 
-        // Navegación hacia la nueva pantalla de Detalle de Parada (vista previa previa a entrega/fallo)
         await Shell.Current.GoToAsync("DetalleParadaPage", new Dictionary<string, object>
         {
             { "Parada", parada }
@@ -264,8 +365,6 @@ public partial class RutaDiaViewModel : ObservableObject
                 ? $"{parada.Latitud.ToString(System.Globalization.CultureInfo.InvariantCulture)},{parada.Longitud.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
                 : Uri.EscapeDataString($"{parada.Direccion}, {parada.Ciudad}");
 
-            // En Windows, la app UWP 'Mapas' (Bing Maps) fue discontinuada por Microsoft.
-            // Abrimos directamente la ruta en Google Maps en el navegador predeterminado para navegación inmediata.
             if (DeviceInfo.Platform == DevicePlatform.WinUI)
             {
                 var mapsUrl = $"https://www.google.com/maps/dir/?api=1&destination={destination}";
@@ -288,42 +387,5 @@ public partial class RutaDiaViewModel : ObservableObject
             var fallbackDest = Uri.EscapeDataString($"{parada.Direccion}, {parada.Ciudad}");
             await Launcher.Default.OpenAsync($"https://www.google.com/maps/dir/?api=1&destination={fallbackDest}");
         }
-    }
-
-    [RelayCommand]
-    private async Task MostrarColaOfflineAsync()
-    {
-        int count = ColaOfflineCount;
-        if (_localDatabaseService is not null)
-        {
-            try
-            {
-                var pendientes = await _localDatabaseService.ObtenerOperacionesPendientesAsync();
-                count = pendientes.Count;
-                ColaOfflineCount = count;
-            }
-            catch
-            {
-                // Fallback a valor interno
-            }
-        }
-
-        if (Shell.Current is not null)
-        {
-            string mensaje = count == 0
-                ? "No hay operaciones pendientes de sincronización. Todos los remitos y estados están al día con la central."
-                : $"Hay {count} operación(es) registradas localmente en la base cifrada SQLite (RNF 6.11).\n\nSe sincronizarán automáticamente en segundo plano cuando la conectividad 4G/WiFi se restablezca.";
-
-            await Shell.Current.DisplayAlertAsync(
-                "Estado de Conectividad Offline",
-                mensaje,
-                "Entendido");
-        }
-    }
-
-    [RelayCommand]
-    private void AlternarModoRed()
-    {
-        IsOffline = !IsOffline;
     }
 }

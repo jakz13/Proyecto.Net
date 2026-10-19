@@ -11,7 +11,13 @@ public class EnvioLocal
     [Indexed]
     public Guid ParadaId { get; set; }
 
+    public string CodigoSeguimiento { get; set; } = string.Empty;
+
     public string Destinatario { get; set; } = string.Empty;
 
+    public string Direccion { get; set; } = string.Empty;
+
     public string Modalidad { get; set; } = string.Empty;
+
+    public string Estado { get; set; } = string.Empty;
 }

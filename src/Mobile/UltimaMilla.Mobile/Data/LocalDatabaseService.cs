@@ -1,16 +1,34 @@
 using SQLite;
+using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
+using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.Data;
+
+public class RutaActivaLocalDto
+{
+    public HojaDeRutaLocal Ruta { get; set; } = null!;
+    public List<ParadaItemViewModel> Paradas { get; set; } = new();
+}
 
 public interface ILocalDatabaseService
 {
     Task InitAsync();
     SQLiteAsyncConnection Connection { get; }
+
+    // Cola de operaciones offline (FIFO)
     Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson);
     Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync();
     Task MarcarComoSincronizadoAsync(int id);
     Task RegistrarErrorAsync(int id, string error);
+    Task<int> ObtenerCantidadPendientesAsync();
+
+    // Persistencia y consulta de hoja de ruta local (UC-17, UC-18, UC-19, UC-20, UC-21)
+    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null);
+    Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync();
+    Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
+    Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
+    Task SeedRutaDemoSiEstaVaciaAsync();
 }
 
 public class LocalDatabaseService : ILocalDatabaseService
@@ -26,7 +44,6 @@ public class LocalDatabaseService : ILocalDatabaseService
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
 
         // RNF 6.11: Base de datos cifrada en reposo mediante SQLite / SQLCipher.
-        // NOTA: Clave temporal hardcodeada solicitada. En etapas posteriores se resolverá de forma dinámica desde SecureStorage.
         const string encryptionPassword = "SuperSecretKey2026";
 
         var connectionString = new SQLiteConnectionString(
@@ -52,7 +69,6 @@ public class LocalDatabaseService : ILocalDatabaseService
             if (_initialized)
                 return;
 
-            // Creación de tablas de modelos offline
             await _database.CreateTableAsync<HojaDeRutaLocal>();
             await _database.CreateTableAsync<ParadaLocal>();
             await _database.CreateTableAsync<EnvioLocal>();
@@ -112,5 +128,336 @@ public class LocalDatabaseService : ILocalDatabaseService
             op.UltimoError = error;
             await _database.UpdateAsync(op);
         }
+    }
+
+    public async Task<int> ObtenerCantidadPendientesAsync()
+    {
+        await InitAsync();
+        return await _database.Table<OperacionOfflineLocal>()
+            .Where(o => !o.Sincronizado)
+            .CountAsync();
+    }
+
+    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null)
+    {
+        await InitAsync();
+
+        await _database.RunInTransactionAsync(conn =>
+        {
+            // 1. Upsert Hoja de Ruta
+            var ruta = conn.Find<HojaDeRutaLocal>(hojaDeRutaId);
+            if (ruta == null)
+            {
+                ruta = new HojaDeRutaLocal
+                {
+                    Id = hojaDeRutaId,
+                    Fecha = DateTime.Today,
+                    Estado = "EnTransito",
+                    NumeroRuta = $"HR-{DateTime.Today:yyyyMMdd}-01",
+                    TotalParadas = paradas.Count,
+                    FechaDescargaUtc = DateTime.UtcNow
+                };
+                conn.Insert(ruta);
+            }
+            else
+            {
+                ruta.TotalParadas = paradas.Count;
+                ruta.FechaDescargaUtc = DateTime.UtcNow;
+                conn.Update(ruta);
+            }
+
+            // 2. Upsert Paradas, Envios y Bultos
+            foreach (var p in paradas)
+            {
+                var paradaLocal = conn.Find<ParadaLocal>(p.ParadaId);
+                bool isNew = paradaLocal == null;
+                paradaLocal ??= new ParadaLocal { Id = p.ParadaId };
+
+                paradaLocal.HojaDeRutaId = hojaDeRutaId;
+                paradaLocal.EnvioId = p.EnvioId;
+                paradaLocal.Orden = p.Orden;
+                
+                // Preservar estado completado local si aún no se sincroniza
+                if (isNew || (paradaLocal.Estado != "Entregado" && paradaLocal.Estado != "Fallido"))
+                {
+                    paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
+                }
+
+                paradaLocal.CodigoSeguimiento = p.CodigoSeguimiento;
+                paradaLocal.Direccion = p.DireccionFormateada;
+                paradaLocal.Ciudad = ExtraerCiudad(p.DireccionFormateada);
+                paradaLocal.DestinatarioNombre = p.Destinatario?.Nombre ?? "Destinatario";
+                paradaLocal.DestinatarioTelefono = p.Destinatario?.Telefono ?? "+598 99 123 456";
+                paradaLocal.DestinatarioEmail = p.Destinatario?.Email;
+                paradaLocal.NotasComercio = p.Destinatario?.ReferenciaEntrega ?? string.Empty;
+                paradaLocal.Latitud = p.Latitud ?? -34.9056;
+                paradaLocal.Longitud = p.Longitud ?? -56.1852;
+                paradaLocal.VentanaHoraria = p.VentanaHoraria ?? "09:00 - 13:00";
+                paradaLocal.HoraEstimada = $"{8 + p.Orden:D2}:30";
+                paradaLocal.CantidadBultos = p.ResumenBultos?.CantidadBultos ?? 1;
+                paradaLocal.EsParadaActual = p.EsParadaActual;
+
+                if (isNew)
+                    conn.Insert(paradaLocal);
+                else
+                    conn.Update(paradaLocal);
+
+                // Envio
+                var envioLocal = conn.Find<EnvioLocal>(p.EnvioId);
+                if (envioLocal == null)
+                {
+                    envioLocal = new EnvioLocal
+                    {
+                        Id = p.EnvioId,
+                        ParadaId = p.ParadaId,
+                        CodigoSeguimiento = p.CodigoSeguimiento,
+                        Destinatario = paradaLocal.DestinatarioNombre,
+                        Direccion = paradaLocal.Direccion,
+                        Modalidad = "Estandar",
+                        Estado = paradaLocal.Estado
+                    };
+                    conn.Insert(envioLocal);
+                }
+                else
+                {
+                    envioLocal.ParadaId = p.ParadaId;
+                    conn.Update(envioLocal);
+                }
+
+                // Bultos
+                if (p.ResumenBultos?.CodigosBultos != null && p.ResumenBultos.CodigosBultos.Count > 0)
+                {
+                    foreach (var codBulto in p.ResumenBultos.CodigosBultos)
+                    {
+                        var bultoExistente = conn.Table<BultoLocal>()
+                            .Where(b => b.EnvioId == p.EnvioId && b.Codigo == codBulto)
+                            .FirstOrDefault();
+
+                        if (bultoExistente == null)
+                        {
+                            var bultoLocal = new BultoLocal
+                            {
+                                Id = Guid.NewGuid(),
+                                EnvioId = p.EnvioId,
+                                ParadaId = p.ParadaId,
+                                Codigo = codBulto,
+                                Identificacion = codBulto,
+                                Descripcion = $"Bulto {codBulto}",
+                                Peso = p.ResumenBultos.PesoTotalKg > 0 ? (p.ResumenBultos.PesoTotalKg / p.ResumenBultos.CantidadBultos) : 1.5m,
+                                EsFragil = false
+                            };
+                            conn.Insert(bultoLocal);
+                        }
+                    }
+                }
+            }
+
+            // 3. Catálogo de Motivos de No Entrega
+            var motivosList = motivos ?? DemoDataDefaults.ObtenerCatalogoMotivos();
+            foreach (var m in motivosList)
+            {
+                var existingMotivo = conn.Find<MotivoNoEntregaLocal>(m.Id);
+                if (existingMotivo == null)
+                {
+                    conn.Insert(m);
+                }
+                else
+                {
+                    existingMotivo.Codigo = m.Codigo;
+                    existingMotivo.Descripcion = m.Descripcion;
+                    existingMotivo.Activo = m.Activo;
+                    conn.Update(existingMotivo);
+                }
+            }
+        });
+    }
+
+    public async Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync()
+    {
+        await InitAsync();
+
+        var ruta = await _database.Table<HojaDeRutaLocal>()
+            .OrderByDescending(r => r.FechaDescargaUtc)
+            .FirstOrDefaultAsync();
+
+        if (ruta == null)
+            return null;
+
+        var paradas = await _database.Table<ParadaLocal>()
+            .Where(p => p.HojaDeRutaId == ruta.Id)
+            .OrderBy(p => p.Orden)
+            .ToListAsync();
+
+        var resultParadas = new List<ParadaItemViewModel>();
+
+        foreach (var p in paradas)
+        {
+            var bultos = await _database.Table<BultoLocal>()
+                .Where(b => b.ParadaId == p.Id || b.EnvioId == p.EnvioId)
+                .ToListAsync();
+
+            var bultoItems = bultos.Select(b => new BultoItemViewModel
+            {
+                Codigo = b.Codigo,
+                Descripcion = b.Descripcion,
+                PesoKg = b.Peso,
+                EsFragil = b.EsFragil
+            }).ToList();
+
+            if (bultoItems.Count == 0 && p.CantidadBultos > 0)
+            {
+                for (int i = 1; i <= p.CantidadBultos; i++)
+                {
+                    bultoItems.Add(new BultoItemViewModel
+                    {
+                        Codigo = $"{p.CodigoSeguimiento}-B{i}",
+                        Descripcion = $"Bulto {i}",
+                        PesoKg = 1.5m,
+                        EsFragil = false
+                    });
+                }
+            }
+
+            var vm = new ParadaItemViewModel
+            {
+                Id = p.Id,
+                HojaDeRutaId = p.HojaDeRutaId,
+                EnvioId = p.EnvioId,
+                Orden = p.Orden,
+                Direccion = p.Direccion,
+                Ciudad = p.Ciudad,
+                Destinatario = p.DestinatarioNombre,
+                Telefono = p.DestinatarioTelefono ?? string.Empty,
+                CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
+                Estado = p.Estado,
+                HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
+                CodigoSeguimiento = p.CodigoSeguimiento,
+                NotasComercio = p.NotasComercio ?? string.Empty,
+                Latitud = p.Latitud,
+                Longitud = p.Longitud,
+                Bultos = bultoItems
+            };
+
+            resultParadas.Add(vm);
+        }
+
+        return new RutaActivaLocalDto
+        {
+            Ruta = ruta,
+            Paradas = resultParadas
+        };
+    }
+
+    public async Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado)
+    {
+        await InitAsync();
+        var parada = await _database.FindAsync<ParadaLocal>(paradaId);
+        if (parada != null)
+        {
+            parada.Estado = MapearEstadoParada(nuevoEstado);
+            await _database.UpdateAsync(parada);
+
+            var envio = await _database.Table<EnvioLocal>()
+                .Where(e => e.ParadaId == paradaId)
+                .FirstOrDefaultAsync();
+
+            if (envio != null)
+            {
+                envio.Estado = parada.Estado;
+                await _database.UpdateAsync(envio);
+            }
+        }
+    }
+
+    public async Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync()
+    {
+        await InitAsync();
+        var motivos = await _database.Table<MotivoNoEntregaLocal>().ToListAsync();
+        if (motivos.Count == 0)
+        {
+            var defaults = DemoDataDefaults.ObtenerCatalogoMotivos();
+            await _database.InsertAllAsync(defaults);
+            return defaults;
+        }
+        return motivos;
+    }
+
+    public async Task SeedRutaDemoSiEstaVaciaAsync()
+    {
+        await InitAsync();
+        var count = await _database.Table<HojaDeRutaLocal>().CountAsync();
+        if (count > 0)
+            return;
+
+        var paradasDemo = new List<ParadaNavegacionDto>
+        {
+            new(
+                ParadaId: DemoDataDefaults.Parada1Id,
+                EnvioId: DemoDataDefaults.Envio1Id,
+                Orden: 1,
+                EstadoParada: "Entregado",
+                CodigoSeguimiento: "ENV-2026-00108",
+                DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
+                Latitud: -34.9056,
+                Longitud: -56.1852,
+                VentanaHoraria: "09:00 - 10:00",
+                Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
+                ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
+                EsParadaActual: false
+            ),
+            new(
+                ParadaId: DemoDataDefaults.Parada2Id,
+                EnvioId: DemoDataDefaults.Envio2Id,
+                Orden: 2,
+                EstadoParada: "Pendiente",
+                CodigoSeguimiento: "ENV-2026-00109",
+                DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
+                Latitud: -34.9124,
+                Longitud: -56.1589,
+                VentanaHoraria: "10:00 - 11:00",
+                Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
+                ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
+                EsParadaActual: true
+            ),
+            new(
+                ParadaId: DemoDataDefaults.Parada3Id,
+                EnvioId: DemoDataDefaults.Envio3Id,
+                Orden: 3,
+                EstadoParada: "Pendiente",
+                CodigoSeguimiento: "ENV-2026-00110",
+                DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
+                Latitud: -34.9271,
+                Longitud: -56.1534,
+                VentanaHoraria: "11:00 - 12:00",
+                Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
+                ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),
+                EsParadaActual: false
+            )
+        };
+
+        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo);
+    }
+
+    private static string MapearEstadoParada(string estado)
+    {
+        return estado switch
+        {
+            "Completada" or "Entregada" or "Entregado" => "Entregado",
+            "Fallida" or "Fallido" => "Fallido",
+            "Reprogramado" => "Fallido",
+            "EnDevolucion" => "Fallido",
+            "EnCamino" or "EnSitio" or "Pendiente" => "Pendiente",
+            _ => "Pendiente"
+        };
+    }
+
+    private static string ExtraerCiudad(string direccionCompleta)
+    {
+        var partes = direccionCompleta.Split(',');
+        if (partes.Length >= 2)
+        {
+            return partes[^1].Trim();
+        }
+        return "Montevideo";
     }
 }

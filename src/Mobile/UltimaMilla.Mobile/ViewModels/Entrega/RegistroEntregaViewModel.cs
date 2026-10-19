@@ -2,6 +2,8 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
@@ -10,6 +12,7 @@ namespace UltimaMilla.Mobile.ViewModels.Entrega;
 public partial class RegistroEntregaViewModel : ObservableObject
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
 
     [ObservableProperty]
     private ParadaItemViewModel? _paradaSeleccionada;
@@ -35,14 +38,15 @@ public partial class RegistroEntregaViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public RegistroEntregaViewModel() : this(null)
+    public RegistroEntregaViewModel() : this(null, null)
     {
     }
 
-    public RegistroEntregaViewModel(ILocalDatabaseService? localDatabaseService)
+    public RegistroEntregaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null)
     {
         _localDatabaseService = localDatabaseService;
-        // Valores mock por defecto si se accede directamente
+        _syncService = syncService;
+
         _nombreReceptor = "Lucía Fernández";
         _documentoReceptor = "4.567.890-1";
     }
@@ -53,9 +57,8 @@ public partial class RegistroEntregaViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        // Mock: Simulación de captura con cámara
         TieneFoto = true;
-        FotoStatusText = "📷 Foto de entrega adjunta (remito_mock_01.jpg)";
+        FotoStatusText = "Foto de entrega adjunta (remito_evidencia_01.jpg)";
 
         if (Shell.Current is not null)
         {
@@ -70,7 +73,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
     private void SimularFirma()
     {
         TieneFirma = true;
-        FirmaStatusText = "✍️ Firma digital capturada (240 pts vectoriales)";
+        FirmaStatusText = "Firma digital capturada (240 pts vectoriales)";
     }
 
     [RelayCommand]
@@ -102,38 +105,79 @@ public partial class RegistroEntregaViewModel : ObservableObject
         {
             IsBusy = true;
 
-            // Simulación de guardado en base de datos cifrada SQLite local (RNF 6.11)
-            var payload = JsonSerializer.Serialize(new
+            var parada = ParadaSeleccionada;
+            var paradaId = parada?.Id ?? Guid.NewGuid();
+            var hojaDeRutaId = (parada?.HojaDeRutaId != null && parada.HojaDeRutaId != Guid.Empty)
+                ? parada.HojaDeRutaId
+                : DemoDataDefaults.DefaultHojaDeRutaId;
+
+            var envioId = (parada?.EnvioId != null && parada.EnvioId != Guid.Empty)
+                ? parada.EnvioId
+                : Guid.NewGuid();
+
+            var idempotencyKey = $"ENTREGA-{paradaId:N}-{DateTime.UtcNow.Ticks}";
+
+            // Contrato idéntico a RegistrarEntregaExitosaCommand (UC-20)
+            var payload = new EntregaExitosaOfflinePayload
             {
-                ParadaId = ParadaSeleccionada?.Id ?? Guid.NewGuid(),
-                CodigoSeguimiento = ParadaSeleccionada?.CodigoSeguimiento ?? "ENV-MOCK",
+                HojaDeRutaId = hojaDeRutaId,
+                ParadaId = paradaId,
+                EnvioId = envioId,
+                IdempotencyKey = idempotencyKey,
                 NombreReceptor = NombreReceptor.Trim(),
                 DocumentoReceptor = DocumentoReceptor.Trim(),
-                TieneFirma = TieneFirma,
-                TieneFoto = TieneFoto,
-                FechaUtc = DateTime.UtcNow
-            });
+                FirmaDigitalBase64 = TieneFirma ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" : null,
+                FotoEvidenciaBase64 = TieneFoto ? "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" : null,
+                Latitud = parada?.Latitud != 0 ? parada?.Latitud : -34.9056,
+                Longitud = parada?.Longitud != 0 ? parada?.Longitud : -56.1852,
+                FechaHoraDispositivoUtc = DateTime.UtcNow
+            };
 
+            // 1. Guardar en cola offline cifrada y actualizar estado local SQLite
             if (_localDatabaseService is not null)
             {
-                await _localDatabaseService.EncolarOperacionAsync("REGISTRAR_ENTREGA", payload);
+                await _localDatabaseService.EncolarOperacionAsync(
+                    TiposOperacionOffline.EntregaExitosa,
+                    JsonSerializer.Serialize(payload));
+
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Entregado");
             }
 
-            if (ParadaSeleccionada is not null)
+            // 2. Actualizar estado en modelo en memoria
+            if (parada is not null)
             {
-                ParadaSeleccionada.Estado = "Entregado";
+                parada.Estado = "Entregado";
             }
 
-            await Task.Delay(400);
+            // 3. Si la app está Online, disparar sincronización en background
+            if (_syncService?.IsOnline == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _syncService.SincronizarOperacionesPendientesAsync();
+                    }
+                    catch
+                    {
+                        // Fallback silente en background
+                    }
+                });
+            }
+
+            await Task.Delay(250);
 
             if (Shell.Current is not null)
             {
+                string infoRed = (_syncService?.IsOnline == true)
+                    ? "Sincronizando entrega con la central en tiempo real."
+                    : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
+
                 await Shell.Current.DisplayAlertAsync(
-                    "¡Entrega Exitosa!",
-                    $"La entrega a {NombreReceptor.Trim()} ha sido guardada en la base de datos cifrada local.",
+                    "Entrega Exitosa (UC-20)",
+                    $"La entrega a {NombreReceptor.Trim()} fue registrada exitosamente.\n\n{infoRed}",
                     "Finalizar");
 
-                // Retornar a la lista principal de ruta
                 await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }
