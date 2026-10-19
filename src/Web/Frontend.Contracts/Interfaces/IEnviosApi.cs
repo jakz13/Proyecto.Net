@@ -25,6 +25,16 @@ public interface IEnviosApi
     /// </summary>
     Task<EnvioDto> CrearEnvioAsync(CrearEnvioDto nuevoEnvio, CancellationToken cancelacion = default);
 
+    /// <summary>
+    /// Declara formalmente un envío en depósito o en tránsito como extraviado (UC-43, RF-11, RF-12).
+    /// </summary>
+    Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Obtiene la trazabilidad y registro histórico completo de eventos de un envío.
+    /// </summary>
+    Task<IReadOnlyList<EventoHistorialEnvioDto>> ObtenerHistorialEnvioAsync(Guid envioId, CancellationToken cancelacion = default);
+
     // TODO: Definir contrato para importación masiva de envíos (UC-25) enviando cabecera Idempotency-Key (SHA-256 del archivo).
     // TODO: Definir contrato para generación y descarga de etiquetas en PDF/ZPL (UC-26).
 }

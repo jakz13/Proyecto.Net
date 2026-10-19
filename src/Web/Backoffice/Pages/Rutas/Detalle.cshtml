@@ -21,6 +21,16 @@ else
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
+            @if (ruta.Estado == "Liberada")
+            {
+                <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    <span>Despachar Ruta</span>
+                </a>
+            }
             <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="simularDescargaMovil()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>

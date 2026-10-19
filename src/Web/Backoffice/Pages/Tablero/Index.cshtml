@@ -1,0 +1,819 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Tablero.IndexModel
+@{
+    ViewData["Title"] = "Tablero de Operaciones";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3 d-print-none">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 fw-bold text-dark mb-0">Tablero de Operaciones</h1>
+            <partial name="_BotonAyuda" model='"Monitoreo en tiempo real de la flota en calle, telemetría de vehículos y detección temprana de envíos en riesgo de incumplir la franja horaria comprometida. Permite intervenir preventivamente contactando al repartidor o reasignando paradas."' />
+        </div>
+        <p class="text-secondary small mb-0 mt-1">
+            Seguimiento telemétrico de la flota urbana, alertas tempranas de SLA e intervención operativa inmediata.
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" onclick="location.reload()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Actualizar</span>
+        </button>
+    </div>
+</div>
+
+<!-- Alertas Informativas del Sistema -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-4 text-dark border-success-subtle" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success flex-shrink-0" aria-hidden="true">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <div>@Model.MensajeExito</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-4 text-dark border-danger-subtle" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div>@Model.MensajeError</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<!-- Tarjetas Métricas Operativas Superiores -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Rutas en Ejecución</span>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRutasEnEjecucion</div>
+            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Hojas de ruta activas hoy</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Repartidores en Calle</span>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRepartidoresEnCalle</div>
+            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Personal en reparto activo</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Envíos en Tránsito</span>
+            <div class="h3 fw-bold mb-0 text-primary">@Model.Resumen.TotalEnviosEnTransito</div>
+            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Paradas pendientes de entrega</div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "border-start border-danger border-4" : "")">
+            <span class="text-secondary small fw-semibold mb-1">En Riesgo de Ventana</span>
+            <div class="h3 fw-bold mb-0 @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "text-danger" : "text-dark") d-flex align-items-center justify-content-between">
+                <span>@Model.Resumen.TotalEnviosEnRiesgo</span>
+                @if (Model.Resumen.TotalEnviosEnRiesgo > 0)
+                {
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-medium" style="font-size: 0.725rem;">Atención requerida</span>
+                }
+            </div>
+            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Demoras estimadas sobre SLA</div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de Filtros y Búsqueda -->
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3 bg-white">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <select name="filtroEstado" class="form-select form-select-sm text-dark" onchange="this.form.submit()">
+                    <option value="Todos" selected="@(Model.FiltroEstado == "Todos")">Todas las unidades (@Model.Resumen.Vehiculos.Count)</option>
+                    <option value="SoloRiesgo" selected="@(Model.FiltroEstado == "SoloRiesgo")">Solo unidades con riesgo SLA (@Model.Resumen.Vehiculos.Count(v => v.TieneAlertasRiesgo))</option>
+                    <option value="EnMovimiento" selected="@(Model.FiltroEstado == "EnMovimiento")">En movimiento</option>
+                    <option value="Detenidos" selected="@(Model.FiltroEstado == "Detenidos")">Detenidos o con alerta</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-5">
+                <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control form-control-sm text-dark" placeholder="Buscar por repartidor, matrícula, ruta o código de envío..." />
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-dark btn-sm px-3 flex-grow-1">Filtrar</button>
+                @if (Model.FiltroEstado != "Todos" || !string.IsNullOrWhiteSpace(Model.Busqueda))
+                {
+                    <a asp-page="/Tablero/Index" class="btn btn-outline-secondary btn-sm text-dark" title="Limpiar filtros">✕</a>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     ESTRUCTURA PRINCIPAL POR SOLAPAS ORGANIZADAS
+     ========================================================================= -->
+<ul class="nav nav-pills mb-3 gap-2" id="pillsTablero" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2" id="pill-alertas-tab" data-bs-toggle="pill" data-bs-target="#pill-alertas" type="button" role="tab" aria-controls="pill-alertas" aria-selected="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Envíos en Riesgo SLA</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2" id="pill-flota-tab" data-bs-toggle="pill" data-bs-target="#pill-flota" type="button" role="tab" aria-controls="pill-flota" aria-selected="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            <span>Flota en Operación</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2" id="pill-mapa-tab" data-bs-toggle="pill" data-bs-target="#pill-mapa" type="button" role="tab" aria-controls="pill-mapa" aria-selected="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                <line x1="8" y1="2" x2="8" y2="18"></line>
+                <line x1="16" y1="6" x2="16" y2="22"></line>
+            </svg>
+            <span>Mapa de Seguimiento</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="pillsTableroContent">
+    <!-- =========================================================================
+         SOLAPA 1: ENVÍOS EN RIESGO DE VENTANA HORARIA (TABLA OPERATIVA PRINCIPAL)
+         ========================================================================= -->
+    <div class="tab-pane fade show active" id="pill-alertas" role="tabpanel" aria-labelledby="pill-alertas-tab">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h6 fw-bold mb-0 text-dark">Monitoreo de Envíos en Riesgo de Ventana Comprometida</h2>
+                    <span class="text-secondary small">Detección predictiva de demoras para intervención y mitigación temprana</span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 14%;" class="text-dark">Envío / Hoja</th>
+                            <th style="width: 24%;" class="text-dark">Destinatario y Dirección</th>
+                            <th style="width: 16%;" class="text-dark">Ventana Comprometida</th>
+                            <th style="width: 14%;" class="text-dark">Retraso Estimado</th>
+                            <th style="width: 22%;" class="text-dark">Causa y Repartidor</th>
+                            <th class="text-end" style="width: 10%;" class="text-dark">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Resumen.AlertasRiesgo.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-secondary">
+                                    <div class="text-success fw-semibold mb-1">Todos los envíos se encuentran dentro del horario comprometido.</div>
+                                    <div class="small">No se registran alertas de riesgo de SLA en la flota activa.</div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var alerta in Model.Resumen.AlertasRiesgo)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark font-monospace">@alerta.CodigoSeguimiento</div>
+                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">
+                                            @alerta.NumeroRuta
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small">@alerta.Destinatario</div>
+                                        <div class="text-secondary small text-truncate" style="max-width: 240px;" title="@alerta.Direccion">
+                                            @alerta.Direccion
+                                        </div>
+                                        <div class="text-muted small" style="font-size: 0.7rem;">@alerta.Zona</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark small">@alerta.FranjaHoraria</div>
+                                        <div class="text-secondary small" style="font-size: 0.725rem;">
+                                            Límite: @alerta.HoraLimiteVentana.ToString("HH:mm") hs
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(alerta.NivelRiesgo == "Critico" ? "bg-danger text-white" : "bg-warning-subtle text-warning-emphasis border border-warning-subtle") fw-bold px-2 py-1">
+                                            +@alerta.MinutosRetrasoEstimado min
+                                        </span>
+                                        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
+                                            Est: @alerta.HoraEstimadaLlegada.ToString("HH:mm") hs
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="text-dark small">@alerta.CausaRiesgo</div>
+                                        <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
+                                            Chofer: <strong class="text-dark">@alerta.RepartidorNombre</strong> <span class="badge bg-light text-dark border ms-1 font-monospace">@alerta.VehiculoMatricula</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1 justify-content-end align-items-center">
+                                            <button type="button" 
+                                                    class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="Contactar al chofer"
+                                                    onclick="abrirModalContacto('@alerta.RepartidorNombre', '@alerta.RepartidorTelefono', '@alerta.VehiculoMatricula', '@alerta.CodigoSeguimiento', '@alerta.HojaDeRutaId')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                                </svg>
+                                            </button>
+                                            <a asp-page="/Rutas/Detalle" asp-route-id="@alerta.HojaDeRutaId" 
+                                               class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" 
+                                               data-bs-toggle="tooltip"
+                                               data-bs-placement="top"
+                                               title="Reasignar en la hoja de ruta">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <polyline points="17 1 21 5 17 9"></polyline>
+                                                    <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                                                    <polyline points="7 23 3 19 7 15"></polyline>
+                                                    <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         SOLAPA 2: FLOTA EN OPERACIÓN ACTIVA
+         ========================================================================= -->
+    <div class="tab-pane fade" id="pill-flota" role="tabpanel" aria-labelledby="pill-flota-tab">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h6 fw-bold mb-0 text-dark">Flota en Operación Urbana</h2>
+                    <span class="text-secondary small">Telemetría de unidades, velocidad, carga de batería y avance del itinerario</span>
+                </div>
+                <span class="badge bg-light text-secondary border font-monospace">
+                    @Model.VehiculosFiltrados.Count unidades desplegadas
+                </span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 14%;" class="text-dark">Vehículo / Ruta</th>
+                            <th style="width: 16%;" class="text-dark">Repartidor</th>
+                            <th style="width: 18%;" class="text-dark">Ubicación Actual</th>
+                            <th style="width: 14%;" class="text-dark">Parada en Curso</th>
+                            <th style="width: 14%;" class="text-dark">Avance</th>
+                            <th style="width: 14%;" class="text-dark">Telemetría</th>
+                            <th class="text-end" style="width: 10%;" class="text-dark">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var veh in Model.VehiculosFiltrados)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark font-monospace">@veh.VehiculoMatricula</div>
+                                    <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.NumeroRuta</div>
+                                    <div class="text-muted small" style="font-size: 0.7rem;">@veh.VehiculoModelo</div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark small">@veh.RepartidorNombre</div>
+                                    <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.RepartidorTelefono</div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark small">@veh.ZonaActual</div>
+                                    <div class="text-secondary small text-truncate" style="max-width: 220px;" title="@veh.DireccionAproximada">
+                                        @veh.DireccionAproximada
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(veh.ParadaActualCodigo))
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1" style="font-size: 0.75rem;">
+                                            @veh.ParadaActualCodigo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Sin parada activa</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex justify-content-between align-items-center small mb-1">
+                                        <span class="fw-semibold text-dark">@veh.ParadasCompletadas / @veh.TotalParadas</span>
+                                        <span class="text-secondary small">@veh.PorcentajeProgreso%</span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar @(veh.TieneAlertasRiesgo ? "bg-danger" : "bg-dark")" style="width: @veh.PorcentajeProgreso%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        @if (veh.TieneAlertasRiesgo)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.7rem;">
+                                                Alerta SLA (@veh.CantidadEnviosEnRiesgo)
+                                            </span>
+                                        }
+                                        else if (veh.EstadoOperativo == "EnMovimiento")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                                En Movimiento (@veh.VelocidadKmh km/h)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem;">
+                                                Detenido (0 km/h)
+                                            </span>
+                                        }
+                                    </div>
+                                    <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
+                                        Bat: <strong class="text-dark">@veh.NivelBateriaPct%</strong> · GPS sincronizado
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1 justify-content-end align-items-center">
+                                        <button type="button" 
+                                                class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                title="Contactar al chofer"
+                                                onclick="abrirModalContacto('@veh.RepartidorNombre', '@veh.RepartidorTelefono', '@veh.VehiculoMatricula', null, '@veh.RepartidorId')">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                            </svg>
+                                        </button>
+                                        <a asp-page="/Rutas/Detalle" asp-route-id="@veh.HojaDeRutaId" 
+                                           class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                           data-bs-toggle="tooltip"
+                                           data-bs-placement="top"
+                                           title="Ver itinerario de ruta">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                                                <line x1="8" y1="2" x2="8" y2="18"></line>
+                                                <line x1="16" y1="6" x2="16" y2="22"></line>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         SOLAPA 3: MAPA TÁCTICO URBANO (VISTA MINIMALISTA Y SOBRIA)
+         ========================================================================= -->
+    <div class="tab-pane fade" id="pill-mapa" role="tabpanel" aria-labelledby="pill-mapa-tab">
+        <div class="row g-4">
+            <!-- Lienzo Limpio del Mapa de Montevideo -->
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-dark">Radar Metropolitano de Flota</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                4 Unidades Rastreadas
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 bg-light rounded-bottom-3 position-relative" style="min-height: 440px;">
+                        <svg id="lienzoMapaOperacion" width="100%" height="440" viewBox="0 0 800 440" class="w-100 h-100" style="background-color: #f8fafc;">
+                            <defs>
+                                <pattern id="patronRejillaLimpia" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
+                                </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#patronRejillaLimpia)" />
+
+                            <!-- Línea de Costa Montevideo Sutil -->
+                            <path d="M 0,250 Q 180,240 280,280 T 500,320 T 700,350 T 800,370 L 800,440 L 0,440 Z" 
+                                  fill="#e2e8f0" fill-opacity="0.6" stroke="#cbd5e1" stroke-width="1.2" />
+
+                            <!-- Ejes Viales Principales de Montevideo -->
+                            <path d="M 300,30 Q 340,170 520,330" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" />
+                            <path d="M 140,230 Q 360,210 720,270" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" />
+                            <path d="M 200,50 L 280,220" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" />
+                            <path d="M 400,200 Q 580,170 800,150" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" />
+
+                            <!-- Rótulos Geográficos Sutiles -->
+                            <text x="200" y="130" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">PRADO</text>
+                            <text x="280" y="210" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">CENTRO</text>
+                            <text x="380" y="260" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">CORDÓN</text>
+                            <text x="510" y="300" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">POCITOS</text>
+                            <text x="700" y="240" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">MALVÍN</text>
+
+                            <!-- Capas dinámicas -->
+                            <g id="capaRutas"></g>
+                            <g id="capaVehiculos"></g>
+                        </svg>
+
+                        <!-- Leyenda compacta en esquina -->
+                        <div class="position-absolute bottom-0 start-0 m-3 p-2 bg-white rounded-2 border shadow-sm small" style="font-size: 0.725rem;">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="d-inline-block rounded-circle bg-success" style="width: 8px; height: 8px;"></span> Normal
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="d-inline-block rounded-circle bg-danger" style="width: 8px; height: 8px;"></span> Riesgo SLA
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="d-inline-block rounded-circle bg-warning" style="width: 8px; height: 8px;"></span> Detenido
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ficha Lateral Unificada de la Unidad Seleccionada (Altura fija) -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100" style="min-height: 440px;">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-dark" id="mapaPanelTitulo">Detalle de Unidad</span>
+                        <span class="badge bg-secondary-subtle text-secondary border" id="mapaBadgeEstado">Seleccione en mapa</span>
+                    </div>
+
+                    <div class="card-body p-3 d-flex flex-column justify-content-between" style="min-height: 380px;">
+                        <div id="mapaCajaVacia" class="text-center py-5 text-secondary">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2 text-muted">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <div class="fw-semibold text-dark">Haga clic en un vehículo del mapa.</div>
+                            <div class="small">Visualizará su telemetría y paradas activas.</div>
+                        </div>
+
+                        <div id="mapaCajaDetalle" style="display: none;" class="w-100">
+                            <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+                                <div>
+                                    <div class="h6 fw-bold text-dark mb-0 font-monospace" id="mapaMatricula">STX-0000</div>
+                                    <div class="small text-secondary" id="mapaModelo">--</div>
+                                    <div class="small text-dark fw-semibold mt-1" id="mapaRepartidor">--</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-light text-dark border font-monospace" id="mapaRuta">--</span>
+                                    <div class="small text-secondary mt-1">
+                                        Bat: <strong class="text-dark" id="mapaBateria">--</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-2 bg-light rounded-2 border mb-3">
+                                <div class="text-secondary small" style="font-size: 0.7rem;">Ubicación:</div>
+                                <div class="small fw-semibold text-dark" id="mapaDireccion">--</div>
+                                <div class="small text-primary font-monospace mt-1" id="mapaParadaActual">--</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center small mb-1">
+                                    <span class="text-secondary fw-semibold">Avance:</span>
+                                    <span class="text-dark fw-bold" id="mapaProgresoTexto">--</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div id="mapaBarraProgreso" class="progress-bar bg-dark" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div id="mapaCajaRiesgos" class="p-2 border border-danger-subtle bg-danger-subtle rounded-2 mb-3" style="display: none;">
+                                <div class="small fw-bold text-danger mb-1 d-flex align-items-center gap-1">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <span>Envíos con retraso en esta ruta:</span>
+                                </div>
+                                <div class="small text-dark" id="mapaTextoRiesgos">--</div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción (Fijos) -->
+                        <div class="pt-3 border-top mt-auto d-grid gap-2">
+                            <button type="button" class="btn btn-outline-dark btn-sm fw-semibold py-2" id="mapaBtnContactar" onclick="abrirModalContactoDesdeMapa()" disabled>
+                                Contactar al Repartidor
+                            </button>
+                            <a id="mapaBtnReasignar" href="#" class="btn btn-dark btn-sm text-white disabled">
+                                Gestionar Hoja de Ruta
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL DE CONTACTO RÁPIDO CON EL REPARTIDOR (ALTURA FIJA Y ESTABLE)
+     ========================================================================= -->
+<div class="modal fade" id="modalContactoRepartidor" tabindex="-1" aria-labelledby="modalContactoRepartidorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" asp-page-handler="EnviarInstruccion">
+                <input type="hidden" name="repartidorId" id="modalInputRepartidorId" />
+                <div class="modal-header bg-light border-bottom">
+                    <div>
+                        <h5 class="modal-title h6 fw-bold text-dark mb-0" id="modalContactoRepartidorLabel">
+                            Canal de Comunicación con Repartidor
+                        </h5>
+                        <span class="small text-secondary">
+                            Instrucciones operativas en calle para mitigar riesgos de ventana horaria
+                        </span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body p-4" style="min-height: 280px;">
+                    <!-- Ficha del Repartidor -->
+                    <div class="p-3 bg-light rounded-2 border mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold text-dark" id="modalNombreRepartidor">--</div>
+                                <div class="small text-secondary" id="modalMatriculaVehiculo">--</div>
+                            </div>
+                            <div class="text-end">
+                                <a id="modalLinkTelefono" href="#" class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-1">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                    </svg>
+                                    <span id="modalTextoTelefono">Llamar</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Envío en Riesgo Asociado -->
+                    <div class="mb-3" id="modalCajaAlertaEnvio" style="display: none;">
+                        <label class="form-label text-danger fw-semibold small mb-1">
+                            Envío en Riesgo Detectado:
+                        </label>
+                        <div class="p-2 border border-danger-subtle rounded-2 bg-danger-subtle small text-danger font-monospace" id="modalTextoAlertaEnvio">
+                            --
+                        </div>
+                    </div>
+
+                    <!-- Mensaje / Instrucción Prioritaria -->
+                    <div class="mb-2">
+                        <label class="form-label text-dark fw-semibold small mb-1" for="txtMensajeInstruccion">
+                            Instrucción Prioritaria a la Terminal Móvil: <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control form-control-sm text-dark" id="txtMensajeInstruccion" name="mensajeInstruccion" rows="3"
+                                  placeholder="Ej: Priorizar entrega de Farmacia San Roque en Av. Brasil antes de las 12:00 hs..." required></textarea>
+                    </div>
+
+                    <!-- Plantillas Rápidas de Intervención -->
+                    <div class="d-flex flex-wrap gap-1 mt-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
+                                onclick="insertarPlantilla('Priorizar parada actual de inmediato para evitar caída de ventana comprometida.')">
+                            Priorizar Parada
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
+                                onclick="insertarPlantilla('Desviar recorrido por arteria alternativa para eludir retención de tráfico.')">
+                            Desvío por Tráfico
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
+                                onclick="insertarPlantilla('Detener marcha en lugar seguro. Móvil de asistencia en camino.')">
+                            Auxilio en Camino
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-outline-secondary btn-sm text-dark" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-dark btn-sm text-white px-3 fw-semibold">
+                        Enviar Instrucción
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var datosVehiculos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Resumen.Vehiculos));
+        var vehiculoSeleccionadoEnMapa = null;
+
+        function proyectarCoordenadas(lat, lng) {
+            var minLat = -34.94, maxLat = -34.84;
+            var minLng = -56.24, maxLng = -56.06;
+
+            var y = 50 + ((maxLat - lat) / (maxLat - minLat)) * 340;
+            var x = 70 + ((lng - minLng) / (maxLng - minLng)) * 660;
+
+            return { x: Math.round(x), y: Math.round(y) };
+        }
+
+        function dibujarMapa() {
+            var capaVehiculos = document.getElementById('capaVehiculos');
+            var capaRutas = document.getElementById('capaRutas');
+            if (!capaVehiculos || !capaRutas) return;
+
+            capaVehiculos.innerHTML = '';
+            capaRutas.innerHTML = '';
+
+            datosVehiculos.forEach(function (v) {
+                var pVeh = proyectarCoordenadas(v.Latitud, v.Longitud);
+
+                // Dibujar paradas
+                if (v.Paradas && v.Paradas.length > 0) {
+                    var puntosPath = [];
+                    v.Paradas.forEach(function (par) {
+                        var pPar = proyectarCoordenadas(par.Latitud, par.Longitud);
+                        puntosPath.push(pPar.x + ',' + pPar.y);
+
+                        var circlePar = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circlePar.setAttribute('cx', pPar.x);
+                        circlePar.setAttribute('cy', pPar.y);
+                        circlePar.setAttribute('r', par.EnRiesgo ? '5' : '3.5');
+                        circlePar.setAttribute('fill', par.Estado === 'Entregado' ? '#10b981' : (par.EnRiesgo ? '#ef4444' : '#64748b'));
+                        circlePar.setAttribute('stroke', '#ffffff');
+                        circlePar.setAttribute('stroke-width', '1.2');
+                        capaRutas.appendChild(circlePar);
+                    });
+
+                    if (puntosPath.length > 1) {
+                        var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                        polyline.setAttribute('points', puntosPath.join(' '));
+                        polyline.setAttribute('fill', 'none');
+                        polyline.setAttribute('stroke', v.TieneAlertasRiesgo ? '#ef4444' : '#94a3b8');
+                        polyline.setAttribute('stroke-width', '1.5');
+                        polyline.setAttribute('stroke-dasharray', '3,3');
+                        polyline.setAttribute('opacity', '0.5');
+                        capaRutas.appendChild(polyline);
+                    }
+                }
+
+                // Marcador del vehículo
+                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('style', 'cursor: pointer;');
+                g.onclick = function () { seleccionarEnMapa(v); };
+
+                var circulo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circulo.setAttribute('cx', pVeh.x);
+                circulo.setAttribute('cy', pVeh.y);
+                circulo.setAttribute('r', '11');
+                circulo.setAttribute('fill', v.TieneAlertasRiesgo ? '#ef4444' : (v.EstadoOperativo === 'EnMovimiento' ? '#10b981' : '#f59e0b'));
+                circulo.setAttribute('stroke', '#ffffff');
+                circulo.setAttribute('stroke-width', '2');
+                g.appendChild(circulo);
+
+                var textoMat = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textoMat.setAttribute('x', pVeh.x);
+                textoMat.setAttribute('y', pVeh.y - 14);
+                textoMat.setAttribute('text-anchor', 'middle');
+                textoMat.setAttribute('fill', '#0f172a');
+                textoMat.setAttribute('font-size', '9.5');
+                textoMat.setAttribute('font-weight', 'bold');
+                textoMat.setAttribute('font-family', 'monospace');
+                textoMat.textContent = v.VehiculoMatricula;
+                g.appendChild(textoMat);
+
+                capaVehiculos.appendChild(g);
+            });
+        }
+
+        function seleccionarEnMapa(v) {
+            vehiculoSeleccionadoEnMapa = v;
+
+            document.getElementById('mapaCajaVacia').style.display = 'none';
+            document.getElementById('mapaCajaDetalle').style.display = 'block';
+
+            document.getElementById('mapaPanelTitulo').innerText = v.VehiculoMatricula;
+            document.getElementById('mapaMatricula').innerText = v.VehiculoMatricula;
+            document.getElementById('mapaModelo').innerText = v.VehiculoModelo;
+            document.getElementById('mapaRepartidor').innerText = 'Chofer: ' + v.RepartidorNombre;
+            document.getElementById('mapaRuta').innerText = v.NumeroRuta;
+            document.getElementById('mapaBateria').innerText = v.NivelBateriaPct + '%';
+            document.getElementById('mapaDireccion').innerText = v.DireccionAproximada;
+            document.getElementById('mapaParadaActual').innerText = v.ParadaActualCodigo ? ('En curso: ' + v.ParadaActualCodigo) : 'Sin parada';
+
+            var bEstado = document.getElementById('mapaBadgeEstado');
+            if (v.TieneAlertasRiesgo) {
+                bEstado.innerText = 'Riesgo SLA (' + v.CantidadEnviosEnRiesgo + ')';
+                bEstado.className = 'badge bg-danger text-white';
+            } else if (v.EstadoOperativo === 'EnMovimiento') {
+                bEstado.innerText = 'En Tránsito';
+                bEstado.className = 'badge bg-success-subtle text-success border border-success-subtle';
+            } else {
+                bEstado.innerText = 'Detenido';
+                bEstado.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+            }
+
+            var pct = v.PorcentajeProgreso || 0;
+            document.getElementById('mapaProgresoTexto').innerText = v.ParadasCompletadas + ' / ' + v.TotalParadas + ' (' + pct + '%)';
+            var barra = document.getElementById('mapaBarraProgreso');
+            barra.style.width = pct + '%';
+            barra.className = 'progress-bar ' + (v.TieneAlertasRiesgo ? 'bg-danger' : 'bg-dark');
+
+            var cajaRiesgos = document.getElementById('mapaCajaRiesgos');
+            if (v.EnviosEnRiesgo && v.EnviosEnRiesgo.length > 0) {
+                cajaRiesgos.style.display = 'block';
+                document.getElementById('mapaTextoRiesgos').innerText = v.EnviosEnRiesgo.map(function (e) {
+                    return e.CodigoSeguimiento + ' (+' + e.MinutosRetrasoEstimado + ' min) - ' + e.CausaRiesgo;
+                }).join('; ');
+            } else {
+                cajaRiesgos.style.display = 'none';
+            }
+
+            var btnCont = document.getElementById('mapaBtnContactar');
+            btnCont.disabled = false;
+
+            var btnReas = document.getElementById('mapaBtnReasignar');
+            btnReas.href = '/Rutas/Detalle?id=' + v.HojaDeRutaId;
+            btnReas.classList.remove('disabled');
+        }
+
+        function abrirModalContactoDesdeMapa() {
+            if (!vehiculoSeleccionadoEnMapa) return;
+            abrirModalContacto(
+                vehiculoSeleccionadoEnMapa.RepartidorNombre,
+                vehiculoSeleccionadoEnMapa.RepartidorTelefono,
+                vehiculoSeleccionadoEnMapa.VehiculoMatricula,
+                (vehiculoSeleccionadoEnMapa.EnviosEnRiesgo && vehiculoSeleccionadoEnMapa.EnviosEnRiesgo.length > 0) ? vehiculoSeleccionadoEnMapa.EnviosEnRiesgo[0].CodigoSeguimiento : null,
+                vehiculoSeleccionadoEnMapa.RepartidorId
+            );
+        }
+
+        function abrirModalContacto(nombre, telefono, matricula, envioCodigo, repartidorId) {
+            document.getElementById('modalNombreRepartidor').innerText = nombre;
+            document.getElementById('modalMatriculaVehiculo').innerText = 'Unidad: ' + matricula;
+            document.getElementById('modalTextoTelefono').innerText = 'Llamar ' + telefono;
+            document.getElementById('modalLinkTelefono').href = 'tel:' + (telefono ? telefono.replace(/\s+/g, '') : '');
+
+            document.getElementById('modalInputRepartidorId').value = repartidorId || '';
+
+            var alertaCaja = document.getElementById('modalCajaAlertaEnvio');
+            if (envioCodigo) {
+                alertaCaja.style.display = 'block';
+                document.getElementById('modalTextoAlertaEnvio').innerText = 'Envío: ' + envioCodigo + ' con riesgo de incumplimiento horario.';
+                document.getElementById('txtMensajeInstruccion').value = 'Priorizar entrega de ' + envioCodigo + ' para evitar vencimiento de la ventana horaria.';
+            } else {
+                alertaCaja.style.display = 'none';
+                document.getElementById('txtMensajeInstruccion').value = '';
+            }
+
+            var modalEl = document.getElementById('modalContactoRepartidor');
+            if (window.bootstrap && window.bootstrap.Modal) {
+                var inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+                inst.show();
+            } else {
+                modalEl.classList.add('show');
+                modalEl.style.display = 'block';
+            }
+        }
+
+        function insertarPlantilla(texto) {
+            document.getElementById('txtMensajeInstruccion').value = texto;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            dibujarMapa();
+            if (datosVehiculos && datosVehiculos.length > 0) {
+                seleccionarEnMapa(datosVehiculos[0]);
+            }
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        // Redibujar mapa si se cambia a la pestaña de mapa para recalcular dimensiones
+        var mapaTab = document.getElementById('pill-mapa-tab');
+        if (mapaTab) {
+            mapaTab.addEventListener('shown.bs.tab', function () {
+                dibujarMapa();
+            });
+        }
+    </script>
+}

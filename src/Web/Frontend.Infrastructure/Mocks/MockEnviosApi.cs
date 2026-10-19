@@ -6,10 +6,12 @@ using UltimaMilla.Frontend.Contracts.Modelos.Envios;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de gestión de envíos (UC-24, UC-28).
+/// Implementación simulada en memoria del servicio de gestión de envíos y extravíos (UC-24, UC-28, UC-43, RF-11, RF-12).
 /// </summary>
 public class MockEnviosApi : IEnviosApi
 {
+    private static readonly Dictionary<Guid, List<EventoHistorialEnvioDto>> HistorialPorEnvio = new();
+
     private static readonly List<EnvioDto> EnviosEnMemoria = new()
     {
         new EnvioDto
@@ -24,6 +26,9 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = "Entregar en portería si no responde",
             PesoKg = 1.8m,
             VolumenM3 = 0.012m,
+            ComercioNombre = "Farmashop Uruguay",
+            HojaDeRutaNumero = "HDR-2026-0078",
+            RepartidorNombre = "Juan Pérez",
             SelloModificacion = "sello-envio-1"
         },
         new EnvioDto
@@ -38,6 +43,9 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = "Timbre no funciona, llamar al celular",
             PesoKg = 3.5m,
             VolumenM3 = 0.025m,
+            ComercioNombre = "Tienda Inglesa Express",
+            HojaDeRutaNumero = "HDR-2026-0081",
+            RepartidorNombre = "Juan Pérez",
             SelloModificacion = "sello-envio-2"
         },
         new EnvioDto
@@ -52,6 +60,9 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = null,
             PesoKg = 0.6m,
             VolumenM3 = 0.005m,
+            ComercioNombre = "Supermercados Ta-Ta",
+            HojaDeRutaNumero = "HDR-2026-0082",
+            RepartidorNombre = "Lucía Fernández",
             SelloModificacion = "sello-envio-3"
         },
         new EnvioDto
@@ -66,6 +77,7 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = "Paquete frágil",
             PesoKg = 5.2m,
             VolumenM3 = 0.040m,
+            ComercioNombre = "MercadoLibre Envíos",
             SelloModificacion = "sello-envio-4"
         },
         new EnvioDto
@@ -80,6 +92,7 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = "Horario de recepción comercial 9 a 18",
             PesoKg = 1.1m,
             VolumenM3 = 0.008m,
+            ComercioNombre = "Farmashop Uruguay",
             SelloModificacion = "sello-envio-5"
         },
         new EnvioDto
@@ -94,11 +107,47 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = "Destinatario ausente en primer intento",
             PesoKg = 2.0m,
             VolumenM3 = 0.015m,
+            ComercioNombre = "Óptica San Roque",
             SelloModificacion = "sello-envio-6"
+        },
+        new EnvioDto
+        {
+            Id = Guid.Parse("11223344-5566-7788-99aa-bbccddeeff00"),
+            CodigoSeguimiento = "TRK-2026-0007",
+            NombreDestinatario = "Valeria Dupont",
+            DireccionDestino = "Av. Brasil 3120 Apto 402, Pocitos",
+            TelefonoDestinatario = "099 222 333",
+            FechaCreacion = DateTime.UtcNow.AddDays(-1),
+            Estado = EstadoEnvioDto.EnTransito,
+            Observaciones = "Bulto reportado ausente en la rendición de la ruta",
+            PesoKg = 0.9m,
+            VolumenM3 = 0.006m,
+            ComercioNombre = "Tienda Inglesa Express",
+            HojaDeRutaNumero = "HDR-2026-0081",
+            RepartidorNombre = "Juan Pérez",
+            SelloModificacion = "sello-envio-7"
+        },
+        new EnvioDto
+        {
+            Id = Guid.Parse("22334455-6677-8899-aabb-ccddeeff0011"),
+            CodigoSeguimiento = "TRK-2026-0008",
+            NombreDestinatario = "Joaquín Castro",
+            DireccionDestino = "San Fructuoso 1150, Bella Vista",
+            TelefonoDestinatario = "091 777 888",
+            FechaCreacion = DateTime.UtcNow.AddDays(-3),
+            Estado = EstadoEnvioDto.Extraviado,
+            Observaciones = "No apareció tras rendición ni en depósito de muelle",
+            PesoKg = 1.4m,
+            VolumenM3 = 0.010m,
+            ComercioNombre = "Farmashop Uruguay",
+            FechaExtravio = DateTime.UtcNow.AddDays(-1),
+            MotivoExtravio = "No aparece en rendición de la hoja de ruta HDR-2026-0075",
+            IncidenciaAsociadaNumero = "INC-2026-0038",
+            SelloModificacion = "sello-envio-8"
         }
     };
 
-    private static int _contadorSecuencial = 7;
+    private static int _contadorSecuencial = 8;
 
     public Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default)
     {
@@ -126,7 +175,9 @@ public class MockEnviosApi : IEnviosApi
             consulta = consulta.Where(e =>
                 e.CodigoSeguimiento.ToLowerInvariant().Contains(termino) ||
                 e.NombreDestinatario.ToLowerInvariant().Contains(termino) ||
-                e.DireccionDestino.ToLowerInvariant().Contains(termino));
+                e.DireccionDestino.ToLowerInvariant().Contains(termino) ||
+                (e.ComercioNombre != null && e.ComercioNombre.ToLowerInvariant().Contains(termino)) ||
+                (e.HojaDeRutaNumero != null && e.HojaDeRutaNumero.ToLowerInvariant().Contains(termino)));
         }
 
         var paginaSegura = Math.Max(1, filtro.Pagina);
@@ -173,10 +224,179 @@ public class MockEnviosApi : IEnviosApi
             Observaciones = nuevoEnvio.Observaciones?.Trim(),
             PesoKg = nuevoEnvio.PesoKg,
             VolumenM3 = nuevoEnvio.VolumenM3,
+            ComercioNombre = "Comercio Portal",
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
 
         EnviosEnMemoria.Insert(0, entidad);
+
+        RegistrarEventoHistorico(nuevoId, new EventoHistorialEnvioDto
+        {
+            EnvioId = nuevoId,
+            FechaHora = DateTime.UtcNow,
+            EstadoAnterior = null,
+            NuevoEstado = EstadoEnvioDto.Admitido,
+            Usuario = "Portal Comercio",
+            DescripcionEvento = "Orden de envío creada y admitida en plataforma."
+        });
+
         return Task.FromResult(entidad);
+    }
+
+    public Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default)
+    {
+        var index = EnviosEnMemoria.FindIndex(e => e.Id == dto.EnvioId);
+        if (index == -1)
+        {
+            return Task.FromResult(new ResultadoDeclaracionExtravioDto
+            {
+                Exito = false,
+                Mensaje = $"No se encontró el envío con identificador {dto.EnvioId}."
+            });
+        }
+
+        var envioActual = EnviosEnMemoria[index];
+
+        // Validar Precondición: Un envío 'en depósito' o 'en tránsito' no pudo ser ubicado
+        if (envioActual.Estado != EstadoEnvioDto.EnDeposito && envioActual.Estado != EstadoEnvioDto.EnTransito)
+        {
+            return Task.FromResult(new ResultadoDeclaracionExtravioDto
+            {
+                Exito = false,
+                Mensaje = $"Solo se pueden declarar como extraviados aquellos envíos en estado 'En Depósito' o 'En Tránsito'. El estado actual es '{envioActual.Estado}'."
+            });
+        }
+
+        var estadoAnterior = envioActual.Estado;
+        var ahora = DateTime.UtcNow;
+        var numeroIncidencia = !string.IsNullOrWhiteSpace(dto.NumeroIncidenciaExistente) 
+            ? dto.NumeroIncidenciaExistente 
+            : (dto.CrearIncidenciaOperativa ? $"INC-2026-00{Random.Shared.Next(42, 99)}" : null);
+
+        // Actualizar envío a estado Extraviado
+        var envioActualizado = envioActual with
+        {
+            Estado = EstadoEnvioDto.Extraviado,
+            FechaExtravio = ahora,
+            MotivoExtravio = dto.MotivoExtravio,
+            IncidenciaAsociadaNumero = numeroIncidencia,
+            Observaciones = string.IsNullOrEmpty(envioActual.Observaciones) 
+                ? $"Extravío: {dto.MotivoExtravio}. {dto.ObservacionesDetalladas}" 
+                : $"{envioActual.Observaciones} | Extravío: {dto.MotivoExtravio}. {dto.ObservacionesDetalladas}",
+            SelloModificacion = Guid.NewGuid().ToString("N")
+        };
+
+        EnviosEnMemoria[index] = envioActualizado;
+
+        // Registrar Evento Histórico de Auditoría (RF-11, RF-12)
+        var evento = new EventoHistorialEnvioDto
+        {
+            EnvioId = dto.EnvioId,
+            FechaHora = ahora,
+            EstadoAnterior = estadoAnterior,
+            NuevoEstado = EstadoEnvioDto.Extraviado,
+            Usuario = dto.DespachadorUsuario,
+            DescripcionEvento = $"Envío declarado como extraviado. Motivo: {dto.MotivoExtravio}. {dto.ObservacionesDetalladas}",
+            MotivoDetalle = dto.MotivoExtravio,
+            NumeroIncidenciaAsociada = numeroIncidencia,
+            NotificacionEnviada = dto.NotificarComercio
+        };
+
+        RegistrarEventoHistorico(dto.EnvioId, evento);
+
+        var resultado = new ResultadoDeclaracionExtravioDto
+        {
+            Exito = true,
+            Mensaje = $"El envío {envioActual.CodigoSeguimiento} ha sido declarado como extraviado exitosamente.",
+            EnvioId = dto.EnvioId,
+            CodigoSeguimiento = envioActual.CodigoSeguimiento,
+            NuevoEstado = EstadoEnvioDto.Extraviado,
+            NumeroIncidenciaGenerada = numeroIncidencia,
+            FechaEvento = ahora,
+            NotificacionComercioEnviada = dto.NotificarComercio
+        };
+
+        return Task.FromResult(resultado);
+    }
+
+    public Task<IReadOnlyList<EventoHistorialEnvioDto>> ObtenerHistorialEnvioAsync(Guid envioId, CancellationToken cancelacion = default)
+    {
+        if (HistorialPorEnvio.TryGetValue(envioId, out var eventos))
+        {
+            return Task.FromResult<IReadOnlyList<EventoHistorialEnvioDto>>(eventos);
+        }
+
+        // Si no tenía eventos precargados, inicializamos una línea de vida coherente
+        var envio = EnviosEnMemoria.FirstOrDefault(e => e.Id == envioId);
+        var lista = new List<EventoHistorialEnvioDto>();
+
+        if (envio != null)
+        {
+            lista.Add(new EventoHistorialEnvioDto
+            {
+                EnvioId = envioId,
+                FechaHora = envio.FechaCreacion,
+                EstadoAnterior = null,
+                NuevoEstado = EstadoEnvioDto.Admitido,
+                Usuario = "Comercio",
+                DescripcionEvento = "Orden de envío ingresada por comercio adherido."
+            });
+
+            if (envio.Estado >= EstadoEnvioDto.EnDeposito)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(2),
+                    EstadoAnterior = EstadoEnvioDto.Admitido,
+                    NuevoEstado = EstadoEnvioDto.EnDeposito,
+                    Usuario = "Operario Depósito",
+                    DescripcionEvento = "Bulto recibido y clasificado físicamente en depósito central."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.EnTransito || envio.Estado == EstadoEnvioDto.Entregado || envio.Estado == EstadoEnvioDto.Extraviado)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(5),
+                    EstadoAnterior = EstadoEnvioDto.EnDeposito,
+                    NuevoEstado = EstadoEnvioDto.EnTransito,
+                    Usuario = "Despachador",
+                    DescripcionEvento = $"Bulto cargado y despachado en hoja de ruta {envio.HojaDeRutaNumero ?? "HDR-2026-0081"}."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.Extraviado)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaExtravio ?? DateTime.UtcNow,
+                    EstadoAnterior = EstadoEnvioDto.EnTransito,
+                    NuevoEstado = EstadoEnvioDto.Extraviado,
+                    Usuario = "Despachador",
+                    DescripcionEvento = $"Envío declarado extraviado tras gestión de búsqueda: {envio.MotivoExtravio}",
+                    MotivoDetalle = envio.MotivoExtravio,
+                    NumeroIncidenciaAsociada = envio.IncidenciaAsociadaNumero,
+                    NotificacionEnviada = true
+                });
+            }
+        }
+
+        HistorialPorEnvio[envioId] = lista;
+        return Task.FromResult<IReadOnlyList<EventoHistorialEnvioDto>>(lista);
+    }
+
+    private static void RegistrarEventoHistorico(Guid envioId, EventoHistorialEnvioDto evento)
+    {
+        if (!HistorialPorEnvio.TryGetValue(envioId, out var lista))
+        {
+            lista = new List<EventoHistorialEnvioDto>();
+            HistorialPorEnvio[envioId] = lista;
+        }
+
+        lista.Add(evento);
     }
 }

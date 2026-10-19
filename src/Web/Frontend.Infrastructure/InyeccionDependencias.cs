@@ -30,6 +30,9 @@ public static class InyeccionDependencias
         servicios.AddSingleton<ISeguimientoApi, MockSeguimientoApi>();
         servicios.AddSingleton<IRutasApi, MockRutasApi>();
         servicios.AddSingleton<IDespachoApi, MockDespachoApi>();
+        servicios.AddSingleton<IIncidenciasApi, MockIncidenciasApi>();
+        servicios.AddSingleton<ITableroApi, MockTableroApi>();
+        servicios.AddSingleton<IReportesApi, MockReportesApi>();
 
         return servicios;
     }

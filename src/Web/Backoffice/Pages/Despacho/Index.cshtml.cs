@@ -9,7 +9,7 @@ namespace UltimaMilla.Backoffice.Pages.Despacho;
 /// <summary>
 /// Modelo de página para el listado de hojas de ruta pendientes de control de salida y despacho físico (UC-09).
 /// </summary>
-[Authorize(Roles = "Operario,Administrador")]
+[Authorize(Roles = "Despachador,Operario,Administrador")]
 public class IndexModel : PageModel
 {
     private readonly IDespachoApi _despachoApi;
