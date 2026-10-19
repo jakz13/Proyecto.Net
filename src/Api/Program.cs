@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using UltimaMilla.Api.Auth;
@@ -29,6 +31,21 @@ builder.Services.AddAuthentication(options =>
 .AddScheme<AuthenticationSchemeOptions, DevMobileAuthHandler>(DevMobileAuthHandler.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
+
+// Límite de tasa para la consulta pública de seguimiento (evita la enumeración de códigos y el abuso)
+builder.Services.AddRateLimiter(opciones =>
+{
+    opciones.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opciones.AddPolicy(ConsultasEnvioEndpoints.PoliticaLimiteSeguimiento, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -104,6 +121,7 @@ app.UseSwaggerUI(c =>
 
 app.UseCors();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // Auto-migrate database on startup with resilience retry and idempotent seed data
@@ -291,99 +309,8 @@ app.MapDepositoEndpoints();
 // Registrar endpoints de planificación (UC-08, UC-09)
 app.MapPlanificacionEndpoints();
 
-// =========================================================================
-// Endpoint de Consulta para Seguimiento Público y Backoffice (Apoyo a Frontend)
-// =========================================================================
-app.MapGet("/api/seguimiento/{codigoSeguimiento}", async (
-    string codigoSeguimiento,
-    AppDbContext db,
-    CancellationToken ct) =>
-{
-    if (string.IsNullOrWhiteSpace(codigoSeguimiento))
-        return Results.BadRequest(new { error = "El código de seguimiento no puede ser vacío." });
-
-    var codigoNormalizado = codigoSeguimiento.Trim().ToUpperInvariant();
-
-    var envio = await db.Envios
-        .AsNoTracking()
-        .Include(e => e.Bultos)
-        .Include(e => e.Eventos)
-        .Include(e => e.IntentosEntrega)
-            .ThenInclude(i => i.PruebaDeEntrega)
-        .FirstOrDefaultAsync(e =>
-            e.CodigoSeguimientoPublico == codigoNormalizado ||
-            e.Id.ToString() == codigoNormalizado,
-            ct);
-
-    if (envio is null)
-    {
-        return Results.NotFound(new
-        {
-            error = $"No se encontró ningún envío con el código de seguimiento '{codigoSeguimiento}'."
-        });
-    }
-
-    var eventosOrdenados = envio.Eventos
-        .OrderBy(ev => ev.Timestamp)
-        .Select(ev => new
-        {
-            Fecha = ev.Timestamp,
-            Estado = (int)ev.EstadoNuevo,
-            EstadoNombre = ev.EstadoNuevo.ToString(),
-            TipoEvento = ev.TipoEvento,
-            DescripcionPublica = MapearDescripcionPublicaEvento(ev.TipoEvento, ev.EstadoNuevo),
-            Origen = ev.Origen,
-            Detalle = ev.Payload
-        })
-        .ToList();
-
-    var intentos = envio.IntentosEntrega
-        .OrderBy(i => i.Timestamp)
-        .Select(i => new
-        {
-            Id = i.Id,
-            Resultado = i.Resultado,
-            Timestamp = i.Timestamp,
-            OrigenDatos = i.OrigenDatos,
-            TienePruebaEntrega = i.PruebaDeEntrega != null,
-            NombreReceptor = i.PruebaDeEntrega?.NombreReceptor,
-            DocumentoReceptor = i.PruebaDeEntrega?.DocumentoReceptor,
-            TipoPrueba = i.PruebaDeEntrega?.Tipo,
-            TieneFirma = !string.IsNullOrWhiteSpace(i.PruebaDeEntrega?.FirmaImagenUrl),
-            TieneFoto = !string.IsNullOrWhiteSpace(i.PruebaDeEntrega?.FotoUrl),
-            Latitud = i.Latitud,
-            Longitud = i.Longitud
-        })
-        .ToList();
-
-    var ultimoEvento = envio.Eventos.OrderByDescending(ev => ev.Timestamp).FirstOrDefault();
-
-    var response = new
-    {
-        CodigoSeguimiento = envio.CodigoSeguimientoPublico,
-        EnvioId = envio.Id,
-        EstadoActual = (int)envio.EstadoActual,
-        EstadoNombre = envio.EstadoActual.ToString(),
-        FechaUltimaActualizacion = ultimoEvento?.Timestamp ?? envio.FechaAlta,
-        DireccionDestino = envio.DireccionDestino,
-        NombreDestinatario = envio.NombreDestinatario,
-        CantidadBultos = envio.Bultos.Count,
-        Bultos = envio.Bultos.Select(b => new { b.Id, b.Identificacion, b.Peso, b.EstadoBulto }).ToList(),
-        CantidadIntentos = envio.CantidadIntentos,
-        PermiteReprogramacion = envio.EstadoActual is EstadoEnvio.Reprogramado or EstadoEnvio.NoEntregado,
-        HistorialEventos = eventosOrdenados,
-        IntentosEntrega = intentos
-    };
-
-    return Results.Ok(response);
-})
-.AllowAnonymous()
-.WithName("ConsultarSeguimientoPublico")
-.WithSummary("Consulta pública y backoffice de seguimiento de envío")
-.WithDescription("Permite consultar el estado actual en PostgreSQL, la línea de tiempo de eventos y los intentos/pruebas de entrega en vivo tras sincronización móvil.")
-.Produces(StatusCodes.Status200OK)
-.Produces(StatusCodes.Status404NotFound)
-.WithOpenApi();
+// Registrar consultas de envío: seguimiento público (UC-33) y detalle para Backoffice
+app.MapConsultasEnvioEndpoints();
 
 await app.RunAsync();
 
@@ -419,18 +346,6 @@ static async Task ApplyMigrationsAsync(WebApplication app)
         }
     }
 }
-
-static string MapearDescripcionPublicaEvento(string tipoEvento, EstadoEnvio estadoNuevo) => tipoEvento switch
-{
-    "AltaEnvio" => "Envío registrado y admitido en el sistema",
-    "AsignacionRuta" => "Envío asignado a hoja de ruta para distribución",
-    "DespachoRuta" => "Vehículo despachado. Envío en tránsito hacia el domicilio",
-    "EntregaExitosa" => "Envío entregado exitosamente al destinatario",
-    "IntentoFallido" => "Intento de entrega no concretado en domicilio",
-    "Reprogramacion" => "Envío reprogramado para nuevo intento de entrega",
-    "Devolucion" => "Envío derivado a devolución al depósito central",
-    _ => $"Actualización de estado: {estadoNuevo}"
-};
 
 public record CreateEnvioRequest(
     Guid? ComercioId,

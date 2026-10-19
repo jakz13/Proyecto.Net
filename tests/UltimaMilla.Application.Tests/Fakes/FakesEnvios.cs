@@ -31,6 +31,9 @@ public class FakeEnvioRepository : IEnvioRepository
         return Task.FromResult(Envios.Any(e => e.CodigoSeguimientoPublico == codigoSeguimiento));
     }
 
+    public Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Envios.FirstOrDefault(e => e.CodigoSeguimientoPublico == codigoSeguimiento.Trim().ToUpperInvariant()));
+
     public Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.ToList());
 

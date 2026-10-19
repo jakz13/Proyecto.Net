@@ -25,6 +25,14 @@ public class EfEnvioRepository : IEnvioRepository
         return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
+    public async Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
+    {
+        var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
+        return await _dbContext.Envios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
+    }
+
     public async Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Envios
