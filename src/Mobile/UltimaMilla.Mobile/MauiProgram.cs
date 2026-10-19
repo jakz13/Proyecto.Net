@@ -5,6 +5,7 @@ using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Auth;
 using UltimaMilla.Mobile.ViewModels.Carga;
 using UltimaMilla.Mobile.ViewModels.Diagnostic;
@@ -32,6 +33,9 @@ public static class MauiProgram
 
         // 1. Almacenamiento Local Cifrado (RNF 6.11 - SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
+
+        // 1b. Motor de Sincronización Resiliente Offline-First (UC-17 a UC-21)
+        builder.Services.AddSingleton<ISyncService, SyncService>();
 
         // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
         builder.Services.AddTransient<AuthDelegatingHandler>();

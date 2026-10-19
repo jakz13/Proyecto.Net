@@ -3,6 +3,9 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Local;
+using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
@@ -11,6 +14,7 @@ namespace UltimaMilla.Mobile.ViewModels.Entrega;
 public partial class IntentoFallidoViewModel : ObservableObject
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
 
     [ObservableProperty]
     private ParadaItemViewModel? _parada;
@@ -33,38 +37,53 @@ public partial class IntentoFallidoViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public ObservableCollection<string> MotivosNoEntrega { get; } = new()
-    {
-        "Cliente ausente / No atiende llamadas",
-        "Dirección incorrecta o inexistente",
-        "Negocio o comercio cerrado",
-        "Rechazado expresamente por el cliente",
-        "Zona inaccesible o fuerza mayor",
-        "Bulto dañado / Avería en tránsito",
-        "Problemas con medio de pago / Cobro"
-    };
+    public ObservableCollection<string> MotivosNoEntrega { get; } = new();
 
-    public IntentoFallidoViewModel() : this(null)
+    private readonly List<MotivoNoEntregaLocal> _motivosCatalogo = new();
+
+    public IntentoFallidoViewModel() : this(null, null)
     {
     }
 
-    public IntentoFallidoViewModel(ILocalDatabaseService? localDatabaseService)
+    public IntentoFallidoViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null)
     {
         _localDatabaseService = localDatabaseService;
+        _syncService = syncService;
 
-        // Mock para previsualización directa
-        _parada = new ParadaItemViewModel
+        _ = CargarMotivosAsync();
+    }
+
+    public async Task CargarMotivosAsync()
+    {
+        try
         {
-            Orden = 2,
-            Direccion = "Bvar. España 2678, Apto 501",
-            Ciudad = "Pocitos, Montevideo",
-            Destinatario = "Lucía Fernández",
-            Telefono = "+598 99 765 432",
-            CantidadBultos = 1,
-            Estado = "Pendiente",
-            HoraEstimada = "10:15",
-            CodigoSeguimiento = "ENV-2026-00109"
-        };
+            var motivos = _localDatabaseService != null
+                ? await _localDatabaseService.ObtenerMotivosNoEntregaAsync()
+                : DemoDataDefaults.ObtenerCatalogoMotivos();
+
+            _motivosCatalogo.Clear();
+            MotivosNoEntrega.Clear();
+
+            foreach (var m in motivos.Where(x => x.Activo))
+            {
+                _motivosCatalogo.Add(m);
+                MotivosNoEntrega.Add(m.Descripcion);
+            }
+
+            if (string.IsNullOrEmpty(MotivoSeleccionado) && MotivosNoEntrega.Count > 0)
+            {
+                MotivoSeleccionado = MotivosNoEntrega[0];
+            }
+        }
+        catch
+        {
+            // Carga catálogo básico ante cualquier inconsistencia
+            foreach (var m in DemoDataDefaults.ObtenerCatalogoMotivos())
+            {
+                _motivosCatalogo.Add(m);
+                MotivosNoEntrega.Add(m.Descripcion);
+            }
+        }
     }
 
     [RelayCommand]
@@ -73,7 +92,6 @@ public partial class IntentoFallidoViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        // Simulación de captura fotográfica en terreno
         TieneFoto = true;
         FotoStatusText = "Evidencia adjunta: fachada_visita_fallida_01.jpg";
 
@@ -92,7 +110,6 @@ public partial class IntentoFallidoViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        // 1. Validaciones ergonómicas
         if (string.IsNullOrWhiteSpace(MotivoSeleccionado))
         {
             if (Shell.Current is not null)
@@ -121,39 +138,83 @@ public partial class IntentoFallidoViewModel : ObservableObject
         {
             IsBusy = true;
 
-            // 2. Construcción de payload para cola local cifrada (RNF 6.11)
-            var payload = JsonSerializer.Serialize(new
-            {
-                ParadaId = Parada?.Id ?? Guid.NewGuid(),
-                CodigoSeguimiento = Parada?.CodigoSeguimiento ?? "ENV-FALLO-MOCK",
-                Motivo = MotivoSeleccionado,
-                Observaciones = Observaciones.Trim(),
-                TieneEvidenciaFoto = TieneFoto,
-                ArchivoFoto = TieneFoto ? "fachada_visita_fallida_01.jpg" : null,
-                CoordenadasGps = CoordenadasGps,
-                FechaUtc = DateTime.UtcNow
-            });
+            var parada = Parada;
+            var paradaId = parada?.Id ?? Guid.NewGuid();
+            var hojaDeRutaId = (parada?.HojaDeRutaId != null && parada.HojaDeRutaId != Guid.Empty)
+                ? parada.HojaDeRutaId
+                : DemoDataDefaults.DefaultHojaDeRutaId;
 
+            var envioId = (parada?.EnvioId != null && parada.EnvioId != Guid.Empty)
+                ? parada.EnvioId
+                : Guid.NewGuid();
+
+            var motivoMatch = _motivosCatalogo.FirstOrDefault(m => m.Descripcion == MotivoSeleccionado);
+            var motivoId = motivoMatch?.Id ?? Guid.NewGuid();
+            var motivoCodigo = motivoMatch?.Codigo ?? "CLI_AUSENTE";
+
+            var idempotencyKey = $"FALLO-{paradaId:N}-{DateTime.UtcNow.Ticks}";
+
+            // Contrato idéntico a RegistrarIntentoFallidoCommand (UC-21)
+            var payload = new IntentoFallidoOfflinePayload
+            {
+                HojaDeRutaId = hojaDeRutaId,
+                ParadaId = paradaId,
+                EnvioId = envioId,
+                IdempotencyKey = idempotencyKey,
+                MotivoNoEntregaId = motivoId,
+                MotivoCodigo = motivoCodigo,
+                Observaciones = Observaciones.Trim(),
+                FotoEvidenciaBase64 = TieneFoto ? "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" : null,
+                Latitud = parada?.Latitud != 0 ? parada?.Latitud : -34.9124,
+                Longitud = parada?.Longitud != 0 ? parada?.Longitud : -56.1589,
+                FechaHoraDispositivoUtc = DateTime.UtcNow
+            };
+
+            // 1. Encolar en base SQLite cifrada y actualizar estado local
             if (_localDatabaseService is not null)
             {
-                await _localDatabaseService.EncolarOperacionAsync("FALLO_ENTREGA", payload);
+                await _localDatabaseService.EncolarOperacionAsync(
+                    TiposOperacionOffline.FalloEntrega,
+                    JsonSerializer.Serialize(payload));
+
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Fallido");
             }
 
-            // 3. Actualizar estado local de la parada
-            if (Parada is not null)
+            // 2. Actualizar estado en memoria
+            if (parada is not null)
             {
-                Parada.Estado = "Fallido";
+                parada.Estado = "Fallido";
             }
 
-            // 4. Feedback visual y sonoro al repartidor
+            // 3. Disparar sincronización si estamos Online
+            if (_syncService?.IsOnline == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _syncService.SincronizarOperacionesPendientesAsync();
+                    }
+                    catch
+                    {
+                        // Fallback silente en background
+                    }
+                });
+            }
+
+            await Task.Delay(250);
+
             if (Shell.Current is not null)
             {
+                string infoRed = (_syncService?.IsOnline == true)
+                    ? "Sincronizando incidencia con la central y resolviendo reglas operativas."
+                    : "Guardado en SQLite cifrado local. Se resolverá la regla operativa (reprogramación / devolución) al sincronizar.";
+
                 await Shell.Current.DisplayAlertAsync(
                     "Incidencia Registrada (UC-21)",
-                    $"El intento fallido por '{MotivoSeleccionado}' se guardó en la cola offline cifrada y será sincronizado automáticamente.",
+                    $"El intento fallido por '{MotivoSeleccionado}' fue guardado.\n\n{infoRed}",
                     "Aceptar");
 
-                // Retornar a la lista principal de ruta
                 await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }

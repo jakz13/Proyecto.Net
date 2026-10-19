@@ -9,7 +9,13 @@ public class HojaDeRutaLocal
     public Guid Id { get; set; }
 
     [Indexed]
-    public DateTime Fecha { get; set; }
+    public DateTime Fecha { get; set; } = DateTime.Today;
 
-    public string Estado { get; set; } = string.Empty;
+    public string Estado { get; set; } = "EnTransito";
+
+    public string NumeroRuta { get; set; } = string.Empty;
+
+    public int TotalParadas { get; set; }
+
+    public DateTime FechaDescargaUtc { get; set; } = DateTime.UtcNow;
 }

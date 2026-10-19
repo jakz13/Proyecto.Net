@@ -91,7 +91,7 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
     }
 
     // Constructor supporting initial test suite & simple intake
-    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario) : base(id)
+    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario, string? codigoSeguimientoPublico = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -110,7 +110,9 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         NombreDestinatario = nombreDestinatario.Trim();
         DestinatarioId = Guid.NewGuid();
         ModalidadServicio = "Estandar";
-        CodigoSeguimientoPublico = $"TRK-{id.ToString()[..8].ToUpperInvariant()}";
+        CodigoSeguimientoPublico = string.IsNullOrWhiteSpace(codigoSeguimientoPublico)
+            ? $"TRK-{id.ToString()[..8].ToUpperInvariant()}"
+            : codigoSeguimientoPublico.Trim().ToUpperInvariant();
         FechaAlta = DateTime.UtcNow;
         EstadoActual = EstadoEnvio.Admitido;
         SelloModificacion = Guid.NewGuid();
@@ -124,9 +126,9 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             "Sistema"));
     }
 
-    public void AgregarBulto(string identificacion, decimal peso, decimal alto, decimal ancho, decimal profundo)
+    public void AgregarBulto(string identificacion, decimal peso, decimal alto = 20, decimal ancho = 20, decimal profundo = 20, Guid? bultoId = null)
     {
-        var bulto = new Bulto(Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
+        var bulto = new Bulto(bultoId ?? Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
         _bultos.Add(bulto);
         SelloModificacion = Guid.NewGuid();
     }
