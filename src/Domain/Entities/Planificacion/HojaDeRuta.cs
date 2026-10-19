@@ -59,6 +59,13 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    public void AgregarParada(Guid paradaId, Guid envioId, int orden, Guid direccionId, Guid? franjaHorariaId = null, string estado = "Pendiente")
+    {
+        var parada = new Parada(paradaId, Id, envioId, orden, direccionId, franjaHorariaId, estado);
+        _paradas.Add(parada);
+        SelloModificacion = Guid.NewGuid();
+    }
+
     public void RegistrarAsignacion(Guid envioId, Guid despachadorUsuarioId)
     {
         var asignacion = new AsignacionEnvioRuta(Guid.NewGuid(), envioId, Id, despachadorUsuarioId);
