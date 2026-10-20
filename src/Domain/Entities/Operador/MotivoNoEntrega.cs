@@ -10,13 +10,17 @@ public class MotivoNoEntrega : Entity, IMustHaveTenant
     public string Descripcion { get; private set; } = string.Empty;
     public bool Activo { get; private set; }
 
+    /// <summary>Los motivos internos los usa el personal de depósito y no se ofrecen en la app del repartidor.</summary>
+    public bool EsInterno { get; private set; }
+
     protected MotivoNoEntrega() { }
 
     public MotivoNoEntrega(
         Guid id,
         Guid operadorId,
         string codigo,
-        string descripcion) : base(id)
+        string descripcion,
+        bool esInterno = false) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del motivo no puede ser vacío.");
@@ -34,6 +38,7 @@ public class MotivoNoEntrega : Entity, IMustHaveTenant
         Codigo = codigo.Trim().ToUpperInvariant();
         Descripcion = descripcion.Trim();
         Activo = true;
+        EsInterno = esInterno;
     }
 
     public void Activar()

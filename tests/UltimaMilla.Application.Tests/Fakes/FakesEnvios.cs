@@ -61,7 +61,7 @@ public class FakeEnvioRepository : IEnvioRepository
         Task.FromResult(ReglaOperativa);
 
     public Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Motivos.Where(m => m.OperadorId == operadorId && m.Activo).ToList());
+        Task.FromResult(Motivos.Where(m => m.OperadorId == operadorId && m.Activo && !m.EsInterno).ToList());
 
     public Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(Motivos.FirstOrDefault(m => (motivoId.HasValue && m.Id == motivoId) || (codigo != null && m.Codigo == codigo)));
@@ -110,6 +110,20 @@ public class FakeCuadroTarifarioRepository : ICuadroTarifarioRepository
             .Where(c => c.OperadorId == operadorId && c.EstaVigenteEn(fechaUtc))
             .OrderByDescending(c => c.Version)
             .FirstOrDefault());
+}
+
+public class FakeRendicionRepository : IRendicionRepository
+{
+    public List<UltimaMilla.Domain.Entities.Ejecucion.RendicionDeposito> Rendiciones { get; } = new();
+
+    public Task AddAsync(UltimaMilla.Domain.Entities.Ejecucion.RendicionDeposito rendicion, CancellationToken cancellationToken = default)
+    {
+        Rendiciones.Add(rendicion);
+        return Task.CompletedTask;
+    }
+
+    public Task<UltimaMilla.Domain.Entities.Ejecucion.RendicionDeposito?> GetByHojaDeRutaIdAsync(Guid hojaDeRutaId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Rendiciones.FirstOrDefault(r => r.HojaDeRutaId == hojaDeRutaId));
 }
 
 public class FakeOutboxStorage : IOutboxStorage

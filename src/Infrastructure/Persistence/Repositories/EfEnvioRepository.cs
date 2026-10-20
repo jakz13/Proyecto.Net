@@ -104,7 +104,7 @@ public class EfEnvioRepository : IEnvioRepository
     {
         return await _dbContext.MotivosNoEntrega
             .AsNoTracking()
-            .Where(m => m.OperadorId == operadorId && m.Activo)
+            .Where(m => m.OperadorId == operadorId && m.Activo && !m.EsInterno)
             .OrderBy(m => m.Codigo)
             .ToListAsync(cancellationToken);
     }

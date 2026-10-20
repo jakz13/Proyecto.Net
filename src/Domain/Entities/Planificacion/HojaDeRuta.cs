@@ -13,6 +13,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public string Estado { get; private set; } = string.Empty;
     public DateTime? FechaLiberacion { get; private set; }
     public DateTime? FechaDespacho { get; private set; }
+    public DateTime? FechaRendicion { get; private set; }
     public Guid SelloModificacion { get; private set; }
 
     private readonly List<Parada> _paradas = new();
@@ -142,6 +143,29 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
         Estado = "Despachada";
         FechaDespacho = DateTime.UtcNow;
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Cierra la hoja de ruta tras la rendición del repartidor en depósito (UC-16). Libera sus asignaciones
+    /// para que los envíos que vuelven a depósito puedan incluirse en otra ruta.
+    /// </summary>
+    public void Rendir()
+    {
+        if (Estado == "Rendida")
+            throw new DomainValidationException("La hoja de ruta ya fue rendida.");
+
+        if (Estado is not ("Despachada" or "EnTransito" or "Finalizada"))
+            throw new DomainValidationException($"Solo se puede rendir una hoja de ruta despachada (estado actual: '{Estado}').");
+
+        foreach (var parada in _paradas)
+            parada.MarcarNoVisitada();
+
+        foreach (var asignacion in _asignaciones.Where(a => a.Vigente))
+            asignacion.Desactivar();
+
+        Estado = "Rendida";
+        FechaRendicion = DateTime.UtcNow;
         SelloModificacion = Guid.NewGuid();
     }
 

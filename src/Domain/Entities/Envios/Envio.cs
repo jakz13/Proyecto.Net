@@ -238,6 +238,48 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             motivo);
     }
 
+    /// <summary>
+    /// Registra que el envío volvió en el vehículo sin que se intentara entregarlo (UC-16): queda "no entregado"
+    /// con un motivo interno del catálogo y vuelve a depósito, conservando su clasificación.
+    /// </summary>
+    public void RegistrarRetornoSinIntento(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
+    {
+        ArgumentNullException.ThrowIfNull(motivoInterno);
+
+        if (EstadoActual != EstadoEnvio.EnTransito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede registrar como retornado sin intento porque su estado es '{EstadoActual}'.");
+
+        if (!motivoInterno.Activo || !motivoInterno.EsInterno)
+            throw new DomainValidationException($"El motivo '{motivoInterno.Codigo}' no es un motivo interno activo.");
+
+        TransicionarEstado(
+            EstadoEnvio.NoEntregado,
+            "RetornoSinIntento",
+            responsableUsuarioId,
+            "Backoffice",
+            payload: $"Motivo: {motivoInterno.Codigo} - {motivoInterno.Descripcion}. {observaciones?.Trim()}".Trim());
+
+        VolverADeposito("RetornoADeposito", responsableUsuarioId, "Rendición del repartidor.");
+    }
+
+    /// <summary>Devuelve a depósito un envío reprogramado cuando el repartidor lo entrega en la rendición (UC-16).</summary>
+    public void ReintegrarADepositoPorRendicion(Guid responsableUsuarioId)
+    {
+        if (EstadoActual != EstadoEnvio.Reprogramado)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede reintegrar a depósito porque su estado es '{EstadoActual}'.");
+
+        VolverADeposito("ReintegroADeposito", responsableUsuarioId, "Rendición del repartidor: envío reprogramado.");
+    }
+
+    private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
+    {
+        HojaDeRutaId = null;
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto == "CargadoEnVehiculo"))
+            bulto.MarcarRecibido();
+
+        TransicionarEstado(EstadoEnvio.EnDeposito, tipoEvento, responsableUsuarioId, "Backoffice", payload: detalle);
+    }
+
     public void TransicionarEstado(
         EstadoEnvio nuevoEstado,
         string tipoEvento,

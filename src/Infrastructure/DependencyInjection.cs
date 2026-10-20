@@ -29,6 +29,7 @@ public static class DependencyInjection
         // Puertos de persistencia y dominio
         services.AddScoped<IEnvioRepository, EfEnvioRepository>();
         services.AddScoped<IRutaRepository, EfRutaRepository>();
+        services.AddScoped<IRendicionRepository, EfRendicionRepository>();
         services.AddScoped<IRepartidorRepository, EfRepartidorRepository>();
         services.AddScoped<IVehiculoRepository, EfVehiculoRepository>();
         services.AddScoped<IFranjaHorariaRepository, EfFranjaHorariaRepository>();

@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public DbSet<ReglaOperativa> ReglasOperativas => Set<ReglaOperativa>();
     public DbSet<MotivoNoEntrega> MotivosNoEntrega => Set<MotivoNoEntrega>();
     public DbSet<EventoEnvio> EventosEnvio => Set<EventoEnvio>();
+    public DbSet<RendicionDeposito> RendicionesDeposito => Set<RendicionDeposito>();
     public DbSet<Repartidor> Repartidores => Set<Repartidor>();
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
@@ -218,6 +219,15 @@ public class AppDbContext : DbContext
             builder.Property(r => r.PrecioBase).HasPrecision(18, 2);
             builder.Property(r => r.Recargo).HasPrecision(18, 2);
             builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<RendicionDeposito>(builder =>
+        {
+            builder.ToTable("RendicionesDeposito");
+            builder.HasKey(r => r.Id);
+            // Una hoja de ruta se rinde una sola vez
+            builder.HasIndex(r => r.HojaDeRutaId).IsUnique();
+            builder.Property(r => r.Observaciones).HasMaxLength(500);
         });
 
         modelBuilder.Entity<EscaneoCargaVehiculo>(builder =>

@@ -94,6 +94,15 @@ public class Parada : Entity
         Estado = "Fallida";
     }
 
+    /// <summary>La parada nunca se visitó: se cierra así al rendir la hoja de ruta.</summary>
+    public void MarcarNoVisitada()
+    {
+        if (Estado is "Entregada" or "Fallida" or "Cancelada")
+            return;
+
+        Estado = "NoVisitada";
+    }
+
     public void CancelarPorFaltante(string motivo)
     {
         Estado = "Cancelada";

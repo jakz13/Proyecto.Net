@@ -120,6 +120,8 @@ public static class DatabaseSeeder
             new(Guid.Parse("dddddddd-0005-0000-0000-000000000005"), DefaultOperadorId, "ZONA_INACCESIBLE", "Zona inaccesible o fuerza mayor"),
             new(Guid.Parse("dddddddd-0006-0000-0000-000000000006"), DefaultOperadorId, "BULTO_DANADO", "Bulto dañado / Avería en tránsito"),
             new(Guid.Parse("dddddddd-0007-0000-0000-000000000007"), DefaultOperadorId, "ERROR_PAGO", "Problemas con medio de pago / Cobro"),
+            // Motivo interno del personal de depósito (no se ofrece en la app del repartidor)
+            new(Guid.Parse("dddddddd-0008-0000-0000-000000000008"), DefaultOperadorId, "RETORNO_SIN_INTENTO", "Retorno a depósito sin intento de entrega", esInterno: true),
             // Alias amigables de respaldo
             new(Guid.Parse("dddddddd-0001-0000-0000-000000000011"), DefaultOperadorId, "AUSENTE", "Cliente ausente"),
             new(Guid.Parse("dddddddd-0002-0000-0000-000000000012"), DefaultOperadorId, "DIRECCION_INCORRECTA", "Dirección incorrecta"),
@@ -263,6 +265,15 @@ public static class DatabaseSeeder
     /// </summary>
     private static async Task SembrarOperacionAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
+        // El motivo interno de la rendición debe existir también en bases sembradas antes de UC-16
+        if (!await context.MotivosNoEntrega.AnyAsync(m => m.OperadorId == DefaultOperadorId && m.Codigo == "RETORNO_SIN_INTENTO", cancellationToken))
+        {
+            await context.MotivosNoEntrega.AddAsync(
+                new MotivoNoEntrega(Guid.Parse("dddddddd-0008-0000-0000-000000000008"), DefaultOperadorId, "RETORNO_SIN_INTENTO", "Retorno a depósito sin intento de entrega", esInterno: true),
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
         if (await context.CuadrosTarifarios.AnyAsync(c => c.OperadorId == DefaultOperadorId, cancellationToken))
             return;
 

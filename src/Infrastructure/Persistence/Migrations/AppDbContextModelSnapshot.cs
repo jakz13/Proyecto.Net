@@ -189,6 +189,41 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("PruebasDeEntrega", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.RendicionDeposito", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BultosDevueltos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BultosEntregados")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BultosPendientes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("FechaHora")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HojaDeRutaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("RepartidorId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HojaDeRutaId")
+                        .IsUnique();
+
+                    b.ToTable("RendicionesDeposito", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.Bulto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -561,6 +596,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)");
 
+                    b.Property<bool>("EsInterno")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("OperadorId")
                         .HasColumnType("uuid");
 
@@ -820,6 +858,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaLiberacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaRendicion")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("OperadorId")

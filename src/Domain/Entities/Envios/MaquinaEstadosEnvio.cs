@@ -23,8 +23,8 @@ public static class MaquinaEstadosEnvio
             // Resultado en calle (UC-20, UC-21) o regreso al depósito sin intentar (UC-16)
             [EstadoEnvio.EnTransito] = [EstadoEnvio.Entregado, EstadoEnvio.NoEntregado, EstadoEnvio.EnDeposito, EstadoEnvio.Extraviado],
 
-            // Evaluación de la regla operativa tras un intento fallido (UC-21)
-            [EstadoEnvio.NoEntregado] = [EstadoEnvio.Reprogramado, EstadoEnvio.EnDevolucion, EstadoEnvio.Extraviado],
+            // Regla operativa tras un intento fallido (UC-21) o regreso a depósito sin intento en la rendición (UC-16)
+            [EstadoEnvio.NoEntregado] = [EstadoEnvio.Reprogramado, EstadoEnvio.EnDevolucion, EstadoEnvio.EnDeposito, EstadoEnvio.Extraviado],
 
             // Nuevo intento en otra ruta (UC-10, UC-34) o regreso al depósito
             [EstadoEnvio.Reprogramado] = [EstadoEnvio.AsignadoARuta, EstadoEnvio.EnDeposito, EstadoEnvio.Extraviado],
