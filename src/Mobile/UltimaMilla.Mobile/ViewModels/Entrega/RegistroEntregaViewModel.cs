@@ -69,16 +69,20 @@ public partial class RegistroEntregaViewModel : ObservableObject
         }
     }
 
+    public Func<string?>? ObtenerFirmaCallback { get; set; }
+    public Action? LimpiarFirmaAction { get; set; }
+
     [RelayCommand]
     private void SimularFirma()
     {
         TieneFirma = true;
-        FirmaStatusText = "Firma digital capturada (240 pts vectoriales)";
+        FirmaStatusText = "Firma digital capturada";
     }
 
     [RelayCommand]
     private void LimpiarFirma()
     {
+        LimpiarFirmaAction?.Invoke();
         TieneFirma = false;
         FirmaStatusText = "Toque o dibuje para firmar";
     }
@@ -117,6 +121,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
             var idempotencyKey = $"ENTREGA-{paradaId:N}-{DateTime.UtcNow.Ticks}";
 
+            // Obtener firma dibujada real (vectorial en SVG Base64) o fallback
+            string? firmaBase64 = ObtenerFirmaCallback?.Invoke();
+            if (string.IsNullOrWhiteSpace(firmaBase64) && TieneFirma)
+            {
+                firmaBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+            }
+
             // Contrato idéntico a RegistrarEntregaExitosaCommand (UC-20)
             var payload = new EntregaExitosaOfflinePayload
             {
@@ -126,7 +137,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 IdempotencyKey = idempotencyKey,
                 NombreReceptor = NombreReceptor.Trim(),
                 DocumentoReceptor = DocumentoReceptor.Trim(),
-                FirmaDigitalBase64 = TieneFirma ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" : null,
+                FirmaDigitalBase64 = firmaBase64,
                 FotoEvidenciaBase64 = TieneFoto ? "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" : null,
                 Latitud = parada?.Latitud != 0 ? parada?.Latitud : -34.9056,
                 Longitud = parada?.Longitud != 0 ? parada?.Longitud : -56.1852,
