@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
+using UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Domain.Exceptions;
@@ -182,6 +183,48 @@ public static class PlanificacionEndpoints
         .Produces<IReadOnlyList<EnvioPendienteDeRutaDto>>(StatusCodes.Status200OK)
         .WithOpenApi();
 
+        group.MapPost("/{hojaDeRutaId:guid}/envios/{envioId:guid}/reasignacion", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromRoute] Guid envioId,
+            [FromBody] ReasignarEnvioRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new ReasignarEnvioCommand(
+                    hojaDeRutaId, envioId, request.Accion ?? "Retirar", request.HojaDeRutaDestinoId,
+                    request.FranjaHorariaId, request.MotivoInternoCodigo, request.Observaciones);
+
+                return Results.Ok(await mediator.Send(command, ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (ConflictoDeConcurrenciaException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("ReasignarEnvio")
+        .WithSummary("Reasignar o reprogramar un envío en ruta (UC-10)")
+        .WithDescription("Retira el envío de su hoja de ruta. Si la ruta no salió vuelve a depósito y puede asignarse a otra ruta liberada o reprogramarse. Si ya está en la calle queda no entregado con un motivo interno y vuelve a depósito en la rendición.")
+        .Produces<ReasignacionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status409Conflict)
+        .WithOpenApi();
+
         group.MapPost("/{hojaDeRutaId:guid}/despacho", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromBody] DespacharHojaDeRutaRequest? request,
@@ -225,6 +268,13 @@ public static class PlanificacionEndpoints
 }
 
 public record DespacharHojaDeRutaRequest(string? Observaciones = null);
+
+public record ReasignarEnvioRequest(
+    string? Accion = null,
+    Guid? HojaDeRutaDestinoId = null,
+    Guid? FranjaHorariaId = null,
+    string? MotivoInternoCodigo = null,
+    string? Observaciones = null);
 
 public record ArmarHojaDeRutaRequest(
     Guid RepartidorId,

@@ -72,6 +72,29 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    /// <summary>Orden que le corresponde a una parada agregada al final de la ruta.</summary>
+    public int SiguienteOrden => _paradas.Count == 0 ? 1 : _paradas.Max(p => p.Orden) + 1;
+
+    /// <summary>
+    /// Retira un envío de la ruta (UC-10): su parada se cancela y su asignación deja de estar vigente.
+    /// Solo es posible mientras la parada no esté cerrada.
+    /// </summary>
+    public void RetirarEnvio(Guid envioId)
+    {
+        if (Estado is not ("Liberada" or "EnCarga" or "Despachada" or "EnTransito"))
+            throw new DomainValidationException($"No se pueden retirar envíos de una hoja de ruta en estado '{Estado}'.");
+
+        var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId && p.Estado != "Cancelada")
+            ?? throw new DomainValidationException("El envío no tiene una parada vigente en esta hoja de ruta.");
+
+        if (parada.Estado is "Entregada" or "Fallida")
+            throw new DomainValidationException($"La parada del envío ya fue cerrada ({parada.Estado}) y no se puede retirar.");
+
+        parada.CancelarPorFaltante("Envío retirado de la ruta por el despachador.");
+        _asignaciones.FirstOrDefault(a => a.EnvioId == envioId && a.Vigente)?.Desactivar();
+        SelloModificacion = Guid.NewGuid();
+    }
+
     public void RegistrarAsignacion(Guid envioId, Guid despachadorUsuarioId)
     {
         var asignacion = new AsignacionEnvioRuta(Guid.NewGuid(), envioId, Id, despachadorUsuarioId);

@@ -265,10 +265,57 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     /// <summary>Devuelve a depósito un envío reprogramado cuando el repartidor lo entrega en la rendición (UC-16).</summary>
     public void ReintegrarADepositoPorRendicion(Guid responsableUsuarioId)
     {
-        if (EstadoActual != EstadoEnvio.Reprogramado)
+        if (EstadoActual is not (EstadoEnvio.Reprogramado or EstadoEnvio.NoEntregado))
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede reintegrar a depósito porque su estado es '{EstadoActual}'.");
 
         VolverADeposito("ReintegroADeposito", responsableUsuarioId, "Rendición del repartidor: envío reprogramado.");
+    }
+
+    /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
+    public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
+    {
+        if (EstadoActual != EstadoEnvio.AsignadoARuta)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede retirar de la ruta porque su estado es '{EstadoActual}'.");
+
+        HojaDeRutaId = null;
+        TransicionarEstado(EstadoEnvio.EnDeposito, "RetiroDeRuta", responsableUsuarioId, "Backoffice", payload: motivo);
+    }
+
+    /// <summary>
+    /// Retira un envío que ya está en la calle (UC-10): queda "no entregado" con un motivo interno y vuelve a
+    /// depósito cuando el repartidor rinda la ruta (UC-16).
+    /// </summary>
+    public void RegistrarRetiroEnCalle(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
+    {
+        ArgumentNullException.ThrowIfNull(motivoInterno);
+
+        if (EstadoActual != EstadoEnvio.EnTransito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en tránsito (estado '{EstadoActual}').");
+
+        if (!motivoInterno.Activo || !motivoInterno.EsInterno)
+            throw new DomainValidationException($"El motivo '{motivoInterno.Codigo}' no es un motivo interno activo.");
+
+        TransicionarEstado(
+            EstadoEnvio.NoEntregado,
+            "RetiroEnRuta",
+            responsableUsuarioId,
+            "Backoffice",
+            payload: $"Motivo: {motivoInterno.Codigo} - {motivoInterno.Descripcion}. {observaciones?.Trim()}".Trim());
+    }
+
+    /// <summary>Cambia la franja horaria comprometida de un envío que está en depósito (UC-10).</summary>
+    public void ReprogramarFranja(Guid franjaHorariaId, Guid responsableUsuarioId)
+    {
+        if (franjaHorariaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            throw new DomainValidationException($"Solo se puede reprogramar la franja de un envío en depósito (estado '{EstadoActual}').");
+
+        var anterior = FranjaHorariaComprometidaId;
+        FranjaHorariaComprometidaId = franjaHorariaId;
+        RegistrarEventoSinCambioDeEstado(
+            "ReprogramacionFranja", responsableUsuarioId, "Backoffice", $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.");
     }
 
     private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)

@@ -116,6 +116,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
                     break;
 
                 case EstadoEnvio.Reprogramado:
+                case EstadoEnvio.NoEntregado:
                 case EstadoEnvio.EnTransito:
                     devueltos += presentadosDelEnvio;
                     pendientes += bultos.Count - presentadosDelEnvio;

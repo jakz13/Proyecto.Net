@@ -147,6 +147,20 @@ public class RendirHojaDeRutaCommandHandlerTests
     }
 
     [Fact]
+    public async Task Rendicion_EnvioRetiradoEnLaCalleDesdeElBackoffice_VuelveADeposito()
+    {
+        var (ruta, _, sinIntento, reprogramado, enDevolucion) = CrearRutaDespachada();
+        sinIntento.RegistrarRetiroEnCalle(_motivoInterno, Guid.NewGuid(), "Retirado por el despachador");
+        ruta.RetirarEnvio(sinIntento.Id);
+
+        var resultado = await Rendir(ruta, Codigos(sinIntento, reprogramado, enDevolucion), motivo: null);
+
+        Assert.Equal(EstadoEnvio.EnDeposito, sinIntento.EstadoActual);
+        Assert.Contains(sinIntento.CodigoSeguimientoPublico, resultado.EnviosReintegradosADeposito);
+        Assert.Equal(0, resultado.BultosPendientes);
+    }
+
+    [Fact]
     public async Task Rendicion_CierraLaRutaYHabilitaAlRepartidor()
     {
         var (ruta, _, sinIntento, reprogramado, enDevolucion) = CrearRutaDespachada();
