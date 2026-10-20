@@ -126,6 +126,26 @@ public class FakeRendicionRepository : IRendicionRepository
         Task.FromResult(Rendiciones.FirstOrDefault(r => r.HojaDeRutaId == hojaDeRutaId));
 }
 
+public class FakeDevolucionRepository : IDevolucionRepository
+{
+    public List<UltimaMilla.Domain.Entities.Ejecucion.Devolucion> Devoluciones { get; } = new();
+
+    public Task AddAsync(UltimaMilla.Domain.Entities.Ejecucion.Devolucion devolucion, CancellationToken cancellationToken = default)
+    {
+        Devoluciones.Add(devolucion);
+        return Task.CompletedTask;
+    }
+
+    public Task<UltimaMilla.Domain.Entities.Ejecucion.Devolucion?> GetByEnvioIdAsync(Guid envioId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Devoluciones.FirstOrDefault(d => d.EnvioId == envioId));
+
+    public Task<List<UltimaMilla.Domain.Entities.Ejecucion.Devolucion>> GetByEnviosIdsAsync(IEnumerable<Guid> enviosIds, CancellationToken cancellationToken = default)
+    {
+        var ids = enviosIds.ToHashSet();
+        return Task.FromResult(Devoluciones.Where(d => ids.Contains(d.EnvioId)).ToList());
+    }
+}
+
 public class FakeOutboxStorage : IOutboxStorage
 {
     public List<UltimaMilla.Domain.Entities.Mensajeria.OutboxMessage> Mensajes { get; } = new();

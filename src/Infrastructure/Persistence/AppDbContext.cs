@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<MotivoNoEntrega> MotivosNoEntrega => Set<MotivoNoEntrega>();
     public DbSet<EventoEnvio> EventosEnvio => Set<EventoEnvio>();
     public DbSet<RendicionDeposito> RendicionesDeposito => Set<RendicionDeposito>();
+    public DbSet<Devolucion> Devoluciones => Set<Devolucion>();
     public DbSet<Repartidor> Repartidores => Set<Repartidor>();
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
@@ -219,6 +220,15 @@ public class AppDbContext : DbContext
             builder.Property(r => r.PrecioBase).HasPrecision(18, 2);
             builder.Property(r => r.Recargo).HasPrecision(18, 2);
             builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<Devolucion>(builder =>
+        {
+            builder.ToTable("Devoluciones");
+            builder.HasKey(d => d.Id);
+            // Un envío tiene una sola devolución
+            builder.HasIndex(d => d.EnvioId).IsUnique();
+            builder.Property(d => d.Estado).IsRequired().HasMaxLength(50);
         });
 
         modelBuilder.Entity<RendicionDeposito>(builder =>

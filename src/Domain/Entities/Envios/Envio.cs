@@ -271,6 +271,30 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         VolverADeposito("ReintegroADeposito", responsableUsuarioId, "Rendición del repartidor: envío reprogramado.");
     }
 
+    /// <summary>
+    /// El repartidor retira los bultos de un envío en devolución y los lleva de vuelta al depósito (UC-22).
+    /// No cambia el estado del envío. Devuelve false cuando ya estaba registrado (operación idempotente).
+    /// </summary>
+    public bool RegistrarRetiroParaDevolucion(Guid? responsableUsuarioId, double? latitud, double? longitud, DateTime fechaHoraDispositivoUtc, string? observaciones = null)
+    {
+        if (EstadoActual != EstadoEnvio.EnDevolucion)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        var porRetirar = _bultos.Where(b => b.EstadoBulto == "CargadoEnVehiculo").ToList();
+        if (porRetirar.Count == 0)
+            return false;
+
+        foreach (var bulto in porRetirar)
+            bulto.MarcarEnRetornoADeposito();
+
+        _eventos.Add(new EventoEnvio(
+            Guid.NewGuid(), Id, "RetiroParaDevolucion", EstadoActual, EstadoActual, "MobileApp",
+            responsableUsuarioId, latitud, longitud,
+            $"Bultos retirados para devolver al depósito. DispositivoUtc: {fechaHoraDispositivoUtc:O}. {observaciones?.Trim()}".Trim()));
+        SelloModificacion = Guid.NewGuid();
+        return true;
+    }
+
     /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
     public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
     {
@@ -321,7 +345,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
     {
         HojaDeRutaId = null;
-        foreach (var bulto in _bultos.Where(b => b.EstadoBulto == "CargadoEnVehiculo"))
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
             bulto.MarcarRecibido();
 
         TransicionarEstado(EstadoEnvio.EnDeposito, tipoEvento, responsableUsuarioId, "Backoffice", payload: detalle);

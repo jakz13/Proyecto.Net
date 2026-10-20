@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
+using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
@@ -355,9 +356,63 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
+        // =========================================================================
+        // UC-22: GESTIONAR DEVOLUCIÓN EN LA CALLE (RF-22)
+        // =========================================================================
+        group.MapPost("/paradas/{paradaId:guid}/retiro-devolucion", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromRoute] Guid paradaId,
+            [FromBody] RegistrarRetiroDevolucionRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new RegistrarRetiroDevolucionCommand(
+                    hojaDeRutaId,
+                    paradaId,
+                    request.EnvioId,
+                    request.IdempotencyKey,
+                    request.Latitud,
+                    request.Longitud,
+                    request.FechaHoraDispositivoUtc,
+                    request.Observaciones);
+
+                return Results.Ok(await mediator.Send(command, ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("RegistrarRetiroDevolucion")
+        .WithSummary("UC-22: Registrar el retiro del bulto para devolverlo al depósito")
+        .WithDescription("Para un envío en devolución, marca sus bultos en retorno al depósito y registra la devolución como en camino. Es idempotente.")
+        .Produces<RetiroDevolucionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         return app;
     }
 }
+
+public record RegistrarRetiroDevolucionRequest(
+    Guid EnvioId,
+    string IdempotencyKey,
+    double? Latitud = null,
+    double? Longitud = null,
+    DateTime? FechaHoraDispositivoUtc = null,
+    string? Observaciones = null);
 
 // Request Contracts
 public record ValidarCargaRequest(List<string> CodigosBultosEscaneados);

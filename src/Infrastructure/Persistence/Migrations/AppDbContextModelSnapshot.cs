@@ -81,6 +81,36 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("ComerciosOperadores", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.Devolucion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EnvioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaRendicion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("MotivoDevolucionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnvioId")
+                        .IsUnique();
+
+                    b.ToTable("Devoluciones", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.EscaneoCargaVehiculo", b =>
                 {
                     b.Property<Guid>("Id")

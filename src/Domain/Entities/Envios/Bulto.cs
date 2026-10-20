@@ -103,6 +103,8 @@ public class Bulto : Entity
         FechaClasificacion = DateTime.UtcNow;
     }
 
+    public void MarcarEnRetornoADeposito() => EstadoBulto = "EnRetornoADeposito";
+
     public void MarcarRecibido() => EstadoBulto = "Recibido";
 
     public void MarcarFaltanteEnRecepcion() => EstadoBulto = "FaltanteEnRecepcion";

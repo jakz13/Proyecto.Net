@@ -177,7 +177,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
 
     /// <summary>Bultos que salieron en el vehículo con esta ruta (la entrega no cambia el estado del bulto).</summary>
     private static IEnumerable<Bulto> ViajaronEnElVehiculo(Envio envio) =>
-        envio.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo");
+        envio.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito");
 
     private static bool TodosPresentados(Envio envio, HashSet<string> presentados)
     {
