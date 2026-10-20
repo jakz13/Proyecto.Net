@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
@@ -17,14 +18,70 @@ public class EfEnvioRepository : IEnvioRepository
     public async Task AddAsync(Envio envio, CancellationToken cancellationToken = default)
     {
         await _dbContext.Envios.AddAsync(envio, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
+    {
+        var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
+        return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
+    }
+
+    public async Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default)
+    {
+        // El listado no necesita bultos, eventos ni intentos: se evita cargarlos
+        var consulta = _dbContext.Envios
+            .AsNoTracking()
+            .IgnoreAutoIncludes()
+            .Where(e => e.OperadorId == operadorId && e.ComercioOperadorId == comercioOperadorId);
+
+        if (filtro.Estado.HasValue)
+            consulta = consulta.Where(e => e.EstadoActual == filtro.Estado.Value);
+
+        if (filtro.DesdeUtc.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta >= filtro.DesdeUtc.Value);
+
+        if (filtro.HastaUtcExclusivo.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta < filtro.HastaUtcExclusivo.Value);
+
+        if (!string.IsNullOrWhiteSpace(filtro.Texto))
+        {
+            var texto = filtro.Texto.Trim().ToLower();
+            consulta = consulta.Where(e => e.NombreDestinatario.ToLower().Contains(texto)
+                                           || e.CodigoSeguimientoPublico.ToLower().Contains(texto));
+        }
+
+        var total = await consulta.CountAsync(cancellationToken);
+        var items = await consulta
+            .OrderByDescending(e => e.FechaAlta)
+            .Skip((filtro.Pagina - 1) * filtro.TamanoPagina)
+            .Take(filtro.TamanoPagina)
+            .ToListAsync(cancellationToken);
+
+        return (items, total);
+    }
+
+    public async Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Envios
+            .AsNoTracking()
+            .Where(e => e.OperadorId == operadorId && e.EstadoActual == estado)
+            .OrderBy(e => e.FechaAlta)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
+    {
+        var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
+        return await _dbContext.Envios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
     public async Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Envios
             .AsNoTracking()
-            .OrderByDescending(e => e.FechaCreacion)
+            .OrderByDescending(e => e.FechaAlta)
             .ToListAsync(cancellationToken);
     }
 
@@ -51,13 +108,21 @@ public class EfEnvioRepository : IEnvioRepository
 
     public Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default)
     {
-        _dbContext.Envios.Update(envio);
+        // Una entidad ya rastreada detecta sola sus cambios; Update marcaría como modificados los hijos nuevos (eventos, intentos) y fallaría al guardar
+        if (_dbContext.Entry(envio).State == EntityState.Detached)
+            _dbContext.Envios.Update(envio);
+
         return Task.CompletedTask;
     }
 
     public Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default)
     {
-        _dbContext.Envios.UpdateRange(envios);
+        foreach (var envio in envios)
+        {
+            if (_dbContext.Entry(envio).State == EntityState.Detached)
+                _dbContext.Envios.Update(envio);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -67,6 +132,15 @@ public class EfEnvioRepository : IEnvioRepository
             .Where(r => r.OperadorId == operadorId && (r.VigenteHasta == null || r.VigenteHasta > DateTime.UtcNow))
             .OrderByDescending(r => r.Version)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.MotivosNoEntrega
+            .AsNoTracking()
+            .Where(m => m.OperadorId == operadorId && m.Activo && !m.EsInterno)
+            .OrderBy(m => m.Codigo)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default)

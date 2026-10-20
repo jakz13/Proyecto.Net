@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
@@ -25,11 +26,19 @@ public class AppDbContext : DbContext
     public DbSet<ReglaOperativa> ReglasOperativas => Set<ReglaOperativa>();
     public DbSet<MotivoNoEntrega> MotivosNoEntrega => Set<MotivoNoEntrega>();
     public DbSet<EventoEnvio> EventosEnvio => Set<EventoEnvio>();
+    public DbSet<RendicionDeposito> RendicionesDeposito => Set<RendicionDeposito>();
+    public DbSet<Devolucion> Devoluciones => Set<Devolucion>();
+    public DbSet<Repartidor> Repartidores => Set<Repartidor>();
+    public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
+    public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
+    public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
+    public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
+    public DbSet<Direccion> Direcciones => Set<Direccion>();
+    public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
+    public DbSet<ReglaTarifa> ReglasTarifa => Set<ReglaTarifa>();
     public DbSet<Operador> Operadores => Set<Operador>();
     public DbSet<Comercio> Comercios => Set<Comercio>();
     public DbSet<ComercioOperador> ComerciosOperadores => Set<ComercioOperador>();
-    public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
-    public DbSet<Repartidor> Repartidores => Set<Repartidor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,17 +48,25 @@ public class AppDbContext : DbContext
         {
             builder.ToTable("Envios");
             builder.HasKey(e => e.Id);
+            // Propiedades de compatibilidad calculadas: no se persisten
             builder.Ignore(e => e.ComercioId);
             builder.Ignore(e => e.FechaCreacion);
             builder.Ignore(e => e.Estado);
-            builder.Ignore(e => e.Discrepancias);
             builder.Ignore(e => e.CantidadIntentos);
+            builder.Ignore(e => e.PesoTotal);
+            builder.Ignore(e => e.VolumenTotal);
+            builder.Property(e => e.OperadorId).IsRequired();
+            builder.HasIndex(e => e.OperadorId);
+            builder.Property(e => e.SelloModificacion).IsConcurrencyToken();
             builder.Property(e => e.ComercioOperadorId).IsRequired();
             builder.Property(e => e.DireccionDestino).IsRequired().HasMaxLength(300);
             builder.Property(e => e.NombreDestinatario).IsRequired().HasMaxLength(200);
             builder.Property(e => e.FechaAlta).IsRequired();
             builder.Property(e => e.EstadoActual).IsRequired().HasConversion<string>().HasMaxLength(50);
             builder.Property(e => e.CodigoSeguimientoPublico).IsRequired().HasMaxLength(100);
+            builder.HasIndex(e => e.CodigoSeguimientoPublico).IsUnique();
+            builder.Property(e => e.ModalidadServicio).IsRequired().HasMaxLength(50);
+            builder.Property(e => e.TarifaCalculada).HasPrecision(18, 2);
             builder.Navigation(e => e.Bultos).AutoInclude();
             builder.Navigation(e => e.Eventos).AutoInclude();
             builder.Navigation(e => e.IntentosEntrega).AutoInclude();
@@ -59,8 +76,12 @@ public class AppDbContext : DbContext
         {
             builder.ToTable("Bultos");
             builder.HasKey(b => b.Id);
+            builder.Ignore(b => b.Volumen);
+            builder.Ignore(b => b.EstaClasificado);
             builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
             builder.Property(b => b.EstadoBulto).IsRequired().HasMaxLength(50);
+            builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
+            builder.Property(b => b.TipoClasificacion).HasMaxLength(50);
         });
 
         modelBuilder.Entity<HojaDeRuta>(builder =>
@@ -68,8 +89,12 @@ public class AppDbContext : DbContext
             builder.ToTable("HojasDeRuta");
             builder.HasKey(h => h.Id);
             builder.Property(h => h.Estado).IsRequired().HasMaxLength(50);
+            builder.Property(h => h.SelloModificacion).IsConcurrencyToken();
+            builder.HasIndex(h => new { h.OperadorId, h.Fecha });
             builder.Navigation(h => h.Paradas).AutoInclude();
             builder.Navigation(h => h.Asignaciones).AutoInclude();
+            builder.HasMany(h => h.EscaneosCarga).WithOne().HasForeignKey(e => e.HojaDeRutaId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(h => h.EscaneosCarga).AutoInclude();
         });
 
         modelBuilder.Entity<Parada>(builder =>
@@ -77,12 +102,6 @@ public class AppDbContext : DbContext
             builder.ToTable("Paradas");
             builder.HasKey(p => p.Id);
             builder.Property(p => p.Estado).IsRequired().HasMaxLength(50);
-        });
-
-        modelBuilder.Entity<AsignacionEnvioRuta>(builder =>
-        {
-            builder.ToTable("AsignacionesEnvioRuta");
-            builder.HasKey(a => a.Id);
         });
 
         modelBuilder.Entity<Operador>(builder =>
@@ -110,23 +129,6 @@ public class AppDbContext : DbContext
             builder.HasKey(co => co.Id);
             builder.Property(co => co.ClaveApi).IsRequired().HasMaxLength(200);
             builder.Property(co => co.Estado).IsRequired().HasMaxLength(50);
-        });
-
-        modelBuilder.Entity<Vehiculo>(builder =>
-        {
-            builder.ToTable("Vehiculos");
-            builder.HasKey(v => v.Id);
-            builder.Property(v => v.Patente).IsRequired().HasMaxLength(20);
-            builder.Property(v => v.Tipo).IsRequired().HasMaxLength(50);
-        });
-
-        modelBuilder.Entity<Repartidor>(builder =>
-        {
-            builder.ToTable("Repartidores");
-            builder.HasKey(r => r.Id);
-            builder.Property(r => r.Documento).IsRequired().HasMaxLength(50);
-            builder.Property(r => r.Telefono).IsRequired().HasMaxLength(50);
-            builder.Property(r => r.Estado).IsRequired().HasMaxLength(50);
         });
 
         modelBuilder.Entity<OutboxMessage>(builder =>
@@ -176,5 +178,119 @@ public class AppDbContext : DbContext
             builder.HasKey(ev => ev.Id);
             builder.Property(ev => ev.TipoEvento).IsRequired().HasMaxLength(100);
         });
+
+        modelBuilder.Entity<Destinatario>(builder =>
+        {
+            builder.ToTable("Destinatarios");
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.Nombre).IsRequired().HasMaxLength(200);
+            builder.Property(d => d.Documento).HasMaxLength(50);
+            builder.Property(d => d.Email).HasMaxLength(200);
+            builder.Property(d => d.Telefono).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Direccion>(builder =>
+        {
+            builder.ToTable("Direcciones");
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.Calle).IsRequired().HasMaxLength(200);
+            builder.Property(d => d.Numero).IsRequired().HasMaxLength(30);
+            builder.Property(d => d.Ciudad).IsRequired().HasMaxLength(100);
+            builder.Property(d => d.Referencia).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<CuadroTarifario>(builder =>
+        {
+            builder.ToTable("CuadrosTarifarios");
+            builder.HasKey(c => c.Id);
+            builder.HasIndex(c => new { c.OperadorId, c.Version }).IsUnique();
+            builder.HasMany(c => c.ReglasTarifa).WithOne().HasForeignKey(r => r.CuadroTarifarioId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(c => c.ReglasTarifa).AutoInclude();
+        });
+
+        modelBuilder.Entity<ReglaTarifa>(builder =>
+        {
+            builder.ToTable("ReglasTarifa");
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.ModalidadServicio).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.PesoDesde).HasPrecision(18, 3);
+            builder.Property(r => r.PesoHasta).HasPrecision(18, 3);
+            builder.Property(r => r.VolumenDesde).HasPrecision(18, 3);
+            builder.Property(r => r.VolumenHasta).HasPrecision(18, 3);
+            builder.Property(r => r.PrecioBase).HasPrecision(18, 2);
+            builder.Property(r => r.Recargo).HasPrecision(18, 2);
+            builder.Property(r => r.Bonificacion).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<Devolucion>(builder =>
+        {
+            builder.ToTable("Devoluciones");
+            builder.HasKey(d => d.Id);
+            // Un envío tiene una sola devolución
+            builder.HasIndex(d => d.EnvioId).IsUnique();
+            builder.Property(d => d.Estado).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<RendicionDeposito>(builder =>
+        {
+            builder.ToTable("RendicionesDeposito");
+            builder.HasKey(r => r.Id);
+            // Una hoja de ruta se rinde una sola vez
+            builder.HasIndex(r => r.HojaDeRutaId).IsUnique();
+            builder.Property(r => r.Observaciones).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<EscaneoCargaVehiculo>(builder =>
+        {
+            builder.ToTable("EscaneosCargaVehiculo");
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Resultado).IsRequired().HasMaxLength(50);
+            builder.HasIndex(e => new { e.HojaDeRutaId, e.BultoId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AsignacionEnvioRuta>(builder =>
+        {
+            builder.ToTable("AsignacionesEnvioRuta");
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.SelloModificacion).IsConcurrencyToken();
+            // Un envío no puede tener dos asignaciones vigentes a la vez: garantiza que dos despachadores no lo tomen simultáneamente
+            builder.HasIndex(a => a.EnvioId).IsUnique().HasFilter("\"Vigente\" = true");
+        });
+
+        modelBuilder.Entity<Repartidor>(builder =>
+        {
+            builder.ToTable("Repartidores");
+            builder.HasKey(r => r.Id);
+            builder.HasIndex(r => r.OperadorId);
+            builder.Property(r => r.Documento).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.Telefono).IsRequired().HasMaxLength(50);
+            builder.Property(r => r.Estado).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Vehiculo>(builder =>
+        {
+            builder.ToTable("Vehiculos");
+            builder.HasKey(v => v.Id);
+            builder.HasIndex(v => new { v.OperadorId, v.Patente }).IsUnique();
+            builder.Property(v => v.Patente).IsRequired().HasMaxLength(20);
+            builder.Property(v => v.Tipo).IsRequired().HasMaxLength(50);
+            builder.Property(v => v.CapacidadPeso).HasPrecision(18, 3);
+            builder.Property(v => v.CapacidadVolumen).HasPrecision(18, 3);
+        });
+
+        modelBuilder.Entity<FranjaHoraria>(builder =>
+        {
+            builder.ToTable("FranjasHorarias");
+            builder.HasKey(f => f.Id);
+            builder.HasIndex(f => f.ZonaCoberturaId);
+        });
+
+        // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clave = entityType.FindPrimaryKey();
+            if (clave is { Properties.Count: 1 } && clave.Properties[0].ClrType == typeof(Guid))
+                clave.Properties[0].ValueGenerated = ValueGenerated.Never;
+        }
     }
 }

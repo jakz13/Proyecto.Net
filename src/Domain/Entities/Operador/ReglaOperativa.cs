@@ -15,6 +15,7 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public string PoliticaDevolucion { get; private set; } = string.Empty;
     public TimeSpan PlazoComprometidoEstandar { get; private set; }
     public TimeSpan PlazoComprometidoUrgente { get; private set; }
+    public int MaxParadasPorRuta { get; private set; } = 50;
 
     protected ReglaOperativa() { }
 
@@ -29,7 +30,8 @@ public class ReglaOperativa : Entity, IMustHaveTenant
         string politicaDevolucion,
         TimeSpan plazoComprometidoEstandar,
         TimeSpan plazoComprometidoUrgente,
-        DateTime? vigenteHasta = null) : base(id)
+        DateTime? vigenteHasta = null,
+        int maxParadasPorRuta = 50) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador de la regla operativa no puede ser vacío.");
@@ -39,6 +41,9 @@ public class ReglaOperativa : Entity, IMustHaveTenant
 
         if (maxIntentosEntrega <= 0)
             throw new DomainValidationException("El número máximo de intentos debe ser mayor a cero.");
+
+        if (maxParadasPorRuta <= 0)
+            throw new DomainValidationException("La cantidad máxima de paradas por ruta debe ser mayor a cero.");
 
         if (string.IsNullOrWhiteSpace(tipoPruebaEntregaExigida))
             throw new DomainValidationException("El tipo de prueba de entrega exigida no puede ser vacío.");
@@ -56,6 +61,7 @@ public class ReglaOperativa : Entity, IMustHaveTenant
         PoliticaDevolucion = politicaDevolucion.Trim();
         PlazoComprometidoEstandar = plazoComprometidoEstandar;
         PlazoComprometidoUrgente = plazoComprometidoUrgente;
+        MaxParadasPorRuta = maxParadasPorRuta;
     }
 
     public void FinalizarVigencia(DateTime fechaFin)

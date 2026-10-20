@@ -27,6 +27,9 @@ public static class DatabaseSeeder
     public static readonly Guid Envio1Id = Guid.Parse("cccccccc-1111-2222-3333-000000000001");
     public static readonly Guid Envio2Id = Guid.Parse("cccccccc-1111-2222-3333-000000000002");
     public static readonly Guid Envio3Id = Guid.Parse("cccccccc-1111-2222-3333-000000000003");
+    public static readonly Guid Envio4Id = Guid.Parse("cccccccc-1111-2222-3333-000000000004");
+    public static readonly Guid Envio5Id = Guid.Parse("cccccccc-1111-2222-3333-000000000005");
+    public static readonly Guid DefaultCuadroTarifarioId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
     public static async Task SeedAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -38,6 +41,7 @@ public static class DatabaseSeeder
         if (rutaExiste)
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
+            await SembrarOperacionAsync(context, logger, cancellationToken);
             return;
         }
 
@@ -116,6 +120,8 @@ public static class DatabaseSeeder
             new(Guid.Parse("dddddddd-0005-0000-0000-000000000005"), DefaultOperadorId, "ZONA_INACCESIBLE", "Zona inaccesible o fuerza mayor"),
             new(Guid.Parse("dddddddd-0006-0000-0000-000000000006"), DefaultOperadorId, "BULTO_DANADO", "Bulto dañado / Avería en tránsito"),
             new(Guid.Parse("dddddddd-0007-0000-0000-000000000007"), DefaultOperadorId, "ERROR_PAGO", "Problemas con medio de pago / Cobro"),
+            // Motivo interno del personal de depósito (no se ofrece en la app del repartidor)
+            new(Guid.Parse("dddddddd-0008-0000-0000-000000000008"), DefaultOperadorId, "RETORNO_SIN_INTENTO", "Retorno a depósito sin intento de entrega", esInterno: true),
             // Alias amigables de respaldo
             new(Guid.Parse("dddddddd-0001-0000-0000-000000000011"), DefaultOperadorId, "AUSENTE", "Cliente ausente"),
             new(Guid.Parse("dddddddd-0002-0000-0000-000000000012"), DefaultOperadorId, "DIRECCION_INCORRECTA", "Dirección incorrecta"),
@@ -165,7 +171,7 @@ public static class DatabaseSeeder
             DefaultHojaDeRutaId,
             DefaultOperadorId,
             DateOnly.FromDateTime(DateTime.UtcNow),
-            estado: "EnTransito"
+            estado: "Despachada"
         );
         hojaDeRuta.AsignarRecursos(DefaultRepartidorId, DefaultVehiculoId);
 
@@ -176,10 +182,12 @@ public static class DatabaseSeeder
             DefaultComercioOperadorId,
             direccionDestino: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
             nombreDestinatario: "Martín Rodríguez",
-            codigoSeguimientoPublico: "ENV-2026-00108"
+            codigoSeguimientoPublico: "ENV-2026-00108",
+            operadorId: DefaultOperadorId
         );
         envio1.AgregarBulto("BLT-001-A", 1.2m);
         envio1.AgregarBulto("BLT-001-B", 1.5m);
+        PrepararEnDepositoClasificado(envio1, new[] { "BLT-001-A", "BLT-001-B" });
         envio1.AsignarRuta(DefaultHojaDeRutaId);
         envio1.DespacharEnRuta(DefaultHojaDeRutaId, DefaultUsuarioRepartidorId, "Carga confirmada y despachada para entrega matutina");
 
@@ -189,9 +197,11 @@ public static class DatabaseSeeder
             DefaultComercioOperadorId,
             direccionDestino: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
             nombreDestinatario: "Lucía Fernández",
-            codigoSeguimientoPublico: "ENV-2026-00109"
+            codigoSeguimientoPublico: "ENV-2026-00109",
+            operadorId: DefaultOperadorId
         );
         envio2.AgregarBulto("BLT-002-A", 1.8m);
+        PrepararEnDepositoClasificado(envio2, new[] { "BLT-002-A" });
         envio2.AsignarRuta(DefaultHojaDeRutaId);
         envio2.DespacharEnRuta(DefaultHojaDeRutaId, DefaultUsuarioRepartidorId, "Carga confirmada y despachada para entrega matutina");
 
@@ -201,11 +211,13 @@ public static class DatabaseSeeder
             DefaultComercioOperadorId,
             direccionDestino: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
             nombreDestinatario: "Esteban Morales",
-            codigoSeguimientoPublico: "ENV-2026-00110"
+            codigoSeguimientoPublico: "ENV-2026-00110",
+            operadorId: DefaultOperadorId
         );
         envio3.AgregarBulto("BLT-003-A", 2.1m);
         envio3.AgregarBulto("BLT-003-B", 2.5m);
         envio3.AgregarBulto("BLT-003-C", 2.7m);
+        PrepararEnDepositoClasificado(envio3, new[] { "BLT-003-A", "BLT-003-B", "BLT-003-C" });
         envio3.AsignarRuta(DefaultHojaDeRutaId);
         envio3.DespacharEnRuta(DefaultHojaDeRutaId, DefaultUsuarioRepartidorId, "Carga confirmada y despachada para entrega matutina");
 
@@ -234,5 +246,63 @@ public static class DatabaseSeeder
         // Persistencia atómica de todos los datos semilla
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("DatabaseSeeder: Datos semilla para la demo insertados con éxito en PostgreSQL (HojaDeRutaId: {RutaId}).", DefaultHojaDeRutaId);
+
+        await SembrarOperacionAsync(context, logger, cancellationToken);
+    }
+
+    /// <summary>Recepciona y clasifica los bultos del envío, como ocurriría en depósito antes de armar una hoja de ruta.</summary>
+    private static void PrepararEnDepositoClasificado(Envio envio, IReadOnlyCollection<string> codigosBultos)
+    {
+        envio.RecepcionarEnDeposito(codigosBultos, null, null, DefaultUsuarioRepartidorId);
+        envio.ClasificarBultos(
+            codigosBultos.Select(c => new ClasificacionBulto(c, Domain.Enums.PrioridadBulto.Normal)).ToList(),
+            DefaultUsuarioRepartidorId);
+    }
+
+    /// <summary>
+    /// Datos para demostrar el ciclo previo a la calle: cuadro tarifario (alta), un envío admitido (recepción)
+    /// y un envío clasificado en depósito (armado de hoja de ruta). Es idempotente e independiente de la ruta demo.
+    /// </summary>
+    private static async Task SembrarOperacionAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
+    {
+        // El motivo interno de la rendición debe existir también en bases sembradas antes de UC-16
+        if (!await context.MotivosNoEntrega.AnyAsync(m => m.OperadorId == DefaultOperadorId && m.Codigo == "RETORNO_SIN_INTENTO", cancellationToken))
+        {
+            await context.MotivosNoEntrega.AddAsync(
+                new MotivoNoEntrega(Guid.Parse("dddddddd-0008-0000-0000-000000000008"), DefaultOperadorId, "RETORNO_SIN_INTENTO", "Retorno a depósito sin intento de entrega", esInterno: true),
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (await context.CuadrosTarifarios.AnyAsync(c => c.OperadorId == DefaultOperadorId, cancellationToken))
+            return;
+
+        var reglaEstandarId = Guid.Parse("99999999-0001-0000-0000-000000000001");
+        var cuadro = new CuadroTarifario(DefaultCuadroTarifarioId, DefaultOperadorId, 1, DateTime.UtcNow.AddYears(-1));
+        cuadro.AgregarRegla(new ReglaTarifa(reglaEstandarId, cuadro.Id, "Estandar", 0m, 1000m, 0m, 1000000000m, 150m));
+        cuadro.AgregarRegla(new ReglaTarifa(Guid.Parse("99999999-0002-0000-0000-000000000002"), cuadro.Id, "Urgente", 0m, 1000m, 0m, 1000000000m, 300m));
+        await context.CuadrosTarifarios.AddAsync(cuadro, cancellationToken);
+
+        var destinatario4 = new Destinatario(Guid.Parse("88888888-0004-0000-0000-000000000004"), "Carolina Silva", "3.456.789-0", "carolina@correo.com", "+598 99 111 444");
+        var direccion4 = new Direccion(Guid.Parse("eeeeeeee-0004-0000-0000-000000000004"), "Av. Brasil", "2890", "Montevideo", null, -34.9112, -56.1560, "Casa con reja verde");
+        var envio4 = new Envio(Envio4Id, DefaultComercioOperadorId, destinatario4.Id, "Estandar", "ENV-2026-00111", direccion4.Id,
+            direccionDestino: direccion4.ToString(), nombreDestinatario: destinatario4.Nombre, operadorId: DefaultOperadorId);
+        envio4.AplicarTarifa(150m, reglaEstandarId);
+        envio4.AgregarBulto("BLT-004-A", 2.0m);
+        PrepararEnDepositoClasificado(envio4, new[] { "BLT-004-A" });
+
+        var destinatario5 = new Destinatario(Guid.Parse("88888888-0005-0000-0000-000000000005"), "Diego Pereira", "2.345.678-9", "diego@correo.com", "+598 99 111 555");
+        var direccion5 = new Direccion(Guid.Parse("eeeeeeee-0005-0000-0000-000000000005"), "Bulevar Artigas", "1100", "Montevideo", null, -34.8990, -56.1650, null);
+        var envio5 = new Envio(Envio5Id, DefaultComercioOperadorId, destinatario5.Id, "Estandar", "ENV-2026-00112", direccion5.Id,
+            direccionDestino: direccion5.ToString(), nombreDestinatario: destinatario5.Nombre, operadorId: DefaultOperadorId);
+        envio5.AplicarTarifa(150m, reglaEstandarId);
+        envio5.AgregarBulto("BLT-005-A", 1.0m);
+
+        await context.Destinatarios.AddRangeAsync(new[] { destinatario4, destinatario5 }, cancellationToken);
+        await context.Direcciones.AddRangeAsync(new[] { direccion4, direccion5 }, cancellationToken);
+        await context.Envios.AddRangeAsync(new[] { envio4, envio5 }, cancellationToken);
+
+        await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("DatabaseSeeder: cuadro tarifario y envíos de depósito sembrados (ENV-2026-00111 clasificado en depósito, ENV-2026-00112 admitido).");
     }
 }

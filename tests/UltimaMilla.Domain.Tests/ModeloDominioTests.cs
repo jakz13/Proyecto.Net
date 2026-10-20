@@ -89,6 +89,8 @@ public class ModeloDominioTests
         var ruta = new HojaDeRuta(Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today));
         ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
         ruta.AgregarParada(Guid.NewGuid(), 1, Guid.NewGuid());
+        ruta.Liberar();
+        ruta.RegistrarCargaEscaneada(new[] { Guid.NewGuid() });
 
         ruta.Despachar();
 

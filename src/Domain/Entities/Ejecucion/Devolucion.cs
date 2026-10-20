@@ -31,9 +31,22 @@ public class Devolucion : Entity
         FechaInicio = DateTime.UtcNow;
     }
 
+    public const string EstadoEnDevolucion = "EnDevolucion";
+    public const string EstadoEnCaminoADeposito = "EnCaminoADeposito";
+    public const string EstadoDevuelto = "Devuelto";
+
+    /// <summary>El repartidor retiró el bulto en la calle y lo lleva de vuelta al depósito (UC-22).</summary>
+    public void MarcarEnCaminoADeposito()
+    {
+        if (Estado == EstadoDevuelto)
+            throw new DomainValidationException("La devolución ya fue cerrada.");
+
+        Estado = EstadoEnCaminoADeposito;
+    }
+
     public void Rendir()
     {
-        Estado = "Devuelto";
+        Estado = EstadoDevuelto;
         FechaRendicion = DateTime.UtcNow;
     }
 }

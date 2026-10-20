@@ -50,6 +50,32 @@ public class CuadroTarifario : AggregateRoot, IMustHaveTenant
         _reglasTarifa.Add(regla);
     }
 
+    public bool EstaVigenteEn(DateTime fechaUtc) =>
+        fechaUtc >= VigenteDesde && (!VigenteHasta.HasValue || fechaUtc <= VigenteHasta.Value);
+
+    /// <summary>
+    /// Busca la regla que aplica al envío. Si hay una regla específica de la zona, tiene prioridad sobre las generales.
+    /// Devuelve null cuando ninguna regla cubre el peso, volumen y modalidad indicados.
+    /// </summary>
+    public ReglaTarifa? ObtenerReglaAplicable(decimal peso, decimal volumen, string modalidadServicio, Guid? zonaCoberturaId = null)
+    {
+        if (peso < 0)
+            throw new DomainValidationException("El peso no puede ser negativo.");
+
+        if (volumen < 0)
+            throw new DomainValidationException("El volumen no puede ser negativo.");
+
+        if (string.IsNullOrWhiteSpace(modalidadServicio))
+            throw new DomainValidationException("La modalidad de servicio no puede ser vacía.");
+
+        var candidatas = _reglasTarifa
+            .Where(r => r.AplicaPara(peso, volumen, modalidadServicio, zonaCoberturaId))
+            .ToList();
+
+        return candidatas.FirstOrDefault(r => r.ZonaCoberturaId.HasValue && r.ZonaCoberturaId == zonaCoberturaId)
+            ?? candidatas.FirstOrDefault(r => !r.ZonaCoberturaId.HasValue);
+    }
+
     public void CerrarVigencia(DateTime fechaFin)
     {
         if (fechaFin < VigenteDesde)

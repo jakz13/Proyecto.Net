@@ -28,6 +28,7 @@ public class SeedingDomainTests
         envio.AgregarBulto("BLT-001-B", 1.5m);
 
         // Act
+        envio.RecepcionarEnDeposito(new[] { "BLT-001-A", "BLT-001-B" }, null, null, Guid.NewGuid());
         envio.AsignarRuta(HojaDeRutaId);
         envio.DespacharEnRuta(HojaDeRutaId, Guid.NewGuid(), "Despacho demo");
 
@@ -48,6 +49,7 @@ public class SeedingDomainTests
         hojaDeRuta.AgregarParada(Parada1Id, Envio1Id, 1, Guid.NewGuid(), Guid.NewGuid(), "Pendiente");
 
         var envio = new Envio(Envio1Id, ComercioOperadorId, "Av. 18 de Julio 1450", "Martín Rodríguez", "ENV-2026-00108");
+        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "RecepcionEnDeposito");
         envio.AsignarRuta(HojaDeRutaId);
         envio.DespacharEnRuta(HojaDeRutaId);
 
@@ -94,6 +96,7 @@ public class SeedingDomainTests
         hojaDeRuta.AgregarParada(Parada1Id, Envio1Id, 1, Guid.NewGuid(), Guid.NewGuid(), "Pendiente");
 
         var envio = new Envio(Envio1Id, ComercioOperadorId, "Av. 18 de Julio 1450", "Martín Rodríguez", "ENV-2026-00108");
+        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "RecepcionEnDeposito");
         envio.AsignarRuta(HojaDeRutaId);
         envio.DespacharEnRuta(HojaDeRutaId);
 

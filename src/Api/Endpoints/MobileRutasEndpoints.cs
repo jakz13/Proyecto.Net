@@ -2,11 +2,13 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
+using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Queries.Mobile.DescargarHojasDeRuta;
 using UltimaMilla.Application.Queries.Mobile.Navegacion.ObtenerSecuenciaParadas;
 using UltimaMilla.Domain.Exceptions;
 
@@ -16,6 +18,38 @@ public static class MobileRutasEndpoints
 {
     public static IEndpointRouteBuilder MapMobileRutasEndpoints(this IEndpointRouteBuilder app)
     {
+        // =========================================================================
+        // UC-17: DESCARGAR HOJAS DE RUTA DE LA JORNADA (RF-18)
+        // =========================================================================
+        app.MapGet("/api/mobile/v1/rutas", async (
+            [FromQuery] DateOnly? fecha,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new DescargarHojasDeRutaQuery(fecha), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+        .RequireAuthorization()
+        .WithName("DescargarHojasDeRuta")
+        .WithSummary("UC-17: Descargar las hojas de ruta de la jornada")
+        .WithDescription("Devuelve las hojas de ruta liberadas del repartidor autenticado para la fecha indicada (por defecto hoy), con paradas, destinatarios, bultos y la configuración necesaria para operar sin conexión.")
+        .Produces<DescargaHojasDeRutaDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")
             .RequireAuthorization();
@@ -68,11 +102,10 @@ public static class MobileRutasEndpoints
         {
             try
             {
-                var command = new ConfirmarCargaYDespacharRutaCommand(
+                var command = new ConfirmarCargaCommand(
                     hojaDeRutaId,
                     request.CodigosBultosCargados,
-                    request.IdempotencyKey,
-                    request.ObservacionesDiscrepancia);
+                    request.IdempotencyKey);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Ok(resultado);
@@ -90,9 +123,9 @@ public static class MobileRutasEndpoints
                 return Results.Forbid();
             }
         })
-        .WithName("ConfirmarCargaYDespacharRuta")
-        .WithSummary("UC-18: Confirmar carga y despachar hoja de ruta")
-        .WithDescription("Confirma la carga efectiva de bultos, transiciona envíos cargados a EnTransito, desasigna faltantes y despacha la ruta de manera idempotente.")
+        .WithName("ConfirmarCarga")
+        .WithSummary("UC-18: Confirmar la carga del vehículo")
+        .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache (UC-09). No transiciona envíos.")
         .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -323,17 +356,70 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
+        // =========================================================================
+        // UC-22: GESTIONAR DEVOLUCIÓN EN LA CALLE (RF-22)
+        // =========================================================================
+        group.MapPost("/paradas/{paradaId:guid}/retiro-devolucion", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromRoute] Guid paradaId,
+            [FromBody] RegistrarRetiroDevolucionRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new RegistrarRetiroDevolucionCommand(
+                    hojaDeRutaId,
+                    paradaId,
+                    request.EnvioId,
+                    request.IdempotencyKey,
+                    request.Latitud,
+                    request.Longitud,
+                    request.FechaHoraDispositivoUtc,
+                    request.Observaciones);
+
+                return Results.Ok(await mediator.Send(command, ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("RegistrarRetiroDevolucion")
+        .WithSummary("UC-22: Registrar el retiro del bulto para devolverlo al depósito")
+        .WithDescription("Para un envío en devolución, marca sus bultos en retorno al depósito y registra la devolución como en camino. Es idempotente.")
+        .Produces<RetiroDevolucionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         return app;
     }
 }
+
+public record RegistrarRetiroDevolucionRequest(
+    Guid EnvioId,
+    string IdempotencyKey,
+    double? Latitud = null,
+    double? Longitud = null,
+    DateTime? FechaHoraDispositivoUtc = null,
+    string? Observaciones = null);
 
 // Request Contracts
 public record ValidarCargaRequest(List<string> CodigosBultosEscaneados);
 
 public record ConfirmarCargaRequest(
     List<string> CodigosBultosCargados,
-    string IdempotencyKey,
-    string? ObservacionesDiscrepancia = null
+    string IdempotencyKey
 );
 
 public record SeleccionarParadaRequest(

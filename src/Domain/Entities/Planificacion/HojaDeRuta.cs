@@ -1,4 +1,5 @@
 using UltimaMilla.Domain.Common;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Planificacion;
@@ -10,7 +11,9 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public Guid? VehiculoId { get; private set; }
     public DateOnly Fecha { get; private set; }
     public string Estado { get; private set; } = string.Empty;
+    public DateTime? FechaLiberacion { get; private set; }
     public DateTime? FechaDespacho { get; private set; }
+    public DateTime? FechaRendicion { get; private set; }
     public Guid SelloModificacion { get; private set; }
 
     private readonly List<Parada> _paradas = new();
@@ -18,6 +21,9 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     private readonly List<AsignacionEnvioRuta> _asignaciones = new();
     public IReadOnlyCollection<AsignacionEnvioRuta> Asignaciones => _asignaciones.AsReadOnly();
+
+    private readonly List<EscaneoCargaVehiculo> _escaneosCarga = new();
+    public IReadOnlyCollection<EscaneoCargaVehiculo> EscaneosCarga => _escaneosCarga.AsReadOnly();
 
     protected HojaDeRuta() { }
 
@@ -66,6 +72,29 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    /// <summary>Orden que le corresponde a una parada agregada al final de la ruta.</summary>
+    public int SiguienteOrden => _paradas.Count == 0 ? 1 : _paradas.Max(p => p.Orden) + 1;
+
+    /// <summary>
+    /// Retira un envío de la ruta (UC-10): su parada se cancela y su asignación deja de estar vigente.
+    /// Solo es posible mientras la parada no esté cerrada.
+    /// </summary>
+    public void RetirarEnvio(Guid envioId)
+    {
+        if (Estado is not ("Liberada" or "EnCarga" or "Despachada" or "EnTransito"))
+            throw new DomainValidationException($"No se pueden retirar envíos de una hoja de ruta en estado '{Estado}'.");
+
+        var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId && p.Estado != "Cancelada")
+            ?? throw new DomainValidationException("El envío no tiene una parada vigente en esta hoja de ruta.");
+
+        if (parada.Estado is "Entregada" or "Fallida")
+            throw new DomainValidationException($"La parada del envío ya fue cerrada ({parada.Estado}) y no se puede retirar.");
+
+        parada.CancelarPorFaltante("Envío retirado de la ruta por el despachador.");
+        _asignaciones.FirstOrDefault(a => a.EnvioId == envioId && a.Vigente)?.Desactivar();
+        SelloModificacion = Guid.NewGuid();
+    }
+
     public void RegistrarAsignacion(Guid envioId, Guid despachadorUsuarioId)
     {
         var asignacion = new AsignacionEnvioRuta(Guid.NewGuid(), envioId, Id, despachadorUsuarioId);
@@ -73,27 +102,55 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void IniciarCarga()
+    /// <summary>
+    /// Libera la hoja de ruta una vez armada: queda con sus paradas ordenadas y disponible para su descarga en la app del repartidor.
+    /// </summary>
+    public void Liberar()
     {
+        if (Estado != "Borrador")
+            throw new DomainValidationException($"Solo se puede liberar una hoja de ruta en estado 'Borrador' (estado actual: '{Estado}').");
+
         if (!RepartidorId.HasValue || !VehiculoId.HasValue)
-            throw new DomainValidationException("No se puede iniciar la carga sin repartidor y vehículo asignados.");
+            throw new DomainValidationException("No se puede liberar una hoja de ruta sin repartidor y vehículo asignados.");
 
         if (!_paradas.Any())
-            throw new DomainValidationException("No se puede iniciar la carga de una hoja de ruta sin paradas planificadas.");
+            throw new DomainValidationException("No se puede liberar una hoja de ruta sin paradas.");
 
-        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
-            throw new DomainValidationException($"No se puede iniciar la carga en una hoja de ruta en estado '{Estado}'.");
+        Estado = "Liberada";
+        FechaLiberacion = DateTime.UtcNow;
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Registra qué bultos se cargaron efectivamente en el vehículo (UC-18). Cada registro reemplaza al anterior,
+    /// por lo que reenviar la misma carga es idempotente. Esa información es la que usa el operario para despachar.
+    /// </summary>
+    public void RegistrarCargaEscaneada(IEnumerable<Guid> bultosCargadosIds)
+    {
+        if (Estado is not ("Liberada" or "EnCarga"))
+            throw new DomainValidationException($"No se puede registrar la carga de una hoja de ruta en estado '{Estado}'.");
+
+        var ids = (bultosCargadosIds ?? Enumerable.Empty<Guid>()).Distinct().ToList();
+        if (ids.Count == 0)
+            throw new DomainValidationException("Debe registrar al menos un bulto cargado.");
+
+        if (ids.Contains(Guid.Empty))
+            throw new DomainValidationException("La carga contiene un identificador de bulto inválido.");
+
+        _escaneosCarga.Clear();
+        foreach (var bultoId in ids)
+            _escaneosCarga.Add(new EscaneoCargaVehiculo(Guid.NewGuid(), Id, bultoId, "Cargado"));
 
         Estado = "EnCarga";
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void Despachar()
-    {
-        DespacharConCarga(Enumerable.Empty<string>());
-    }
+    public bool BultoFueCargado(Guid bultoId) => _escaneosCarga.Any(e => e.BultoId == bultoId);
 
-    public void DespacharConCarga(IEnumerable<string> bultosCargadosEfectivos, string? observaciones = null)
+    /// <summary>
+    /// Despacha la hoja de ruta (UC-09). Requiere que la carga del vehículo ya haya sido escaneada y sincronizada.
+    /// </summary>
+    public void Despachar()
     {
         if (!RepartidorId.HasValue || !VehiculoId.HasValue)
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin repartidor y vehículo asignados.");
@@ -101,11 +158,37 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (!_paradas.Any())
             throw new DomainValidationException("No se puede despachar una hoja de ruta sin paradas.");
 
-        if (Estado == "Despachada" || Estado == "EnTransito" || Estado == "Finalizada")
+        if (Estado is "Despachada" or "EnTransito" or "Finalizada")
             throw new DomainValidationException($"La hoja de ruta ya se encuentra en estado '{Estado}'.");
+
+        if (Estado != "EnCarga")
+            throw new DomainValidationException($"No se puede despachar una hoja de ruta en estado '{Estado}': la carga del vehículo debe estar escaneada y sincronizada.");
 
         Estado = "Despachada";
         FechaDespacho = DateTime.UtcNow;
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Cierra la hoja de ruta tras la rendición del repartidor en depósito (UC-16). Libera sus asignaciones
+    /// para que los envíos que vuelven a depósito puedan incluirse en otra ruta.
+    /// </summary>
+    public void Rendir()
+    {
+        if (Estado == "Rendida")
+            throw new DomainValidationException("La hoja de ruta ya fue rendida.");
+
+        if (Estado is not ("Despachada" or "EnTransito" or "Finalizada"))
+            throw new DomainValidationException($"Solo se puede rendir una hoja de ruta despachada (estado actual: '{Estado}').");
+
+        foreach (var parada in _paradas)
+            parada.MarcarNoVisitada();
+
+        foreach (var asignacion in _asignaciones.Where(a => a.Vigente))
+            asignacion.Desactivar();
+
+        Estado = "Rendida";
+        FechaRendicion = DateTime.UtcNow;
         SelloModificacion = Guid.NewGuid();
     }
 

@@ -6,8 +6,9 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Envios;
 
-public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToken
+public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IHasConcurrencyToken
 {
+    public Guid OperadorId { get; private set; }
     public Guid ComercioOperadorId { get; private set; }
     public Guid DestinatarioId { get; private set; }
     public Guid? DireccionEntregaId { get; private set; }
@@ -53,7 +54,10 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         string codigoSeguimientoPublico,
         Guid? direccionEntregaId = null,
         Guid? franjaHorariaComprometidaId = null,
-        Guid? loteImportacionId = null) : base(id)
+        Guid? loteImportacionId = null,
+        string? direccionDestino = null,
+        string? nombreDestinatario = null,
+        Guid? operadorId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -77,6 +81,10 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         DireccionEntregaId = direccionEntregaId;
         FranjaHorariaComprometidaId = franjaHorariaComprometidaId;
         LoteImportacionId = loteImportacionId;
+        // Copia desnormalizada para listados y etiquetas sin necesidad de resolver las entidades relacionadas
+        DireccionDestino = direccionDestino?.Trim() ?? string.Empty;
+        NombreDestinatario = nombreDestinatario?.Trim() ?? string.Empty;
+        OperadorId = operadorId ?? Guid.Empty;
         FechaAlta = DateTime.UtcNow;
         EstadoActual = EstadoEnvio.Admitido;
         SelloModificacion = Guid.NewGuid();
@@ -91,7 +99,7 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
     }
 
     // Constructor supporting initial test suite & simple intake
-    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario, string? codigoSeguimientoPublico = null) : base(id)
+    public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario, string? codigoSeguimientoPublico = null, Guid? operadorId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
@@ -110,6 +118,7 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         NombreDestinatario = nombreDestinatario.Trim();
         DestinatarioId = Guid.NewGuid();
         ModalidadServicio = "Estandar";
+        OperadorId = operadorId ?? Guid.Empty;
         CodigoSeguimientoPublico = string.IsNullOrWhiteSpace(codigoSeguimientoPublico)
             ? $"TRK-{id.ToString()[..8].ToUpperInvariant()}"
             : codigoSeguimientoPublico.Trim().ToUpperInvariant();
@@ -126,20 +135,65 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             "Sistema"));
     }
 
+    // Los bultos faltantes en recepción no viajan, por lo tanto no cuentan en el peso ni el volumen
+    public decimal PesoTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Peso);
+    public decimal VolumenTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Volumen);
+
     public void AgregarBulto(string identificacion, decimal peso, decimal alto = 20, decimal ancho = 20, decimal profundo = 20, Guid? bultoId = null)
     {
+        if (EstadoActual != EstadoEnvio.Admitido)
+            throw new DomainValidationException($"No se pueden agregar bultos a un envío en estado '{EstadoActual}'.");
+
+        if (_bultos.Any(b => b.Identificacion.Equals(identificacion?.Trim(), StringComparison.OrdinalIgnoreCase)))
+            throw new DomainValidationException($"El envío ya contiene un bulto con la identificación '{identificacion}'.");
+
         var bulto = new Bulto(bultoId ?? Guid.NewGuid(), Id, identificacion, peso, alto, ancho, profundo);
         _bultos.Add(bulto);
         SelloModificacion = Guid.NewGuid();
     }
 
-    public void AsignarRuta(Guid hojaDeRutaId)
+    public void AsignarRuta(Guid hojaDeRutaId, Guid? responsableUsuarioId = null)
     {
         if (hojaDeRutaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la hoja de ruta no puede ser vacío.");
 
+        TransicionarEstado(
+            EstadoEnvio.AsignadoARuta,
+            "AsignacionRuta",
+            responsableUsuarioId,
+            payload: $"Hoja de ruta {hojaDeRutaId}.");
         HojaDeRutaId = hojaDeRutaId;
-        TransicionarEstado(EstadoEnvio.AsignadoARuta, "AsignacionRuta");
+    }
+
+    /// <summary>Prioridad más alta entre los bultos clasificados del envío.</summary>
+    public PrioridadBulto? PrioridadMaxima
+    {
+        get
+        {
+            var prioridades = _bultos.Where(b => b.Prioridad.HasValue).Select(b => b.Prioridad!.Value).ToList();
+            return prioridades.Count == 0 ? null : prioridades.Max();
+        }
+    }
+
+    /// <summary>Zona operativa con la que se clasificaron los bultos del envío (la menor, para que el orden sea determinístico).</summary>
+    public Guid? ZonaClasificadaId => _bultos.Where(b => b.ZonaClasificadaId.HasValue).Select(b => b.ZonaClasificadaId!.Value).OrderBy(z => z).Cast<Guid?>().FirstOrDefault();
+
+    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable.</summary>
+    public string? ObtenerMotivoNoAsignable()
+    {
+        if (EstadoActual == EstadoEnvio.AsignadoARuta)
+            return "El envío ya fue asignado a otra hoja de ruta.";
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            return $"El envío está en estado '{EstadoActual}' y solo se pueden asignar envíos 'EnDeposito'.";
+
+        if (!EstaClasificado)
+            return "El envío tiene bultos sin clasificar en depósito.";
+
+        if (!DireccionEntregaId.HasValue)
+            return "El envío no tiene dirección de entrega.";
+
+        return null;
     }
 
     public void DespacharEnRuta(Guid hojaDeRutaId, Guid? responsableUsuarioId = null, string? observaciones = null)
@@ -148,7 +202,7 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede despachar porque su estado es {EstadoActual} (se requiere estado AsignadoARuta).");
 
         HojaDeRutaId = hojaDeRutaId;
-        foreach (var bulto in _bultos)
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado"))
         {
             bulto.MarcarCargadoEnVehiculo();
         }
@@ -157,31 +211,158 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             EstadoEnvio.EnTransito,
             "DespachoRuta",
             responsableUsuarioId,
-            "MobileApp",
+            "Backoffice",
             null,
             null,
             observaciones);
     }
 
+    /// <summary>
+    /// Retira el envío de la hoja de ruta cuando sus bultos no se cargaron (UC-09): vuelve a depósito, conserva su
+    /// clasificación y queda disponible para otra hoja de ruta.
+    /// </summary>
     public void DesasignarDeRutaPorFaltante(string motivo, Guid? responsableUsuarioId = null)
     {
         if (EstadoActual != EstadoEnvio.AsignadoARuta)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede desasignar porque su estado es {EstadoActual}.");
 
         HojaDeRutaId = null;
-        foreach (var bulto in _bultos)
-        {
-            bulto.MarcarFaltanteEnCarga();
-        }
 
         TransicionarEstado(
             EstadoEnvio.EnDeposito,
             "BultoFaltanteEnCarga",
             responsableUsuarioId,
-            "MobileApp",
+            "Backoffice",
             null,
             null,
             motivo);
+    }
+
+    /// <summary>
+    /// Registra que el envío volvió en el vehículo sin que se intentara entregarlo (UC-16): queda "no entregado"
+    /// con un motivo interno del catálogo y vuelve a depósito, conservando su clasificación.
+    /// </summary>
+    public void RegistrarRetornoSinIntento(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
+    {
+        ArgumentNullException.ThrowIfNull(motivoInterno);
+
+        if (EstadoActual != EstadoEnvio.EnTransito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede registrar como retornado sin intento porque su estado es '{EstadoActual}'.");
+
+        if (!motivoInterno.Activo || !motivoInterno.EsInterno)
+            throw new DomainValidationException($"El motivo '{motivoInterno.Codigo}' no es un motivo interno activo.");
+
+        TransicionarEstado(
+            EstadoEnvio.NoEntregado,
+            "RetornoSinIntento",
+            responsableUsuarioId,
+            "Backoffice",
+            payload: $"Motivo: {motivoInterno.Codigo} - {motivoInterno.Descripcion}. {observaciones?.Trim()}".Trim());
+
+        VolverADeposito("RetornoADeposito", responsableUsuarioId, "Rendición del repartidor.");
+    }
+
+    /// <summary>Devuelve a depósito un envío reprogramado cuando el repartidor lo entrega en la rendición (UC-16).</summary>
+    public void ReintegrarADepositoPorRendicion(Guid responsableUsuarioId)
+    {
+        if (EstadoActual is not (EstadoEnvio.Reprogramado or EstadoEnvio.NoEntregado))
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede reintegrar a depósito porque su estado es '{EstadoActual}'.");
+
+        VolverADeposito("ReintegroADeposito", responsableUsuarioId, "Rendición del repartidor: envío reprogramado.");
+    }
+
+    /// <summary>
+    /// El repartidor retira los bultos de un envío en devolución y los lleva de vuelta al depósito (UC-22).
+    /// No cambia el estado del envío. Devuelve false cuando ya estaba registrado (operación idempotente).
+    /// </summary>
+    public bool RegistrarRetiroParaDevolucion(Guid? responsableUsuarioId, double? latitud, double? longitud, DateTime fechaHoraDispositivoUtc, string? observaciones = null)
+    {
+        if (EstadoActual != EstadoEnvio.EnDevolucion)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        var porRetirar = _bultos.Where(b => b.EstadoBulto == "CargadoEnVehiculo").ToList();
+        if (porRetirar.Count == 0)
+            return false;
+
+        foreach (var bulto in porRetirar)
+            bulto.MarcarEnRetornoADeposito();
+
+        _eventos.Add(new EventoEnvio(
+            Guid.NewGuid(), Id, "RetiroParaDevolucion", EstadoActual, EstadoActual, "MobileApp",
+            responsableUsuarioId, latitud, longitud,
+            $"Bultos retirados para devolver al depósito. DispositivoUtc: {fechaHoraDispositivoUtc:O}. {observaciones?.Trim()}".Trim()));
+        SelloModificacion = Guid.NewGuid();
+        return true;
+    }
+
+    /// <summary>El comercio confirma que recibió el bulto devuelto: la devolución queda cerrada (UC-32).</summary>
+    public void ConfirmarDevolucionRecibida(Guid? responsableUsuarioId)
+    {
+        if (EstadoActual != EstadoEnvio.EnDevolucion)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        TransicionarEstado(
+            EstadoEnvio.Devuelto,
+            "DevolucionConfirmadaPorComercio",
+            responsableUsuarioId,
+            "PortalComercio",
+            payload: "El comercio confirmó la recepción del bulto devuelto.");
+    }
+
+    /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
+    public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
+    {
+        if (EstadoActual != EstadoEnvio.AsignadoARuta)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede retirar de la ruta porque su estado es '{EstadoActual}'.");
+
+        HojaDeRutaId = null;
+        TransicionarEstado(EstadoEnvio.EnDeposito, "RetiroDeRuta", responsableUsuarioId, "Backoffice", payload: motivo);
+    }
+
+    /// <summary>
+    /// Retira un envío que ya está en la calle (UC-10): queda "no entregado" con un motivo interno y vuelve a
+    /// depósito cuando el repartidor rinda la ruta (UC-16).
+    /// </summary>
+    public void RegistrarRetiroEnCalle(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
+    {
+        ArgumentNullException.ThrowIfNull(motivoInterno);
+
+        if (EstadoActual != EstadoEnvio.EnTransito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en tránsito (estado '{EstadoActual}').");
+
+        if (!motivoInterno.Activo || !motivoInterno.EsInterno)
+            throw new DomainValidationException($"El motivo '{motivoInterno.Codigo}' no es un motivo interno activo.");
+
+        TransicionarEstado(
+            EstadoEnvio.NoEntregado,
+            "RetiroEnRuta",
+            responsableUsuarioId,
+            "Backoffice",
+            payload: $"Motivo: {motivoInterno.Codigo} - {motivoInterno.Descripcion}. {observaciones?.Trim()}".Trim());
+    }
+
+    /// <summary>Cambia la franja horaria comprometida de un envío que está en depósito (UC-10).</summary>
+    public void ReprogramarFranja(Guid franjaHorariaId, Guid responsableUsuarioId)
+    {
+        if (franjaHorariaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            throw new DomainValidationException($"Solo se puede reprogramar la franja de un envío en depósito (estado '{EstadoActual}').");
+
+        var anterior = FranjaHorariaComprometidaId;
+        FranjaHorariaComprometidaId = franjaHorariaId;
+        RegistrarEventoSinCambioDeEstado(
+            "ReprogramacionFranja", responsableUsuarioId, "Backoffice", $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.");
+    }
+
+    private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
+    {
+        HojaDeRutaId = null;
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+            bulto.MarcarRecibido();
+
+        TransicionarEstado(EstadoEnvio.EnDeposito, tipoEvento, responsableUsuarioId, "Backoffice", payload: detalle);
     }
 
     public void TransicionarEstado(
@@ -193,6 +374,14 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
         double? longitud = null,
         string? payload = null)
     {
+        if (string.IsNullOrWhiteSpace(tipoEvento))
+            throw new DomainValidationException("El tipo de evento no puede ser vacío.");
+
+        // UC-39: toda transición se valida contra la máquina de estados declarativa
+        if (!MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
+            throw new DomainValidationException(
+                $"Transición de estado inválida para el envío {CodigoSeguimientoPublico}: '{EstadoActual}' -> '{nuevoEstado}'.");
+
         var estadoAnterior = EstadoActual;
         EstadoActual = nuevoEstado;
         SelloModificacion = Guid.NewGuid();
@@ -208,6 +397,161 @@ public class Envio : AggregateRoot, IMustHaveComercioTenant, IHasConcurrencyToke
             latitud,
             longitud,
             payload));
+    }
+
+    /// <summary>Indica si todos los bultos recibidos del envío ya fueron clasificados.</summary>
+    public bool EstaClasificado =>
+        _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado").All(b => b.EstaClasificado)
+        && _bultos.Any(b => b.EstadoBulto is "Recibido" or "Danado");
+
+    /// <summary>
+    /// Clasifica bultos del envío (zona, prioridad, tipo) y los deja disponibles para la hoja de ruta.
+    /// La operación es atómica: si algún bulto no es válido no se clasifica ninguno.
+    /// </summary>
+    public void ClasificarBultos(IEnumerable<ClasificacionBulto>? clasificaciones, Guid usuarioDepositoId)
+    {
+        if (usuarioDepositoId == Guid.Empty)
+            throw new DomainValidationException("El identificador del usuario de depósito no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.EnDeposito)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede clasificar porque su estado es '{EstadoActual}' (se requiere '{EstadoEnvio.EnDeposito}').");
+
+        var lista = clasificaciones?.ToList() ?? new List<ClasificacionBulto>();
+        if (lista.Count == 0)
+            throw new DomainValidationException("Debe indicar al menos un bulto a clasificar.");
+
+        if (lista.Any(c => c is null || string.IsNullOrWhiteSpace(c.CodigoBulto)))
+            throw new DomainValidationException("Cada clasificación debe indicar el código del bulto.");
+
+        var codigos = lista.Select(c => c.CodigoBulto.Trim().ToUpperInvariant()).ToList();
+        var repetidos = codigos.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (repetidos.Count > 0)
+            throw new DomainValidationException($"Hay bultos repetidos en la clasificación: {string.Join(", ", repetidos)}.");
+
+        var aplicar = new List<(Bulto Bulto, ClasificacionBulto Clasificacion)>();
+        for (var i = 0; i < lista.Count; i++)
+        {
+            var bulto = _bultos.FirstOrDefault(b => b.Identificacion == codigos[i])
+                ?? throw new DomainValidationException($"El bulto '{codigos[i]}' no pertenece al envío {CodigoSeguimientoPublico}.");
+
+            bulto.ValidarClasificacion(lista[i].Prioridad, lista[i].ZonaCoberturaId, lista[i].Tipo);
+            aplicar.Add((bulto, lista[i]));
+        }
+
+        foreach (var (bulto, clasificacion) in aplicar)
+            bulto.Clasificar(clasificacion.Prioridad, clasificacion.ZonaCoberturaId, clasificacion.Tipo);
+
+        RegistrarEventoSinCambioDeEstado(
+            "ClasificacionBultos",
+            usuarioDepositoId,
+            "Backoffice",
+            $"Bultos clasificados: {string.Join(", ", codigos)}. Clasificación completa del envío: {(EstaClasificado ? "sí" : "no")}.");
+    }
+
+    /// <summary>Registra un hecho relevante del envío en su historial sin alterar su estado.</summary>
+    public void RegistrarEventoSinCambioDeEstado(
+        string tipoEvento,
+        Guid? responsableUsuarioId = null,
+        string? origen = null,
+        string? payload = null)
+    {
+        if (string.IsNullOrWhiteSpace(tipoEvento))
+            throw new DomainValidationException("El tipo de evento no puede ser vacío.");
+
+        _eventos.Add(new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            tipoEvento,
+            EstadoActual,
+            EstadoActual,
+            origen ?? "Sistema",
+            responsableUsuarioId,
+            payload: payload));
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Recepciona el envío en depósito contrastando los bultos escaneados contra los declarados por el comercio.
+    /// Sin discrepancias, el envío pasa a EnDeposito. Con discrepancias solo avanza si el operario las documenta
+    /// en las observaciones; de lo contrario no se modifica nada y se informa el resultado.
+    /// </summary>
+    public ResultadoRecepcion RecepcionarEnDeposito(
+        IEnumerable<string>? codigosEscaneados,
+        IEnumerable<string>? codigosDanados,
+        string? observaciones,
+        Guid usuarioDepositoId)
+    {
+        if (usuarioDepositoId == Guid.Empty)
+            throw new DomainValidationException("El identificador del usuario de depósito no puede ser vacío.");
+
+        if (EstadoActual != EstadoEnvio.Admitido)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede recepcionar porque su estado es '{EstadoActual}' (se requiere '{EstadoEnvio.Admitido}').");
+
+        if (_bultos.Count == 0)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no tiene bultos declarados para recepcionar.");
+
+        static HashSet<string> Normalizar(IEnumerable<string>? codigos) =>
+            (codigos ?? Enumerable.Empty<string>())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim().ToUpperInvariant())
+                .ToHashSet();
+
+        var escaneados = Normalizar(codigosEscaneados);
+        var danados = Normalizar(codigosDanados);
+        var declarados = _bultos.Select(b => b.Identificacion).ToHashSet();
+
+        var fueraDeEnvio = danados.Where(c => !declarados.Contains(c)).ToList();
+        if (fueraDeEnvio.Count > 0)
+            throw new DomainValidationException($"Los bultos marcados como dañados no pertenecen al envío: {string.Join(", ", fueraDeEnvio)}.");
+
+        var danadosNoEscaneados = danados.Where(c => !escaneados.Contains(c)).ToList();
+        if (danadosNoEscaneados.Count > 0)
+            throw new DomainValidationException($"Los bultos marcados como dañados deben haber sido escaneados: {string.Join(", ", danadosNoEscaneados)}.");
+
+        var correctos = _bultos.Where(b => escaneados.Contains(b.Identificacion) && !danados.Contains(b.Identificacion)).ToList();
+        var faltantes = _bultos.Where(b => !escaneados.Contains(b.Identificacion)).ToList();
+        var danadosBultos = _bultos.Where(b => danados.Contains(b.Identificacion)).ToList();
+        var sobrantes = escaneados.Where(c => !declarados.Contains(c)).OrderBy(c => c).ToList();
+
+        var hayDiscrepancias = faltantes.Count > 0 || sobrantes.Count > 0 || danadosBultos.Count > 0;
+        var resultado = new ResultadoRecepcion(
+            !hayDiscrepancias || !string.IsNullOrWhiteSpace(observaciones),
+            correctos.Select(b => b.Identificacion).ToList(),
+            faltantes.Select(b => b.Identificacion).ToList(),
+            sobrantes,
+            danadosBultos.Select(b => b.Identificacion).ToList());
+
+        if (!resultado.Recepcionado)
+            return resultado;
+
+        foreach (var bulto in correctos)
+            bulto.MarcarRecibido();
+
+        foreach (var bulto in faltantes)
+        {
+            bulto.MarcarFaltanteEnRecepcion();
+            RegistrarDiscrepancia(bulto.Id, "Faltante", $"Bulto {bulto.Identificacion} no escaneado en la recepción. {observaciones?.Trim()}", usuarioDepositoId);
+        }
+
+        foreach (var bulto in danadosBultos)
+        {
+            bulto.MarcarDanado();
+            RegistrarDiscrepancia(bulto.Id, "Danado", $"Bulto {bulto.Identificacion} recibido con daños. {observaciones?.Trim()}", usuarioDepositoId);
+        }
+
+        foreach (var codigo in sobrantes)
+            RegistrarDiscrepancia(null, "Sobrante", $"Código {codigo} escaneado y no declarado en el envío. {observaciones?.Trim()}", usuarioDepositoId);
+
+        TransicionarEstado(
+            EstadoEnvio.EnDeposito,
+            "RecepcionEnDeposito",
+            usuarioDepositoId,
+            "Backoffice",
+            payload: hayDiscrepancias
+                ? $"Recepción con discrepancias documentadas: {observaciones!.Trim()}"
+                : "Recepción sin discrepancias.");
+
+        return resultado;
     }
 
     public void RegistrarDiscrepancia(
