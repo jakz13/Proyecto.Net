@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
@@ -39,6 +40,8 @@ public class AppDbContext : DbContext
     public DbSet<Operador> Operadores => Set<Operador>();
     public DbSet<Comercio> Comercios => Set<Comercio>();
     public DbSet<ComercioOperador> ComerciosOperadores => Set<ComercioOperador>();
+    public DbSet<Incidencia> Incidencias => Set<Incidencia>();
+    public DbSet<NotaIncidencia> NotasIncidencia => Set<NotaIncidencia>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -283,6 +286,28 @@ public class AppDbContext : DbContext
             builder.ToTable("FranjasHorarias");
             builder.HasKey(f => f.Id);
             builder.HasIndex(f => f.ZonaCoberturaId);
+        });
+
+        modelBuilder.Entity<Incidencia>(builder =>
+        {
+            builder.ToTable("Incidencias");
+            builder.HasKey(i => i.Id);
+            builder.Ignore(i => i.EstaCerrada);
+            builder.Property(i => i.Tipo).IsRequired().HasMaxLength(50);
+            builder.Property(i => i.Severidad).IsRequired().HasMaxLength(20);
+            builder.Property(i => i.Descripcion).IsRequired().HasMaxLength(1000);
+            builder.Property(i => i.Estado).IsRequired().HasMaxLength(30);
+            builder.Property(i => i.Resolucion).HasMaxLength(1000);
+            builder.HasIndex(i => new { i.OperadorId, i.Estado });
+            builder.HasMany(i => i.Notas).WithOne().HasForeignKey(n => n.IncidenciaId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(i => i.Notas).AutoInclude();
+        });
+
+        modelBuilder.Entity<NotaIncidencia>(builder =>
+        {
+            builder.ToTable("NotasIncidencia");
+            builder.HasKey(n => n.Id);
+            builder.Property(n => n.Comentario).IsRequired().HasMaxLength(1000);
         });
 
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base

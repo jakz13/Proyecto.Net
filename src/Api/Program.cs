@@ -312,6 +312,9 @@ app.MapPlanificacionEndpoints();
 // Registrar consultas de envío: seguimiento público (UC-33) y detalle para Backoffice
 app.MapConsultasEnvioEndpoints();
 
+// Registrar gestión de incidencias (UC-11)
+app.MapIncidenciasEndpoints();
+
 await app.RunAsync();
 
 static async Task ApplyMigrationsAsync(WebApplication app)
