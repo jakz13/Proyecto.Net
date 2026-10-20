@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Queries.Comercio.ListarEnviosDelComercio;
 using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
 using UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
 using UltimaMilla.Domain.Exceptions;
@@ -66,6 +67,41 @@ public static class ConsultasEnvioEndpoints
         .Produces<DetalleEnvioDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        // UC-28: el comercio consulta y sigue únicamente sus propios envíos
+        app.MapGet("/api/comercio/envios", async (
+            [FromQuery] string? estado,
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta,
+            [FromQuery] string? texto,
+            [FromQuery] int? pagina,
+            [FromQuery] int? tamano,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var query = new ListarEnviosDelComercioQuery(estado, desde, hasta, texto, pagina ?? 1, tamano ?? 20);
+                return Results.Ok(await mediator.Send(query, ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .RequireAuthorization()
+        .WithTags("Portal del comercio (UC-28)")
+        .WithName("ListarEnviosDelComercio")
+        .WithSummary("Listado de los envíos propios del comercio")
+        .WithDescription("Filtra por estado, rango de fechas de alta y texto (destinatario o código de seguimiento). Solo devuelve los envíos del comercio del usuario autenticado.")
+        .Produces<PaginaEnviosComercioDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 

@@ -26,6 +26,40 @@ public class EfEnvioRepository : IEnvioRepository
         return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
+    public async Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default)
+    {
+        // El listado no necesita bultos, eventos ni intentos: se evita cargarlos
+        var consulta = _dbContext.Envios
+            .AsNoTracking()
+            .IgnoreAutoIncludes()
+            .Where(e => e.OperadorId == operadorId && e.ComercioOperadorId == comercioOperadorId);
+
+        if (filtro.Estado.HasValue)
+            consulta = consulta.Where(e => e.EstadoActual == filtro.Estado.Value);
+
+        if (filtro.DesdeUtc.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta >= filtro.DesdeUtc.Value);
+
+        if (filtro.HastaUtcExclusivo.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta < filtro.HastaUtcExclusivo.Value);
+
+        if (!string.IsNullOrWhiteSpace(filtro.Texto))
+        {
+            var texto = filtro.Texto.Trim().ToLower();
+            consulta = consulta.Where(e => e.NombreDestinatario.ToLower().Contains(texto)
+                                           || e.CodigoSeguimientoPublico.ToLower().Contains(texto));
+        }
+
+        var total = await consulta.CountAsync(cancellationToken);
+        var items = await consulta
+            .OrderByDescending(e => e.FechaAlta)
+            .Skip((filtro.Pagina - 1) * filtro.TamanoPagina)
+            .Take(filtro.TamanoPagina)
+            .ToListAsync(cancellationToken);
+
+        return (items, total);
+    }
+
     public async Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Envios

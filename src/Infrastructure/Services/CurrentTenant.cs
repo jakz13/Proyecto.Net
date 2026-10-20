@@ -9,6 +9,7 @@ public class CurrentTenant : ICurrentTenant
     private readonly IHttpContextAccessor _httpContextAccessor;
     private static readonly Guid OperadorDemoDefault = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid UsuarioDemoDefault = Guid.Parse("77777777-7777-7777-7777-777777777777");
+    private static readonly Guid ComercioOperadorDemoDefault = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     public CurrentTenant(IHttpContextAccessor httpContextAccessor)
     {
@@ -60,6 +61,27 @@ public class CurrentTenant : ICurrentTenant
                 return headerUserId;
 
             return UsuarioDemoDefault;
+        }
+    }
+
+    public Guid? ComercioOperadorId
+    {
+        get
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            var user = httpContext?.User;
+            var claim = user?.FindFirst("comercio_operador_id")?.Value
+                ?? user?.FindFirst("comercio_id")?.Value;
+
+            if (Guid.TryParse(claim, out var comercioId))
+                return comercioId;
+
+            var header = httpContext?.Request.Headers["X-Comercio-Id"].FirstOrDefault();
+            if (Guid.TryParse(header, out var headerId))
+                return headerId;
+
+            // Comercio demo por defecto, igual que el operador y el usuario: solo para desarrollo y demo
+            return ComercioOperadorDemoDefault;
         }
     }
 

@@ -35,6 +35,28 @@ public class FakeEnvioRepository : IEnvioRepository
     public Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.Where(e => e.OperadorId == operadorId && e.EstadoActual == estado).ToList());
 
+    public Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default)
+    {
+        var consulta = Envios.Where(e => e.OperadorId == operadorId && e.ComercioOperadorId == comercioOperadorId);
+
+        if (filtro.Estado.HasValue)
+            consulta = consulta.Where(e => e.EstadoActual == filtro.Estado.Value);
+        if (filtro.DesdeUtc.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta >= filtro.DesdeUtc.Value);
+        if (filtro.HastaUtcExclusivo.HasValue)
+            consulta = consulta.Where(e => e.FechaAlta < filtro.HastaUtcExclusivo.Value);
+        if (!string.IsNullOrWhiteSpace(filtro.Texto))
+        {
+            var texto = filtro.Texto.ToLowerInvariant();
+            consulta = consulta.Where(e => e.NombreDestinatario.ToLowerInvariant().Contains(texto)
+                                           || e.CodigoSeguimientoPublico.ToLowerInvariant().Contains(texto));
+        }
+
+        var ordenados = consulta.OrderByDescending(e => e.FechaAlta).ToList();
+        var items = ordenados.Skip((filtro.Pagina - 1) * filtro.TamanoPagina).Take(filtro.TamanoPagina).ToList();
+        return Task.FromResult((items, ordenados.Count));
+    }
+
     public Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.FirstOrDefault(e => e.CodigoSeguimientoPublico == codigoSeguimiento.Trim().ToUpperInvariant()));
 
@@ -183,5 +205,6 @@ public class FakeCurrentTenant : ICurrentTenant
 {
     public Guid OperadorId { get; set; } = Guid.NewGuid();
     public Guid? UsuarioId { get; set; } = Guid.NewGuid();
+    public Guid? ComercioOperadorId { get; set; } = Guid.NewGuid();
     public bool IsAuthenticated { get; set; } = true;
 }

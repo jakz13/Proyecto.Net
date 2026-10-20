@@ -8,6 +8,8 @@ public interface IEnvioRepository
 {
     Task AddAsync(Envio envio, CancellationToken cancellationToken = default);
     Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
+    /// <summary>Busca los envíos de un comercio con filtros y paginación. Siempre se acota al operador y al comercio indicados.</summary>
+    Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default);
     /// <summary>Lista los envíos de un operador que se encuentren en el estado indicado.</summary>
     Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default);
     Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
@@ -21,3 +23,12 @@ public interface IEnvioRepository
     Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default);
     Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Criterios de búsqueda de los envíos de un comercio (UC-28). El texto busca por destinatario o código de seguimiento.</summary>
+public record FiltroEnviosComercio(
+    EstadoEnvio? Estado,
+    DateTime? DesdeUtc,
+    DateTime? HastaUtcExclusivo,
+    string? Texto,
+    int Pagina,
+    int TamanoPagina);
