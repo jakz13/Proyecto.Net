@@ -46,6 +46,36 @@ public class EfRutaRepository : IRutaRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<HojaDeRuta?> GetRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.HojasDeRuta
+            .AsNoTracking()
+            .Where(h => h.RepartidorId == repartidorId
+                        && h.Id != excluirHojaDeRutaId
+                        && (h.Estado == "Despachada" || h.Estado == "EnTransito" || h.Estado == "Finalizada"))
+            .OrderByDescending(h => h.FechaDespacho)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<HojaDeRuta>> ListarAsync(Guid operadorId, DateOnly? fecha, Guid? repartidorId, IReadOnlyCollection<string>? estados, CancellationToken cancellationToken = default)
+    {
+        var consulta = _dbContext.HojasDeRuta.AsNoTracking().Where(h => h.OperadorId == operadorId);
+
+        if (fecha.HasValue)
+            consulta = consulta.Where(h => h.Fecha == fecha.Value);
+
+        if (repartidorId.HasValue)
+            consulta = consulta.Where(h => h.RepartidorId == repartidorId.Value);
+
+        if (estados is { Count: > 0 })
+            consulta = consulta.Where(h => estados.Contains(h.Estado));
+
+        return await consulta
+            .OrderByDescending(h => h.Fecha)
+            .ThenByDescending(h => h.FechaLiberacion)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default)
     {
         await _dbContext.HojasDeRuta.AddAsync(hojaDeRuta, cancellationToken);

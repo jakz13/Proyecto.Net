@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
@@ -23,6 +24,15 @@ public class EfEnvioRepository : IEnvioRepository
     {
         var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
         return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
+    }
+
+    public async Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Envios
+            .AsNoTracking()
+            .Where(e => e.OperadorId == operadorId && e.EstadoActual == estado)
+            .OrderBy(e => e.FechaAlta)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)

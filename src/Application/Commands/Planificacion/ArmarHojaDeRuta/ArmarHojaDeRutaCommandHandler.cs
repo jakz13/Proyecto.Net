@@ -125,6 +125,21 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
             throw new DomainValidationException($"Ningún envío pudo incluirse en la hoja de ruta. {detalle}".Trim());
         }
 
+        if (request.SoloValidar)
+        {
+            // Simulación: mismas restricciones y orden, sin asignar envíos ni persistir
+            return new ArmarHojaDeRutaResultDto(
+                Guid.Empty,
+                "Validada",
+                request.Fecha,
+                repartidor.Id,
+                vehiculo.Id,
+                incluidos.Sum(e => e.PesoTotal),
+                incluidos.Sum(e => e.VolumenTotal),
+                incluidos.Select((e, i) => new ParadaArmadaDto(i + 1, Guid.Empty, e.Id, e.CodigoSeguimientoPublico)).ToList(),
+                excluidos);
+        }
+
         var ruta = new HojaDeRuta(Guid.NewGuid(), operadorId, request.Fecha);
         ruta.AsignarRecursos(repartidor.Id, vehiculo.Id);
 

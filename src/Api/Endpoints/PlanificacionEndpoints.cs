@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Api.Endpoints;
@@ -56,6 +57,129 @@ public static class PlanificacionEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status409Conflict)
+        .WithOpenApi();
+
+        group.MapPost("/validacion", async (
+            [FromBody] ArmarHojaDeRutaRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new ArmarHojaDeRutaCommand(
+                    request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true);
+                return Results.Ok(await mediator.Send(command, ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("ValidarArmadoHojaDeRuta")
+        .WithSummary("Validar el armado de una hoja de ruta sin guardarla")
+        .WithDescription("Aplica las restricciones de paradas, capacidad y franjas y devuelve qué envíos entrarían y cuáles se excluirían, sin asignar nada.")
+        .Produces<ArmarHojaDeRutaResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        group.MapGet("/", async (
+            [FromQuery] DateOnly? fecha,
+            [FromQuery] Guid? repartidorId,
+            [FromQuery] string? estado,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            // El filtro de estado admite varios valores separados por coma: estado=Liberada,EnCarga
+            var estados = string.IsNullOrWhiteSpace(estado)
+                ? null
+                : estado.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            return Results.Ok(await mediator.Send(new ListarHojasDeRutaQuery(fecha, repartidorId, estados), ct));
+        })
+        .WithName("ListarHojasDeRuta")
+        .WithSummary("Listar las hojas de ruta del operador")
+        .Produces<IReadOnlyList<HojaDeRutaResumenDto>>(StatusCodes.Status200OK)
+        .WithOpenApi();
+
+        group.MapGet("/{hojaDeRutaId:guid}", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await mediator.Send(new ObtenerHojaDeRutaQuery(hojaDeRutaId), ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("ObtenerHojaDeRuta")
+        .WithSummary("Detalle de una hoja de ruta con sus paradas ordenadas")
+        .Produces<HojaDeRutaDetalleDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        group.MapGet("/{hojaDeRutaId:guid}/verificacion-despacho", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await mediator.Send(new ObtenerVerificacionDespachoQuery(hojaDeRutaId), ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("ObtenerVerificacionDespacho")
+        .WithSummary("Control de carga previo al despacho (UC-09)")
+        .WithDescription("Indica qué bultos de la ruta fueron cargados según el escaneo del repartidor, si hay otra ruta sin rendir y si la ruta se puede despachar.")
+        .Produces<VerificacionDespachoDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        app.MapGet("/api/planificacion/envios-pendientes", async (
+            [FromServices] IMediator mediator,
+            CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosPendientesDeRutaQuery(), ct)))
+        .RequireAuthorization()
+        .WithTags("Planificación (UC-08, UC-09, UC-10)")
+        .WithName("ListarEnviosPendientesDeRuta")
+        .WithSummary("Envíos en depósito, clasificados, listos para asignar a una hoja de ruta")
+        .Produces<IReadOnlyList<EnvioPendienteDeRutaDto>>(StatusCodes.Status200OK)
         .WithOpenApi();
 
         group.MapPost("/{hojaDeRutaId:guid}/despacho", async (

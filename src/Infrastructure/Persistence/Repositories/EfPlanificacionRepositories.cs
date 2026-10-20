@@ -18,6 +18,12 @@ public class EfRepartidorRepository : IRepartidorRepository
         return await _dbContext.Repartidores.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
+    public async Task<List<Repartidor>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        return await _dbContext.Repartidores.AsNoTracking().Where(r => idSet.Contains(r.Id)).ToListAsync(cancellationToken);
+    }
+
     public async Task<Repartidor?> GetByUsuarioIdAsync(Guid usuarioId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Repartidores.FirstOrDefaultAsync(r => r.UsuarioId == usuarioId, cancellationToken);
@@ -36,6 +42,12 @@ public class EfVehiculoRepository : IVehiculoRepository
     public async Task<Vehiculo?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Vehiculos.FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
+    }
+
+    public async Task<List<Vehiculo>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        return await _dbContext.Vehiculos.AsNoTracking().Where(v => idSet.Contains(v.Id)).ToListAsync(cancellationToken);
     }
 }
 

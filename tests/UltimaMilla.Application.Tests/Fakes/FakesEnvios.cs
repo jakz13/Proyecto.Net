@@ -1,6 +1,7 @@
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Tests.Fakes;
 
@@ -30,6 +31,9 @@ public class FakeEnvioRepository : IEnvioRepository
 
         return Task.FromResult(Envios.Any(e => e.CodigoSeguimientoPublico == codigoSeguimiento));
     }
+
+    public Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Envios.Where(e => e.OperadorId == operadorId && e.EstadoActual == estado).ToList());
 
     public Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.FirstOrDefault(e => e.CodigoSeguimientoPublico == codigoSeguimiento.Trim().ToUpperInvariant()));

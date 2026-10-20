@@ -2,12 +2,16 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 
-/// <summary>Armado y liberación de una hoja de ruta para un repartidor, un vehículo y una jornada.</summary>
+/// <summary>
+/// Armado y liberación de una hoja de ruta para un repartidor, un vehículo y una jornada.
+/// Con SoloValidar se aplican las mismas restricciones pero no se asigna ni se guarda nada.
+/// </summary>
 public record ArmarHojaDeRutaCommand(
     Guid RepartidorId,
     Guid VehiculoId,
     DateOnly Fecha,
-    IReadOnlyList<Guid> EnviosIds
+    IReadOnlyList<Guid> EnviosIds,
+    bool SoloValidar = false
 ) : IRequest<ArmarHojaDeRutaResultDto>;
 
 public record ArmarHojaDeRutaResultDto(

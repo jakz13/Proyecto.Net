@@ -1,5 +1,6 @@
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Ports;
 
@@ -7,6 +8,8 @@ public interface IEnvioRepository
 {
     Task AddAsync(Envio envio, CancellationToken cancellationToken = default);
     Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
+    /// <summary>Lista los envíos de un operador que se encuentren en el estado indicado.</summary>
+    Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default);
     Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
