@@ -295,6 +295,20 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         return true;
     }
 
+    /// <summary>El comercio confirma que recibió el bulto devuelto: la devolución queda cerrada (UC-32).</summary>
+    public void ConfirmarDevolucionRecibida(Guid? responsableUsuarioId)
+    {
+        if (EstadoActual != EstadoEnvio.EnDevolucion)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        TransicionarEstado(
+            EstadoEnvio.Devuelto,
+            "DevolucionConfirmadaPorComercio",
+            responsableUsuarioId,
+            "PortalComercio",
+            payload: "El comercio confirmó la recepción del bulto devuelto.");
+    }
+
     /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
     public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
     {
