@@ -59,6 +59,22 @@ public class MockSeguimientoApi : ISeguimientoApi
                 new() { Fecha = DateTime.UtcNow.AddHours(-8), Estado = EstadoEnvioDto.EnTransito, DescripcionPublica = "En reparto." },
                 new() { Fecha = DateTime.UtcNow.AddHours(-5), Estado = EstadoEnvioDto.NoEntregado, DescripcionPublica = "No fue posible concretar la entrega (destinatario no respondió)." }
             }
+        },
+        ["ENV-2026-00108"] = new SeguimientoPublicoDto
+        {
+            CodigoSeguimiento = "ENV-2026-00108",
+            EstadoActual = EstadoEnvioDto.Entregado,
+            VentanaHorariaEstimada = "Entregado a las 10:45 hs",
+            FechaUltimaActualizacion = DateTime.UtcNow,
+            PermiteReprogramacion = false,
+            HistorialEventos = new List<HitoSeguimientoDto>
+            {
+                new() { Fecha = DateTime.UtcNow.AddHours(-4), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Envío registrado y admitido" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-3), Estado = EstadoEnvioDto.EnDeposito, DescripcionPublica = "Envío recibido en el depósito" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-2), Estado = EstadoEnvioDto.AsignadoARuta, DescripcionPublica = "Envío asignado a una ruta de distribución" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-1), Estado = EstadoEnvioDto.EnTransito, DescripcionPublica = "El envío salió a reparto" },
+                new() { Fecha = DateTime.UtcNow, Estado = EstadoEnvioDto.Entregado, DescripcionPublica = "Envío entregado" }
+            }
         }
     };
 

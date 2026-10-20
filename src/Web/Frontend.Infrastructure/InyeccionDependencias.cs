@@ -98,9 +98,29 @@ public static class InyeccionDependencias
             cliente.Timeout = TimeSpan.FromSeconds(15);
         });
 
-        // En caso de que se necesiten mantener mocks auxiliares mientras el backend finaliza otros endpoints:
-        servicios.AddSingleton<IEnviosApi, MockEnviosApi>();
-        servicios.AddSingleton<ISeguimientoApi, MockSeguimientoApi>();
+        servicios.AddHttpClient<ISeguimientoApi, HttpSeguimientoApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<IDespachoApi, HttpDespachoApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<IEnviosApi, HttpEnviosApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        // Servicios auxiliares aún no conectados por HTTP se mantienen en singleton mock para resiliencia
+        servicios.AddSingleton<IRutasApi, MockRutasApi>();
+        servicios.AddSingleton<IIncidenciasApi, MockIncidenciasApi>();
+        servicios.AddSingleton<ITableroApi, MockTableroApi>();
+        servicios.AddSingleton<IReportesApi, MockReportesApi>();
 
         return servicios;
     }

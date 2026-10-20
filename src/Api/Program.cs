@@ -91,7 +91,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // CORS restringido a los orígenes de las aplicaciones web (configurable: Cors:AllowedOrigins)
 var origenesPermitidos = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5002", "http://localhost:5003" };
+    ?? new[] { "http://localhost:5002", "http://localhost:5003", "http://localhost:5004", "https://localhost:7002", "https://localhost:7003", "https://localhost:7004" };
 
 builder.Services.AddCors(options =>
 {
