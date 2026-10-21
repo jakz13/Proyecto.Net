@@ -59,6 +59,9 @@ public class Incidencia : AggregateRoot, IMustHaveTenant
         if (string.IsNullOrWhiteSpace(descripcion))
             throw new DomainValidationException("La descripción de la incidencia no puede ser vacía.");
 
+        ValidacionTexto.LargoMaximo(tipo, 50, "El tipo de incidencia");
+        ValidacionTexto.LargoMaximo(descripcion, 1000, "La descripción de la incidencia");
+
         var severidadNormalizada = Severidades.FirstOrDefault(s => s.Equals(severidad?.Trim(), StringComparison.OrdinalIgnoreCase))
             ?? throw new DomainValidationException($"La severidad '{severidad}' no es válida. Valores admitidos: {string.Join(", ", Severidades)}.");
 
@@ -113,6 +116,8 @@ public class Incidencia : AggregateRoot, IMustHaveTenant
 
         if (string.IsNullOrWhiteSpace(resolucion))
             throw new DomainValidationException("Para cerrar la incidencia indique cómo se resolvió.");
+
+        ValidacionTexto.LargoMaximo(resolucion, 900, "La resolución");
 
         var momento = fecha ?? DateTime.UtcNow;
         Resolucion = resolucion.Trim();

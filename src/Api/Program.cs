@@ -241,15 +241,17 @@ app.MapGet("/swagger-custom.css", () =>
 
 // Minimal API Endpoints
 var enviosApi = app.MapGroup("/api/envios")
-    .WithTags("Envíos");
+    .WithTags("Envíos")
+    .RequireAuthorization();
 
 enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
 {
     try
     {
+        // El comercio real se toma de la sesión en el handler; este valor solo se usa si el usuario no pertenece a un comercio
         var comercioId = request.ComercioId.HasValue && request.ComercioId.Value != Guid.Empty
             ? request.ComercioId.Value
-            : Guid.Parse("11111111-1111-1111-1111-111111111111");
+            : Guid.Empty;
 
         var command = new AltaEnvioCommand(
             comercioId,
@@ -280,6 +282,10 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
     catch (DomainValidationException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (UltimaMilla.Application.Exceptions.ConflictoDeConcurrenciaException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
     }
 })
 .WithName("AltaEnvio")

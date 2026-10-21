@@ -63,8 +63,8 @@ public class FakeEnvioRepository : IEnvioRepository
     public Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.FirstOrDefault(e => e.CodigoSeguimientoPublico == codigoSeguimiento.Trim().ToUpperInvariant()));
 
-    public Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(Envios.ToList());
+    public Task<List<Envio>> ListarRecientesPorOperadorAsync(Guid operadorId, int maximo, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Envios.Where(e => e.OperadorId == operadorId).OrderByDescending(e => e.FechaAlta).Take(maximo).ToList());
 
     public Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.FirstOrDefault(e => e.Id == id));

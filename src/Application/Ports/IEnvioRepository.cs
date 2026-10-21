@@ -15,7 +15,8 @@ public interface IEnvioRepository
     /// <summary>Busca un envío del comercio por la referencia que éste le asignó (idempotencia de altas).</summary>
     Task<Envio?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default);
     Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
-    Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>Envíos más recientes del operador (tope fijo), nunca de otros operadores.</summary>
+    Task<List<Envio>> ListarRecientesPorOperadorAsync(Guid operadorId, int maximo, CancellationToken cancellationToken = default);
     Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetByHojaDeRutaIdAsync(Guid hojaDeRutaId, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);

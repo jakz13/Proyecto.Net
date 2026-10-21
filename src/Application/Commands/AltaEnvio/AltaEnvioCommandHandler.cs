@@ -18,6 +18,12 @@ public class AltaEnvioCommandHandler : IRequestHandler<AltaEnvioCommand, AltaEnv
 
     public async Task<AltaEnvioResultDto> Handle(AltaEnvioCommand request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // Un usuario de comercio solo puede dar de alta envíos de su propio comercio, sin importar lo que traiga el pedido
+        if (_currentTenant.ComercioOperadorId.HasValue)
+            request = request with { ComercioId = _currentTenant.ComercioOperadorId.Value };
+
         var resultado = await _procesador.ProcesarAsync(_currentTenant.OperadorId, request, null, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return resultado;

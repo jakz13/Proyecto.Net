@@ -49,6 +49,11 @@ public class Direccion : Entity
         if (zonaCoberturaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la zona de cobertura no puede ser vacío.");
 
+        ValidacionTexto.LargoMaximo(calle, 200, "La calle");
+        ValidacionTexto.LargoMaximo(numero, 30, "El número");
+        ValidacionTexto.LargoMaximo(ciudad, 100, "La ciudad");
+        ValidacionTexto.LargoMaximo(referencia, 300, "La referencia de la dirección");
+
         Calle = calle.Trim();
         Numero = numero.Trim();
         Ciudad = ciudad.Trim();

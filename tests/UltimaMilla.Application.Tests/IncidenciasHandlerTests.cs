@@ -62,6 +62,16 @@ public class IncidenciasHandlerTests
     }
 
     [Fact]
+    public async Task Abrir_ConTipoODescripcionDemasiadoLargos_LanzaDomainValidationEnVezDeFallarAlGuardar()
+    {
+        await Assert.ThrowsAsync<DomainValidationException>(() =>
+            Abrir().Handle(new AbrirIncidenciaCommand(new string('t', 51), "Algo pasó"), default));
+        await Assert.ThrowsAsync<DomainValidationException>(() =>
+            Abrir().Handle(new AbrirIncidenciaCommand("Otro", new string('d', 1001)), default));
+        Assert.Empty(_incidencias.Incidencias);
+    }
+
+    [Fact]
     public async Task Abrir_ConSeveridadInvalida_LanzaDomainValidation()
     {
         await Assert.ThrowsAsync<DomainValidationException>(() =>

@@ -77,6 +77,11 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (string.IsNullOrWhiteSpace(modalidadServicio))
             throw new DomainValidationException("La modalidad de servicio no puede ser vacía.");
 
+        ValidacionTexto.LargoMaximo(modalidadServicio, 50, "La modalidad de servicio");
+        ValidacionTexto.LargoMaximo(codigoSeguimientoPublico, 100, "El código de seguimiento");
+        ValidacionTexto.LargoMaximo(direccionDestino, 300, "La dirección de destino");
+        ValidacionTexto.LargoMaximo(nombreDestinatario, 200, "El nombre del destinatario");
+
         if (string.IsNullOrWhiteSpace(codigoSeguimientoPublico))
             throw new DomainValidationException("El código de seguimiento no puede ser vacío.");
 
