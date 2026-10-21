@@ -106,11 +106,8 @@
                    Style="{StaticResource H3Label}"
                    Margin="4,4,0,0" />
 
-            <CollectionView ItemsSource="{Binding Bultos}" SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bultos}" Spacing="10">
+                <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:BultoCargaItemViewModel">
                         <Border Style="{StaticResource CardView}" Padding="14">
                             <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto, Auto" RowSpacing="4">
@@ -128,7 +125,8 @@
                                 <!-- Badge de Estado -->
                                 <Border Grid.Row="0" Grid.Column="1"
                                         BackgroundColor="{Binding BadgeColor}"
-                                        Stroke="{x:Null}"
+                                        Stroke="Transparent"
+                                        StrokeThickness="0"
                                         StrokeShape="RoundRectangle 6"
                                         Padding="8,3">
                                     <Label Text="{Binding EstadoTexto}"
@@ -156,8 +154,8 @@
                             </Grid>
                         </Border>
                     </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
 
             <!-- ========================================================= -->
             <!-- SECCIÓN BULTOS SOBRANTES / DISCREPANCIAS                  -->
@@ -169,11 +167,8 @@
                        Style="{StaticResource H3Label}"
                        TextColor="{StaticResource Danger}" />
 
-                <CollectionView ItemsSource="{Binding BultosSobrantes}" SelectionMode="None">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BultosSobrantes}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:BultoCargaItemViewModel">
                             <Border BackgroundColor="#FEF2F2"
                                     Stroke="#FCA5A5"
@@ -189,7 +184,8 @@
 
                                     <Border Grid.Row="0" Grid.Column="1"
                                             BackgroundColor="#FEE2E2"
-                                            Stroke="{x:Null}"
+                                            Stroke="Transparent"
+                                            StrokeThickness="0"
                                             StrokeShape="RoundRectangle 6"
                                             Padding="8,3">
                                         <Label Text="Sobrante"
@@ -205,8 +201,8 @@
                                 </Grid>
                             </Border>
                         </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
             </VerticalStackLayout>
 
             <!-- ========================================================= -->

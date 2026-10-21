@@ -12,7 +12,7 @@
     <!-- ========================================================= -->
     <TabBar>
         <!-- Pestaña 1: Mi Ruta -->
-        <Tab Title="Mi Ruta" Icon="{x:Null}">
+        <Tab Title="Mi Ruta">
             <ShellContent
                 Title="Mi Ruta"
                 ContentTemplate="{DataTemplate ruta:RutaDiaPage}"
@@ -20,7 +20,7 @@
         </Tab>
 
         <!-- Pestaña 2: Carga de Vehículo -->
-        <Tab Title="Carga" Icon="{x:Null}">
+        <Tab Title="Carga">
             <ShellContent
                 Title="Carga"
                 ContentTemplate="{DataTemplate carga:CargaVehiculoPage}"

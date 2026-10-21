@@ -158,7 +158,9 @@ public class EfEnvioRepository : IEnvioRepository
 
         if (motivoId.HasValue && motivoId.Value != Guid.Empty)
         {
-            return await query.FirstOrDefaultAsync(m => m.Id == motivoId.Value, cancellationToken);
+            var motivo = await query.FirstOrDefaultAsync(m => m.Id == motivoId.Value, cancellationToken);
+            if (motivo != null)
+                return motivo;
         }
 
         if (!string.IsNullOrWhiteSpace(codigo))

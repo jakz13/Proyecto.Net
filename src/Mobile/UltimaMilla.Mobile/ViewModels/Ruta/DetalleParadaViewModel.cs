@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Views.Entrega;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -34,6 +35,9 @@ public partial class DetalleParadaViewModel : ObservableObject
         // Mock por defecto para previsualización directa
         _parada = new ParadaItemViewModel
         {
+            Id = DemoDataDefaults.Parada2Id,
+            HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId,
+            EnvioId = DemoDataDefaults.Envio2Id,
             Orden = 2,
             Direccion = "Bvar. España 2678, Apto 501",
             Ciudad = "Pocitos, Montevideo",

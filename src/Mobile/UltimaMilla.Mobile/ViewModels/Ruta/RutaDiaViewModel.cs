@@ -275,24 +275,43 @@ public partial class RutaDiaViewModel : ObservableObject
             : "Activar Modo Offline Simulado (Demo)";
 
         const string opcionSync = "Sincronizar Ahora con Backend";
+        const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
 
         var seleccion = await Shell.Current.DisplayActionSheetAsync(
             $"Conectividad y Cola Offline ({pendientes} pendientes)",
             "Cerrar",
             null,
             opcionToggle,
-            opcionSync);
+            opcionSync,
+            opcionReset);
 
         if (seleccion == opcionToggle && _syncService is not null)
         {
             await _syncService.AlternarModoOfflineSimuladoAsync();
-            ActualizarEstadoVisualConectividad(_syncService.IsOnline, await _syncService.ObtenerCantidadPendientesAsync());
 
-            string mensaje = _syncService.IsOnline
-                ? "Modo Online activado. Se inició automáticamente la sincronización de operaciones pendientes en segundo plano."
-                : "Modo Offline Simulado activado para demostración. Las operaciones se registrarán de forma 100% local en SQLite cifrado.";
+            if (_syncService.IsOnline)
+            {
+                var syncRes = await _syncService.SincronizarOperacionesPendientesAsync();
+                int pendientesRestantes = await _syncService.ObtenerCantidadPendientesAsync();
+                ActualizarEstadoVisualConectividad(true, pendientesRestantes);
+                await RefrescarParadasDesdeSQLiteAsync();
 
-            await Shell.Current.DisplayAlertAsync("Modo de Conexión", mensaje, "Aceptar");
+                string mensaje = syncRes.ErroresNegocio > 0
+                    ? $"Modo Online activado.\n{syncRes.Mensaje}"
+                    : $"Modo Online activado.\n{syncRes.Mensaje}";
+
+                await Shell.Current.DisplayAlertAsync("Sincronización al Volver a Línea", mensaje, "Aceptar");
+            }
+            else
+            {
+                int p = await _syncService.ObtenerCantidadPendientesAsync();
+                ActualizarEstadoVisualConectividad(false, p);
+                await Shell.Current.DisplayAlertAsync(
+                    "Modo de Conexión",
+                    "Modo Offline Simulado activado para demostración. Las operaciones se registrarán de forma 100% local en SQLite cifrado.",
+                    "Aceptar");
+            }
+
             await RefrescarParadasDesdeSQLiteAsync();
         }
         else if (seleccion == opcionSync && _syncService is not null)
@@ -307,8 +326,34 @@ public partial class RutaDiaViewModel : ObservableObject
             }
 
             var resultado = await _syncService.SincronizarOperacionesPendientesAsync();
+            int pendientesRestantes = await _syncService.ObtenerCantidadPendientesAsync();
+            ActualizarEstadoVisualConectividad(true, pendientesRestantes);
             await Shell.Current.DisplayAlertAsync("Sincronización de Cola", resultado.Mensaje, "Aceptar");
             await RefrescarParadasDesdeSQLiteAsync();
+        }
+        else if (seleccion == opcionReset && _syncService is not null)
+        {
+            bool confirmar = await Shell.Current.DisplayAlertAsync(
+                "Reiniciar Datos de Demo",
+                "¿Desea restablecer los envíos ENV-2026-00108, ENV-2026-00109 y ENV-2026-00110 a estado 'EnTransito' (4) en PostgreSQL y limpiar SQLite local (cola en 0)?",
+                "Sí, reiniciar demo",
+                "Cancelar");
+
+            if (confirmar)
+            {
+                IsBusy = true;
+                try
+                {
+                    var res = await _syncService.ReiniciarDemoCompletaAsync();
+                    ActualizarEstadoVisualConectividad(_syncService.IsOnline, 0);
+                    await RefrescarParadasDesdeSQLiteAsync();
+                    await Shell.Current.DisplayAlertAsync("Reinicio de Demo", res, "Aceptar");
+                }
+                finally
+                {
+                    IsBusy = false;
+                }
+            }
         }
     }
 

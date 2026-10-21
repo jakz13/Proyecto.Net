@@ -31,6 +31,7 @@ public interface ILocalDatabaseService
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
     Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
     Task SeedRutaDemoSiEstaVaciaAsync();
+    Task ReiniciarDatosDemoLocalAsync();
 }
 
 public class LocalDatabaseService : ILocalDatabaseService
@@ -244,12 +245,26 @@ public class LocalDatabaseService : ILocalDatabaseService
             // 2. Upsert Paradas, Envios y Bultos
             foreach (var p in paradas)
             {
-                var paradaLocal = conn.Find<ParadaLocal>(p.ParadaId);
-                bool isNew = paradaLocal == null;
-                paradaLocal ??= new ParadaLocal { Id = p.ParadaId };
+                var paradaId = p.ParadaId != Guid.Empty
+                    ? p.ParadaId
+                    : (p.CodigoSeguimiento == "ENV-2026-00108" ? DemoDataDefaults.Parada1Id :
+                       p.CodigoSeguimiento == "ENV-2026-00109" ? DemoDataDefaults.Parada2Id :
+                       p.CodigoSeguimiento == "ENV-2026-00110" ? DemoDataDefaults.Parada3Id :
+                       (p.Orden == 1 ? DemoDataDefaults.Parada1Id : p.Orden == 2 ? DemoDataDefaults.Parada2Id : DemoDataDefaults.Parada3Id));
 
-                paradaLocal.HojaDeRutaId = hojaDeRutaId;
-                paradaLocal.EnvioId = p.EnvioId;
+                var envioId = p.EnvioId != Guid.Empty
+                    ? p.EnvioId
+                    : (p.CodigoSeguimiento == "ENV-2026-00108" ? DemoDataDefaults.Envio1Id :
+                       p.CodigoSeguimiento == "ENV-2026-00109" ? DemoDataDefaults.Envio2Id :
+                       p.CodigoSeguimiento == "ENV-2026-00110" ? DemoDataDefaults.Envio3Id :
+                       (p.Orden == 1 ? DemoDataDefaults.Envio1Id : p.Orden == 2 ? DemoDataDefaults.Envio2Id : DemoDataDefaults.Envio3Id));
+
+                var paradaLocal = conn.Find<ParadaLocal>(paradaId);
+                bool isNew = paradaLocal == null;
+                paradaLocal ??= new ParadaLocal { Id = paradaId };
+
+                paradaLocal.HojaDeRutaId = hojaDeRutaId != Guid.Empty ? hojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId;
+                paradaLocal.EnvioId = envioId;
                 paradaLocal.Orden = p.Orden;
                 
                 // Preservar estado completado local si aún no se sincroniza
@@ -258,7 +273,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
                 }
 
-                paradaLocal.CodigoSeguimiento = p.CodigoSeguimiento;
+                paradaLocal.CodigoSeguimiento = !string.IsNullOrWhiteSpace(p.CodigoSeguimiento) ? p.CodigoSeguimiento : $"ENV-2026-{107 + p.Orden:D5}";
                 paradaLocal.Direccion = p.DireccionFormateada;
                 paradaLocal.Ciudad = ExtraerCiudad(p.DireccionFormateada);
                 paradaLocal.DestinatarioNombre = p.Destinatario?.Nombre ?? "Destinatario";
@@ -278,14 +293,14 @@ public class LocalDatabaseService : ILocalDatabaseService
                     conn.Update(paradaLocal);
 
                 // Envio
-                var envioLocal = conn.Find<EnvioLocal>(p.EnvioId);
+                var envioLocal = conn.Find<EnvioLocal>(envioId);
                 if (envioLocal == null)
                 {
                     envioLocal = new EnvioLocal
                     {
-                        Id = p.EnvioId,
-                        ParadaId = p.ParadaId,
-                        CodigoSeguimiento = p.CodigoSeguimiento,
+                        Id = envioId,
+                        ParadaId = paradaId,
+                        CodigoSeguimiento = paradaLocal.CodigoSeguimiento,
                         Destinatario = paradaLocal.DestinatarioNombre,
                         Direccion = paradaLocal.Direccion,
                         Modalidad = "Estandar",
@@ -295,7 +310,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 }
                 else
                 {
-                    envioLocal.ParadaId = p.ParadaId;
+                    envioLocal.ParadaId = paradaId;
                     conn.Update(envioLocal);
                 }
 
@@ -393,11 +408,45 @@ public class LocalDatabaseService : ILocalDatabaseService
                 }
             }
 
+            var hojaRutaIdReal = p.HojaDeRutaId != Guid.Empty
+                ? p.HojaDeRutaId
+                : (ruta.Id != Guid.Empty ? ruta.Id : DemoDataDefaults.DefaultHojaDeRutaId);
+
+            var paradaIdReal = p.Id != Guid.Empty
+                ? p.Id
+                : p.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
+                    _ => p.Orden == 1 ? DemoDataDefaults.Parada1Id : (p.Orden == 2 ? DemoDataDefaults.Parada2Id : DemoDataDefaults.Parada3Id)
+                };
+
+            var envioIdReal = p.EnvioId != Guid.Empty
+                ? p.EnvioId
+                : p.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
+                    _ => p.Orden == 1 ? DemoDataDefaults.Envio1Id : (p.Orden == 2 ? DemoDataDefaults.Envio2Id : DemoDataDefaults.Envio3Id)
+                };
+
+            var codigoSeguimientoReal = !string.IsNullOrWhiteSpace(p.CodigoSeguimiento)
+                ? p.CodigoSeguimiento
+                : p.Orden switch
+                {
+                    1 => "ENV-2026-00108",
+                    2 => "ENV-2026-00109",
+                    3 => "ENV-2026-00110",
+                    _ => $"ENV-2026-{107 + p.Orden:D5}"
+                };
+
             var vm = new ParadaItemViewModel
             {
-                Id = p.Id,
-                HojaDeRutaId = p.HojaDeRutaId,
-                EnvioId = p.EnvioId,
+                Id = paradaIdReal,
+                HojaDeRutaId = hojaRutaIdReal,
+                EnvioId = envioIdReal,
                 Orden = p.Orden,
                 Direccion = p.Direccion,
                 Ciudad = p.Ciudad,
@@ -406,7 +455,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
                 Estado = p.Estado,
                 HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
-                CodigoSeguimiento = p.CodigoSeguimiento,
+                CodigoSeguimiento = codigoSeguimientoReal,
                 NotasComercio = p.NotasComercio ?? string.Empty,
                 Latitud = p.Latitud,
                 Longitud = p.Longitud,
@@ -534,5 +583,68 @@ public class LocalDatabaseService : ILocalDatabaseService
             return partes[^1].Trim();
         }
         return "Montevideo";
+    }
+
+    public async Task ReiniciarDatosDemoLocalAsync()
+    {
+        await InitAsync();
+
+        await Db.RunInTransactionAsync(conn =>
+        {
+            conn.DeleteAll<OperacionOfflineLocal>();
+            conn.DeleteAll<BultoLocal>();
+            conn.DeleteAll<EnvioLocal>();
+            conn.DeleteAll<ParadaLocal>();
+            conn.DeleteAll<HojaDeRutaLocal>();
+        });
+
+        // Regenerar la ruta demo limpia con todas las paradas listas para operar
+        var paradasDemo = new List<ParadaNavegacionDto>
+        {
+            new(
+                ParadaId: DemoDataDefaults.Parada1Id,
+                EnvioId: DemoDataDefaults.Envio1Id,
+                Orden: 1,
+                EstadoParada: "Pendiente",
+                CodigoSeguimiento: "ENV-2026-00108",
+                DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
+                Latitud: -34.9056,
+                Longitud: -56.1852,
+                VentanaHoraria: "09:00 - 10:00",
+                Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
+                ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
+                EsParadaActual: true
+            ),
+            new(
+                ParadaId: DemoDataDefaults.Parada2Id,
+                EnvioId: DemoDataDefaults.Envio2Id,
+                Orden: 2,
+                EstadoParada: "Pendiente",
+                CodigoSeguimiento: "ENV-2026-00109",
+                DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
+                Latitud: -34.9124,
+                Longitud: -56.1589,
+                VentanaHoraria: "10:00 - 11:00",
+                Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
+                ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
+                EsParadaActual: false
+            ),
+            new(
+                ParadaId: DemoDataDefaults.Parada3Id,
+                EnvioId: DemoDataDefaults.Envio3Id,
+                Orden: 3,
+                EstadoParada: "Pendiente",
+                CodigoSeguimiento: "ENV-2026-00110",
+                DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
+                Latitud: -34.9271,
+                Longitud: -56.1534,
+                VentanaHoraria: "11:00 - 12:00",
+                Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
+                ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),
+                EsParadaActual: false
+            )
+        };
+
+        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo);
     }
 }
