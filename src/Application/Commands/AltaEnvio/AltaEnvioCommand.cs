@@ -2,14 +2,18 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.AltaEnvio;
 
-/// <summary>Alta individual de un envío: destinatario, dirección, bultos y modalidad de servicio.</summary>
+/// <summary>
+/// Alta individual de un envío: destinatario, dirección, bultos y modalidad de servicio.
+/// La referencia externa (opcional) es el identificador del envío en el sistema del comercio y hace el alta idempotente.
+/// </summary>
 public record AltaEnvioCommand(
     Guid ComercioId,
     string ModalidadServicio,
     DestinatarioAltaDto Destinatario,
     DireccionAltaDto Direccion,
     IReadOnlyList<BultoAltaDto> Bultos,
-    Guid? FranjaHorariaId = null
+    Guid? FranjaHorariaId = null,
+    string? ReferenciaExterna = null
 ) : IRequest<AltaEnvioResultDto>;
 
 public record DestinatarioAltaDto(
@@ -35,4 +39,5 @@ public record AltaEnvioResultDto(
     string CodigoSeguimiento,
     string Estado,
     decimal Tarifa,
-    IReadOnlyList<string> IdentificacionesBultos);
+    IReadOnlyList<string> IdentificacionesBultos,
+    bool Duplicado = false);

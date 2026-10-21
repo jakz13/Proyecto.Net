@@ -11,6 +11,8 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
         });
 
+        services.AddScoped<Commands.AltaEnvio.AltaEnvioProcesador>();
+
         return services;
     }
 }

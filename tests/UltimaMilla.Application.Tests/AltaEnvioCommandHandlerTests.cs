@@ -15,10 +15,10 @@ public class AltaEnvioCommandHandlerTests
     private readonly FakeCurrentTenant _tenant = new();
     private readonly FakeClock _clock = new();
     private readonly FakeUnitOfWork _uow = new();
-    private readonly Guid _comercioId = Guid.NewGuid();
+    private Guid ComercioDeSesion => _tenant.ComercioOperadorId!.Value;
 
     private AltaEnvioCommandHandler CrearHandler() =>
-        new(_envios, _destinatarios, _direcciones, _cuadros, _tenant, _clock, _uow);
+        new(new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock), _tenant, _uow);
 
     private CuadroTarifario CrearCuadro(params ReglaTarifa[] reglas)
     {
@@ -57,7 +57,7 @@ public class AltaEnvioCommandHandlerTests
         Guid? comercioId = null,
         Guid? franja = null) =>
         new(
-            comercioId ?? _comercioId,
+            comercioId ?? ComercioDeSesion,
             modalidad,
             destinatario ?? new DestinatarioAltaDto("Ana Gomez", "1.234.567-8", "ana@correo.com", "099123456"),
             direccion ?? new DireccionAltaDto("18 de Julio", "1234", "Montevideo"),
@@ -107,7 +107,7 @@ public class AltaEnvioCommandHandlerTests
         Assert.Equal(_direcciones.Direcciones.Single().Id, envio.DireccionEntregaId);
         Assert.Equal("18 de Julio 1234, Montevideo", envio.DireccionDestino);
         Assert.Equal("Ana Gomez", envio.NombreDestinatario);
-        Assert.Equal(_comercioId, envio.ComercioOperadorId);
+        Assert.Equal(ComercioDeSesion, envio.ComercioOperadorId);
         Assert.Equal(_tenant.OperadorId, envio.OperadorId);
     }
 
@@ -386,9 +386,30 @@ public class AltaEnvioCommandHandlerTests
     public async Task ComercioVacio_LanzaDomainValidationException()
     {
         CrearCuadroConReglaEstandar();
+        _tenant.ComercioOperadorId = null;
 
         await Assert.ThrowsAsync<DomainValidationException>(() =>
             CrearHandler().Handle(Comando(comercioId: Guid.Empty), CancellationToken.None));
+        AssertNadaPersistido();
+    }
+
+    [Fact]
+    public async Task UsuarioDeComercio_NoPuedeDarDeAltaEnviosDeOtroComercio()
+    {
+        CrearCuadroConReglaEstandar();
+
+        await CrearHandler().Handle(Comando(comercioId: Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Equal(ComercioDeSesion, Assert.Single(_envios.Envios).ComercioOperadorId);
+    }
+
+    [Fact]
+    public async Task NombreDeDestinatarioDemasiadoLargo_LanzaDomainValidationException()
+    {
+        CrearCuadroConReglaEstandar();
+
+        await Assert.ThrowsAsync<DomainValidationException>(() =>
+            CrearHandler().Handle(Comando(destinatario: new DestinatarioAltaDto(new string('a', 201))), CancellationToken.None));
         AssertNadaPersistido();
     }
 

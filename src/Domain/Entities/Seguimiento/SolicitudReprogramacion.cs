@@ -10,6 +10,7 @@ public class SolicitudReprogramacion : Entity
     public string Estado { get; private set; } = string.Empty;
     public DateTime FechaSolicitud { get; private set; }
     public string? OrigenIp { get; private set; }
+    public string? MotivoRechazo { get; private set; }
 
     protected SolicitudReprogramacion() { }
 
@@ -18,7 +19,8 @@ public class SolicitudReprogramacion : Entity
         Guid envioId,
         string franjaHorariaSolicitada,
         string? origenIp = null,
-        string estado = "Pendiente") : base(id)
+        string estado = "Pendiente",
+        DateTime? fechaSolicitud = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador de la solicitud no puede ser vacío.");
@@ -33,7 +35,7 @@ public class SolicitudReprogramacion : Entity
         FranjaHorariaSolicitada = franjaHorariaSolicitada.Trim();
         OrigenIp = origenIp?.Trim();
         Estado = string.IsNullOrWhiteSpace(estado) ? "Pendiente" : estado.Trim();
-        FechaSolicitud = DateTime.UtcNow;
+        FechaSolicitud = fechaSolicitud ?? DateTime.UtcNow;
     }
 
     public void Aprobar()
@@ -44,5 +46,6 @@ public class SolicitudReprogramacion : Entity
     public void Rechazar(string? motivo = null)
     {
         Estado = "Rechazada";
+        MotivoRechazo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
     }
 }

@@ -1,5 +1,7 @@
+using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Application.Ports;
 
@@ -21,4 +23,27 @@ public interface IDireccionRepository
 {
     Task AddAsync(Direccion direccion, CancellationToken cancellationToken = default);
     Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Relación comercio-operador, usada para autenticar la integración por clave de API.</summary>
+public interface IComercioOperadorRepository
+{
+    Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Busca la relación por la huella SHA-256 de su clave de API.</summary>
+    Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Lotes de importación masiva, identificados por comercio y clave de idempotencia.</summary>
+public interface ILoteImportacionRepository
+{
+    Task<LoteImportacion?> GetByClaveAsync(Guid comercioOperadorId, string claveIdempotencia, CancellationToken cancellationToken = default);
+    Task AddAsync(LoteImportacion lote, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Solicitudes de reprogramación hechas por el destinatario desde el seguimiento público.</summary>
+public interface ISolicitudReprogramacionRepository
+{
+    Task AddAsync(SolicitudReprogramacion solicitud, CancellationToken cancellationToken = default);
+    Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default);
+    Task<int> ContarTodasAsync(Guid envioId, CancellationToken cancellationToken = default);
 }

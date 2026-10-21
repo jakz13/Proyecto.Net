@@ -10,6 +10,9 @@ namespace UltimaMilla.Infrastructure.Persistence;
 public static class DatabaseSeeder
 {
     // Identificadores fijos sincronizados con UltimaMilla.Mobile (DemoDataDefaults)
+    /// <summary>Clave de integración de la demo (X-Api-Key); en la base solo se guarda su huella.</summary>
+    public const string ClaveApiDemo = "dev-api-key-megastore-2026";
+
     public static readonly Guid DefaultOperadorId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid DefaultComercioId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid DefaultComercioOperadorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -81,10 +84,15 @@ public static class DatabaseSeeder
                 DefaultComercioOperadorId,
                 DefaultComercioId,
                 DefaultOperadorId,
-                claveApi: "dev-api-key-megastore-2026",
+                claveApi: ComercioOperador.CalcularHuellaClaveApi(ClaveApiDemo),
                 estado: "Activo"
             );
             await context.ComerciosOperadores.AddAsync(comercioOperador, cancellationToken);
+        }
+        else if (comercioOperador.ClaveApi == ClaveApiDemo)
+        {
+            // Bases sembradas antes de guardar solo la huella de la clave
+            comercioOperador.RegenerarClaveApi(ComercioOperador.CalcularHuellaClaveApi(ClaveApiDemo));
         }
 
         // 3. Regla Operativa vigente para el Operador (SLA, reintentos y prueba exigida)

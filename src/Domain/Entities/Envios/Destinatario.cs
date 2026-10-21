@@ -25,6 +25,11 @@ public class Destinatario : Entity
         if (string.IsNullOrWhiteSpace(nombre))
             throw new DomainValidationException("El nombre del destinatario no puede ser vacío.");
 
+        ValidacionTexto.LargoMaximo(nombre, 200, "El nombre del destinatario");
+        ValidacionTexto.LargoMaximo(documento, 50, "El documento");
+        ValidacionTexto.LargoMaximo(email, 200, "El email");
+        ValidacionTexto.LargoMaximo(telefono, 50, "El teléfono");
+
         Nombre = nombre.Trim();
         Documento = documento?.Trim();
         Email = email?.Trim().ToLowerInvariant();
@@ -33,6 +38,9 @@ public class Destinatario : Entity
 
     public void ActualizarContacto(string? email, string? telefono)
     {
+        ValidacionTexto.LargoMaximo(email, 200, "El email");
+        ValidacionTexto.LargoMaximo(telefono, 50, "El teléfono");
+
         Email = email?.Trim().ToLowerInvariant();
         Telefono = telefono?.Trim();
     }
@@ -42,6 +50,7 @@ public class Destinatario : Entity
         if (string.IsNullOrWhiteSpace(nombre))
             throw new DomainValidationException("El nombre del destinatario no puede ser vacío.");
 
+        ValidacionTexto.LargoMaximo(nombre, 200, "El nombre del destinatario");
         Nombre = nombre.Trim();
     }
 }

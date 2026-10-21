@@ -85,4 +85,7 @@ public class FakeFranjaHorariaRepository : IFranjaHorariaRepository
         var set = ids.ToHashSet();
         return Task.FromResult(Franjas.Where(f => set.Contains(f.Id)).ToList());
     }
+
+    public Task<List<FranjaHoraria>> ListarActivasPorZonaAsync(Guid zonaCoberturaId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Franjas.Where(f => f.ZonaCoberturaId == zonaCoberturaId && f.Activa).OrderBy(f => f.DiaSemana).ThenBy(f => f.HoraInicio).ToList());
 }

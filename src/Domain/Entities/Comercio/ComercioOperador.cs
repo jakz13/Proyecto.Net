@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Exceptions;
 
@@ -9,6 +11,7 @@ public class ComercioOperador : Entity, IMustHaveTenant
     public Guid OperadorId { get; private set; }
     public DateTime FechaAlta { get; private set; }
     public string Estado { get; private set; } = string.Empty;
+    /// <summary>Huella SHA-256 (hexadecimal) de la clave de integración; la clave en claro nunca se almacena.</summary>
     public string ClaveApi { get; private set; } = string.Empty;
 
     protected ComercioOperador() { }
@@ -55,5 +58,15 @@ public class ComercioOperador : Entity, IMustHaveTenant
             throw new DomainValidationException("La nueva clave API no puede ser vacía.");
 
         ClaveApi = nuevaClaveApi.Trim();
+    }
+
+    public bool EstaActivo => Estado == "Activo";
+
+    public static string CalcularHuellaClaveApi(string claveApi)
+    {
+        if (string.IsNullOrWhiteSpace(claveApi))
+            throw new DomainValidationException("La clave API no puede ser vacía.");
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(claveApi.Trim())));
     }
 }

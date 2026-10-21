@@ -69,6 +69,13 @@ public class EfEnvioRepository : IEnvioRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Envio?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Envios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.ComercioOperadorId == comercioOperadorId && e.ReferenciaExterna == referenciaExterna, cancellationToken);
+    }
+
     public async Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
     {
         var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
@@ -77,11 +84,13 @@ public class EfEnvioRepository : IEnvioRepository
             .FirstOrDefaultAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
-    public async Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Envio>> ListarRecientesPorOperadorAsync(Guid operadorId, int maximo, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Envios
             .AsNoTracking()
+            .Where(e => e.OperadorId == operadorId)
             .OrderByDescending(e => e.FechaAlta)
+            .Take(maximo)
             .ToListAsync(cancellationToken);
     }
 

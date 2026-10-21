@@ -45,6 +45,17 @@ builder.Services.AddRateLimiter(opciones =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
+    opciones.AddPolicy(AltaEnvioCanalesEndpoints.PoliticaLimiteIntegracion, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -230,15 +241,17 @@ app.MapGet("/swagger-custom.css", () =>
 
 // Minimal API Endpoints
 var enviosApi = app.MapGroup("/api/envios")
-    .WithTags("Envíos");
+    .WithTags("Envíos")
+    .RequireAuthorization();
 
 enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
 {
     try
     {
+        // El comercio real se toma de la sesión en el handler; este valor solo se usa si el usuario no pertenece a un comercio
         var comercioId = request.ComercioId.HasValue && request.ComercioId.Value != Guid.Empty
             ? request.ComercioId.Value
-            : Guid.Parse("11111111-1111-1111-1111-111111111111");
+            : Guid.Empty;
 
         var command = new AltaEnvioCommand(
             comercioId,
@@ -269,6 +282,10 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
     catch (DomainValidationException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (UltimaMilla.Application.Exceptions.ConflictoDeConcurrenciaException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
     }
 })
 .WithName("AltaEnvio")
@@ -311,6 +328,12 @@ app.MapPlanificacionEndpoints();
 
 // Registrar consultas de envío: seguimiento público (UC-33) y detalle para Backoffice
 app.MapConsultasEnvioEndpoints();
+
+// Registrar gestión de incidencias (UC-11)
+app.MapIncidenciasEndpoints();
+
+// Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
+app.MapAltaEnvioCanalesEndpoints();
 
 await app.RunAsync();
 
