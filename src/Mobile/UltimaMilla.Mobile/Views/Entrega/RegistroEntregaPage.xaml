@@ -77,48 +77,43 @@
                                Text="Firma Digital en Pantalla *"
                                Style="{StaticResource H3Label}" />
 
-                        <Label Grid.Column="1"
-                               Text="Limpiar"
-                               TextColor="{StaticResource Primary}"
-                               FontSize="13"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding LimpiarFirmaCommand}" />
-                            </Label.GestureRecognizers>
-                        </Label>
+                        <Button Grid.Column="1"
+                                Text="Limpiar Firma"
+                                Style="{StaticResource SecondaryButton}"
+                                HeightRequest="36"
+                                Padding="12,0"
+                                FontSize="12"
+                                Command="{Binding LimpiarFirmaCommand}" />
                     </Grid>
 
-                    <!-- Recuadro para simular captura de firma -->
-                    <Border HeightRequest="150"
+                    <!-- Pad interactivo de dibujo con GraphicsView -->
+                    <Border HeightRequest="160"
                             Stroke="{StaticResource InputBorder}"
                             StrokeThickness="1.5"
                             StrokeShape="RoundRectangle 10"
-                            BackgroundColor="#FAFAFA"
-                            Padding="12">
+                            BackgroundColor="#FFFFFF"
+                            Padding="0">
+                        <Grid>
+                            <GraphicsView x:Name="SignatureView"
+                                          StartInteraction="OnSignatureStartInteraction"
+                                          DragInteraction="OnSignatureDragInteraction"
+                                          EndInteraction="OnSignatureEndInteraction"
+                                          HorizontalOptions="Fill"
+                                          VerticalOptions="Fill" />
 
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding SimularFirmaCommand}" />
-                        </Border.GestureRecognizers>
-
-                        <Grid VerticalOptions="Center" HorizontalOptions="Center">
-                            <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
-                                <Label Text="PANEL DE FIRMA"
-                                       FontSize="12"
-                                       FontAttributes="Bold"
-                                       TextColor="{StaticResource TextMuted}"
-                                       HorizontalOptions="Center" />
-
-                                <Label Text="{Binding FirmaStatusText}"
-                                       Style="{StaticResource CaptionLabel}"
-                                       HorizontalOptions="Center" />
-
-                                <Label Text="(Toque este recuadro para registrar la firma digital)"
-                                       Style="{StaticResource MutedLabel}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
+                            <Label x:Name="PlaceholderLabel"
+                                   Text="Dibuje aquí la firma del receptor con el dedo o mouse"
+                                   Style="{StaticResource MutedLabel}"
+                                   FontSize="13"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   InputTransparent="True" />
                         </Grid>
                     </Border>
+
+                    <Label Text="{Binding FirmaStatusText}"
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Border>
 

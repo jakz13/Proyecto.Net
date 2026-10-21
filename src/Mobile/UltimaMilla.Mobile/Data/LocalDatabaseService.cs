@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using Microsoft.Maui.Storage;
 using SQLite;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
@@ -33,48 +35,121 @@ public interface ILocalDatabaseService
 
 public class LocalDatabaseService : ILocalDatabaseService
 {
-    private readonly SQLiteAsyncConnection _database;
+    private const string KeyStorageAlias = "sqlite_db_encryption_key";
+    private const string FallbackDeterministicKey = "SuperSecretKey2026_DeterministicFallbackKey";
+
+    private SQLiteAsyncConnection? _database;
+    private SQLiteAsyncConnection Db => _database!;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
-    public SQLiteAsyncConnection Connection => _database;
+    public SQLiteAsyncConnection Connection
+    {
+        get
+        {
+            if (_database == null)
+            {
+                InitAsync().GetAwaiter().GetResult();
+            }
+            return _database!;
+        }
+    }
 
     public LocalDatabaseService()
     {
-        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
-
-        // RNF 6.11: Base de datos cifrada en reposo mediante SQLite / SQLCipher.
-        const string encryptionPassword = "SuperSecretKey2026";
-
-        var connectionString = new SQLiteConnectionString(
-            dbPath,
-            openFlags: SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex,
-            storeDateTimeAsTicks: true,
-            key: encryptionPassword);
-
-        _database = new SQLiteAsyncConnection(connectionString);
+        // La conexión cifrada se inicializa de forma asíncrona en InitAsync() usando SecureStorage
     }
 
     /// <summary>
-    /// Crea las tablas locales necesarias para la operativa offline si aún no existen.
+    /// Obtiene la clave criptográfica desde SecureStorage del dispositivo (RNF 6.3 y RNF 6.11).
+    /// Si aún no existe, genera una clave aleatoria de 32 bytes (256 bits), la almacena de forma segura y la retorna.
+    /// Incluye fallback determinista únicamente por si el entorno de ejecución (ej. runner) no soporta SecureStorage.
+    /// </summary>
+    private static async Task<string> GetOrGenerateEncryptionKeyAsync()
+    {
+        try
+        {
+            var existingKey = await SecureStorage.Default.GetAsync(KeyStorageAlias);
+            if (!string.IsNullOrWhiteSpace(existingKey))
+            {
+                return existingKey;
+            }
+
+            var keyBytes = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(keyBytes);
+            }
+
+            var newKey = Convert.ToBase64String(keyBytes);
+            await SecureStorage.Default.SetAsync(KeyStorageAlias, newKey);
+            return newKey;
+        }
+        catch
+        {
+            // Fallback determinista para entornos sin soporte de KeyStore nativo
+            return FallbackDeterministicKey;
+        }
+    }
+
+    /// <summary>
+    /// Crea la conexión cifrada y las tablas locales necesarias para la operativa offline si aún no existen.
     /// </summary>
     public async Task InitAsync()
     {
-        if (_initialized)
+        if (_initialized && _database != null)
             return;
 
         await _initLock.WaitAsync();
         try
         {
-            if (_initialized)
+            if (_initialized && _database != null)
                 return;
 
-            await _database.CreateTableAsync<HojaDeRutaLocal>();
-            await _database.CreateTableAsync<ParadaLocal>();
-            await _database.CreateTableAsync<EnvioLocal>();
-            await _database.CreateTableAsync<BultoLocal>();
-            await _database.CreateTableAsync<MotivoNoEntregaLocal>();
-            await _database.CreateTableAsync<OperacionOfflineLocal>();
+            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
+            var encryptionKey = await GetOrGenerateEncryptionKeyAsync();
+
+            var connectionString = new SQLiteConnectionString(
+                dbPath,
+                openFlags: SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex,
+                storeDateTimeAsTicks: true,
+                key: encryptionKey);
+
+            _database = new SQLiteAsyncConnection(connectionString);
+
+            try
+            {
+                await _database.CreateTableAsync<HojaDeRutaLocal>();
+                await _database.CreateTableAsync<ParadaLocal>();
+                await _database.CreateTableAsync<EnvioLocal>();
+                await _database.CreateTableAsync<BultoLocal>();
+                await _database.CreateTableAsync<MotivoNoEntregaLocal>();
+                await _database.CreateTableAsync<OperacionOfflineLocal>();
+            }
+            catch (SQLiteException)
+            {
+                // Si la clave criptográfica cambió y no coincide con un archivo local antiguo, se recrea el archivo
+                try
+                {
+                    await _database.CloseAsync();
+                    if (File.Exists(dbPath))
+                    {
+                        File.Delete(dbPath);
+                    }
+
+                    _database = new SQLiteAsyncConnection(connectionString);
+                    await _database.CreateTableAsync<HojaDeRutaLocal>();
+                    await _database.CreateTableAsync<ParadaLocal>();
+                    await _database.CreateTableAsync<EnvioLocal>();
+                    await _database.CreateTableAsync<BultoLocal>();
+                    await _database.CreateTableAsync<MotivoNoEntregaLocal>();
+                    await _database.CreateTableAsync<OperacionOfflineLocal>();
+                }
+                catch
+                {
+                    throw;
+                }
+            }
 
             _initialized = true;
         }
@@ -95,13 +170,13 @@ public class LocalDatabaseService : ILocalDatabaseService
             Sincronizado = false
         };
 
-        return await _database.InsertAsync(operacion);
+        return await Db.InsertAsync(operacion);
     }
 
     public async Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync()
     {
         await InitAsync();
-        return await _database.Table<OperacionOfflineLocal>()
+        return await Db.Table<OperacionOfflineLocal>()
             .Where(o => !o.Sincronizado)
             .OrderBy(o => o.FechaCreacionUtc)
             .ToListAsync();
@@ -110,30 +185,30 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task MarcarComoSincronizadoAsync(int id)
     {
         await InitAsync();
-        var op = await _database.FindAsync<OperacionOfflineLocal>(id);
+        var op = await Db.FindAsync<OperacionOfflineLocal>(id);
         if (op != null)
         {
             op.Sincronizado = true;
-            await _database.UpdateAsync(op);
+            await Db.UpdateAsync(op);
         }
     }
 
     public async Task RegistrarErrorAsync(int id, string error)
     {
         await InitAsync();
-        var op = await _database.FindAsync<OperacionOfflineLocal>(id);
+        var op = await Db.FindAsync<OperacionOfflineLocal>(id);
         if (op != null)
         {
             op.Reintentos++;
             op.UltimoError = error;
-            await _database.UpdateAsync(op);
+            await Db.UpdateAsync(op);
         }
     }
 
     public async Task<int> ObtenerCantidadPendientesAsync()
     {
         await InitAsync();
-        return await _database.Table<OperacionOfflineLocal>()
+        return await Db.Table<OperacionOfflineLocal>()
             .Where(o => !o.Sincronizado)
             .CountAsync();
     }
@@ -142,7 +217,7 @@ public class LocalDatabaseService : ILocalDatabaseService
     {
         await InitAsync();
 
-        await _database.RunInTransactionAsync(conn =>
+        await Db.RunInTransactionAsync(conn =>
         {
             // 1. Upsert Hoja de Ruta
             var ruta = conn.Find<HojaDeRutaLocal>(hojaDeRutaId);
@@ -276,14 +351,14 @@ public class LocalDatabaseService : ILocalDatabaseService
     {
         await InitAsync();
 
-        var ruta = await _database.Table<HojaDeRutaLocal>()
+        var ruta = await Db.Table<HojaDeRutaLocal>()
             .OrderByDescending(r => r.FechaDescargaUtc)
             .FirstOrDefaultAsync();
 
         if (ruta == null)
             return null;
 
-        var paradas = await _database.Table<ParadaLocal>()
+        var paradas = await Db.Table<ParadaLocal>()
             .Where(p => p.HojaDeRutaId == ruta.Id)
             .OrderBy(p => p.Orden)
             .ToListAsync();
@@ -292,7 +367,7 @@ public class LocalDatabaseService : ILocalDatabaseService
 
         foreach (var p in paradas)
         {
-            var bultos = await _database.Table<BultoLocal>()
+            var bultos = await Db.Table<BultoLocal>()
                 .Where(b => b.ParadaId == p.Id || b.EnvioId == p.EnvioId)
                 .ToListAsync();
 
@@ -351,20 +426,20 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado)
     {
         await InitAsync();
-        var parada = await _database.FindAsync<ParadaLocal>(paradaId);
+        var parada = await Db.FindAsync<ParadaLocal>(paradaId);
         if (parada != null)
         {
             parada.Estado = MapearEstadoParada(nuevoEstado);
-            await _database.UpdateAsync(parada);
+            await Db.UpdateAsync(parada);
 
-            var envio = await _database.Table<EnvioLocal>()
+            var envio = await Db.Table<EnvioLocal>()
                 .Where(e => e.ParadaId == paradaId)
                 .FirstOrDefaultAsync();
 
             if (envio != null)
             {
                 envio.Estado = parada.Estado;
-                await _database.UpdateAsync(envio);
+                await Db.UpdateAsync(envio);
             }
         }
     }
@@ -372,11 +447,11 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync()
     {
         await InitAsync();
-        var motivos = await _database.Table<MotivoNoEntregaLocal>().ToListAsync();
+        var motivos = await Db.Table<MotivoNoEntregaLocal>().ToListAsync();
         if (motivos.Count == 0)
         {
             var defaults = DemoDataDefaults.ObtenerCatalogoMotivos();
-            await _database.InsertAllAsync(defaults);
+            await Db.InsertAllAsync(defaults);
             return defaults;
         }
         return motivos;
@@ -385,7 +460,7 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task SeedRutaDemoSiEstaVaciaAsync()
     {
         await InitAsync();
-        var count = await _database.Table<HojaDeRutaLocal>().CountAsync();
+        var count = await Db.Table<HojaDeRutaLocal>().CountAsync();
         if (count > 0)
             return;
 

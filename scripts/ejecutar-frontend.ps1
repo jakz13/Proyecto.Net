@@ -50,17 +50,18 @@ function Iniciar-Proyecto {
     # Verifica si el puerto ya está en uso y lo libera para evitar error de socket ocupado
     Liberar-Puerto -puerto $puerto
 
-    Write-Host "Iniciando $nombre en http://localhost:$puerto con Hot Reload..." -ForegroundColor Cyan
+    Write-Host "Iniciando $nombre en http://localhost:$puerto [Modo Mocks en memoria] con Hot Reload..." -ForegroundColor Cyan
 
-    $argumentosDotnet = "watch --project `"$rutaProyecto`" run --launch-profile http"
+    $argumentosDotnet = "watch --project `"$rutaProyecto`" run --launch-profile http -- --UsarMocks=true"
 
     if ($enNuevaVentana) {
-        # Abre el proceso en una ventana de terminal independiente
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$directorioRaiz`"; Write-Host '=== $nombre (http://localhost:$puerto) ===' -ForegroundColor Green; dotnet $argumentosDotnet"
+        # Abre el proceso en una ventana de terminal independiente configurando UsarMocks=true
+        Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:UsarMocks='true'; cd `"$directorioRaiz`"; Write-Host '=== $nombre (http://localhost:$puerto) [Modo Mocks en Memoria] ===' -ForegroundColor Green; dotnet $argumentosDotnet"
     }
     else {
+        $env:UsarMocks = 'true'
         Set-Location $directorioRaiz
-        dotnet watch --project $rutaProyecto run --launch-profile http
+        dotnet watch --project $rutaProyecto run --launch-profile http -- --UsarMocks=true
     }
 }
 
