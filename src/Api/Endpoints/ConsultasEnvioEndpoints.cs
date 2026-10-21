@@ -2,10 +2,12 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Commands.Comercio.ConfirmarDevolucion;
+using UltimaMilla.Application.Commands.Seguimiento.SolicitarReprogramacion;
 using UltimaMilla.Application.Queries.Comercio.ListarDevolucionesDelComercio;
 using UltimaMilla.Application.Queries.Comercio.ListarEnviosDelComercio;
 using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
 using UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
+using UltimaMilla.Application.Queries.Seguimiento.ListarFranjasDisponibles;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Api.Endpoints;
@@ -36,6 +38,65 @@ public static class ConsultasEnvioEndpoints
         .WithSummary("Consulta pública del estado y la línea de tiempo de un envío")
         .Produces<SeguimientoPublicoDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status429TooManyRequests)
+        .WithOpenApi();
+
+        // UC-34: el destinatario elige otra franja desde el enlace de seguimiento
+        app.MapGet("/api/seguimiento/{codigoSeguimiento}/franjas", async (
+            string codigoSeguimiento,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var franjas = await mediator.Send(new ListarFranjasDisponiblesQuery(codigoSeguimiento), ct);
+            return franjas is null
+                ? Results.NotFound(new { error = "No se encontró un envío con el código indicado." })
+                : Results.Ok(franjas);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting(PoliticaLimiteSeguimiento)
+        .WithTags("Seguimiento público (UC-33, UC-34)")
+        .WithName("ListarFranjasDisponibles")
+        .WithSummary("Franjas horarias alternativas para reprogramar la entrega")
+        .Produces<FranjasDisponiblesDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status429TooManyRequests)
+        .WithOpenApi();
+
+        app.MapPost("/api/seguimiento/{codigoSeguimiento}/reprogramacion", async (
+            string codigoSeguimiento,
+            [FromBody] SolicitarReprogramacionRequest request,
+            HttpContext http,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var origen = http.Connection.RemoteIpAddress?.ToString();
+                return Results.Ok(await mediator.Send(
+                    new SolicitarReprogramacionCommand(codigoSeguimiento, request.FranjaHorariaId, origen), ct));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (ConflictoDeConcurrenciaException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting(PoliticaLimiteSeguimiento)
+        .WithTags("Seguimiento público (UC-33, UC-34)")
+        .WithName("SolicitarReprogramacion")
+        .WithSummary("Solicitar la reprogramación de la entrega")
+        .WithDescription("Evalúa la solicitud contra las reglas del operador. Siempre responde 200 con el resultado: aceptada, o rechazada con su motivo.")
+        .Produces<ResultadoReprogramacionDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict)
         .Produces(StatusCodes.Status429TooManyRequests)
         .WithOpenApi();
 
@@ -179,3 +240,5 @@ public static class ConsultasEnvioEndpoints
         return app;
     }
 }
+
+public record SolicitarReprogramacionRequest(Guid FranjaHorariaId);

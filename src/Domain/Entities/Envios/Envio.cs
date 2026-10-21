@@ -363,6 +363,24 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "ReprogramacionFranja", responsableUsuarioId, "Backoffice", $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.");
     }
 
+    /// <summary>
+    /// El destinatario eligió otra franja desde el seguimiento público. Solo es posible mientras el envío no esté
+    /// asignado a una hoja de ruta ni en la calle; no altera el estado.
+    /// </summary>
+    public void ReprogramarFranjaPorDestinatario(Guid franjaHorariaId)
+    {
+        if (franjaHorariaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
+
+        if (EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.Reprogramado))
+            throw new DomainValidationException($"No se puede reprogramar un envío en estado '{EstadoActual}'.");
+
+        var anterior = FranjaHorariaComprometidaId;
+        FranjaHorariaComprometidaId = franjaHorariaId;
+        RegistrarEventoSinCambioDeEstado(
+            "ReprogramacionSolicitadaPorDestinatario", null, "SeguimientoPublico", $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.");
+    }
+
     private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
     {
         HojaDeRutaId = null;

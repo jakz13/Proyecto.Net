@@ -3,6 +3,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
@@ -107,5 +108,25 @@ public class EfLoteImportacionRepository : ILoteImportacionRepository
     public async Task AddAsync(LoteImportacion lote, CancellationToken cancellationToken = default)
     {
         await _dbContext.LotesImportacion.AddAsync(lote, cancellationToken);
+    }
+}
+
+public class EfSolicitudReprogramacionRepository : ISolicitudReprogramacionRepository
+{
+    private readonly AppDbContext _dbContext;
+
+    public EfSolicitudReprogramacionRepository(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task AddAsync(SolicitudReprogramacion solicitud, CancellationToken cancellationToken = default)
+    {
+        await _dbContext.SolicitudesReprogramacion.AddAsync(solicitud, cancellationToken);
+    }
+
+    public async Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.SolicitudesReprogramacion.CountAsync(s => s.EnvioId == envioId && s.Estado == "Aprobada", cancellationToken);
     }
 }

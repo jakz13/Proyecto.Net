@@ -18,4 +18,6 @@ public interface IVehiculoRepository
 public interface IFranjaHorariaRepository
 {
     Task<List<FranjaHoraria>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+    /// <summary>Franjas activas de una zona de cobertura, ordenadas por día y hora.</summary>
+    Task<List<FranjaHoraria>> ListarActivasPorZonaAsync(Guid zonaCoberturaId, CancellationToken cancellationToken = default);
 }

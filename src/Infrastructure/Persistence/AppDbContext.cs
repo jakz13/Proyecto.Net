@@ -7,6 +7,7 @@ using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
@@ -41,6 +42,7 @@ public class AppDbContext : DbContext
     public DbSet<Comercio> Comercios => Set<Comercio>();
     public DbSet<ComercioOperador> ComerciosOperadores => Set<ComercioOperador>();
     public DbSet<LoteImportacion> LotesImportacion => Set<LoteImportacion>();
+    public DbSet<SolicitudReprogramacion> SolicitudesReprogramacion => Set<SolicitudReprogramacion>();
     public DbSet<Incidencia> Incidencias => Set<Incidencia>();
     public DbSet<NotaIncidencia> NotasIncidencia => Set<NotaIncidencia>();
 
@@ -290,6 +292,17 @@ public class AppDbContext : DbContext
             builder.ToTable("FranjasHorarias");
             builder.HasKey(f => f.Id);
             builder.HasIndex(f => f.ZonaCoberturaId);
+        });
+
+        modelBuilder.Entity<SolicitudReprogramacion>(builder =>
+        {
+            builder.ToTable("SolicitudesReprogramacion");
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.FranjaHorariaSolicitada).IsRequired().HasMaxLength(100);
+            builder.Property(r => r.Estado).IsRequired().HasMaxLength(30);
+            builder.Property(r => r.OrigenIp).HasMaxLength(64);
+            builder.Property(r => r.MotivoRechazo).HasMaxLength(300);
+            builder.HasIndex(r => r.EnvioId);
         });
 
         modelBuilder.Entity<LoteImportacion>(builder =>

@@ -68,4 +68,14 @@ public class EfFranjaHorariaRepository : IFranjaHorariaRepository
             .Where(f => idSet.Contains(f.Id))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<FranjaHoraria>> ListarActivasPorZonaAsync(Guid zonaCoberturaId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.FranjasHorarias
+            .AsNoTracking()
+            .Where(f => f.ZonaCoberturaId == zonaCoberturaId && f.Activa)
+            .OrderBy(f => f.DiaSemana)
+            .ThenBy(f => f.HoraInicio)
+            .ToListAsync(cancellationToken);
+    }
 }
