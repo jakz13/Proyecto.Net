@@ -12,6 +12,8 @@ public interface IEnvioRepository
     Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default);
     /// <summary>Lista los envíos de un operador que se encuentren en el estado indicado.</summary>
     Task<List<Envio>> ListarPorEstadoAsync(Guid operadorId, EstadoEnvio estado, CancellationToken cancellationToken = default);
+    /// <summary>Busca un envío del comercio por la referencia que éste le asignó (idempotencia de altas).</summary>
+    Task<Envio?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default);
     Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);

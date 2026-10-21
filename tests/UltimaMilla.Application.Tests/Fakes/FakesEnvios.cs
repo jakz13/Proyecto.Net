@@ -57,6 +57,9 @@ public class FakeEnvioRepository : IEnvioRepository
         return Task.FromResult((items, ordenados.Count));
     }
 
+    public Task<Envio?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Envios.FirstOrDefault(e => e.ComercioOperadorId == comercioOperadorId && e.ReferenciaExterna == referenciaExterna));
+
     public Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
         Task.FromResult(Envios.FirstOrDefault(e => e.CodigoSeguimientoPublico == codigoSeguimiento.Trim().ToUpperInvariant()));
 

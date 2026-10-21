@@ -45,6 +45,17 @@ builder.Services.AddRateLimiter(opciones =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
+    opciones.AddPolicy(AltaEnvioCanalesEndpoints.PoliticaLimiteIntegracion, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -314,6 +325,9 @@ app.MapConsultasEnvioEndpoints();
 
 // Registrar gestión de incidencias (UC-11)
 app.MapIncidenciasEndpoints();
+
+// Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
+app.MapAltaEnvioCanalesEndpoints();
 
 await app.RunAsync();
 

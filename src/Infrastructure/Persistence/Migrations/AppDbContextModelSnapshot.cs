@@ -456,6 +456,10 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OperadorId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ReferenciaExterna")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<Guid?>("ReglaTarifaAplicadaId")
                         .HasColumnType("uuid");
 
@@ -473,6 +477,10 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("OperadorId");
+
+                    b.HasIndex("ComercioOperadorId", "ReferenciaExterna")
+                        .IsUnique()
+                        .HasFilter("\"ReferenciaExterna\" IS NOT NULL");
 
                     b.ToTable("Envios", (string)null);
                 });
@@ -520,6 +528,39 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasIndex("EnvioId");
 
                     b.ToTable("EventosEnvio", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Envios.LoteImportacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CantidadConError")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadExitosos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadRegistros")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ClaveIdempotencia")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("ComercioOperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("FechaProcesamiento")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComercioOperadorId", "ClaveIdempotencia")
+                        .IsUnique();
+
+                    b.ToTable("LotesImportacion", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.Incidencia", b =>

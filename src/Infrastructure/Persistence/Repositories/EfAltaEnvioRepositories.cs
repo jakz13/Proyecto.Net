@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 
@@ -65,5 +66,46 @@ public class EfDireccionRepository : IDireccionRepository
     {
         var idSet = ids.ToHashSet();
         return await _dbContext.Direcciones.AsNoTracking().Where(d => idSet.Contains(d.Id)).ToListAsync(cancellationToken);
+    }
+}
+
+public class EfComercioOperadorRepository : IComercioOperadorRepository
+{
+    private readonly AppDbContext _dbContext;
+
+    public EfComercioOperadorRepository(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ComerciosOperadores.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ComerciosOperadores.AsNoTracking().FirstOrDefaultAsync(c => c.ClaveApi == huella, cancellationToken);
+    }
+}
+
+public class EfLoteImportacionRepository : ILoteImportacionRepository
+{
+    private readonly AppDbContext _dbContext;
+
+    public EfLoteImportacionRepository(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<LoteImportacion?> GetByClaveAsync(Guid comercioOperadorId, string claveIdempotencia, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.LotesImportacion
+            .FirstOrDefaultAsync(l => l.ComercioOperadorId == comercioOperadorId && l.ClaveIdempotencia == claveIdempotencia, cancellationToken);
+    }
+
+    public async Task AddAsync(LoteImportacion lote, CancellationToken cancellationToken = default)
+    {
+        await _dbContext.LotesImportacion.AddAsync(lote, cancellationToken);
     }
 }

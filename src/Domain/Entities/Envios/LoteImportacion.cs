@@ -49,4 +49,15 @@ public class LoteImportacion : AggregateRoot, IMustHaveComercioTenant
         CantidadExitosos = exitosos;
         CantidadConError = conError;
     }
+
+    /// <summary>Reimportación del mismo lote: reemplaza los totales por los de la última corrida.</summary>
+    public void RegistrarReimportacion(int cantidadRegistros, int exitosos, int conError, DateTime fechaProcesamiento)
+    {
+        if (cantidadRegistros <= 0)
+            throw new DomainValidationException("La cantidad de registros del lote debe ser mayor a cero.");
+
+        CantidadRegistros = cantidadRegistros;
+        FechaProcesamiento = fechaProcesamiento;
+        RegistrarResultado(exitosos, conError);
+    }
 }

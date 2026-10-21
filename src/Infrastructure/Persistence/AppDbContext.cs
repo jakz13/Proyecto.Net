@@ -40,6 +40,7 @@ public class AppDbContext : DbContext
     public DbSet<Operador> Operadores => Set<Operador>();
     public DbSet<Comercio> Comercios => Set<Comercio>();
     public DbSet<ComercioOperador> ComerciosOperadores => Set<ComercioOperador>();
+    public DbSet<LoteImportacion> LotesImportacion => Set<LoteImportacion>();
     public DbSet<Incidencia> Incidencias => Set<Incidencia>();
     public DbSet<NotaIncidencia> NotasIncidencia => Set<NotaIncidencia>();
 
@@ -70,6 +71,9 @@ public class AppDbContext : DbContext
             builder.HasIndex(e => e.CodigoSeguimientoPublico).IsUnique();
             builder.Property(e => e.ModalidadServicio).IsRequired().HasMaxLength(50);
             builder.Property(e => e.TarifaCalculada).HasPrecision(18, 2);
+            builder.Property(e => e.ReferenciaExterna).HasMaxLength(100);
+            // Una misma referencia del comercio no puede dar de alta dos envíos: garantiza la idempotencia de las altas masivas y por API
+            builder.HasIndex(e => new { e.ComercioOperadorId, e.ReferenciaExterna }).IsUnique().HasFilter("\"ReferenciaExterna\" IS NOT NULL");
             builder.Navigation(e => e.Bultos).AutoInclude();
             builder.Navigation(e => e.Eventos).AutoInclude();
             builder.Navigation(e => e.IntentosEntrega).AutoInclude();
@@ -286,6 +290,14 @@ public class AppDbContext : DbContext
             builder.ToTable("FranjasHorarias");
             builder.HasKey(f => f.Id);
             builder.HasIndex(f => f.ZonaCoberturaId);
+        });
+
+        modelBuilder.Entity<LoteImportacion>(builder =>
+        {
+            builder.ToTable("LotesImportacion");
+            builder.HasKey(l => l.Id);
+            builder.Property(l => l.ClaveIdempotencia).IsRequired().HasMaxLength(200);
+            builder.HasIndex(l => new { l.ComercioOperadorId, l.ClaveIdempotencia }).IsUnique();
         });
 
         modelBuilder.Entity<Incidencia>(builder =>

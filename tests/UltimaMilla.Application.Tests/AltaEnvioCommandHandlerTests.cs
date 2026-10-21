@@ -18,7 +18,7 @@ public class AltaEnvioCommandHandlerTests
     private readonly Guid _comercioId = Guid.NewGuid();
 
     private AltaEnvioCommandHandler CrearHandler() =>
-        new(_envios, _destinatarios, _direcciones, _cuadros, _tenant, _clock, _uow);
+        new(new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock), _tenant, _uow);
 
     private CuadroTarifario CrearCuadro(params ReglaTarifa[] reglas)
     {

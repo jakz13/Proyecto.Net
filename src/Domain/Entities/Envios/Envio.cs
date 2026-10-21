@@ -19,6 +19,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     public Guid? ReglaTarifaAplicadaId { get; private set; }
     public string CodigoSeguimientoPublico { get; private set; } = string.Empty;
     public Guid? LoteImportacionId { get; private set; }
+    /// <summary>Identificador del envío en el sistema del comercio; permite reintentar altas sin duplicar.</summary>
+    public string? ReferenciaExterna { get; private set; }
     public DateTime FechaAlta { get; private set; }
     public Guid SelloModificacion { get; private set; }
     public Guid? HojaDeRutaId { get; private set; }
@@ -57,10 +59,14 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         Guid? loteImportacionId = null,
         string? direccionDestino = null,
         string? nombreDestinatario = null,
-        Guid? operadorId = null) : base(id)
+        Guid? operadorId = null,
+        string? referenciaExterna = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del envío no puede ser vacío.");
+
+        if (referenciaExterna is { Length: > 100 })
+            throw new DomainValidationException("La referencia externa no puede superar los 100 caracteres.");
 
         if (comercioOperadorId == Guid.Empty)
             throw new DomainValidationException("El identificador de comercio-operador no puede ser vacío.");
@@ -81,6 +87,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         DireccionEntregaId = direccionEntregaId;
         FranjaHorariaComprometidaId = franjaHorariaComprometidaId;
         LoteImportacionId = loteImportacionId;
+        ReferenciaExterna = string.IsNullOrWhiteSpace(referenciaExterna) ? null : referenciaExterna.Trim();
         // Copia desnormalizada para listados y etiquetas sin necesidad de resolver las entidades relacionadas
         DireccionDestino = direccionDestino?.Trim() ?? string.Empty;
         NombreDestinatario = nombreDestinatario?.Trim() ?? string.Empty;
