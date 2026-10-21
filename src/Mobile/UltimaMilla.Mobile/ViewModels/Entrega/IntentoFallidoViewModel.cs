@@ -139,18 +139,40 @@ public partial class IntentoFallidoViewModel : ObservableObject
             IsBusy = true;
 
             var parada = Parada;
-            var paradaId = parada?.Id ?? Guid.NewGuid();
             var hojaDeRutaId = (parada?.HojaDeRutaId != null && parada.HojaDeRutaId != Guid.Empty)
                 ? parada.HojaDeRutaId
                 : DemoDataDefaults.DefaultHojaDeRutaId;
 
+            var paradaId = (parada?.Id != null && parada.Id != Guid.Empty)
+                ? parada.Id
+                : (parada?.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
+                    _ => DemoDataDefaults.Parada3Id
+                });
+
             var envioId = (parada?.EnvioId != null && parada.EnvioId != Guid.Empty)
                 ? parada.EnvioId
-                : Guid.NewGuid();
+                : (parada?.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
+                    _ => DemoDataDefaults.Envio3Id
+                });
 
-            var motivoMatch = _motivosCatalogo.FirstOrDefault(m => m.Descripcion == MotivoSeleccionado);
-            var motivoId = motivoMatch?.Id ?? Guid.NewGuid();
-            var motivoCodigo = motivoMatch?.Codigo ?? "CLI_AUSENTE";
+            var catalogoFallback = DemoDataDefaults.ObtenerCatalogoMotivos();
+            var motivoMatch = _motivosCatalogo.FirstOrDefault(m =>
+                string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.Codigo, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase))
+                ?? catalogoFallback.FirstOrDefault(m =>
+                string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.Codigo, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
+
+            var motivoId = motivoMatch?.Id ?? catalogoFallback[0].Id;
+            var motivoCodigo = !string.IsNullOrWhiteSpace(motivoMatch?.Codigo) ? motivoMatch.Codigo : "CLI_AUSENTE";
 
             var idempotencyKey = $"FALLO-{paradaId:N}-{DateTime.UtcNow.Ticks}";
 
@@ -165,8 +187,8 @@ public partial class IntentoFallidoViewModel : ObservableObject
                 MotivoCodigo = motivoCodigo,
                 Observaciones = Observaciones.Trim(),
                 FotoEvidenciaBase64 = TieneFoto ? "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" : null,
-                Latitud = parada?.Latitud != 0 ? parada?.Latitud : -34.9124,
-                Longitud = parada?.Longitud != 0 ? parada?.Longitud : -56.1589,
+                Latitud = (parada?.Latitud != null && parada.Latitud != 0) ? parada.Latitud : -34.9271,
+                Longitud = (parada?.Longitud != null && parada.Longitud != 0) ? parada.Longitud : -56.1534,
                 FechaHoraDispositivoUtc = DateTime.UtcNow
             };
 
@@ -175,7 +197,7 @@ public partial class IntentoFallidoViewModel : ObservableObject
             {
                 await _localDatabaseService.EncolarOperacionAsync(
                     TiposOperacionOffline.FalloEntrega,
-                    JsonSerializer.Serialize(payload));
+                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
 
                 await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Fallido");
             }

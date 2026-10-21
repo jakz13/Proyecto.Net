@@ -277,4 +277,19 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         Estado = "Finalizada";
         SelloModificacion = Guid.NewGuid();
     }
+
+    /// <summary>
+    /// Restablece la hoja de ruta a estado 'Despachada' y sus paradas a 'Pendiente' para reiniciar demostraciones (Demo Reset).
+    /// </summary>
+    public void ReiniciarParaDemo()
+    {
+        Estado = "Despachada";
+        FechaDespacho = DateTime.UtcNow;
+        FechaRendicion = null;
+        SelloModificacion = Guid.NewGuid();
+        foreach (var parada in _paradas)
+        {
+            parada.CambiarEstado("Pendiente");
+        }
+    }
 }

@@ -777,4 +777,26 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         return (intento, estadoFinal, intentosRestantes);
     }
+
+    /// <summary>
+    /// Restablece el envío a estado EnTransito (4) para repetición fluida de demostraciones de calle (Demo Reset).
+    /// </summary>
+    public void ReiniciarParaDemoEnTransito(Guid hojaDeRutaId)
+    {
+        HojaDeRutaId = hojaDeRutaId;
+        EstadoActual = EstadoEnvio.EnTransito;
+        SelloModificacion = Guid.NewGuid();
+        _intentosEntrega.Clear();
+        foreach (var bulto in _bultos)
+        {
+            bulto.MarcarCargadoEnVehiculo();
+        }
+        _eventos.Add(new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            "ReinicioDemo",
+            null,
+            EstadoEnvio.EnTransito,
+            "DemoReset"));
+    }
 }

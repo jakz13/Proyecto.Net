@@ -98,6 +98,46 @@
         </Setter>
     </Style>
 
+    <!-- Botón Primario Explícito (PrimaryButton) -->
+    <Style x:Key="PrimaryButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="18,12" />
+        <Setter Property="HeightRequest" Value="52" />
+        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="TextColor" Value="#F8FAFC" />
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Scale" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
     <!-- Botón de Éxito / Confirmar Entrega (Verde, alto impacto visual) -->
     <Style x:Key="SuccessButton" TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />

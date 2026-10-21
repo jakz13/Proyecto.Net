@@ -72,47 +72,51 @@
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="10">
-                    <Grid ColumnDefinitions="*, Auto">
+                    <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="8">
                         <Label Grid.Column="0"
                                Text="Firma Digital en Pantalla *"
-                               Style="{StaticResource H3Label}" />
+                               Style="{StaticResource H3Label}"
+                               VerticalOptions="Center" />
 
                         <Button Grid.Column="1"
-                                Text="Limpiar Firma"
+                                Text="Firma Demo"
                                 Style="{StaticResource SecondaryButton}"
                                 HeightRequest="36"
-                                Padding="12,0"
+                                Padding="10,0"
+                                FontSize="12"
+                                Command="{Binding SimularFirmaCommand}" />
+
+                        <Button Grid.Column="2"
+                                Text="Limpiar"
+                                Style="{StaticResource SecondaryButton}"
+                                HeightRequest="36"
+                                Padding="10,0"
                                 FontSize="12"
                                 Command="{Binding LimpiarFirmaCommand}" />
                     </Grid>
 
-                    <!-- Pad interactivo de dibujo con GraphicsView -->
+                    <Label Text="Dibuje la firma con el mouse o dedo en el recuadro blanco:"
+                           Style="{StaticResource CaptionLabel}" />
+
+                    <!-- Pad interactivo de dibujo con GraphicsView sin vistas superpuestas -->
                     <Border HeightRequest="160"
                             Stroke="{StaticResource InputBorder}"
                             StrokeThickness="1.5"
                             StrokeShape="RoundRectangle 10"
                             BackgroundColor="#FFFFFF"
                             Padding="0">
-                        <Grid>
-                            <GraphicsView x:Name="SignatureView"
-                                          StartInteraction="OnSignatureStartInteraction"
-                                          DragInteraction="OnSignatureDragInteraction"
-                                          EndInteraction="OnSignatureEndInteraction"
-                                          HorizontalOptions="Fill"
-                                          VerticalOptions="Fill" />
-
-                            <Label x:Name="PlaceholderLabel"
-                                   Text="Dibuje aquí la firma del receptor con el dedo o mouse"
-                                   Style="{StaticResource MutedLabel}"
-                                   FontSize="13"
-                                   HorizontalOptions="Center"
-                                   VerticalOptions="Center"
-                                   InputTransparent="True" />
-                        </Grid>
+                        <GraphicsView x:Name="SignatureView"
+                                      StartInteraction="OnSignatureStartInteraction"
+                                      DragInteraction="OnSignatureDragInteraction"
+                                      EndInteraction="OnSignatureEndInteraction"
+                                      HeightRequest="160"
+                                      HorizontalOptions="Fill"
+                                      VerticalOptions="Fill" />
                     </Border>
 
                     <Label Text="{Binding FirmaStatusText}"
                            Style="{StaticResource CaptionLabel}"
+                           FontAttributes="Bold"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Border>
