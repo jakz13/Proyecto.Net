@@ -1,7 +1,12 @@
+using System.Globalization;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using UltimaMilla.Frontend.Contracts.Enums;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Envios;
+using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
@@ -398,5 +403,168 @@ public class MockEnviosApi : IEnviosApi
         }
 
         lista.Add(evento);
+    }
+
+    private static readonly Dictionary<string, ResultadoImportacionDto> LotesPorClave = new();
+
+    /// <summary>
+    /// Simula la importación masiva de envíos desde archivo CSV con cálculo de tarifas e idempotencia (UC-25, RF-07).
+    /// </summary>
+    public Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
+        byte[] contenidoArchivo,
+        string nombreArchivo,
+        string? claveIdempotencia = null,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(contenidoArchivo);
+
+        if (contenidoArchivo.Length == 0)
+        {
+            throw new ArgumentException("El archivo seleccionado está vacío.", nameof(contenidoArchivo));
+        }
+
+        if (contenidoArchivo.Length > 2 * 1024 * 1024)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El archivo supera el tamaño máximo de 2 MB.");
+        }
+
+        var clave = string.IsNullOrWhiteSpace(claveIdempotencia)
+            ? "sha256:" + Convert.ToHexString(SHA256.HashData(contenidoArchivo))
+            : claveIdempotencia.Trim();
+
+        // Flujo alternativo: Reimportación idempotente
+        if (LotesPorClave.TryGetValue(clave, out var loteExistente))
+        {
+            var filasDuplicadas = loteExistente.Filas.Select(f =>
+                f.Estado == ResultadoFilaImportacionDto.Creado
+                    ? f with { Estado = ResultadoFilaImportacionDto.Duplicado }
+                    : f).ToList();
+
+            var resultadoReimportado = new ResultadoImportacionDto(
+                loteExistente.LoteId,
+                clave,
+                Reimportacion: true,
+                loteExistente.TotalRegistros,
+                Creados: 0,
+                Duplicados: loteExistente.Creados + loteExistente.Duplicados,
+                loteExistente.ConError,
+                filasDuplicadas);
+
+            return Task.FromResult(resultadoReimportado);
+        }
+
+        var textoCsv = Encoding.UTF8.GetString(contenidoArchivo).TrimStart('\uFEFF');
+        var lineas = textoCsv
+            .Split('\n')
+            .Select(l => l.TrimEnd('\r'))
+            .Select((texto, indice) => (Texto: texto, Numero: indice + 1))
+            .Where(l => !string.IsNullOrWhiteSpace(l.Texto))
+            .ToList();
+
+        if (lineas.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El archivo no contiene registros para importar.");
+        }
+
+        var encabezado = lineas[0].Texto;
+        var separador = encabezado.Count(c => c == ';') > encabezado.Count(c => c == ',') ? ';' : ',';
+        var columnas = encabezado.Split(separador).Select(c => c.Trim().ToLowerInvariant()).ToList();
+
+        var columnasObligatorias = new[] { "referencia", "modalidad", "destinatario", "calle", "numero", "ciudad", "peso", "alto", "ancho", "profundo" };
+        var faltantes = columnasObligatorias.Where(c => !columnas.Contains(c)).ToList();
+        if (faltantes.Count > 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, $"Faltan columnas obligatorias en el archivo CSV: {string.Join(", ", faltantes)}.");
+        }
+
+        var filasResultado = new List<ResultadoFilaImportacionDto>();
+        var referenciasVistas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var loteId = Guid.NewGuid();
+
+        foreach (var (texto, numero) in lineas.Skip(1))
+        {
+            var celdas = texto.Split(separador);
+            if (celdas.Length != columnas.Count)
+            {
+                filasResultado.Add(new ResultadoFilaImportacionDto(numero, ResultadoFilaImportacionDto.ConError, Error: $"La fila tiene {celdas.Length} columnas y se esperaban {columnas.Count}."));
+                continue;
+            }
+
+            string ObtenerValor(string col)
+            {
+                var idx = columnas.IndexOf(col);
+                return idx >= 0 && idx < celdas.Length ? celdas[idx].Trim() : string.Empty;
+            }
+
+            var referencia = ObtenerValor("referencia");
+            var destinatario = ObtenerValor("destinatario");
+            var calle = ObtenerValor("calle");
+            var num = ObtenerValor("numero");
+            var ciudad = ObtenerValor("ciudad");
+            var pesoTexto = ObtenerValor("peso");
+
+            if (string.IsNullOrWhiteSpace(referencia))
+            {
+                filasResultado.Add(new ResultadoFilaImportacionDto(numero, ResultadoFilaImportacionDto.ConError, Error: "La referencia es obligatoria para garantizar la idempotencia."));
+                continue;
+            }
+
+            if (!referenciasVistas.Add(referencia))
+            {
+                filasResultado.Add(new ResultadoFilaImportacionDto(numero, ResultadoFilaImportacionDto.ConError, Error: $"Referencia '{referencia}' duplicada dentro del mismo lote."));
+                continue;
+            }
+
+            if (!decimal.TryParse(pesoTexto, NumberStyles.Number, CultureInfo.InvariantCulture, out var peso) || peso <= 0)
+            {
+                filasResultado.Add(new ResultadoFilaImportacionDto(numero, ResultadoFilaImportacionDto.ConError, Error: "El peso debe ser un número decimal positivo (ej: 2.5)."));
+                continue;
+            }
+
+            // Cálculo simulado de tarifa: Base $120 + $25 por kg
+            var tarifaCalculada = 120m + Math.Round(peso * 25m, 2);
+            var codigoSeguimiento = $"ENV-2026-{Random.Shared.Next(10000, 99999)}";
+
+            var nuevoEnvio = new EnvioDto
+            {
+                Id = Guid.NewGuid(),
+                CodigoSeguimiento = codigoSeguimiento,
+                NombreDestinatario = destinatario,
+                DireccionDestino = $"{calle} {num}, {ciudad}",
+                FechaCreacion = DateTime.UtcNow,
+                Estado = EstadoEnvioDto.Admitido,
+                PesoKg = peso,
+                ComercioNombre = "Portal Comercio (Importación Masiva)",
+                Observaciones = $"Lote {loteId.ToString()[..8]} - Ref: {referencia}"
+            };
+
+            lock (EnviosEnMemoria)
+            {
+                EnviosEnMemoria.Insert(0, nuevoEnvio);
+            }
+
+            filasResultado.Add(new ResultadoFilaImportacionDto(
+                numero,
+                ResultadoFilaImportacionDto.Creado,
+                codigoSeguimiento,
+                tarifaCalculada));
+        }
+
+        var creados = filasResultado.Count(r => r.Estado == ResultadoFilaImportacionDto.Creado);
+        var duplicados = filasResultado.Count(r => r.Estado == ResultadoFilaImportacionDto.Duplicado);
+        var conError = filasResultado.Count(r => r.Estado == ResultadoFilaImportacionDto.ConError);
+
+        var resultadoFinal = new ResultadoImportacionDto(
+            loteId,
+            clave,
+            Reimportacion: false,
+            filasResultado.Count,
+            creados,
+            duplicados,
+            conError,
+            filasResultado);
+
+        LotesPorClave[clave] = resultadoFinal;
+        return Task.FromResult(resultadoFinal);
     }
 }

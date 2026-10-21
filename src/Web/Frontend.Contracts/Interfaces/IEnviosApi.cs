@@ -35,6 +35,14 @@ public interface IEnviosApi
     /// </summary>
     Task<IReadOnlyList<EventoHistorialEnvioDto>> ObtenerHistorialEnvioAsync(Guid envioId, CancellationToken cancelacion = default);
 
-    // TODO: Definir contrato para importación masiva de envíos (UC-25) enviando cabecera Idempotency-Key (SHA-256 del archivo).
+    /// <summary>
+    /// Importa masivamente órdenes de envío a partir de un archivo CSV con cálculo de tarifas e idempotencia (UC-25, RF-07).
+    /// </summary>
+    Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
+        byte[] contenidoArchivo,
+        string nombreArchivo,
+        string? claveIdempotencia = null,
+        CancellationToken cancelacion = default);
+
     // TODO: Definir contrato para generación y descarga de etiquetas en PDF/ZPL (UC-26).
 }

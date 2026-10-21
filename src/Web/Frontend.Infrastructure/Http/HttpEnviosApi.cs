@@ -252,6 +252,107 @@ public class HttpEnviosApi : IEnviosApi
         }).ToList();
     }
 
+    /// <summary>
+    /// Carga y procesa masivamente un archivo de envíos calculando tarifas y reconociendo lotes duplicados (UC-25, RF-07).
+    /// </summary>
+    public async Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
+        byte[] contenidoArchivo,
+        string nombreArchivo,
+        string? claveIdempotencia = null,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(contenidoArchivo);
+
+        if (contenidoArchivo.Length == 0)
+        {
+            throw new ArgumentException("El archivo seleccionado está vacío.", nameof(contenidoArchivo));
+        }
+
+        using var contenidoFormulario = new MultipartFormDataContent();
+        using var contenidoBytes = new ByteArrayContent(contenidoArchivo);
+        contenidoBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+
+        var nombreLimpio = string.IsNullOrWhiteSpace(nombreArchivo) ? "envios.csv" : Path.GetFileName(nombreArchivo);
+        contenidoFormulario.Add(contenidoBytes, "archivo", nombreLimpio);
+
+        if (!string.IsNullOrWhiteSpace(claveIdempotencia))
+        {
+            contenidoFormulario.Add(new StringContent(claveIdempotencia.Trim()), "claveIdempotencia");
+        }
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsync("/api/comercio/envios/importacion", contenidoFormulario, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al subir archivo de envíos: {ex.Message}");
+        }
+
+        if (respuesta.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new ApiExcepcion(HttpStatusCode.Conflict, "Conflicto de concurrencia: otra importación simultánea registró los mismos datos. Vuelva a intentar sin riesgo de duplicación.");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            // Intentar extraer mensaje si viene formateado en json { error: "..." }
+            try
+            {
+                using var documento = JsonDocument.Parse(detalleError);
+                if (documento.RootElement.TryGetProperty("error", out var propiedadError))
+                {
+                    detalleError = propiedadError.GetString() ?? detalleError;
+                }
+            }
+            catch
+            {
+                // Si no es json válido, se mantiene el texto plano
+            }
+
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al procesar archivo." : detalleError);
+        }
+
+        var resultadoApi = await respuesta.Content.ReadFromJsonAsync<ResultadoImportacionApiDto>(OpcionesJson, cancelacion);
+        if (resultadoApi is null)
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No se pudo interpretar la respuesta del servidor al procesar la importación masiva.");
+        }
+
+        var filas = (resultadoApi.Filas ?? (IReadOnlyList<ResultadoFilaApiDto>)Array.Empty<ResultadoFilaApiDto>())
+            .Select(f => new ResultadoFilaImportacionDto(f.Fila, f.Estado, f.CodigoSeguimiento, f.Tarifa, f.Error))
+            .ToList();
+
+        return new ResultadoImportacionDto(
+            resultadoApi.LoteId,
+            resultadoApi.ClaveIdempotencia,
+            resultadoApi.Reimportacion,
+            resultadoApi.TotalRegistros,
+            resultadoApi.Creados,
+            resultadoApi.Duplicados,
+            resultadoApi.ConError,
+            filas);
+    }
+
+    private record ResultadoImportacionApiDto(
+        Guid LoteId,
+        string ClaveIdempotencia,
+        bool Reimportacion,
+        int TotalRegistros,
+        int Creados,
+        int Duplicados,
+        int ConError,
+        IReadOnlyList<ResultadoFilaApiDto>? Filas);
+
+    private record ResultadoFilaApiDto(
+        int Fila,
+        string Estado,
+        string? CodigoSeguimiento,
+        decimal? Tarifa,
+        string? Error);
+
     private static EstadoEnvioDto MapearEstado(string estadoTexto)
     {
         if (Enum.TryParse<EstadoEnvioDto>(estadoTexto, true, out var estado))

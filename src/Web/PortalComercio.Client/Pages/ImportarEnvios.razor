@@ -1,0 +1,498 @@
+@page "/envios/importar"
+@using System.Text
+@using UltimaMilla.Frontend.Contracts.Interfaces
+@using UltimaMilla.Frontend.Contracts.Modelos.Envios
+@using UltimaMilla.Frontend.Infrastructure.Excepciones
+@inject IEnviosApi EnviosApi
+@inject NavigationManager Navegador
+@inject IJSRuntime JS
+
+<PageTitle>Portal del Comercio — Alta Masiva de Envíos (UC-25)</PageTitle>
+
+<!-- Cabecera -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold mb-1">Alta Masiva de Envíos por Archivo (UC-25)</h1>
+        <p class="text-muted small mb-0">
+            Cargue su archivo CSV para procesar múltiples órdenes simultáneamente con cálculo automatizado de tarifas y protección anti-duplicación (RF-07).
+        </p>
+    </div>
+    <a href="envios" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+        <Icono Nombre="volver" Tamano="14" />
+        <span>Volver al listado</span>
+    </a>
+</div>
+
+@if (estaProcesando)
+{
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center mb-4 bg-white">
+        <div class="spinner-border text-primary mx-auto mb-3" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Procesando...</span>
+        </div>
+        <h5 class="fw-bold mb-1">Procesando archivo de envíos...</h5>
+        <p class="text-muted small mb-0">
+            Validando registros, calculando tarifas correspondientes y verificando claves de idempotencia.
+        </p>
+    </div>
+}
+else if (resultado is null)
+{
+    <!-- Formulario de Selección y Carga del Archivo -->
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h2 class="h6 fw-bold text-uppercase text-secondary mb-3 d-flex align-items-center gap-2">
+                        <Icono Nombre="subir" Tamano="16" />
+                        <span>1. Seleccionar Archivo CSV</span>
+                    </h2>
+
+                    <!-- Zona Drag & Drop / Input File -->
+                    <div class="p-4 border border-2 border-dashed rounded-3 text-center bg-light position-relative mb-3 hover-shadow transition-all"
+                         style="border-color: #cbd5e1 !important;">
+                        <InputFile OnChange="ManejarSeleccionArchivo"
+                                   accept=".csv"
+                                   class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer"
+                                   id="inputCsv" />
+                        <div class="py-3">
+                            <div class="text-primary mb-2">
+                                <Icono Nombre="archivo" Tamano="40" />
+                            </div>
+                            @if (archivoSeleccionado is null)
+                            {
+                                <p class="fw-semibold mb-1">Arrastre su archivo CSV aquí o haga clic para examinar</p>
+                                <span class="text-muted small">Formato soportado: .csv (separador coma o punto y coma, hasta 2 MB)</span>
+                            }
+                            else
+                            {
+                                <p class="fw-bold text-success mb-1">@archivoSeleccionado.Name</p>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                    @(Math.Round(archivoSeleccionado.Size / 1024.0, 1)) KB listo para procesar
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger py-2 px-3 small rounded-3 d-flex align-items-center gap-2 mb-3" role="alert">
+                            <Icono Nombre="alerta" Tamano="16" />
+                            <span>@mensajeError</span>
+                        </div>
+                    }
+
+                    <!-- Parámetros opcionales: Clave de idempotencia -->
+                    <div class="mb-4">
+                        <label for="claveIdempotencia" class="form-label small fw-semibold text-secondary mb-1">
+                            Clave de Idempotencia personalizada (opcional)
+                        </label>
+                        <input id="claveIdempotencia"
+                               type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Ej: LOTE-2026-OCT-01 (si se omite, se calcula por hash SHA-256 del archivo)"
+                               @bind="claveIdempotenciaPersonalizada" />
+                        <div class="form-text small" style="font-size: 0.75rem;">
+                            La clave previene la duplicación accidental si se reimporta el mismo archivo o se cae la conexión.
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-2 border-top">
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                                @onclick="CargarArchivoEjemplo">
+                            <Icono Nombre="check" Tamano="14" />
+                            <span>Cargar datos de ejemplo</span>
+                        </button>
+
+                        <button type="button"
+                                class="btn btn-primary btn-sm px-4 d-inline-flex align-items-center gap-2 shadow-sm"
+                                disabled="@(archivoSeleccionado is null && bytesEjemplo is null)"
+                                @onclick="ProcesarImportacion">
+                            <Icono Nombre="subir" Tamano="16" />
+                            <span>Procesar Archivo Masivo (UC-25)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna de Ayuda y Plantilla -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h3 class="h6 fw-bold mb-3 d-flex align-items-center gap-2">
+                        <Icono Nombre="descargar" Tamano="16" />
+                        <span>Formato Requerido</span>
+                    </h3>
+                    <p class="text-muted small mb-3">
+                        El archivo debe ser un CSV con codificación UTF-8 y contener las siguientes columnas obligatorias:
+                    </p>
+                    <ul class="list-unstyled small mb-3">
+                        <li class="mb-1 d-flex align-items-center gap-2">
+                            <span class="badge bg-primary-subtle text-primary">referencia</span>
+                            <span class="text-muted">Identificador único del comercio</span>
+                        </li>
+                        <li class="mb-1 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border">modalidad</span>
+                            <span class="text-muted">Estandar o Express</span>
+                        </li>
+                        <li class="mb-1 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border">destinatario</span>
+                            <span class="text-muted">Nombre y apellido</span>
+                        </li>
+                        <li class="mb-1 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border">calle, numero, ciudad</span>
+                        </li>
+                        <li class="mb-1 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border">peso, alto, ancho, profundo</span>
+                        </li>
+                    </ul>
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2"
+                                @onclick="DescargarPlantillaCsv">
+                            <Icono Nombre="descargar" Tamano="14" />
+                            <span>Descargar Plantilla CSV</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 bg-light">
+                <div class="card-body p-3">
+                    <div class="d-flex gap-2">
+                        <div class="text-primary mt-1">
+                            <Icono Nombre="repetir" Tamano="16" />
+                        </div>
+                        <div class="small">
+                            <strong class="d-block mb-1">Protección por Idempotencia</strong>
+                            <span class="text-secondary">
+                                Si reimporta el mismo lote (completo o parcial), el sistema detecta la clave y los registros previos quedan en estado "Duplicado" sin generar costos ni envíos repetidos.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Panel de Resultados del Procesamiento -->
+    @if (resultado.Reimportacion)
+    {
+        <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 p-3 d-flex align-items-center gap-3">
+            <div class="p-2 bg-warning bg-opacity-25 rounded-circle text-warning-emphasis">
+                <Icono Nombre="repetir" Tamano="24" />
+            </div>
+            <div>
+                <h5 class="alert-heading fw-bold mb-1 fs-6">Reimportación de Lote Reconocida (Idempotencia)</h5>
+                <p class="mb-0 small text-dark-emphasis">
+                    El sistema detectó la clave de idempotencia <code>@resultado.ClaveIdempotencia</code>.
+                    Los envíos previamente ingresados se mantuvieron intactos sin duplicar registros ni generar dobles tarifas.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success border-0 shadow-sm rounded-4 mb-4 p-3 d-flex align-items-center gap-3">
+            <div class="p-2 bg-success bg-opacity-25 rounded-circle text-success">
+                <Icono Nombre="check" Tamano="24" />
+            </div>
+            <div>
+                <h5 class="alert-heading fw-bold mb-1 fs-6">¡Lote procesado exitosamente!</h5>
+                <p class="mb-0 small text-dark-emphasis">
+                    Se generaron las órdenes de envío en estado <strong>Admitido</strong> con cálculo de tarifa individual. Clave del lote: <code>@resultado.ClaveIdempotencia</code>
+                </p>
+            </div>
+        </div>
+    }
+
+    <!-- Tarjetas Métricas Resumen -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
+                <span class="text-uppercase text-secondary fw-semibold small" style="font-size: 0.72rem;">Total Registros</span>
+                <span class="fs-3 fw-bold text-dark mt-1">@resultado.TotalRegistros</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
+                <span class="text-uppercase text-success fw-semibold small" style="font-size: 0.72rem;">Procesados con Éxito</span>
+                <span class="fs-3 fw-bold text-success mt-1">@resultado.Creados</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
+                <span class="text-uppercase text-warning fw-semibold small" style="font-size: 0.72rem;">Duplicados / Omitidos</span>
+                <span class="fs-3 fw-bold text-warning mt-1">@resultado.Duplicados</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
+                <span class="text-uppercase text-danger fw-semibold small" style="font-size: 0.72rem;">Con Errores</span>
+                <span class="fs-3 fw-bold text-danger mt-1">@resultado.ConError</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla Detallada de Filas Procesadas -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="h6 fw-bold mb-0">Detalle de Registros del Lote</h3>
+                <span class="badge bg-secondary-subtle text-secondary">@filasFiltradas.Count filas</span>
+            </div>
+            <!-- Filtro de visualización -->
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn @(filtroEstado == null ? "btn-dark" : "btn-outline-secondary")" @onclick="() => CambiarFiltro(null)">Todos (@resultado.Filas.Count)</button>
+                <button type="button" class="btn @(filtroEstado == ResultadoFilaImportacionDto.Creado ? "btn-success" : "btn-outline-secondary")" @onclick="() => CambiarFiltro(ResultadoFilaImportacionDto.Creado)">Creados (@resultado.Creados)</button>
+                <button type="button" class="btn @(filtroEstado == ResultadoFilaImportacionDto.Duplicado ? "btn-warning" : "btn-outline-secondary")" @onclick="() => CambiarFiltro(ResultadoFilaImportacionDto.Duplicado)">Duplicados (@resultado.Duplicados)</button>
+                @if (resultado.ConError > 0)
+                {
+                    <button type="button" class="btn @(filtroEstado == ResultadoFilaImportacionDto.ConError ? "btn-danger" : "btn-outline-secondary")" @onclick="() => CambiarFiltro(ResultadoFilaImportacionDto.ConError)">Errores (@resultado.ConError)</button>
+                }
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small">
+                    <tr>
+                        <th style="width: 80px;">Fila #</th>
+                        <th style="width: 130px;">Estado</th>
+                        <th>Código Seguimiento</th>
+                        <th>Tarifa Calculada</th>
+                        <th>Observación / Detalle</th>
+                    </tr>
+                </thead>
+                <tbody class="small">
+                    @if (filasFiltradas.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                No hay registros que coincidan con el filtro seleccionado.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var fila in filasFiltradas)
+                        {
+                            <tr>
+                                <td class="fw-semibold text-secondary">#@fila.Fila</td>
+                                <td>
+                                    @if (fila.Estado == ResultadoFilaImportacionDto.Creado)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
+                                            <Icono Nombre="check" Tamano="12" />
+                                            <span>Creado</span>
+                                        </span>
+                                    }
+                                    else if (fila.Estado == ResultadoFilaImportacionDto.Duplicado)
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1">
+                                            <Icono Nombre="repetir" Tamano="12" />
+                                            <span>Duplicado</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1">
+                                            <Icono Nombre="cruz" Tamano="12" />
+                                            <span>Error</span>
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(fila.CodigoSeguimiento))
+                                    {
+                                        <span class="font-monospace fw-bold text-dark">@fila.CodigoSeguimiento</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (fila.Tarifa.HasValue)
+                                    {
+                                        <span class="fw-bold text-dark">$U @fila.Tarifa.Value.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(fila.Error))
+                                    {
+                                        <span class="text-danger">@fila.Error</span>
+                                    }
+                                    else if (fila.Estado == ResultadoFilaImportacionDto.Duplicado)
+                                    {
+                                        <span class="text-muted">Reconocido previamente por referencia externa</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-success">Envío admitido correctamente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Acciones Finales -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ReiniciarCarga">
+            <Icono Nombre="subir" Tamano="14" />
+            <span class="ms-1">Importar otro archivo</span>
+        </button>
+        <a href="envios" class="btn btn-primary btn-sm px-4">
+            <span>Ver envíos en el listado</span>
+        </a>
+    </div>
+}
+
+@code {
+    private IBrowserFile? archivoSeleccionado;
+    private byte[]? bytesEjemplo;
+    private string? nombreArchivoEjemplo;
+    private string? claveIdempotenciaPersonalizada;
+    private bool estaProcesando;
+    private string? mensajeError;
+    private ResultadoImportacionDto? resultado;
+    private string? filtroEstado;
+
+    private IReadOnlyList<ResultadoFilaImportacionDto> filasFiltradas =>
+        resultado?.Filas == null
+            ? Array.Empty<ResultadoFilaImportacionDto>()
+            : string.IsNullOrEmpty(filtroEstado)
+                ? resultado.Filas
+                : resultado.Filas.Where(f => f.Estado == filtroEstado).ToList();
+
+    private void ManejarSeleccionArchivo(InputFileChangeEventArgs e)
+    {
+        mensajeError = null;
+        bytesEjemplo = null;
+        nombreArchivoEjemplo = null;
+
+        var archivo = e.File;
+        if (archivo is null)
+        {
+            archivoSeleccionado = null;
+            return;
+        }
+
+        if (!archivo.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            mensajeError = "Solo se permiten archivos en formato CSV (.csv).";
+            archivoSeleccionado = null;
+            return;
+        }
+
+        if (archivo.Size > 2 * 1024 * 1024)
+        {
+            mensajeError = "El archivo seleccionado supera el límite de 2 MB permitido.";
+            archivoSeleccionado = null;
+            return;
+        }
+
+        archivoSeleccionado = archivo;
+    }
+
+    private void CargarArchivoEjemplo()
+    {
+        mensajeError = null;
+        archivoSeleccionado = null;
+
+        var csvContenido = """
+        referencia,modalidad,destinatario,calle,numero,ciudad,peso,alto,ancho,profundo,documento,email,telefono
+        PED-2026-001,Estandar,Martín Silva,18 de Julio,1420,Montevideo,2.5,10,15,20,41234567,martin@ejemplo.com,099123456
+        PED-2026-002,Express,Valeria Rossi,Av. Rivera,3200,Montevideo,1.2,5,10,15,52345678,valeria@ejemplo.com,098765432
+        PED-2026-003,Estandar,Andrés Morales,Bvar. Artigas,1100,Montevideo,4.0,20,20,20,38765432,andres@ejemplo.com,091234567
+        PED-2026-004,Estandar,Camila Cabrera,Colonia,1850,Montevideo,0.8,5,5,10,49876543,camila@ejemplo.com,092345678
+        """;
+
+        bytesEjemplo = Encoding.UTF8.GetBytes(csvContenido);
+        nombreArchivoEjemplo = "lote_ejemplo_envios.csv";
+    }
+
+    private async Task ProcesarImportacion()
+    {
+        mensajeError = null;
+        estaProcesando = true;
+
+        try
+        {
+            byte[] contenido;
+            string nombreArchivo;
+
+            if (bytesEjemplo is not null)
+            {
+                contenido = bytesEjemplo;
+                nombreArchivo = nombreArchivoEjemplo ?? "lote_ejemplo.csv";
+            }
+            else if (archivoSeleccionado is not null)
+            {
+                using var stream = archivoSeleccionado.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
+                using var memoria = new MemoryStream();
+                await stream.CopyToAsync(memoria);
+                contenido = memoria.ToArray();
+                nombreArchivo = archivoSeleccionado.Name;
+            }
+            else
+            {
+                mensajeError = "Seleccione un archivo CSV para continuar.";
+                estaProcesando = false;
+                return;
+            }
+
+            resultado = await EnviosApi.ImportarEnviosPorArchivoAsync(
+                contenido,
+                nombreArchivo,
+                claveIdempotenciaPersonalizada);
+        }
+        catch (ApiExcepcion ex)
+        {
+            mensajeError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error inesperado al procesar la importación: {ex.Message}";
+        }
+        finally
+        {
+            estaProcesando = false;
+        }
+    }
+
+    private void CambiarFiltro(string? estado)
+    {
+        filtroEstado = estado;
+    }
+
+    private void ReiniciarCarga()
+    {
+        resultado = null;
+        archivoSeleccionado = null;
+        bytesEjemplo = null;
+        nombreArchivoEjemplo = null;
+        mensajeError = null;
+        filtroEstado = null;
+    }
+
+    private async Task DescargarPlantillaCsv()
+    {
+        var csvPlantilla = "referencia,modalidad,destinatario,calle,numero,ciudad,peso,alto,ancho,profundo,documento,email,telefono\r\nREF-001,Estandar,Juan Perez,Av. 18 de Julio,1000,Montevideo,1.5,10,10,10,41234567,juan@ejemplo.com,099111222\r\nREF-002,Express,Maria Gomez,Rambla Republica del Peru,850,Montevideo,3.0,15,15,20,52345678,maria@ejemplo.com,098333444\r\n";
+        var bytes = Encoding.UTF8.GetBytes(csvPlantilla);
+        var base64 = Convert.ToBase64String(bytes);
+        var urlDescarga = $"data:text/csv;charset=utf-8;base64,{base64}";
+        await JS.InvokeVoidAsync("open", urlDescarga, "_blank");
+    }
+}

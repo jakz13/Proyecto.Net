@@ -27,14 +27,36 @@ public class IndexModel : PageModel
 
     public async Task OnGetAsync()
     {
-        var comercios = await _comerciosApi.ListarComerciosAsync(pagina: 1, tamanoPagina: 1);
-        TotalComercios = comercios.TotalRegistros;
+        try
+        {
+            var comercios = await _comerciosApi.ListarComerciosAsync(pagina: 1, tamanoPagina: 1);
+            TotalComercios = comercios.TotalRegistros;
+        }
+        catch
+        {
+            TotalComercios = 0;
+        }
 
-        var usuarios = await _usuariosApi.ListarUsuariosAsync(new FiltroUsuariosDto { Pagina = 1, TamanoPagina = 1 });
-        TotalUsuarios = usuarios.TotalRegistros;
+        try
+        {
+            var usuarios = await _usuariosApi.ListarUsuariosAsync(new FiltroUsuariosDto { Pagina = 1, TamanoPagina = 1 });
+            TotalUsuarios = usuarios.TotalRegistros;
+        }
+        catch
+        {
+            TotalUsuarios = 0;
+        }
 
-        var envios = await _enviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 5 });
-        TotalEnvios = envios.TotalRegistros;
-        EnviosRecientes = envios.Elementos;
+        try
+        {
+            var envios = await _enviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 5 });
+            TotalEnvios = envios.TotalRegistros;
+            EnviosRecientes = envios.Elementos;
+        }
+        catch
+        {
+            TotalEnvios = 0;
+            EnviosRecientes = Array.Empty<EnvioDto>();
+        }
     }
 }

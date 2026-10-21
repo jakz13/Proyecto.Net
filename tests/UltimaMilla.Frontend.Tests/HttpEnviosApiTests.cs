@@ -145,4 +145,137 @@ public class HttpEnviosApiTests
         Assert.True(resultado.Exito);
         Assert.Equal(EstadoEnvioDto.Extraviado, resultado.NuevoEstado);
     }
+
+    [Fact]
+    public async Task ImportarEnviosPorArchivo_ConArchivoValido_RetornaResultadoExitoso()
+    {
+        // Arrange
+        var loteId = Guid.NewGuid();
+        var jsonRespuesta = $$"""
+        {
+            "loteId": "{{loteId}}",
+            "claveIdempotencia": "sha256:abc123def456",
+            "reimportacion": false,
+            "totalRegistros": 2,
+            "creados": 2,
+            "duplicados": 0,
+            "conError": 0,
+            "filas": [
+                {
+                    "fila": 2,
+                    "estado": "Creado",
+                    "codigoSeguimiento": "ENV-2026-0001",
+                    "tarifa": 170.0,
+                    "error": null
+                },
+                {
+                    "fila": 3,
+                    "estado": "Creado",
+                    "codigoSeguimiento": "ENV-2026-0002",
+                    "tarifa": 210.5,
+                    "error": null
+                }
+            ]
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var bytesArchivo = System.Text.Encoding.UTF8.GetBytes("referencia,modalidad,destinatario,calle,numero,ciudad,peso,alto,ancho,profundo\nREF-1,Estandar,Juan,18 de Julio,1000,Montevideo,2.0,10,10,10\nREF-2,Estandar,Ana,Colonia,2000,Montevideo,3.5,15,15,15");
+
+        // Act
+        var resultado = await api.ImportarEnviosPorArchivoAsync(bytesArchivo, "envios.csv");
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(loteId, resultado.LoteId);
+        Assert.False(resultado.Reimportacion);
+        Assert.Equal(2, resultado.TotalRegistros);
+        Assert.Equal(2, resultado.Creados);
+        Assert.Equal(0, resultado.Duplicados);
+        Assert.Equal(2, resultado.Filas.Count);
+        Assert.Equal("ENV-2026-0001", resultado.Filas[0].CodigoSeguimiento);
+        Assert.Equal(170.0m, resultado.Filas[0].Tarifa);
+    }
+
+    [Fact]
+    public async Task ImportarEnviosPorArchivo_ConReimportacion_ReconoceDuplicados()
+    {
+        // Arrange
+        var loteId = Guid.NewGuid();
+        var jsonRespuesta = $$"""
+        {
+            "loteId": "{{loteId}}",
+            "claveIdempotencia": "sha256:abc123def456",
+            "reimportacion": true,
+            "totalRegistros": 2,
+            "creados": 0,
+            "duplicados": 2,
+            "conError": 0,
+            "filas": [
+                {
+                    "fila": 2,
+                    "estado": "Duplicado",
+                    "codigoSeguimiento": "ENV-2026-0001",
+                    "tarifa": 170.0,
+                    "error": null
+                },
+                {
+                    "fila": 3,
+                    "estado": "Duplicado",
+                    "codigoSeguimiento": "ENV-2026-0002",
+                    "tarifa": 210.5,
+                    "error": null
+                }
+            ]
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var bytesArchivo = System.Text.Encoding.UTF8.GetBytes("contenido");
+
+        // Act
+        var resultado = await api.ImportarEnviosPorArchivoAsync(bytesArchivo, "envios.csv", "clave-lote-1");
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Reimportacion);
+        Assert.Equal(0, resultado.Creados);
+        Assert.Equal(2, resultado.Duplicados);
+        Assert.All(resultado.Filas, f => Assert.Equal(ResultadoFilaImportacionDto.Duplicado, f.Estado));
+    }
+
+    [Fact]
+    public async Task ImportarEnviosPorArchivo_ConArchivoVacio_LanzaArgumentException()
+    {
+        // Arrange
+        var clienteHttp = new HttpClient(ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK)) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            api.ImportarEnviosPorArchivoAsync(Array.Empty<byte>(), "vacio.csv"));
+    }
+
+    [Fact]
+    public async Task ImportarEnviosPorArchivo_ConConflictoConcurrencia_LanzaApiExcepcion409()
+    {
+        // Arrange
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Conflict, "{\"error\":\"Conflicto de concurrencia\"}");
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes("test");
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UltimaMilla.Frontend.Infrastructure.Excepciones.ApiExcepcion>(() =>
+            api.ImportarEnviosPorArchivoAsync(bytes, "envios.csv"));
+
+        Assert.Equal(HttpStatusCode.Conflict, ex.CodigoEstado);
+    }
 }
