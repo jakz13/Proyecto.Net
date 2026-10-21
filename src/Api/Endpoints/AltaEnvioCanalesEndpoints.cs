@@ -18,6 +18,19 @@ public static class AltaEnvioCanalesEndpoints
     private const string CabeceraClaveApi = "X-Api-Key";
     private const long TamanoMaximoArchivo = 2 * 1024 * 1024;
 
+    /// <summary>UTF-8 si es válido; si no, Latin-1, que es lo que suele exportar Excel en Windows.</summary>
+    private static string DecodificarCsv(byte[] bytes)
+    {
+        try
+        {
+            return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.Latin1.GetString(bytes);
+        }
+    }
+
     public static IEndpointRouteBuilder MapAltaEnvioCanalesEndpoints(this IEndpointRouteBuilder app)
     {
         // UC-26: autenticado por clave de API del comercio, no por sesión de usuario
@@ -63,9 +76,10 @@ public static class AltaEnvioCanalesEndpoints
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-            catch (ConflictoDeConcurrenciaException ex)
+            catch (ConflictoDeConcurrenciaException)
             {
-                return Results.Conflict(new { error = ex.Message });
+                // Otra solicitud con la misma referencia se procesó a la vez: reintentar es seguro y devuelve el envío ya admitido
+                return Results.Conflict(new { error = "Otra solicitud simultánea registró la misma referencia. Reintente: no se duplicará el envío." });
             }
             catch (UnauthorizedAccessException)
             {
@@ -101,8 +115,9 @@ public static class AltaEnvioCanalesEndpoints
                 if (archivo.Length > TamanoMaximoArchivo)
                     throw new DomainValidationException("El archivo supera el tamaño máximo de 2 MB.");
 
-                using var lector = new StreamReader(archivo.OpenReadStream(), Encoding.UTF8);
-                var contenido = await lector.ReadToEndAsync(ct);
+                using var memoria = new MemoryStream();
+                await archivo.CopyToAsync(memoria, ct);
+                var contenido = DecodificarCsv(memoria.ToArray());
 
                 // Sin clave explícita, el lote se identifica por el contenido: reimportar el mismo archivo no duplica
                 var clave = string.IsNullOrWhiteSpace(claveIdempotencia)
@@ -116,9 +131,10 @@ public static class AltaEnvioCanalesEndpoints
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-            catch (ConflictoDeConcurrenciaException ex)
+            catch (ConflictoDeConcurrenciaException)
             {
-                return Results.Conflict(new { error = ex.Message });
+                // No se guardó nada del lote: reimportar es seguro porque cada registro se reconoce por su referencia
+                return Results.Conflict(new { error = "Otra importación simultánea registró los mismos datos y este lote no se guardó. Vuelva a importarlo: no se duplicarán envíos." });
             }
             catch (UnauthorizedAccessException)
             {

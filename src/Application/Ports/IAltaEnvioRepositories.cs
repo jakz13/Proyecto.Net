@@ -45,4 +45,5 @@ public interface ISolicitudReprogramacionRepository
 {
     Task AddAsync(SolicitudReprogramacion solicitud, CancellationToken cancellationToken = default);
     Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default);
+    Task<int> ContarTodasAsync(Guid envioId, CancellationToken cancellationToken = default);
 }

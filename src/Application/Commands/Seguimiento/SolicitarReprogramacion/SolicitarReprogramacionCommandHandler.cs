@@ -15,6 +15,9 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
 {
     private const int LargoMaximoCodigo = 100;
 
+    /// <summary>Tope de solicitudes rechazadas que se conservan por envío; evita que un abuso llene la tabla.</summary>
+    private const int MaxRechazosRegistradosPorEnvio = 20;
+
     private readonly IEnvioRepository _envioRepository;
     private readonly IDireccionRepository _direccionRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
@@ -80,7 +83,11 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
             }, cancellationToken);
         }
 
-        await _solicitudRepository.AddAsync(solicitud, cancellationToken);
+        var registrar = evaluacion.Motivo is null
+            || await _solicitudRepository.ContarTodasAsync(envio.Id, cancellationToken) < MaxRechazosRegistradosPorEnvio;
+        if (registrar)
+            await _solicitudRepository.AddAsync(solicitud, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return evaluacion.Motivo is null

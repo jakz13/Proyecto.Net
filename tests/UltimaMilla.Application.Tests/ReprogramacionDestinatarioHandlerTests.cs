@@ -151,6 +151,16 @@ public class ReprogramacionDestinatarioHandlerTests
         Assert.Contains("máximo de reprogramaciones", resultado.Motivo);
     }
 
+    [Fact]
+    public async Task Solicitar_RechazosRepetidos_SeConservanSoloHastaElTope()
+    {
+        for (var i = 0; i < 30; i++)
+            await Solicitar().Handle(new SolicitarReprogramacionCommand(_envio.CodigoSeguimientoPublico, _manana.Id), default);
+
+        Assert.Equal(20, _solicitudes.Solicitudes.Count);
+        Assert.Equal(_manana.Id, _envio.FranjaHorariaComprometidaId);
+    }
+
     [Theory]
     [InlineData("TRK-NOEXISTE")]
     [InlineData("")]
@@ -209,6 +219,9 @@ public class FakeSolicitudReprogramacionRepository : UltimaMilla.Application.Por
         Solicitudes.Add(solicitud);
         return Task.CompletedTask;
     }
+
+    public Task<int> ContarTodasAsync(Guid envioId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Solicitudes.Count(s => s.EnvioId == envioId));
 
     public Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Aprobadas + Solicitudes.Count(s => s.EnvioId == envioId && s.Estado == "Aprobada"));

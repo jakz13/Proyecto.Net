@@ -125,6 +125,11 @@ public class EfSolicitudReprogramacionRepository : ISolicitudReprogramacionRepos
         await _dbContext.SolicitudesReprogramacion.AddAsync(solicitud, cancellationToken);
     }
 
+    public async Task<int> ContarTodasAsync(Guid envioId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.SolicitudesReprogramacion.CountAsync(s => s.EnvioId == envioId, cancellationToken);
+    }
+
     public async Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.SolicitudesReprogramacion.CountAsync(s => s.EnvioId == envioId && s.Estado == "Aprobada", cancellationToken);
