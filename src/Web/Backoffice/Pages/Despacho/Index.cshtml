@@ -55,7 +55,7 @@
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="text-secondary small fw-semibold">Bultos a Cargar</span>
-                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">En Muelle</span>
+                <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-semibold" style="color: #92400E !important;">En Muelle</span>
             </div>
             <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.CantidadParadas)</div>
             <div class="text-muted small mt-1">Paquetes sincronizados para estiba</div>
@@ -125,7 +125,7 @@
                             </td>
                             <td>
                                 <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
-                                <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem;">
+                                <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem; @(ruta.ViajeNumero > 1 ? "color: #92400E !important;" : "")">
                                     Viaje @ruta.ViajeNumero · @ruta.Turno
                                 </span>
                             </td>

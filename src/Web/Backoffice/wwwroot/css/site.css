@@ -399,3 +399,107 @@ body.sidebar-colapsada {
 .opcion-tarjeta-fija:hover {
     background-color: #F1F5F9;
 }
+
+/* ==========================================================================
+   Contraste de Badges y Variantes Sutiles (Garantía de Legibilidad WCAG)
+   Previene letras blancas sobre fondos claros/amarillos causadas por el default .badge de Bootstrap
+   ========================================================================== */
+.badge {
+    color: #0F172A; /* Color oscuro legible por defecto */
+}
+
+/* Variante Warning / Demora / Alerta */
+.badge.bg-warning-subtle,
+.bg-warning-subtle {
+    background-color: #FEF3C7 !important;
+    color: #92400E !important;
+}
+
+.text-warning-emphasis,
+.text-warning {
+    color: #B45309 !important;
+}
+
+.border-warning-subtle {
+    border-color: #FCD34D !important;
+}
+
+/* Variante Success / Cumplimiento / Entregado */
+.badge.bg-success-subtle,
+.bg-success-subtle {
+    background-color: #DCFCE7 !important;
+    color: #166534 !important;
+}
+
+.text-success-emphasis,
+.text-success {
+    color: #15803D !important;
+}
+
+.border-success-subtle {
+    border-color: #86EFAC !important;
+}
+
+/* Variante Danger / Fallo / No Entregado / Extraviado */
+.badge.bg-danger-subtle,
+.bg-danger-subtle {
+    background-color: #FEE2E2 !important;
+    color: #991B1B !important;
+}
+
+.text-danger-emphasis,
+.text-danger {
+    color: #B91C1C !important;
+}
+
+.border-danger-subtle {
+    border-color: #FCA5A5 !important;
+}
+
+/* Variante Primary / Tránsito / En Curso */
+.badge.bg-primary-subtle,
+.bg-primary-subtle {
+    background-color: #DBEAFE !important;
+    color: #1E40AF !important;
+}
+
+.text-primary-emphasis,
+.text-primary {
+    color: #1D4ED8 !important;
+}
+
+.border-primary-subtle {
+    border-color: #93C5FD !important;
+}
+
+/* Variante Info / Depósito */
+.badge.bg-info-subtle,
+.bg-info-subtle {
+    background-color: #E0F2FE !important;
+    color: #075985 !important;
+}
+
+.text-info-emphasis,
+.text-info {
+    color: #0369A1 !important;
+}
+
+.border-info-subtle {
+    border-color: #7DD3FC !important;
+}
+
+/* Variante Secondary / Admitido / Neutral */
+.badge.bg-secondary-subtle,
+.bg-secondary-subtle {
+    background-color: #F1F5F9 !important;
+    color: #334155 !important;
+}
+
+.text-secondary-emphasis,
+.text-secondary {
+    color: #475569 !important;
+}
+
+.border-secondary-subtle {
+    border-color: #CBD5E1 !important;
+}

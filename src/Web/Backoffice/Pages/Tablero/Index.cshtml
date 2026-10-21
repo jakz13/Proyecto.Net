@@ -213,7 +213,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge @(alerta.NivelRiesgo == "Critico" ? "bg-danger text-white" : "bg-warning-subtle text-warning-emphasis border border-warning-subtle") fw-bold px-2 py-1">
+                                        <span class="badge @(alerta.NivelRiesgo == "Critico" ? "bg-danger text-white" : "bg-warning-subtle border border-warning-subtle") fw-bold px-2 py-1" style="@(alerta.NivelRiesgo == "Critico" ? "" : "color: #92400E !important;")">
                                             +@alerta.MinutosRetrasoEstimado min
                                         </span>
                                         <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
@@ -345,7 +345,7 @@
                                         }
                                         else
                                         {
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem;">
+                                            <span class="badge bg-warning-subtle border border-warning-subtle fw-semibold" style="font-size: 0.7rem; color: #92400E !important;">
                                                 Detenido (0 km/h)
                                             </span>
                                         }
@@ -719,6 +719,7 @@
             document.getElementById('mapaParadaActual').innerText = v.ParadaActualCodigo ? ('En curso: ' + v.ParadaActualCodigo) : 'Sin parada';
 
             var bEstado = document.getElementById('mapaBadgeEstado');
+            bEstado.style.color = '';
             if (v.TieneAlertasRiesgo) {
                 bEstado.innerText = 'Riesgo SLA (' + v.CantidadEnviosEnRiesgo + ')';
                 bEstado.className = 'badge bg-danger text-white';
@@ -727,7 +728,8 @@
                 bEstado.className = 'badge bg-success-subtle text-success border border-success-subtle';
             } else {
                 bEstado.innerText = 'Detenido';
-                bEstado.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                bEstado.className = 'badge bg-warning-subtle border border-warning-subtle fw-semibold';
+                bEstado.style.color = '#92400E';
             }
 
             var pct = v.PorcentajeProgreso || 0;

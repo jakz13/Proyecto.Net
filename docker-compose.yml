@@ -63,7 +63,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - ApiSettings__BaseUrl=http://api:8080
-      - UsarMocks=${BACKOFFICE_USAR_MOCKS:-false}
+      - UsarMocks=false
     depends_on:
       - api
 

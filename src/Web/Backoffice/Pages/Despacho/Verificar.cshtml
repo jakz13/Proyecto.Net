@@ -20,7 +20,7 @@ else
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                         ● @control.EstadoRuta
                     </span>
-                    <span class="badge @(control.ViajeNumero > 1 ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle" : "bg-light text-secondary border")">
+                    <span class="badge @(control.ViajeNumero > 1 ? "bg-warning-subtle border border-warning-subtle fw-semibold" : "bg-light text-secondary border")" style="@(control.ViajeNumero > 1 ? "color: #92400E !important;" : "")">
                         Viaje @control.ViajeNumero · @control.Turno
                     </span>
                 </div>

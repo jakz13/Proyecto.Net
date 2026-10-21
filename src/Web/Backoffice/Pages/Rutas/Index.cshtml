@@ -161,7 +161,7 @@
                             <td>
                                 <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
                                 <div>
-                                    <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem;">
+                                    <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem; @(ruta.ViajeNumero > 1 ? "color: #92400E !important;" : "")">
                                         Viaje @ruta.ViajeNumero · @ruta.Turno
                                     </span>
                                 </div>
@@ -219,7 +219,7 @@
                                 }
                                 else if (ruta.Estado == "EnCarga")
                                 {
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                    <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-bold" style="font-size: 0.75rem; color: #92400E !important;">
                                         ● En Carga
                                     </span>
                                 }
