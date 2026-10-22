@@ -58,7 +58,11 @@ public class HttpEnviosApi : IEnviosApi
             NombreDestinatario = e.NombreDestinatario,
             DireccionDestino = e.DireccionDestino,
             FechaCreacion = e.FechaCreacion,
-            Estado = MapearEstado(e.Estado)
+            Estado = MapearEstado(e.Estado),
+            HojaDeRutaNumero = e.HojaDeRutaNumero,
+            RepartidorNombre = e.RepartidorNombre,
+            ComercioNombre = e.ComercioNombre,
+            PesoKg = e.PesoKg
         }).AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(filtro.TerminoBusqueda))
@@ -363,7 +367,18 @@ public class HttpEnviosApi : IEnviosApi
         return EstadoEnvioDto.Admitido;
     }
 
-    private record EnvioResumenApiDto(Guid Id, Guid ComercioId, string DireccionDestino, string NombreDestinatario, DateTime FechaCreacion, string Estado, string? CodigoSeguimiento = null);
+    private record EnvioResumenApiDto(
+        Guid Id,
+        Guid ComercioId,
+        string DireccionDestino,
+        string NombreDestinatario,
+        DateTime FechaCreacion,
+        string Estado,
+        string? CodigoSeguimiento = null,
+        string? HojaDeRutaNumero = null,
+        string? RepartidorNombre = null,
+        string? ComercioNombre = null,
+        decimal? PesoKg = null);
 
     private record DetalleEnvioApiDto(
         Guid EnvioId,

@@ -19,6 +19,18 @@ public class EfRutaRepository : IRutaRepository
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
     }
 
+    public async Task<List<HojaDeRuta>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        if (idSet.Count == 0)
+            return new List<HojaDeRuta>();
+
+        return await _dbContext.HojasDeRuta
+            .AsNoTracking()
+            .Where(h => idSet.Contains(h.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbContext.HojasDeRuta

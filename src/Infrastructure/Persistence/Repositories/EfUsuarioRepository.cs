@@ -32,6 +32,18 @@ public class EfUsuarioRepository : IUsuarioRepository
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
+    public async Task<List<Usuario>> ObtenerPorIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.Where(i => i != Guid.Empty).ToHashSet();
+        if (idSet.Count == 0)
+            return new List<Usuario>();
+
+        return await _context.Usuarios
+            .AsNoTracking()
+            .Where(u => idSet.Contains(u.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Perfil?> ObtenerPerfilPorIdAsync(Guid perfilId, CancellationToken cancellationToken = default)
     {
         if (perfilId == Guid.Empty)

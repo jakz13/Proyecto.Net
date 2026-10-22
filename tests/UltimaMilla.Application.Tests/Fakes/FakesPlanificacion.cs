@@ -12,6 +12,12 @@ public class FakeRutaRepository : IRutaRepository
     public Task<HojaDeRuta?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Rutas.FirstOrDefault(r => r.Id == id));
 
+    public Task<List<HojaDeRuta>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.ToHashSet();
+        return Task.FromResult(Rutas.Where(r => idSet.Contains(r.Id)).ToList());
+    }
+
     public Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Rutas.FirstOrDefault(r => r.Id == id));
 

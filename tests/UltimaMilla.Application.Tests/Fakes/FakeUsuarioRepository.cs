@@ -26,6 +26,12 @@ public class FakeUsuarioRepository : IUsuarioRepository
         return Task.FromResult(u);
     }
 
+    public Task<List<Usuario>> ObtenerPorIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idSet = ids.Where(i => i != Guid.Empty).ToHashSet();
+        return Task.FromResult(Usuarios.Where(u => idSet.Contains(u.Id)).ToList());
+    }
+
     public Task<Perfil?> ObtenerPerfilPorIdAsync(Guid perfilId, CancellationToken cancellationToken = default)
     {
         var p = Perfiles.FirstOrDefault(x => x.Id == perfilId);
