@@ -30,7 +30,8 @@ public class ListarEnviosQueryHandler : IRequestHandler<ListarEnviosQuery, List<
                 e.DireccionDestino,
                 e.NombreDestinatario,
                 e.FechaCreacion,
-                e.Estado.ToString()))
+                e.Estado.ToString(),
+                e.CodigoSeguimientoPublico))
             .ToList();
     }
 }

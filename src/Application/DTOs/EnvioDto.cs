@@ -6,5 +6,6 @@ public record EnvioDto(
     string DireccionDestino,
     string NombreDestinatario,
     DateTime FechaCreacion,
-    string Estado
+    string Estado,
+    string? CodigoSeguimiento = null
 );
