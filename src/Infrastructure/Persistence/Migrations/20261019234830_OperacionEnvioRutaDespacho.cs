@@ -247,6 +247,12 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                 table: "HojasDeRuta",
                 columns: new[] { "OperadorId", "Fecha" });
 
+            // Los envíos creados antes de existir el código público quedaron con el valor vacío: se les asigna uno propio
+            // para que el índice único pueda crearse sin descartar datos
+            migrationBuilder.Sql(
+                "UPDATE \"Envios\" SET \"CodigoSeguimientoPublico\" = 'ENV-LEGACY-' || upper(substr(replace(\"Id\"::text, '-', ''), 1, 12)) " +
+                "WHERE \"CodigoSeguimientoPublico\" IS NULL OR \"CodigoSeguimientoPublico\" = '';");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Envios_CodigoSeguimientoPublico",
                 table: "Envios",
