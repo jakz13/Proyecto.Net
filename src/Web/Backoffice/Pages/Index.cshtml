@@ -97,26 +97,26 @@
                             <td>
                                 @switch (envio.Estado)
                                 {
-                                    case EstadoEnvioDto.Admitido:
-                                        <span class="badge badge-estado badge-estado-admitido">Admitido</span>
-                                        break;
-                                    case EstadoEnvioDto.EnDeposito:
-                                        <span class="badge badge-estado badge-estado-endeposito">En Depósito</span>
-                                        break;
-                                    case EstadoEnvioDto.AsignadoARuta:
-                                        <span class="badge badge-estado badge-estado-asignadoaruta">Asignado a Ruta</span>
-                                        break;
-                                    case EstadoEnvioDto.EnTransito:
-                                        <span class="badge badge-estado badge-estado-entransito">En Tránsito</span>
-                                        break;
                                     case EstadoEnvioDto.Entregado:
-                                        <span class="badge badge-estado badge-estado-entregado">Entregado</span>
+                                        <span class="estado-entregado">Entregado</span>
                                         break;
                                     case EstadoEnvioDto.NoEntregado:
-                                        <span class="badge badge-estado badge-estado-noentregado">No Entregado</span>
+                                        <span class="estado-fallo">No Entregado</span>
+                                        break;
+                                    case EstadoEnvioDto.Admitido:
+                                        <span class="estado-intermedio">Admitido</span>
+                                        break;
+                                    case EstadoEnvioDto.EnDeposito:
+                                        <span class="estado-intermedio">En Depósito</span>
+                                        break;
+                                    case EstadoEnvioDto.AsignadoARuta:
+                                        <span class="estado-intermedio">Asignado a Ruta</span>
+                                        break;
+                                    case EstadoEnvioDto.EnTransito:
+                                        <span class="estado-intermedio">En Tránsito</span>
                                         break;
                                     default:
-                                        <span class="badge bg-secondary">@envio.Estado</span>
+                                        <span class="estado-intermedio">@envio.Estado</span>
                                         break;
                                 }
                             </td>

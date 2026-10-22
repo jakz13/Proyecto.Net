@@ -5,7 +5,6 @@ using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 using UltimaMilla.Infrastructure.Persistence;
-using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -73,6 +72,7 @@ public static class UsuariosEndpoints
             [FromBody] CrearUsuarioDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
+            IPasswordHasherService hasher,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
@@ -87,7 +87,7 @@ public static class UsuariosEndpoints
                     co => co.ComercioId == dto.ComercioId.Value && co.OperadorId == tenant.OperadorId, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El comercio seleccionado no pertenece al operador.");
 
-            var usuario = new Usuario(Guid.NewGuid(), dto.Nombre, email, HashContrasena.Generar(dto.Password),
+            var usuario = new Usuario(Guid.NewGuid(), dto.Nombre, email, hasher.HashearPassword(dto.Password),
                 dto.PerfilId, tenant.OperadorId, dto.ComercioId);
             await db.Usuarios.AddAsync(usuario, ct);
             await db.SaveChangesAsync(ct);

@@ -614,7 +614,7 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.HasKey("PerfilId", "PermisoId");
 
-                    b.ToTable("PerfilesPermisos", (string)null);
+                    b.ToTable("PerfilPermisos", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Permiso", b =>
@@ -648,6 +648,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("BloqueadoHasta")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("ComercioId")
                         .HasColumnType("uuid");
 
@@ -659,6 +662,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaAlta")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("IntentosFallidos")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -669,16 +675,22 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("PerfilId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ComercioId");
+
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("OperadorId");
+
+                    b.HasIndex("PerfilId");
 
                     b.ToTable("Usuarios", (string)null);
                 });

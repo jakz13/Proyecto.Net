@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -318,6 +318,9 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
 
+// Registrar endpoints de autenticación y autorización por token (UC-40)
+app.MapAuthEndpoints();
+
 // Registrar endpoints de operación en calle (UC-18, UC-19, UC-20, UC-21)
 app.MapMobileRutasEndpoints();
 
@@ -333,6 +336,9 @@ app.MapConsultasEnvioEndpoints();
 // Registrar gestión de incidencias (UC-11)
 app.MapIncidenciasEndpoints();
 
+// Registrar reglas operativas y motivos de no entrega (UC-04, UC-05)
+app.MapOperadorConfiguracionEndpoints();
+
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
 
@@ -341,8 +347,6 @@ app.MapComerciosBackofficeEndpoints();
 app.MapUsuariosBackofficeEndpoints();
 app.MapZonasCoberturaEndpoints();
 app.MapCuadroTarifarioEndpoints();
-app.MapReglasOperativasEndpoints();
-app.MapMotivosNoEntregaEndpoints();
 app.MapIdentidadVisualEndpoints();
 app.MapFlotaEndpoints();
 app.MapMensajeriaEndpoints();
@@ -352,15 +356,15 @@ await app.RunAsync();
 
 static async Task ApplyMigrationsAsync(WebApplication app)
 {
-    using var scope = app.Services.CreateScope();
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
     const int maxRetries = 10;
     for (int retry = 1; retry <= maxRetries; retry++)
     {
         try
         {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
             var db = services.GetRequiredService<AppDbContext>();
             logger.LogInformation("Aplicando migraciones a la base de datos (intento {Retry}/{Max})...", retry, maxRetries);
             await db.Database.MigrateAsync();

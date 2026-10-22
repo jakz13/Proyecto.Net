@@ -82,7 +82,7 @@
                 <span>@Model.Resumen.TotalEnviosEnRiesgo</span>
                 @if (Model.Resumen.TotalEnviosEnRiesgo > 0)
                 {
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-medium" style="font-size: 0.725rem;">Atención requerida</span>
+                    <span class="estado-fallo small fw-semibold" style="font-size: 0.725rem;">Atención requerida</span>
                 }
             </div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Demoras estimadas sobre SLA</div>
@@ -213,7 +213,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge @(alerta.NivelRiesgo == "Critico" ? "bg-danger text-white" : "bg-warning-subtle border border-warning-subtle") fw-bold px-2 py-1" style="@(alerta.NivelRiesgo == "Critico" ? "" : "color: #92400E !important;")">
+                                        <span class="fw-bold @(alerta.NivelRiesgo == "Critico" ? "estado-fallo" : "estado-intermedio")">
                                             +@alerta.MinutosRetrasoEstimado min
                                         </span>
                                         <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
@@ -223,7 +223,7 @@
                                     <td>
                                         <div class="text-dark small">@alerta.CausaRiesgo</div>
                                         <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
-                                            Chofer: <strong class="text-dark">@alerta.RepartidorNombre</strong> <span class="badge bg-light text-dark border ms-1 font-monospace">@alerta.VehiculoMatricula</span>
+                                            Chofer: <strong class="text-dark">@alerta.RepartidorNombre</strong> <span class="ms-1 font-monospace text-secondary fw-semibold">(@alerta.VehiculoMatricula)</span>
                                         </div>
                                     </td>
                                     <td class="text-end">
@@ -271,7 +271,7 @@
                     <h2 class="h6 fw-bold mb-0 text-dark">Flota en Operación Urbana</h2>
                     <span class="text-secondary small">Telemetría de unidades, velocidad, carga de batería y avance del itinerario</span>
                 </div>
-                <span class="badge bg-light text-secondary border font-monospace">
+                <span class="text-secondary small font-monospace fw-semibold">
                     @Model.VehiculosFiltrados.Count unidades desplegadas
                 </span>
             </div>
@@ -311,7 +311,7 @@
                                 <td>
                                     @if (!string.IsNullOrEmpty(veh.ParadaActualCodigo))
                                     {
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1" style="font-size: 0.75rem;">
+                                        <span class="font-monospace fw-bold estado-intermedio small">
                                             @veh.ParadaActualCodigo
                                         </span>
                                     }
@@ -333,19 +333,19 @@
                                     <div>
                                         @if (veh.TieneAlertasRiesgo)
                                         {
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.7rem;">
+                                            <span class="estado-fallo fw-semibold small">
                                                 Alerta SLA (@veh.CantidadEnviosEnRiesgo)
                                             </span>
                                         }
                                         else if (veh.EstadoOperativo == "EnMovimiento")
                                         {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                            <span class="estado-entregado fw-semibold small">
                                                 En Movimiento (@veh.VelocidadKmh km/h)
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-warning-subtle border border-warning-subtle fw-semibold" style="font-size: 0.7rem; color: #92400E !important;">
+                                            <span class="estado-intermedio fw-semibold small">
                                                 Detenido (0 km/h)
                                             </span>
                                         }
@@ -398,7 +398,7 @@
                     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                         <span class="fw-bold text-dark">Radar Metropolitano de Flota</span>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                            <span class="text-secondary small fw-semibold">
                                 4 Unidades Rastreadas
                             </span>
                         </div>
@@ -457,7 +457,7 @@
                 <div class="card border-0 shadow-sm rounded-3 bg-white h-100" style="min-height: 440px;">
                     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                         <span class="fw-bold text-dark" id="mapaPanelTitulo">Detalle de Unidad</span>
-                        <span class="badge bg-secondary-subtle text-secondary border" id="mapaBadgeEstado">Seleccione en mapa</span>
+                        <span class="text-secondary small fw-semibold" id="mapaBadgeEstado">Seleccione en mapa</span>
                     </div>
 
                     <div class="card-body p-3 d-flex flex-column justify-content-between" style="min-height: 380px;">
@@ -479,7 +479,7 @@
                                     <div class="small text-dark fw-semibold mt-1" id="mapaRepartidor">--</div>
                                 </div>
                                 <div class="text-end">
-                                    <span class="badge bg-light text-dark border font-monospace" id="mapaRuta">--</span>
+                                    <span class="font-monospace text-secondary small fw-semibold" id="mapaRuta">--</span>
                                     <div class="small text-secondary mt-1">
                                         Bat: <strong class="text-dark" id="mapaBateria">--</strong>
                                     </div>
@@ -719,17 +719,15 @@
             document.getElementById('mapaParadaActual').innerText = v.ParadaActualCodigo ? ('En curso: ' + v.ParadaActualCodigo) : 'Sin parada';
 
             var bEstado = document.getElementById('mapaBadgeEstado');
-            bEstado.style.color = '';
             if (v.TieneAlertasRiesgo) {
                 bEstado.innerText = 'Riesgo SLA (' + v.CantidadEnviosEnRiesgo + ')';
-                bEstado.className = 'badge bg-danger text-white';
+                bEstado.className = 'estado-fallo small fw-semibold';
             } else if (v.EstadoOperativo === 'EnMovimiento') {
                 bEstado.innerText = 'En Tránsito';
-                bEstado.className = 'badge bg-success-subtle text-success border border-success-subtle';
+                bEstado.className = 'estado-entregado small fw-semibold';
             } else {
                 bEstado.innerText = 'Detenido';
-                bEstado.className = 'badge bg-warning-subtle border border-warning-subtle fw-semibold';
-                bEstado.style.color = '#92400E';
+                bEstado.className = 'estado-intermedio small fw-semibold';
             }
 
             var pct = v.PorcentajeProgreso || 0;

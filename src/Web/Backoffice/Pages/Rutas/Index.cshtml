@@ -125,19 +125,20 @@
             <thead class="table-light">
                 <tr>
                     <th style="width: 14%;">Número de Ruta</th>
-                    <th style="width: 12%;">Fecha / Viaje</th>
-                    <th style="width: 22%;">Repartidor y Vehículo</th>
-                    <th class="text-center" style="width: 10%;">Paradas</th>
-                    <th style="width: 22%;">Ocupación del Vehículo</th>
+                    <th style="width: 10%;">Fecha</th>
+                    <th style="width: 20%;">Repartidor y Vehículo</th>
+                    <th class="text-center" style="width: 8%;">Paradas</th>
+                    <th style="width: 15%;">Peso</th>
+                    <th style="width: 15%;">Volumen</th>
                     <th class="text-center" style="width: 10%;">Estado</th>
-                    <th class="text-end" style="width: 10%;">Acciones</th>
+                    <th class="text-end" style="width: 8%;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 @if (Model.HojasDeRuta.Count == 0)
                 {
                     <tr>
-                        <td colspan="7" class="text-center py-5 text-muted">
+                        <td colspan="8" class="text-center py-5 text-muted">
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2 text-secondary opacity-50" aria-hidden="true">
                                 <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                                 <line x1="8" y1="2" x2="8" y2="18"></line>
@@ -160,11 +161,6 @@
                             </td>
                             <td>
                                 <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
-                                <div>
-                                    <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem; @(ruta.ViajeNumero > 1 ? "color: #92400E !important;" : "")">
-                                        Viaje @ruta.ViajeNumero · @ruta.Turno
-                                    </span>
-                                </div>
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark small">@ruta.RepartidorNombre</div>
@@ -180,75 +176,36 @@
                                 <div class="text-muted" style="font-size: 0.68rem;">paradas</div>
                             </td>
                             <td>
-                                <!-- Ocupación de Peso -->
-                                <div class="d-flex justify-content-between align-items-center mb-1" style="font-size: 0.725rem;">
-                                    <span class="text-muted">Peso: <strong>@ruta.PesoTotalKg.ToString("N1")</strong> / @ruta.CapacidadPesoMaxKg.ToString("N0") kg</span>
-                                    <span class="fw-semibold @(ruta.PorcentajeOcupacionPeso > 90 ? "text-danger" : "text-dark")">@ruta.PorcentajeOcupacionPeso%</span>
-                                </div>
-                                <div class="progress mb-2" style="height: 6px;">
-                                    <div class="progress-bar @(ruta.PorcentajeOcupacionPeso > 90 ? "bg-danger" : (ruta.PorcentajeOcupacionPeso > 75 ? "bg-warning" : "bg-success"))" 
-                                         role="progressbar" 
-                                         style="width: @ruta.PorcentajeOcupacionPeso%" 
-                                         aria-valuenow="@ruta.PorcentajeOcupacionPeso" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                    </div>
-                                </div>
-
-                                <!-- Ocupación de Volumen -->
-                                <div class="d-flex justify-content-between align-items-center mb-1" style="font-size: 0.725rem;">
-                                    <span class="text-muted">Volumen: <strong>@ruta.VolumenTotalM3.ToString("N2")</strong> / @ruta.CapacidadVolumenMaxM3.ToString("N1") m³</span>
-                                    <span class="fw-semibold @(ruta.PorcentajeOcupacionVolumen > 90 ? "text-danger" : "text-dark")">@ruta.PorcentajeOcupacionVolumen%</span>
-                                </div>
-                                <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar @(ruta.PorcentajeOcupacionVolumen > 90 ? "bg-danger" : (ruta.PorcentajeOcupacionVolumen > 75 ? "bg-warning" : "bg-info"))" 
-                                         role="progressbar" 
-                                         style="width: @ruta.PorcentajeOcupacionVolumen%" 
-                                         aria-valuenow="@ruta.PorcentajeOcupacionVolumen" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                    </div>
-                                </div>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1")kg / @ruta.CapacidadPesoMaxKg.ToString("N0")kg</span>
+                            </td>
+                            <td>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.VolumenTotalM3.ToString("N2")m³ / @ruta.CapacidadVolumenMaxM3.ToString("N1")m³</span>
                             </td>
                             <td class="text-center">
-                                @if (ruta.Estado == "Liberada")
+                                @if (ruta.Estado == "Finalizada" || ruta.Estado == "Completada")
                                 {
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.75rem;">
-                                        ● Liberada
-                                    </span>
+                                    <span class="estado-entregado">Finalizada</span>
                                 }
-                                else if (ruta.Estado == "EnCarga")
+                                else if (ruta.Estado == "Cancelada" || ruta.Estado == "Interrumpida")
                                 {
-                                    <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-bold" style="font-size: 0.75rem; color: #92400E !important;">
-                                        ● En Carga
-                                    </span>
-                                }
-                                else if (ruta.Estado == "EnTransito" || ruta.Estado == "Despachada")
-                                {
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.75rem;">
-                                        ● En Tránsito
-                                    </span>
-                                }
-                                else if (ruta.Estado == "Finalizada")
-                                {
-                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.75rem;">
-                                        ✓ Finalizada
-                                    </span>
+                                    <span class="estado-fallo">@ruta.Estado</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
-                                        @ruta.Estado
-                                    </span>
+                                    <span class="estado-intermedio">@ruta.Estado</span>
                                 }
                             </td>
                             <td class="text-end">
-                                <a asp-page="/Rutas/Detalle" asp-route-id="@ruta.Id" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" title="Ver Itinerario y Paradas">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <a asp-page="/Rutas/Detalle" asp-route-id="@ruta.Id" 
+                                   class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" 
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Ver Itinerario y Paradas"
+                                   aria-label="Ver Itinerario y Paradas">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                         <circle cx="12" cy="12" r="3"></circle>
                                     </svg>
-                                    <span>Itinerario</span>
                                 </a>
                             </td>
                         </tr>

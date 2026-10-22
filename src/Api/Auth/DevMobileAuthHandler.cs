@@ -27,7 +27,27 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
     {
         var httpContext = Context;
 
-        // Leer posible cabecera personalizada de tenant
+        // Si se provee una cabecera Authorization Bearer con token JWT real, validarlo criptográficamente
+        var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var tokenString = authHeader["Bearer ".Length..].Trim();
+            var principalValido = UltimaMilla.Infrastructure.Services.TokenJwtService.ValidarYExtraerClaims(tokenString);
+            if (principalValido is not null)
+            {
+                var ticketJwt = new AuthenticationTicket(principalValido, SchemeName);
+                return Task.FromResult(AuthenticateResult.Success(ticketJwt));
+            }
+
+            // Si el token enviado no es un token simulado de desarrollo y falló la validación
+            if (!tokenString.Equals("dev-token", StringComparison.OrdinalIgnoreCase) &&
+                !tokenString.Equals("dev-demo-token", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(AuthenticateResult.Fail("Token JWT inválido o expirado."));
+            }
+        }
+
+        // Modo de desarrollo / demo: lectura de cabeceras personalizadas de tenant y usuario
         var operadorHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
             ?? httpContext.Request.Headers["X-Operador-Id"].FirstOrDefault();
 
@@ -35,7 +55,6 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
             ? parsedOp.ToString()
             : "11111111-1111-1111-1111-111111111111";
 
-        // Leer posible usuario personalizado
         var usuarioHeader = httpContext.Request.Headers["X-User-Id"].FirstOrDefault()
             ?? httpContext.Request.Headers["X-Usuario-Id"].FirstOrDefault();
 

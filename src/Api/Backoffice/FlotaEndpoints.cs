@@ -6,7 +6,6 @@ using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Frontend.Contracts.Modelos.Flota;
 using UltimaMilla.Infrastructure.Persistence;
-using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -158,6 +157,7 @@ public static class FlotaEndpoints
             [FromBody] CrearRepartidorDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
+            IPasswordHasherService hasher,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var estado = NormalizarEstado(dto.Estado);
@@ -177,7 +177,7 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "No está configurado el perfil Repartidor.");
 
             // El repartidor ingresa a la app con un usuario propio; la contraseña provisional se cambia en el primer ingreso
-            var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, HashContrasena.Generar(Guid.NewGuid().ToString("N")),
+            var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, hasher.HashearPassword(Guid.NewGuid().ToString("N")),
                 perfil.Id, tenant.OperadorId);
             var repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, tenant.OperadorId, dto.Documento, dto.Telefono, dto.VehiculoAsignadoId, estado);
 

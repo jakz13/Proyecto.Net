@@ -41,6 +41,9 @@ public static class DependencyInjection
         services.AddScoped<ILoteImportacionRepository, EfLoteImportacionRepository>();
         services.AddScoped<ISolicitudReprogramacionRepository, EfSolicitudReprogramacionRepository>();
         services.AddScoped<IIncidenciaRepository, EfIncidenciaRepository>();
+        services.AddScoped<IUsuarioRepository, EfUsuarioRepository>();
+        services.AddScoped<IReglaOperativaRepository, EfReglaOperativaRepository>();
+        services.AddScoped<IMotivoNoEntregaRepository, EfMotivoNoEntregaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
 
@@ -49,6 +52,8 @@ public static class DependencyInjection
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
+        services.AddSingleton<ITokenJwtService, TokenJwtService>();
 
         return services;
     }

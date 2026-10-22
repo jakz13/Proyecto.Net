@@ -19,7 +19,7 @@ public class MockIncidenciasApi : IIncidenciasApi
             Severidad = "Alta",
             Estado = "Abierta",
             Descripcion = "Pinchadura múltiple y daño en tren delantero del utilitario en Av. Italia esq. Propios. Vehículo detenido.",
-            VehiculoMatricula = "STX-1029",
+            VehiculoMatricula = "STX 1029",
             RepartidorNombre = "Lucía Fernández",
             HojaDeRutaId = Guid.Parse("aaaaaaaa-0001-0000-0000-000000000001"),
             NumeroRuta = "HR-2026-0101",
@@ -50,7 +50,7 @@ public class MockIncidenciasApi : IIncidenciasApi
             HojaDeRutaId = Guid.Parse("aaaaaaaa-0001-0000-0000-000000000001"),
             NumeroRuta = "HR-2026-0101",
             RepartidorNombre = "Lucía Fernández",
-            VehiculoMatricula = "STX-1029",
+            VehiculoMatricula = "STX 1029",
             DespachadorRegistro = "Felipe Bernardi",
             HistorialSeguimiento = new List<EntradaBitacoraIncidenciaDto>
             {
@@ -84,7 +84,7 @@ public class MockIncidenciasApi : IIncidenciasApi
             HojaDeRutaId = Guid.Parse("aaaaaaaa-0002-0000-0000-000000000002"),
             NumeroRuta = "HR-2026-0100",
             RepartidorNombre = "Martín Silva",
-            VehiculoMatricula = "UR-3042",
+            VehiculoMatricula = "SAA 3042",
             DespachadorRegistro = "Felipe Bernardi",
             DespachadorCierre = "Felipe Bernardi",
             ResolucionDetalle = "Se reasignó la ruta al repartidor de reserva y se notificó a los destinatarios de los nuevos horarios estimados.",

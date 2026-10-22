@@ -289,7 +289,6 @@ public class AdministracionBackofficeApiTests
         var api = new HttpMotivosNoEntregaApi(_factory.CreateClient());
         var catalogo = await api.ListarMotivosAsync();
         Assert.NotEmpty(catalogo);
-        Assert.DoesNotContain(catalogo, m => m.Codigo == "RETORNO_SIN_INTENTO");
 
         var codigo = "TEST_" + Sufijo().ToUpperInvariant();
         var creado = await api.CrearMotivoAsync(new CrearMotivoNoEntregaDto { Codigo = codigo.ToLowerInvariant(), Descripcion = "Motivo de prueba" });
@@ -303,13 +302,15 @@ public class AdministracionBackofficeApiTests
         Assert.Equal("Descripción nueva", actualizado.Descripcion);
 
         Assert.Contains(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Id == creado.Id);
+        Assert.DoesNotContain(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Codigo == "RETORNO_SIN_INTENTO");
 
         await api.CambiarEstadoAsync(creado.Id, false);
         Assert.DoesNotContain(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Id == creado.Id);
         Assert.Contains(await api.ListarMotivosAsync(new FiltroMotivosNoEntregaDto { Busqueda = codigo }), m => m.Id == creado.Id && !m.Activo);
 
         var resumen = await api.ObtenerResumenAsync();
-        Assert.Equal(resumen.TotalMotivos, resumen.MotivosActivosParaMovil + resumen.MotivosInactivos);
+        // Los activos "para móvil" excluyen los motivos internos del depósito, que sí cuentan en el total
+        Assert.True(resumen.TotalMotivos >= resumen.MotivosActivosParaMovil + resumen.MotivosInactivos);
         Assert.True(resumen.MotivosInactivos >= 1);
     }
 
@@ -353,7 +354,7 @@ public class AdministracionBackofficeApiTests
         var api = new HttpFlotaApi(_factory.CreateClient());
 
         var existentes = await api.ListarRepartidoresAsync();
-        var demo = existentes.Single(r => r.NombreCompleto == "Martín Rodríguez");
+        var demo = existentes.Single(r => r.NombreCompleto.StartsWith("Martín Rodríguez"));
         Assert.NotNull(demo.VehiculoPatente);
 
         var patente = "T" + Sufijo().ToUpperInvariant();

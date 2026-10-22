@@ -43,30 +43,21 @@
 <div class="row g-3 mb-4">
     <div class="col-12 col-sm-6 col-xl-4">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="text-secondary small fw-semibold">Rutas Listas para Despacho</span>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">En Espera</span>
-            </div>
+            <span class="text-secondary small fw-semibold mb-1">Rutas Listas para Despacho</span>
             <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Count</div>
             <div class="text-muted small mt-1">Hojas de ruta liberadas para verificación</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-4">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="text-secondary small fw-semibold">Bultos a Cargar</span>
-                <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-semibold" style="color: #92400E !important;">En Muelle</span>
-            </div>
+            <span class="text-secondary small fw-semibold mb-1">Bultos a Cargar</span>
             <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.CantidadParadas)</div>
             <div class="text-muted small mt-1">Paquetes sincronizados para estiba</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-4">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="text-secondary small fw-semibold">Carga Total Estimada</span>
-                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Capacidad</span>
-            </div>
+            <span class="text-secondary small fw-semibold mb-1">Carga Total Estimada</span>
             <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.PesoTotalKg).ToString("N1") <span class="fs-6 text-muted font-monospace">kg</span></div>
             <div class="text-muted small mt-1">Volumen: @Model.RutasPendientes.Sum(r => r.VolumenTotalM3).ToString("N2") m³</div>
         </div>
@@ -79,7 +70,7 @@
         <h2 class="h6 fw-bold mb-0 text-dark">
             Hojas de Ruta Listas para Salida
         </h2>
-        <span class="badge bg-light text-secondary border font-monospace">
+        <span class="text-secondary small font-monospace fw-semibold">
             @Model.RutasPendientes.Count pendientes
         </span>
     </div>
@@ -92,7 +83,7 @@
                     <th style="width: 15%;">Fecha / Turno</th>
                     <th style="width: 25%;">Repartidor y Vehículo</th>
                     <th class="text-center" style="width: 12%;">Bultos</th>
-                    <th style="width: 18%;">Peso / Ocupación</th>
+                    <th style="width: 18%;">Peso</th>
                     <th class="text-end" style="width: 15%;">Acción de Muelle</th>
                 </tr>
             </thead>
@@ -119,34 +110,29 @@
                         <tr>
                             <td>
                                 <div class="fw-bold text-dark font-monospace">@ruta.NumeroRuta</div>
-                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
-                                    ● @ruta.Estado
-                                </span>
+                                <div class="small estado-intermedio">@ruta.Estado</div>
                             </td>
                             <td>
                                 <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
-                                <span class="badge @(ruta.ViajeNumero > 1 ? "bg-warning-subtle border border-warning-subtle" : "bg-light text-secondary border")" style="font-size: 0.7rem; @(ruta.ViajeNumero > 1 ? "color: #92400E !important;" : "")">
+                                <div class="small @(ruta.ViajeNumero > 1 ? "estado-intermedio" : "text-secondary")">
                                     Viaje @ruta.ViajeNumero · @ruta.Turno
-                                </span>
+                                </div>
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark small">@ruta.RepartidorNombre</div>
-                                <div class="text-muted small" style="font-size: 0.75rem;">
-                                    <span class="badge bg-dark-subtle text-dark border font-monospace me-1">@ruta.VehiculoMatricula</span>
+                                <div class="text-muted small">
+                                    <span class="font-monospace fw-semibold text-secondary me-1">(@ruta.VehiculoMatricula)</span>
                                     <span>@ruta.VehiculoModelo</span>
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-light text-dark border px-2 py-1 fw-bold font-monospace" style="font-size: 0.85rem;">
+                                <span class="fw-bold font-monospace text-dark">
                                     @ruta.CantidadParadas
                                 </span>
-                                <div class="text-muted" style="font-size: 0.68rem;">bultos escaneados</div>
+                                <div class="text-muted small" style="font-size: 0.725rem;">bultos escaneados</div>
                             </td>
                             <td>
-                                <div class="small text-dark fw-semibold">@ruta.PesoTotalKg.ToString("N1") / @ruta.CapacidadPesoMaxKg.ToString("N0") kg</div>
-                                <div class="progress mt-1" style="height: 6px;">
-                                    <div class="progress-bar bg-success" style="width: @ruta.PorcentajeOcupacionPeso%"></div>
-                                </div>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1")kg / @ruta.CapacidadPesoMaxKg.ToString("N0")kg</span>
                             </td>
                             <td class="text-end">
                                 <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-1">
