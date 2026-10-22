@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
+using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
@@ -45,6 +46,12 @@ public class AppDbContext : DbContext
     public DbSet<SolicitudReprogramacion> SolicitudesReprogramacion => Set<SolicitudReprogramacion>();
     public DbSet<Incidencia> Incidencias => Set<Incidencia>();
     public DbSet<NotaIncidencia> NotasIncidencia => Set<NotaIncidencia>();
+    public DbSet<ZonaCobertura> ZonasCobertura => Set<ZonaCobertura>();
+    public DbSet<IdentidadVisual> IdentidadesVisuales => Set<IdentidadVisual>();
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Perfil> Perfiles => Set<Perfil>();
+    public DbSet<Permiso> Permisos => Set<Permiso>();
+    public DbSet<MensajeFallidoCola> MensajesFallidos => Set<MensajeFallidoCola>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +137,9 @@ public class AppDbContext : DbContext
             builder.Property(c => c.Documento).IsRequired().HasMaxLength(50);
             builder.Property(c => c.Email).IsRequired().HasMaxLength(200);
             builder.Property(c => c.Telefono).IsRequired().HasMaxLength(50);
+            builder.Property(c => c.NombreFantasia).IsRequired().HasMaxLength(200).HasDefaultValue(string.Empty);
+            builder.Property(c => c.Direccion).IsRequired().HasMaxLength(300).HasDefaultValue(string.Empty);
+            builder.Property(c => c.SelloModificacion).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<ComercioOperador>(builder =>
@@ -333,6 +343,79 @@ public class AppDbContext : DbContext
             builder.ToTable("NotasIncidencia");
             builder.HasKey(n => n.Id);
             builder.Property(n => n.Comentario).IsRequired().HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<ZonaCobertura>(builder =>
+        {
+            builder.ToTable("ZonasCobertura");
+            builder.HasKey(z => z.Id);
+            builder.HasIndex(z => z.OperadorId);
+            builder.Property(z => z.Nombre).IsRequired().HasMaxLength(150);
+            builder.Property(z => z.PoligonoGeografico).IsRequired();
+            builder.Property(z => z.ColorHex).IsRequired().HasMaxLength(20);
+            builder.HasMany(z => z.FranjasHorarias).WithOne().HasForeignKey(f => f.ZonaCoberturaId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(z => z.FranjasHorarias).AutoInclude();
+        });
+
+        modelBuilder.Entity<IdentidadVisual>(builder =>
+        {
+            builder.ToTable("IdentidadesVisuales");
+            builder.HasKey(i => i.Id);
+            // Cada operador tiene una única identidad visual
+            builder.HasIndex(i => i.OperadorId).IsUnique();
+            builder.Property(i => i.ColorPrimario).IsRequired().HasMaxLength(20);
+            builder.Property(i => i.ColorSecundario).IsRequired().HasMaxLength(20);
+            builder.Property(i => i.EmailContacto).IsRequired().HasMaxLength(200);
+            builder.Property(i => i.TelefonoContacto).IsRequired().HasMaxLength(50);
+            builder.Property(i => i.LogoUrl).HasMaxLength(500);
+            builder.Property(i => i.SitioWeb).HasMaxLength(300);
+            builder.Property(i => i.MensajeComunicaciones).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<Usuario>(builder =>
+        {
+            builder.ToTable("Usuarios");
+            builder.HasKey(u => u.Id);
+            builder.HasIndex(u => u.Email).IsUnique();
+            builder.Property(u => u.Nombre).IsRequired().HasMaxLength(150);
+            builder.Property(u => u.Email).IsRequired().HasMaxLength(200);
+            builder.Property(u => u.PasswordHash).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<Perfil>(builder =>
+        {
+            builder.ToTable("Perfiles");
+            builder.HasKey(p => p.Id);
+            builder.HasIndex(p => p.Nombre).IsUnique();
+            builder.Property(p => p.Nombre).IsRequired().HasMaxLength(100);
+            builder.Property(p => p.Descripcion).IsRequired().HasMaxLength(300);
+            builder.HasMany(p => p.Permisos).WithOne().HasForeignKey(pp => pp.PerfilId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(p => p.Permisos).AutoInclude();
+        });
+
+        modelBuilder.Entity<Permiso>(builder =>
+        {
+            builder.ToTable("Permisos");
+            builder.HasKey(p => p.Id);
+            builder.HasIndex(p => p.Codigo).IsUnique();
+            builder.Property(p => p.Codigo).IsRequired().HasMaxLength(100);
+            builder.Property(p => p.Descripcion).IsRequired().HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<PerfilPermiso>(builder =>
+        {
+            builder.ToTable("PerfilesPermisos");
+            builder.HasKey(pp => new { pp.PerfilId, pp.PermisoId });
+        });
+
+        modelBuilder.Entity<MensajeFallidoCola>(builder =>
+        {
+            builder.ToTable("MensajesFallidosCola");
+            builder.HasKey(m => m.Id);
+            builder.HasIndex(m => m.Estado);
+            builder.Property(m => m.TipoMensaje).IsRequired().HasMaxLength(100);
+            builder.Property(m => m.ColaOrigen).IsRequired().HasMaxLength(100);
+            builder.Property(m => m.Estado).IsRequired().HasMaxLength(30);
         });
 
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base

@@ -18,6 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Application\UltimaMilla.Application.csproj" />
     <ProjectReference Include="..\Infrastructure\UltimaMilla.Infrastructure.csproj" />
+    <!-- Contratos compartidos con el frontend: la API de administración responde con los mismos DTOs que consumen los clientes HTTP -->
+    <ProjectReference Include="..\Web\Frontend.Contracts\UltimaMilla.Frontend.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

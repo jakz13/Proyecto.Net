@@ -45,6 +45,7 @@ public static class DatabaseSeeder
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
             await SembrarOperacionAsync(context, logger, cancellationToken);
+            await DatabaseSeederAdministracion.SembrarAsync(context, logger, cancellationToken);
             return;
         }
 
@@ -256,6 +257,7 @@ public static class DatabaseSeeder
         logger.LogInformation("DatabaseSeeder: Datos semilla para la demo insertados con éxito en PostgreSQL (HojaDeRutaId: {RutaId}).", DefaultHojaDeRutaId);
 
         await SembrarOperacionAsync(context, logger, cancellationToken);
+        await DatabaseSeederAdministracion.SembrarAsync(context, logger, cancellationToken);
     }
 
     /// <summary>Recepciona y clasifica los bultos del envío, como ocurriría en depósito antes de armar una hoja de ruta.</summary>

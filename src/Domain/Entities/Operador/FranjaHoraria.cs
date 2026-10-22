@@ -10,6 +10,7 @@ public class FranjaHoraria : Entity
     public TimeOnly HoraInicio { get; private set; }
     public TimeOnly HoraFin { get; private set; }
     public bool Activa { get; private set; }
+    public int CapacidadMaximaEnvios { get; private set; } = 30;
 
     protected FranjaHoraria() { }
 
@@ -18,7 +19,8 @@ public class FranjaHoraria : Entity
         Guid zonaCoberturaId,
         DayOfWeek diaSemana,
         TimeOnly horaInicio,
-        TimeOnly horaFin) : base(id)
+        TimeOnly horaFin,
+        int capacidadMaximaEnvios = 30) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
@@ -33,6 +35,10 @@ public class FranjaHoraria : Entity
         DiaSemana = diaSemana;
         HoraInicio = horaInicio;
         HoraFin = horaFin;
+        if (capacidadMaximaEnvios <= 0)
+            throw new DomainValidationException("La capacidad máxima de envíos debe ser mayor a cero.");
+
+        CapacidadMaximaEnvios = capacidadMaximaEnvios;
         Activa = true;
     }
 

@@ -11,6 +11,8 @@ public class IdentidadVisual : Entity, IMustHaveTenant
     public string ColorSecundario { get; private set; } = string.Empty;
     public string EmailContacto { get; private set; } = string.Empty;
     public string TelefonoContacto { get; private set; } = string.Empty;
+    public string? SitioWeb { get; private set; }
+    public string? MensajeComunicaciones { get; private set; }
 
     protected IdentidadVisual() { }
 
@@ -71,6 +73,12 @@ public class IdentidadVisual : Entity, IMustHaveTenant
 
         EmailContacto = emailContacto.Trim().ToLowerInvariant();
         TelefonoContacto = telefonoContacto.Trim();
+    }
+
+    public void ActualizarComunicaciones(string? sitioWeb, string? mensajeComunicaciones)
+    {
+        SitioWeb = string.IsNullOrWhiteSpace(sitioWeb) ? null : sitioWeb.Trim();
+        MensajeComunicaciones = string.IsNullOrWhiteSpace(mensajeComunicaciones) ? null : mensajeComunicaciones.Trim();
     }
 
     public void ActualizarLogo(string? logoUrl)

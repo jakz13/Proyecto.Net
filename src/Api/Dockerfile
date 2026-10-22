@@ -6,6 +6,7 @@ COPY UltimaMilla.sln ./
 COPY src/Domain/UltimaMilla.Domain.csproj src/Domain/
 COPY src/Application/UltimaMilla.Application.csproj src/Application/
 COPY src/Infrastructure/UltimaMilla.Infrastructure.csproj src/Infrastructure/
+COPY src/Web/Frontend.Contracts/UltimaMilla.Frontend.Contracts.csproj src/Web/Frontend.Contracts/
 COPY src/Api/UltimaMilla.Api.csproj src/Api/
 
 RUN dotnet restore src/Api/UltimaMilla.Api.csproj
@@ -14,6 +15,7 @@ RUN dotnet restore src/Api/UltimaMilla.Api.csproj
 COPY src/Domain/ src/Domain/
 COPY src/Application/ src/Application/
 COPY src/Infrastructure/ src/Infrastructure/
+COPY src/Web/Frontend.Contracts/ src/Web/Frontend.Contracts/
 COPY src/Api/ src/Api/
 
 WORKDIR /source/src/Api

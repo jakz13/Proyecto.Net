@@ -9,6 +9,11 @@ public class Comercio : AggregateRoot
     public string Documento { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string Telefono { get; private set; } = string.Empty;
+    public string NombreFantasia { get; private set; } = string.Empty;
+    public string Direccion { get; private set; } = string.Empty;
+
+    /// <summary>Cambia en cada modificación: permite detectar que otra persona editó el comercio (concurrencia optimista).</summary>
+    public Guid SelloModificacion { get; private set; } = Guid.NewGuid();
 
     protected Comercio() { }
 
@@ -17,7 +22,9 @@ public class Comercio : AggregateRoot
         string razonSocial,
         string documento,
         string email,
-        string telefono) : base(id)
+        string telefono,
+        string? nombreFantasia = null,
+        string? direccion = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del comercio no puede ser vacío.");
@@ -38,6 +45,18 @@ public class Comercio : AggregateRoot
         Documento = documento.Trim();
         Email = email.Trim().ToLowerInvariant();
         Telefono = telefono.Trim();
+        NombreFantasia = nombreFantasia?.Trim() ?? string.Empty;
+        Direccion = direccion?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>Actualiza todos los datos editables desde el backoffice y renueva el sello de modificación.</summary>
+    public void ActualizarPerfil(string razonSocial, string nombreFantasia, string email, string telefono, string direccion)
+    {
+        ActualizarDatos(razonSocial, Documento);
+        ActualizarContacto(email, telefono);
+        NombreFantasia = nombreFantasia?.Trim() ?? string.Empty;
+        Direccion = direccion?.Trim() ?? string.Empty;
+        SelloModificacion = Guid.NewGuid();
     }
 
     public void ActualizarContacto(string email, string telefono)

@@ -67,6 +67,14 @@ public class Repartidor : Entity, IMustHaveTenant
         Estado = nuevoEstado.Trim();
     }
 
+    public void ActualizarDocumento(string documento)
+    {
+        if (string.IsNullOrWhiteSpace(documento))
+            throw new DomainValidationException("El documento del repartidor no puede ser vacío.");
+
+        Documento = documento.Trim();
+    }
+
     public void ActualizarContacto(string telefono)
     {
         if (string.IsNullOrWhiteSpace(telefono))

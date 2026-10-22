@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Api\UltimaMilla.Api.csproj" />
+    <ProjectReference Include="..\..\src\Web\Frontend.Infrastructure\UltimaMilla.Frontend.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

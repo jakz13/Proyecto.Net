@@ -58,6 +58,18 @@ public class Vehiculo : Entity, IMustHaveTenant
         Activo = false;
     }
 
+    public void ActualizarDatos(string patente, string tipo)
+    {
+        if (string.IsNullOrWhiteSpace(patente))
+            throw new DomainValidationException("La patente del vehículo no puede ser vacía.");
+
+        if (string.IsNullOrWhiteSpace(tipo))
+            throw new DomainValidationException("El tipo de vehículo no puede ser vacío.");
+
+        Patente = patente.Trim().ToUpperInvariant();
+        Tipo = tipo.Trim();
+    }
+
     public void ActualizarCapacidades(decimal capacidadPeso, decimal capacidadVolumen)
     {
         if (capacidadPeso <= 0)
