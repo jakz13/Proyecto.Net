@@ -42,6 +42,8 @@ public static class DependencyInjection
         services.AddScoped<ISolicitudReprogramacionRepository, EfSolicitudReprogramacionRepository>();
         services.AddScoped<IIncidenciaRepository, EfIncidenciaRepository>();
         services.AddScoped<IUsuarioRepository, EfUsuarioRepository>();
+        services.AddScoped<IReglaOperativaRepository, EfReglaOperativaRepository>();
+        services.AddScoped<IMotivoNoEntregaRepository, EfMotivoNoEntregaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
 

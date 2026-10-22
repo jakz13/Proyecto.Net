@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -334,6 +334,9 @@ app.MapConsultasEnvioEndpoints();
 
 // Registrar gestión de incidencias (UC-11)
 app.MapIncidenciasEndpoints();
+
+// Registrar reglas operativas y motivos de no entrega (UC-04, UC-05)
+app.MapOperadorConfiguracionEndpoints();
 
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
