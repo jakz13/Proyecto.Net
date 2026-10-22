@@ -346,6 +346,7 @@ app.MapMotivosNoEntregaEndpoints();
 app.MapIdentidadVisualEndpoints();
 app.MapFlotaEndpoints();
 app.MapMensajeriaEndpoints();
+app.MapReasignacionesEndpoints();
 
 await app.RunAsync();
 

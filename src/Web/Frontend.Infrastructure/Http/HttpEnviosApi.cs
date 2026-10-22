@@ -54,7 +54,7 @@ public class HttpEnviosApi : IEnviosApi
         var elementos = listaApi.Select(e => new EnvioDto
         {
             Id = e.Id,
-            CodigoSeguimiento = $"ENV-{e.Id.ToString()[..8].ToUpperInvariant()}",
+            CodigoSeguimiento = !string.IsNullOrWhiteSpace(e.CodigoSeguimiento) ? e.CodigoSeguimiento : $"ENV-{e.Id.ToString()[..8].ToUpperInvariant()}",
             NombreDestinatario = e.NombreDestinatario,
             DireccionDestino = e.DireccionDestino,
             FechaCreacion = e.FechaCreacion,
@@ -363,7 +363,7 @@ public class HttpEnviosApi : IEnviosApi
         return EstadoEnvioDto.Admitido;
     }
 
-    private record EnvioResumenApiDto(Guid Id, Guid ComercioId, string DireccionDestino, string NombreDestinatario, DateTime FechaCreacion, string Estado);
+    private record EnvioResumenApiDto(Guid Id, Guid ComercioId, string DireccionDestino, string NombreDestinatario, DateTime FechaCreacion, string Estado, string? CodigoSeguimiento = null);
 
     private record DetalleEnvioApiDto(
         Guid EnvioId,
