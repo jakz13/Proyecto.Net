@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Ports;
@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<ILoteImportacionRepository, EfLoteImportacionRepository>();
         services.AddScoped<ISolicitudReprogramacionRepository, EfSolicitudReprogramacionRepository>();
         services.AddScoped<IIncidenciaRepository, EfIncidenciaRepository>();
+        services.AddScoped<IReglaOperativaRepository, EfReglaOperativaRepository>();
+        services.AddScoped<IMotivoNoEntregaRepository, EfMotivoNoEntregaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
 
