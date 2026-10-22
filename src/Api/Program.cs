@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using UltimaMilla.Api.Auth;
+using UltimaMilla.Api.Backoffice;
 using UltimaMilla.Api.Endpoints;
 using UltimaMilla.Application;
 using UltimaMilla.Application.Commands.AltaEnvio;
@@ -334,6 +335,17 @@ app.MapIncidenciasEndpoints();
 
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
+
+// Administración del operador para el Backoffice (comercios, usuarios, zonas, tarifas, reglas, motivos, identidad, flota y mensajería)
+app.MapComerciosBackofficeEndpoints();
+app.MapUsuariosBackofficeEndpoints();
+app.MapZonasCoberturaEndpoints();
+app.MapCuadroTarifarioEndpoints();
+app.MapReglasOperativasEndpoints();
+app.MapMotivosNoEntregaEndpoints();
+app.MapIdentidadVisualEndpoints();
+app.MapFlotaEndpoints();
+app.MapMensajeriaEndpoints();
 
 await app.RunAsync();
 

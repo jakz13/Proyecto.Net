@@ -12,6 +12,7 @@ public class MotivoNoEntrega : Entity, IMustHaveTenant
 
     /// <summary>Los motivos internos los usa el personal de depósito y no se ofrecen en la app del repartidor.</summary>
     public bool EsInterno { get; private set; }
+    public DateTime FechaAlta { get; private set; } = DateTime.UtcNow;
 
     protected MotivoNoEntrega() { }
 

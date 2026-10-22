@@ -9,6 +9,7 @@ public class CuadroTarifario : AggregateRoot, IMustHaveTenant
     public int Version { get; private set; }
     public DateTime VigenteDesde { get; private set; }
     public DateTime? VigenteHasta { get; private set; }
+    public string? Comentario { get; private set; }
 
     private readonly List<ReglaTarifa> _reglasTarifa = new();
     public IReadOnlyCollection<ReglaTarifa> ReglasTarifa => _reglasTarifa.AsReadOnly();
@@ -38,6 +39,11 @@ public class CuadroTarifario : AggregateRoot, IMustHaveTenant
         Version = version;
         VigenteDesde = vigenteDesde;
         VigenteHasta = vigenteHasta;
+    }
+
+    public void RegistrarComentario(string? comentario)
+    {
+        Comentario = string.IsNullOrWhiteSpace(comentario) ? null : comentario.Trim();
     }
 
     public void AgregarRegla(ReglaTarifa regla)

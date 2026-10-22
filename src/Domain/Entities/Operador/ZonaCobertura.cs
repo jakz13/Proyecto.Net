@@ -9,6 +9,8 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
     public string Nombre { get; private set; } = string.Empty;
     public string PoligonoGeografico { get; private set; } = string.Empty;
     public bool Activa { get; private set; }
+    public string ColorHex { get; private set; } = "#2563eb";
+    public DateTime FechaCreacion { get; private set; } = DateTime.UtcNow;
 
     private readonly List<FranjaHoraria> _franjasHorarias = new();
     public IReadOnlyCollection<FranjaHoraria> FranjasHorarias => _franjasHorarias.AsReadOnly();
@@ -47,6 +49,21 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
     public void Desactivar()
     {
         Activa = false;
+    }
+
+    public void ActualizarDatos(string nombre, string colorHex)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+            throw new DomainValidationException("El nombre de la zona de cobertura no puede ser vacío.");
+
+        Nombre = nombre.Trim();
+        if (!string.IsNullOrWhiteSpace(colorHex))
+            ColorHex = colorHex.Trim();
+    }
+
+    public void QuitarFranjasHorarias()
+    {
+        _franjasHorarias.Clear();
     }
 
     public void ActualizarPoligono(string nuevoPoligono)

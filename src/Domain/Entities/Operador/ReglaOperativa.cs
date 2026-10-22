@@ -16,6 +16,7 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public TimeSpan PlazoComprometidoEstandar { get; private set; }
     public TimeSpan PlazoComprometidoUrgente { get; private set; }
     public int MaxParadasPorRuta { get; private set; } = 50;
+    public string? Comentario { get; private set; }
 
     protected ReglaOperativa() { }
 
@@ -62,6 +63,11 @@ public class ReglaOperativa : Entity, IMustHaveTenant
         PlazoComprometidoEstandar = plazoComprometidoEstandar;
         PlazoComprometidoUrgente = plazoComprometidoUrgente;
         MaxParadasPorRuta = maxParadasPorRuta;
+    }
+
+    public void RegistrarComentario(string? comentario)
+    {
+        Comentario = string.IsNullOrWhiteSpace(comentario) ? null : comentario.Trim();
     }
 
     public void FinalizarVigencia(DateTime fechaFin)
