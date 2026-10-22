@@ -628,3 +628,260 @@ body {
     font-size: 0.85rem;
     padding: 0.4rem 1rem;
 }
+
+/* ==========================================================================
+   Componente Universal de Notificaciones Toast Flotantes y Panel de Detalle
+   ========================================================================== */
+#contenedorNotificacionesToast {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 1095;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    pointer-events: none;
+    width: 380px;
+    max-width: calc(100vw - 2.5rem);
+}
+
+.toast-notificacion {
+    pointer-events: auto;
+    cursor: pointer;
+    background: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+    border: 1px solid #E2E8F0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, opacity 0.25s ease;
+    animation: animEntradaToast 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-notificacion:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -4px rgba(15, 23, 42, 0.16), 0 10px 12px -4px rgba(15, 23, 42, 0.1);
+}
+
+.toast-notificacion.toast-saliendo {
+    animation: animSalidaToast 0.3s ease forwards;
+}
+
+.toast-notificacion.tipo-exito  { border-left: 5px solid #10B981; }
+.toast-notificacion.tipo-error  { border-left: 5px solid #EF4444; }
+.toast-notificacion.tipo-alerta { border-left: 5px solid #F59E0B; }
+.toast-notificacion.tipo-info   { border-left: 5px solid #3B82F6; }
+
+.toast-cuerpo {
+    padding: 0.9rem 1rem 0.75rem 1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.toast-icono {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tipo-exito .toast-icono  { background-color: #ECFDF5; color: #10B981; }
+.tipo-error .toast-icono  { background-color: #FEF2F2; color: #EF4444; }
+.tipo-alerta .toast-icono { background-color: #FFFBEB; color: #F59E0B; }
+.tipo-info .toast-icono   { background-color: #EFF6FF; color: #3B82F6; }
+
+.toast-contenido {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.toast-titulo {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.3;
+    margin-bottom: 0.2rem;
+}
+
+.toast-mensaje {
+    font-size: 0.8125rem;
+    color: #475569;
+    line-height: 1.4;
+    margin-bottom: 0.35rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.toast-indicador-clic {
+    font-size: 0.7rem;
+    color: #2563EB;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.toast-btn-cerrar {
+    background: none;
+    border: none;
+    color: #94A3B8;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+}
+
+.toast-btn-cerrar:hover {
+    color: #0F172A;
+    background-color: #F1F5F9;
+}
+
+.toast-progreso-barra {
+    height: 3px;
+    width: 100%;
+    background-color: #F1F5F9;
+    overflow: hidden;
+}
+
+.toast-progreso-relleno {
+    height: 100%;
+    width: 100%;
+    transform-origin: left;
+    transition: width linear;
+}
+
+.tipo-exito .toast-progreso-relleno  { background-color: #10B981; }
+.tipo-error .toast-progreso-relleno  { background-color: #EF4444; }
+.tipo-alerta .toast-progreso-relleno { background-color: #F59E0B; }
+.tipo-info .toast-progreso-relleno   { background-color: #3B82F6; }
+
+/* Offcanvas Drawer de Detalle */
+.panel-notificacion-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 1100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.panel-notificacion-overlay.activo {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.panel-notificacion-lateral {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 480px;
+    max-width: 100vw;
+    height: 100vh;
+    background: #FFFFFF;
+    box-shadow: -10px 0 30px rgba(15, 23, 42, 0.2);
+    z-index: 1105;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-notificacion-lateral.abierto {
+    transform: translateX(0);
+}
+
+.panel-notificacion-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #F8FAFC;
+}
+
+.panel-notificacion-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.panel-notificacion-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #E2E8F0;
+    background-color: #F8FAFC;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.panel-estadisticas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.panel-stat-card {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 0.85rem;
+    text-align: center;
+}
+
+.panel-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #64748B;
+    margin-bottom: 0.25rem;
+}
+
+.panel-stat-valor {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+@keyframes animEntradaToast {
+    from {
+        opacity: 0;
+        transform: translateX(40px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes animSalidaToast {
+    from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(40px) scale(0.95);
+    }
+}

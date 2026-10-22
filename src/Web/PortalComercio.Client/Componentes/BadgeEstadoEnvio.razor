@@ -1,8 +1,7 @@
 @using UltimaMilla.Frontend.Contracts.Enums
 
-<span class="badge-estado @ObtenerClaseCssPorEstado(Estado) @(EsGrande ? "fs-6 px-3 py-2" : "")" role="status">
-    <span class="me-1">●</span>
-    <span>@ObtenerTextoLegiblePorEstado(Estado)</span>
+<span class="@ObtenerClaseCssPorEstado(Estado) @(EsGrande ? "fs-6" : "")" role="status">
+    @ObtenerTextoLegiblePorEstado(Estado)
 </span>
 
 @code {
@@ -14,17 +13,9 @@
 
     private static string ObtenerClaseCssPorEstado(EstadoEnvioDto estado) => estado switch
     {
-        EstadoEnvioDto.Admitido => "badge-estado-admitido",
-        EstadoEnvioDto.EnDeposito => "badge-estado-endeposito",
-        EstadoEnvioDto.AsignadoARuta => "badge-estado-asignadoaruta",
-        EstadoEnvioDto.EnTransito => "badge-estado-entransito",
-        EstadoEnvioDto.Entregado => "badge-estado-entregado",
-        EstadoEnvioDto.NoEntregado => "badge-estado-noentregado",
-        EstadoEnvioDto.Reprogramado => "badge-estado-reprogramado",
-        EstadoEnvioDto.EnDevolucion => "badge-estado-endevolucion",
-        EstadoEnvioDto.Devuelto => "badge-estado-devuelto",
-        EstadoEnvioDto.Extraviado => "badge-estado-extraviado",
-        _ => "badge-estado-admitido"
+        EstadoEnvioDto.Entregado => "estado-entregado",
+        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Extraviado => "estado-fallo",
+        _ => "estado-intermedio"
     };
 
     private static string ObtenerTextoLegiblePorEstado(EstadoEnvioDto estado) => estado switch

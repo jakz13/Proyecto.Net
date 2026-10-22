@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
@@ -45,6 +46,10 @@ public class AppDbContext : DbContext
     public DbSet<SolicitudReprogramacion> SolicitudesReprogramacion => Set<SolicitudReprogramacion>();
     public DbSet<Incidencia> Incidencias => Set<Incidencia>();
     public DbSet<NotaIncidencia> NotasIncidencia => Set<NotaIncidencia>();
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Perfil> Perfiles => Set<Perfil>();
+    public DbSet<Permiso> Permisos => Set<Permiso>();
+    public DbSet<PerfilPermiso> PerfilPermisos => Set<PerfilPermiso>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -333,6 +338,49 @@ public class AppDbContext : DbContext
             builder.ToTable("NotasIncidencia");
             builder.HasKey(n => n.Id);
             builder.Property(n => n.Comentario).IsRequired().HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<Usuario>(builder =>
+        {
+            builder.ToTable("Usuarios");
+            builder.HasKey(u => u.Id);
+            builder.Property(u => u.Nombre).IsRequired().HasMaxLength(150);
+            builder.Property(u => u.Email).IsRequired().HasMaxLength(200);
+            builder.HasIndex(u => u.Email).IsUnique();
+            builder.Property(u => u.PasswordHash).IsRequired().HasMaxLength(500);
+            builder.Property(u => u.Activo).IsRequired();
+            builder.Property(u => u.FechaAlta).IsRequired();
+            builder.Property(u => u.IntentosFallidos).IsRequired();
+            builder.Property(u => u.BloqueadoHasta);
+            builder.HasIndex(u => u.OperadorId);
+            builder.HasIndex(u => u.ComercioId);
+            builder.HasIndex(u => u.PerfilId);
+        });
+
+        modelBuilder.Entity<Perfil>(builder =>
+        {
+            builder.ToTable("Perfiles");
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Nombre).IsRequired().HasMaxLength(100);
+            builder.HasIndex(p => p.Nombre).IsUnique();
+            builder.Property(p => p.Descripcion).HasMaxLength(300);
+            builder.HasMany(p => p.Permisos).WithOne().HasForeignKey(pp => pp.PerfilId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(p => p.Permisos).AutoInclude();
+        });
+
+        modelBuilder.Entity<Permiso>(builder =>
+        {
+            builder.ToTable("Permisos");
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Codigo).IsRequired().HasMaxLength(100);
+            builder.HasIndex(p => p.Codigo).IsUnique();
+            builder.Property(p => p.Descripcion).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<PerfilPermiso>(builder =>
+        {
+            builder.ToTable("PerfilPermisos");
+            builder.HasKey(pp => new { pp.PerfilId, pp.PermisoId });
         });
 
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base

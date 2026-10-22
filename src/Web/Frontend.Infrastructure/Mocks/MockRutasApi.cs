@@ -202,7 +202,7 @@ public class MockRutasApi : IRutasApi
                 RepartidorId = Guid.Parse("33333333-3333-3333-3333-333333333301"),
                 RepartidorNombre = "Martín Cáceres",
                 VehiculoId = Guid.Parse("22222222-2222-2222-2222-222222222201"),
-                VehiculoMatricula = "STX-1204",
+                VehiculoMatricula = "STX 1204",
                 VehiculoModelo = "Peugeot Partner",
                 CapacidadPesoMaxKg = 650m,
                 CapacidadVolumenMaxM3 = 3.3m,

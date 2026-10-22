@@ -224,31 +224,33 @@ else
                                 <td class="text-center">
                                     @if (p.Estado == "NoEntregado")
                                     {
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                            No Entregado
-                                        </span>
+                                        <span class="estado-fallo">No Entregado</span>
                                         <div class="text-danger small mt-1" style="font-size: 0.68rem;">
                                             @p.MotivoNoEntrega
                                         </div>
                                     }
+                                    else if (p.Estado == "Entregado")
+                                    {
+                                        <span class="estado-entregado">Entregado</span>
+                                    }
                                     else if (p.Estado == "EnTransito")
                                     {
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                            En Tránsito
-                                        </span>
+                                        <span class="estado-intermedio">En Tránsito</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                            Asignado a Ruta
-                                        </span>
+                                        <span class="estado-intermedio">Asignado a Ruta</span>
                                     }
                                 </td>
                                 <td class="text-center">
                                     @if (p.Estado != "NoEntregado")
                                     {
                                         <button type="button" 
-                                                class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1 btn-reasignar"
+                                                class="btn btn-outline-danger btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center btn-reasignar"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                title="Reasignar Parada"
+                                                aria-label="Reasignar Parada"
                                                 data-envio-id="@p.EnvioId"
                                                 data-codigo="@p.CodigoSeguimiento"
                                                 data-destinatario="@p.Destinatario"
@@ -256,19 +258,16 @@ else
                                                 data-franja="@p.FranjaHoraria"
                                                 data-peso="@p.PesoKg.ToString("N1")"
                                                 data-volumen="@p.VolumenM3.ToString("N3")">
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <polyline points="23 4 23 10 17 10"></polyline>
                                                 <polyline points="1 20 1 14 7 14"></polyline>
                                                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                                             </svg>
-                                            <span>Reasignar</span>
                                         </button>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">
-                                            En retorno
-                                        </span>
+                                        <span class="text-muted small">En retorno</span>
                                     }
                                 </td>
                             </tr>

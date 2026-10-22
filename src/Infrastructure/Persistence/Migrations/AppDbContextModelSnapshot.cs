@@ -563,6 +563,120 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("LotesImportacion", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Perfil", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Perfiles", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.PerfilPermiso", b =>
+                {
+                    b.Property<Guid>("PerfilId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PermisoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("PerfilId", "PermisoId");
+
+                    b.ToTable("PerfilPermisos", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Permiso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("Permisos", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Usuario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("BloqueadoHasta")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ComercioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("FechaAlta")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IntentosFallidos")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid?>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("PerfilId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComercioId");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("OperadorId");
+
+                    b.HasIndex("PerfilId");
+
+                    b.ToTable("Usuarios", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.Incidencia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1159,6 +1273,15 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.PerfilPermiso", b =>
+                {
+                    b.HasOne("UltimaMilla.Domain.Entities.Identidad.Perfil", null)
+                        .WithMany("Permisos")
+                        .HasForeignKey("PerfilId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.NotaIncidencia", b =>
                 {
                     b.HasOne("UltimaMilla.Domain.Entities.Incidencias.Incidencia", null)
@@ -1209,6 +1332,11 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Navigation("Eventos");
 
                     b.Navigation("IntentosEntrega");
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Perfil", b =>
+                {
+                    b.Navigation("Permisos");
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.Incidencia", b =>

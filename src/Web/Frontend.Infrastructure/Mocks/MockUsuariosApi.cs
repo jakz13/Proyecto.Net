@@ -45,7 +45,7 @@ public class MockUsuariosApi : IUsuariosApi
         {
             Id = Guid.Parse("10101010-1010-1010-1010-101010101010"),
             Nombre = "Felipe Bernardi",
-            Email = "felipe.admin@operador.uy",
+            Email = "felipe.admin@gmail.com",
             PerfilId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             NombrePerfil = "Administrador",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
@@ -58,7 +58,7 @@ public class MockUsuariosApi : IUsuariosApi
         {
             Id = Guid.Parse("20202020-2020-2020-2020-202020202020"),
             Nombre = "Laura Rodríguez",
-            Email = "laura.despacho@operador.uy",
+            Email = "laura.despacho@gmail.com",
             PerfilId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
             NombrePerfil = "Despachador",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
@@ -71,7 +71,7 @@ public class MockUsuariosApi : IUsuariosApi
         {
             Id = Guid.Parse("30303030-3030-3030-3030-303030303030"),
             Nombre = "Carlos Méndez",
-            Email = "carlos.deposito@operador.uy",
+            Email = "carlos.deposito@gmail.com",
             PerfilId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
             NombrePerfil = "Operario",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
@@ -84,7 +84,7 @@ public class MockUsuariosApi : IUsuariosApi
         {
             Id = Guid.Parse("40404040-4040-4040-4040-404040404040"),
             Nombre = "Ana Fernández",
-            Email = "ana@distribuidoracentral.uy",
+            Email = "ana@gmail.com",
             PerfilId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
             NombrePerfil = "ComercioAdmin",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
@@ -97,7 +97,7 @@ public class MockUsuariosApi : IUsuariosApi
         {
             Id = Guid.Parse("50505050-5050-5050-5050-505050505050"),
             Nombre = "Pedro Morales",
-            Email = "pedro.inactivo@operador.uy",
+            Email = "pedro.inactivo@gmail.com",
             PerfilId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
             NombrePerfil = "Despachador",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
@@ -105,6 +105,19 @@ public class MockUsuariosApi : IUsuariosApi
             NombreComercio = null,
             Activo = false,
             FechaAlta = DateTime.UtcNow.AddMonths(-4)
+        },
+        new UsuarioDto
+        {
+            Id = Guid.Parse("60606060-6060-6060-6060-606060606060"),
+            Nombre = "Admin TransLogística",
+            Email = "admin2@gmail.com",
+            PerfilId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            NombrePerfil = "Administrador",
+            OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+            ComercioId = null,
+            NombreComercio = null,
+            Activo = true,
+            FechaAlta = DateTime.UtcNow.AddMonths(-1)
         }
     };
 

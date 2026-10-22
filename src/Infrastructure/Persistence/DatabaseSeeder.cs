@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
@@ -22,6 +24,18 @@ public static class DatabaseSeeder
     public static readonly Guid DefaultUsuarioRepartidorId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
     public static readonly Guid DefaultHojaDeRutaId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
+
+    // Identificadores de Perfiles del sistema (UC-40)
+    public static readonly Guid DefaultPerfilAdminId = Guid.Parse("10000000-0000-0000-0000-000000000001");
+    public static readonly Guid DefaultPerfilDespachadorId = Guid.Parse("10000000-0000-0000-0000-000000000002");
+    public static readonly Guid DefaultPerfilOperarioId = Guid.Parse("10000000-0000-0000-0000-000000000003");
+    public static readonly Guid DefaultPerfilRepartidorId = Guid.Parse("10000000-0000-0000-0000-000000000004");
+    public static readonly Guid DefaultPerfilComercioId = Guid.Parse("10000000-0000-0000-0000-000000000005");
+
+    // Segundo operador para demostrar multitenancy con configuración distinta (15/10)
+    public static readonly Guid Operador2Id = Guid.Parse("22222222-0000-0000-0000-000000000002");
+    public static readonly Guid ReglaOperativa2Id = Guid.Parse("44444444-0000-0000-0000-000000000002");
+    public static readonly Guid CuadroTarifario2Id = Guid.Parse("99999999-0000-0000-0000-000000000002");
 
     public static readonly Guid Parada1Id = Guid.Parse("bbbbbbbb-1111-2222-3333-000000000001");
     public static readonly Guid Parada2Id = Guid.Parse("bbbbbbbb-1111-2222-3333-000000000002");
@@ -45,6 +59,7 @@ public static class DatabaseSeeder
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
             await SembrarOperacionAsync(context, logger, cancellationToken);
+            await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
             return;
         }
 
@@ -256,6 +271,7 @@ public static class DatabaseSeeder
         logger.LogInformation("DatabaseSeeder: Datos semilla para la demo insertados con éxito en PostgreSQL (HojaDeRutaId: {RutaId}).", DefaultHojaDeRutaId);
 
         await SembrarOperacionAsync(context, logger, cancellationToken);
+        await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
     }
 
     /// <summary>Recepciona y clasifica los bultos del envío, como ocurriría en depósito antes de armar una hoja de ruta.</summary>
@@ -312,5 +328,105 @@ public static class DatabaseSeeder
 
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("DatabaseSeeder: cuadro tarifario y envíos de depósito sembrados (ENV-2026-00111 clasificado en depósito, ENV-2026-00112 admitido).");
+
+        await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Siembra los perfiles, permisos, segundo operador logístico (multitenancy con configuración distinta)
+    /// y usuarios del sistema con contraseñas hasheadas para la demo y pruebas de UC-40.
+    /// </summary>
+    public static async Task SembrarIdentidadYMultitenancyAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
+    {
+        // 1. Perfiles y Permisos del Sistema
+        if (!await context.Perfiles.AnyAsync(p => p.Id == DefaultPerfilAdminId, cancellationToken))
+        {
+            var pAdmin = new Perfil(DefaultPerfilAdminId, "Administrador", "Acceso total a la configuración y gestión del operador");
+            var pDespacho = new Perfil(DefaultPerfilDespachadorId, "Despachador", "Armado, verificación y despacho de hojas de ruta");
+            var pOperario = new Perfil(DefaultPerfilOperarioId, "Operario", "Recepción y clasificación de bultos en depósito");
+            var pRepartidor = new Perfil(DefaultPerfilRepartidorId, "Repartidor", "Ejecución de entregas y devoluciones en calle");
+            var pComercio = new Perfil(DefaultPerfilComercioId, "Comercio", "Portal del comercio para altas de envíos y seguimiento");
+
+            var permAdmin = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000001"), "OPERACION_ADMIN", "Administración del operador");
+            var permDespacho = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000002"), "RUTAS_DESPACHO", "Planificación y despacho de rutas");
+            var permOperario = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000003"), "DEPOSITO_CLASIFICACION", "Operación de depósito");
+            var permRepartidor = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000004"), "REPARTO_CALLE", "Operación móvil de entregas");
+            var permComercio = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000005"), "PORTAL_COMERCIO", "Acceso al portal de comercio cliente");
+
+            pAdmin.AsignarPermiso(permAdmin.Id);
+            pDespacho.AsignarPermiso(permDespacho.Id);
+            pOperario.AsignarPermiso(permOperario.Id);
+            pRepartidor.AsignarPermiso(permRepartidor.Id);
+            pComercio.AsignarPermiso(permComercio.Id);
+
+            await context.Permisos.AddRangeAsync(new[] { permAdmin, permDespacho, permOperario, permRepartidor, permComercio }, cancellationToken);
+            await context.Perfiles.AddRangeAsync(new[] { pAdmin, pDespacho, pOperario, pRepartidor, pComercio }, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        // 2. Segundo Operador Logístico (configuración distinta para multitenancy §15/10)
+        if (!await context.Operadores.AnyAsync(o => o.Id == Operador2Id, cancellationToken))
+        {
+            var op2 = new Operador(
+                Operador2Id,
+                razonSocial: "TransLogística Express S.A.",
+                nombreComercial: "TransLogística Express",
+                estado: "Activo"
+            );
+            await context.Operadores.AddAsync(op2, cancellationToken);
+        }
+
+        if (!await context.ReglasOperativas.AnyAsync(r => r.Id == ReglaOperativa2Id, cancellationToken))
+        {
+            var regla2 = new ReglaOperativa(
+                ReglaOperativa2Id,
+                Operador2Id,
+                version: 1,
+                vigenteDesde: DateTime.UtcNow.AddYears(-1),
+                maxIntentosEntrega: 2, // Configuración distinta: 2 intentos (vs 3 de Operador 1)
+                plazoEntreIntentos: TimeSpan.FromHours(12),
+                tipoPruebaEntregaExigida: "Firma digital y fotografía de fachada",
+                politicaDevolucion: "Retorno a depósito central al alcanzar 2 intentos fallidos",
+                plazoComprometidoEstandar: TimeSpan.FromHours(72), // Configuración distinta: 72h (vs 48h de Operador 1)
+                plazoComprometidoUrgente: TimeSpan.FromHours(36)
+            );
+            await context.ReglasOperativas.AddAsync(regla2, cancellationToken);
+        }
+
+        if (!await context.CuadrosTarifarios.AnyAsync(c => c.Id == CuadroTarifario2Id, cancellationToken))
+        {
+            var cuadro2 = new CuadroTarifario(CuadroTarifario2Id, Operador2Id, 1, DateTime.UtcNow.AddYears(-1));
+            cuadro2.AgregarRegla(new ReglaTarifa(Guid.Parse("99999999-0002-0000-0000-000000000001"), cuadro2.Id, "Estandar", 0m, 1000m, 0m, 1000000000m, 180m)); // Tarifa distinta: $180
+            cuadro2.AgregarRegla(new ReglaTarifa(Guid.Parse("99999999-0002-0000-0000-000000000003"), cuadro2.Id, "Urgente", 0m, 1000m, 0m, 1000000000m, 350m));
+            await context.CuadrosTarifarios.AddAsync(cuadro2, cancellationToken);
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        // 3. Usuarios de prueba para cada perfil y operador con contraseñas hasheadas (UC-40)
+        var hasher = new PasswordHasherService();
+        var usuarios = new List<Usuario>
+        {
+            // Operador 1 (Última Milla Express)
+            new(Guid.Parse("70000000-0000-0000-0000-000000000001"), "Administrador Central", "admin@gmail.com", hasher.HashearPassword("Admin.2026!"), DefaultPerfilAdminId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000002"), "Despachador Turno Mañana", "despacho@gmail.com", hasher.HashearPassword("Despacho.2026!"), DefaultPerfilDespachadorId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000003"), "Operario Depósito Central", "deposito@gmail.com", hasher.HashearPassword("Deposito.2026!"), DefaultPerfilOperarioId, operadorId: DefaultOperadorId),
+            new(DefaultUsuarioRepartidorId, "Martín Rodríguez (Repartidor)", "repartidor@gmail.com", hasher.HashearPassword("Repartidor.2026!"), DefaultPerfilRepartidorId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000005"), "Usuario Comercio", "comercio@gmail.com", hasher.HashearPassword("Comercio.2026!"), DefaultPerfilComercioId, operadorId: DefaultOperadorId, comercioId: DefaultComercioId),
+
+            // Operador 2 (TransLogística Express)
+            new(Guid.Parse("70000000-0000-0000-0000-000000000006"), "Administrador TransLogística", "admin2@gmail.com", hasher.HashearPassword("Admin.2026!"), DefaultPerfilAdminId, operadorId: Operador2Id)
+        };
+
+        foreach (var u in usuarios)
+        {
+            if (!await context.Usuarios.AnyAsync(usr => usr.Email == u.Email, cancellationToken))
+            {
+                await context.Usuarios.AddAsync(u, cancellationToken);
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("DatabaseSeeder: Perfiles, segundo operador y usuarios sembrados con éxito.");
     }
 }

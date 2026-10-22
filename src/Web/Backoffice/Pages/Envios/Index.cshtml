@@ -166,65 +166,69 @@
                                 <td class="py-3">
                                     @switch (envio.Estado)
                                     {
-                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Admitido:
-                                            <span class="badge bg-secondary-subtle border border-secondary-subtle px-2 py-1" style="color: #334155 !important;">Admitido</span>
-                                            break;
-                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnDeposito:
-                                            <span class="badge bg-info-subtle border border-info-subtle px-2 py-1" style="color: #075985 !important;">En Depósito</span>
-                                            break;
-                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.AsignadoARuta:
-                                            <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-bold" style="color: #92400E !important;">Asignado a Ruta</span>
-                                            break;
-                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnTransito:
-                                            <span class="badge bg-primary-subtle border border-primary-subtle px-2 py-1" style="color: #1E40AF !important;">En Tránsito</span>
-                                            break;
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Entregado:
-                                            <span class="badge bg-success-subtle border border-success-subtle px-2 py-1" style="color: #166534 !important;">Entregado</span>
-                                            break;
-                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.NoEntregado:
-                                            <span class="badge bg-secondary text-white px-2 py-1">No Entregado</span>
+                                            <span class="estado-entregado">Entregado</span>
                                             break;
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Extraviado:
-                                            <span class="badge bg-danger text-white px-2 py-1">Extraviado</span>
+                                            <span class="estado-fallo">Extraviado</span>
                                             @if (!string.IsNullOrEmpty(envio.IncidenciaAsociadaNumero))
                                             {
                                                 <div class="mt-1">
-                                                    <a asp-page="/Incidencias/Index" asp-route-busqueda="@envio.IncidenciaAsociadaNumero" class="badge bg-light text-dark border text-decoration-none" title="Ver incidencia operativa">
+                                                    <a asp-page="/Incidencias/Index" asp-route-busqueda="@envio.IncidenciaAsociadaNumero" class="small text-secondary font-monospace text-decoration-none" title="Ver incidencia operativa">
                                                         @envio.IncidenciaAsociadaNumero
                                                     </a>
                                                 </div>
                                             }
                                             break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.NoEntregado:
+                                            <span class="estado-fallo">No Entregado</span>
+                                            break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Admitido:
+                                            <span class="estado-intermedio">Admitido</span>
+                                            break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnDeposito:
+                                            <span class="estado-intermedio">En Depósito</span>
+                                            break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.AsignadoARuta:
+                                            <span class="estado-intermedio">Asignado a Ruta</span>
+                                            break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnTransito:
+                                            <span class="estado-intermedio">En Tránsito</span>
+                                            break;
                                         default:
-                                            <span class="badge bg-light text-dark border px-2 py-1">@envio.Estado</span>
+                                            <span class="estado-intermedio">@envio.Estado</span>
                                             break;
                                     }
                                 </td>
                                 <td class="text-end pe-3 py-3">
-                                    <div class="d-inline-flex align-items-center gap-1">
+                                    <div class="d-inline-flex align-items-center gap-1 justify-content-end">
                                         @if (esCandidatoExtravio)
                                         {
                                             <button type="button" 
-                                                    class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
-                                                    onclick="abrirModalExtravio('@envio.Id', '@envio.CodigoSeguimiento', '@(envio.ComercioNombre ?? "Comercio General")', '@envio.NombreDestinatario', '@envio.Estado')"
-                                                    title="Declarar extravío de este envío (UC-43)">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    class="btn btn-sm btn-outline-danger p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="Declarar Extraviado"
+                                                    aria-label="Declarar Extraviado"
+                                                    onclick="abrirModalExtravio('@envio.Id', '@envio.CodigoSeguimiento', '@(envio.ComercioNombre ?? "Comercio General")', '@envio.NombreDestinatario', '@envio.Estado')">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <circle cx="12" cy="12" r="10"></circle>
                                                     <line x1="12" y1="8" x2="12" y2="12"></line>
                                                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                                                 </svg>
-                                                <span>Declarar Extraviado</span>
                                             </button>
                                         }
                                         <button type="button" 
-                                                class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
-                                                onclick="abrirModalHistorial('@envio.Id', '@envio.CodigoSeguimiento')"
-                                                title="Consultar historial completo de trazabilidad (RF-11, RF-12)">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                class="btn btn-sm btn-outline-secondary p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                title="Historial de Trazabilidad"
+                                                aria-label="Historial de Trazabilidad"
+                                                onclick="abrirModalHistorial('@envio.Id', '@envio.CodigoSeguimiento')">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <circle cx="12" cy="12" r="10"></circle>
                                                 <polyline points="12 6 12 12 16 14"></polyline>
                                             </svg>
-                                            <span>Historial</span>
                                         </button>
                                     </div>
                                 </td>

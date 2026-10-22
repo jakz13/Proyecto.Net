@@ -13,6 +13,8 @@ public class Usuario : AggregateRoot
     public Guid PerfilId { get; private set; }
     public bool Activo { get; private set; }
     public DateTime FechaAlta { get; private set; }
+    public int IntentosFallidos { get; private set; }
+    public DateTime? BloqueadoHasta { get; private set; }
 
     protected Usuario() { }
 
@@ -86,5 +88,34 @@ public class Usuario : AggregateRoot
 
         Nombre = nombre.Trim();
         Email = email.Trim().ToLowerInvariant();
+    }
+
+    public bool EstaBloqueado(DateTime fechaReferencia)
+    {
+        return BloqueadoHasta.HasValue && BloqueadoHasta.Value > fechaReferencia;
+    }
+
+    public void RegistrarIntentoFallido(DateTime fechaReferencia, int maximoIntentos = 5, TimeSpan? duracionBloqueo = null)
+    {
+        if (maximoIntentos <= 0)
+            throw new DomainValidationException("El número máximo de intentos permitidos debe ser mayor a cero.");
+
+        IntentosFallidos++;
+        if (IntentosFallidos >= maximoIntentos)
+        {
+            BloqueadoHasta = fechaReferencia.Add(duracionBloqueo ?? TimeSpan.FromMinutes(15));
+        }
+    }
+
+    public void RegistrarAccesoExitoso()
+    {
+        IntentosFallidos = 0;
+        BloqueadoHasta = null;
+    }
+
+    public void Desbloquear()
+    {
+        IntentosFallidos = 0;
+        BloqueadoHasta = null;
     }
 }
