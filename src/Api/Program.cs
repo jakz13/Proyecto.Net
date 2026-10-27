@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -330,6 +330,9 @@ app.MapDepositoEndpoints();
 // Registrar endpoints de planificación (UC-08, UC-09)
 app.MapPlanificacionEndpoints();
 
+// Registrar tablero de operacion en vivo (UC-12)
+app.MapTableroEndpoints();
+
 // Registrar consultas de envío: seguimiento público (UC-33) y detalle para Backoffice
 app.MapConsultasEnvioEndpoints();
 
@@ -351,6 +354,7 @@ app.MapIdentidadVisualEndpoints();
 app.MapFlotaEndpoints();
 app.MapMensajeriaEndpoints();
 app.MapReasignacionesEndpoints();
+app.MapWorkerProcesosEndpoints();
 
 await app.RunAsync();
 
