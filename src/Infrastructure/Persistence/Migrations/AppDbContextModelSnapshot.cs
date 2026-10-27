@@ -695,32 +695,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("Usuarios", (string)null);
                 });
 
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.CierreDiarioOperacion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("EjecutadoEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly>("Fecha")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("OperadorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ResumenJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OperadorId", "Fecha")
-                        .IsUnique();
-
-                    b.ToTable("CierresDiariosOperacion", (string)null);
-                });
-
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.Incidencia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -778,51 +752,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("Incidencias", (string)null);
                 });
 
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.IndicadorCumplimiento", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ComercioOperadorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("EntregadosEnPlazo")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("EntregadosFueraDePlazo")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NoEntregados")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("OperadorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Periodo")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<decimal>("PorcentajeCumplimiento")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
-
-                    b.Property<Guid?>("RepartidorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("TotalEnvios")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("ZonaCoberturaId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OperadorId", "Periodo");
-
-                    b.ToTable("IndicadoresCumplimiento", (string)null);
-                });
-
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Incidencias.NotaIncidencia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -847,31 +776,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasIndex("IncidenciaId");
 
                     b.ToTable("NotasIncidencia", (string)null);
-                });
-
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Mensajeria.ClaveIdempotenciaConsumidor", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("MensajeId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("ProcesadoEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Resultado")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MensajeId")
-                        .IsUnique();
-
-                    b.ToTable("ClavesIdempotenciaConsumidor", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Mensajeria.MensajeFallidoCola", b =>
@@ -1439,87 +1343,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("Paradas", (string)null);
                 });
 
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Seguimiento.AvisoComercio", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("EnvioId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<string>("FirmaEnviada")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("Intentos")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ProximoReintento")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("SuscripcionAvisoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UltimaRespuestaHttp")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EnvioId");
-
-                    b.HasIndex("SuscripcionAvisoId");
-
-                    b.HasIndex("Estado", "ProximoReintento");
-
-                    b.ToTable("AvisosComercio", (string)null);
-                });
-
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Seguimiento.Notificacion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Canal")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<Guid>("EnvioId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("EstadoEnvio")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TipoEvento")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EnvioId");
-
-                    b.ToTable("Notificaciones", (string)null);
-                });
-
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Seguimiento.SolicitudReprogramacion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1554,39 +1377,6 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasIndex("EnvioId");
 
                     b.ToTable("SolicitudesReprogramacion", (string)null);
-                });
-
-            modelBuilder.Entity("UltimaMilla.Domain.Entities.Seguimiento.SuscripcionAviso", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("Activa")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ClaveFirma")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("ComercioOperadorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("TipoEvento")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("UrlWebhook")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComercioOperadorId", "Activa");
-
-                    b.ToTable("SuscripcionesAviso", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.EscaneoCargaVehiculo", b =>

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Ports;
-using UltimaMilla.Infrastructure.Messaging;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Infrastructure.Persistence.Repositories;
 using UltimaMilla.Infrastructure.Services;
@@ -47,23 +46,6 @@ public static class DependencyInjection
         services.AddScoped<IMotivoNoEntregaRepository, EfMotivoNoEntregaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
-
-        // Mensajería asíncrona y procesos en segundo plano (los consume el Worker; la API solo escribe en el outbox)
-        services.AddScoped<IOutboxRepository, EfOutboxRepository>();
-        services.AddScoped<IIdempotenciaConsumidorRepository, EfIdempotenciaConsumidorRepository>();
-        services.AddScoped<IMensajeFallidoRepository, EfMensajeFallidoRepository>();
-        services.AddScoped<INotificacionRepository, EfNotificacionRepository>();
-        services.AddScoped<IAvisoComercioRepository, EfAvisoComercioRepository>();
-        services.AddScoped<IIndicadorCumplimientoRepository, EfIndicadorCumplimientoRepository>();
-        services.AddScoped<ICierreDiarioRepository, EfCierreDiarioRepository>();
-        services.AddScoped<IProcesosProgramadosRepository, EfProcesosProgramadosRepository>();
-
-        services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.Seccion));
-        services.AddSingleton<RabbitMqConnectionProvider>();
-        services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
-        services.AddScoped<INotificacionDestinatarioService, RegistroNotificacionDestinatarioService>();
-        services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
         // Servicios transversales
         services.AddDistributedMemoryCache();

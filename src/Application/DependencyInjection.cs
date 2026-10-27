@@ -12,7 +12,6 @@ public static class DependencyInjection
         });
 
         services.AddScoped<Commands.AltaEnvio.AltaEnvioProcesador>();
-        services.AddScoped<Commands.Mensajeria.AvisoComercioEntregador>();
 
         return services;
     }

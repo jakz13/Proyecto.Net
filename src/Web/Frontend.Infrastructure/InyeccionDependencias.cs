@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Infrastructure.Http;
 using UltimaMilla.Frontend.Infrastructure.Mocks;
@@ -129,11 +129,7 @@ public static class InyeccionDependencias
         });
 
         // Servicios auxiliares aún no conectados por HTTP se mantienen en singleton mock para resiliencia
-        servicios.AddHttpClient<ITableroApi, HttpTableroApi>(cliente =>
-        {
-            cliente.BaseAddress = new Uri(urlBaseApi);
-            cliente.Timeout = TimeSpan.FromSeconds(15);
-        });
+        servicios.AddSingleton<ITableroApi, MockTableroApi>();
         servicios.AddSingleton<IReportesApi, MockReportesApi>();
 
         return servicios;

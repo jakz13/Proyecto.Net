@@ -57,15 +57,6 @@ public class AvisoComercio : Entity
         Estado = "Reintentando";
     }
 
-    /// <summary>Los reintentos automáticos se agotaron: el aviso queda en la cola de fallidos para reenvío manual (UC-30).</summary>
-    public void MarcarAgotado(string respuestaHttp)
-    {
-        Intentos++;
-        UltimaRespuestaHttp = respuestaHttp;
-        ProximoReintento = null;
-        Estado = "Agotado";
-    }
-
     public void MarcarEntregado(string? respuestaHttp = null)
     {
         Intentos++;
