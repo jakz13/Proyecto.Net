@@ -217,6 +217,18 @@ public class MockEnviosApi : IEnviosApi
         var nuevoId = Guid.NewGuid();
         var codigoSeguimiento = $"TRK-2026-{Interlocked.Increment(ref _contadorSecuencial):D4}";
 
+        var totalBultos = nuevoEnvio.Bultos?.Count > 0 ? nuevoEnvio.Bultos.Count : 1;
+        var totalPeso = nuevoEnvio.PesoKg.HasValue && nuevoEnvio.PesoKg > 0 ? nuevoEnvio.PesoKg.Value : 1.0m;
+        var esExpress = nuevoEnvio.ModalidadServicio?.Equals("Express", StringComparison.OrdinalIgnoreCase) == true;
+
+        // Cálculo de tarifa según cuadro tarifario (base de modalidad + tramos de peso + recargo por bultos adicionales)
+        var baseTarifa = esExpress ? 250m : 160m;
+        var tarifaCalculada = baseTarifa + (totalPeso * 25m) + ((totalBultos - 1) * 35m);
+
+        var identificacionesBultos = Enumerable.Range(1, totalBultos)
+            .Select(i => $"{codigoSeguimiento}-B{i:D2}")
+            .ToList();
+
         var entidad = new EnvioDto
         {
             Id = nuevoId,
@@ -227,8 +239,11 @@ public class MockEnviosApi : IEnviosApi
             FechaCreacion = DateTime.UtcNow,
             Estado = EstadoEnvioDto.Admitido,
             Observaciones = nuevoEnvio.Observaciones?.Trim(),
-            PesoKg = nuevoEnvio.PesoKg,
+            PesoKg = totalPeso,
             VolumenM3 = nuevoEnvio.VolumenM3,
+            Tarifa = tarifaCalculada,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            BultosIdentificaciones = identificacionesBultos,
             ComercioNombre = "Comercio Portal",
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
@@ -242,7 +257,7 @@ public class MockEnviosApi : IEnviosApi
             EstadoAnterior = null,
             NuevoEstado = EstadoEnvioDto.Admitido,
             Usuario = "Portal Comercio",
-            DescripcionEvento = "Orden de envío creada y admitida en plataforma."
+            DescripcionEvento = $"Orden de envío creada y admitida. Tarifa calculada: ${tarifaCalculada:F2}. Disponible para recepción en depósito."
         });
 
         return Task.FromResult(entidad);

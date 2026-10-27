@@ -278,4 +278,68 @@ public class HttpEnviosApiTests
 
         Assert.Equal(HttpStatusCode.Conflict, ex.CodigoEstado);
     }
+
+    [Fact]
+    public async Task CrearEnvio_ConRespuestaExitosa_MapeaCamposTarifaYCodigo()
+    {
+        // Arrange
+        var nuevoId = Guid.NewGuid();
+        var jsonRespuesta = $$"""
+        {
+            "id": "{{nuevoId}}",
+            "codigoSeguimiento": "TRK-2026-0099",
+            "estado": "Admitido",
+            "tarifa": 235.50,
+            "bultos": ["TRK-2026-0099-B01", "TRK-2026-0099-B02"]
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Created, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var dto = new CrearEnvioDto
+        {
+            NombreDestinatario = "Gonzalo Méndez",
+            DireccionDestino = "Sarandí 450",
+            ModalidadServicio = "Estandar",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.2m, Alto = 10m, Ancho = 10m, Profundo = 10m },
+                new CrearBultoItemDto { Peso = 1.8m, Alto = 15m, Ancho = 15m, Profundo = 15m }
+            }
+        };
+
+        // Act
+        var resultado = await api.CrearEnvioAsync(dto);
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(nuevoId, resultado.Id);
+        Assert.Equal("TRK-2026-0099", resultado.CodigoSeguimiento);
+        Assert.Equal(EstadoEnvioDto.Admitido, resultado.Estado);
+        Assert.Equal(235.50m, resultado.Tarifa);
+        Assert.Equal(2, resultado.BultosIdentificaciones?.Count);
+    }
+
+    [Fact]
+    public async Task CrearEnvio_ConErrorEnServidor_LanzaApiExcepcion()
+    {
+        // Arrange
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.BadRequest, "{\"error\":\"El operador no tiene cuadro tarifario\"}");
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var dto = new CrearEnvioDto
+        {
+            NombreDestinatario = "Test Error",
+            DireccionDestino = "Dirección inválida"
+        };
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UltimaMilla.Frontend.Infrastructure.Excepciones.ApiExcepcion>(() =>
+            api.CrearEnvioAsync(dto));
+
+        Assert.Equal(HttpStatusCode.BadRequest, ex.CodigoEstado);
+    }
 }

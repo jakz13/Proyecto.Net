@@ -17,6 +17,9 @@ public record EnvioDto
     public string? Observaciones { get; init; }
     public decimal? PesoKg { get; init; }
     public decimal? VolumenM3 { get; init; }
+    public decimal? Tarifa { get; init; }
+    public string? ModalidadServicio { get; init; }
+    public IReadOnlyList<string>? BultosIdentificaciones { get; init; }
 
     public string? ComercioNombre { get; init; }
     public string? HojaDeRutaNumero { get; init; }

@@ -151,22 +151,34 @@ public class HttpEnviosApi : IEnviosApi
     {
         ArgumentNullException.ThrowIfNull(nuevoEnvio);
 
-        var partesDireccion = nuevoEnvio.DireccionDestino.Split(' ', 2);
-        var calle = partesDireccion.Length > 0 ? partesDireccion[0] : "Calle Principal";
-        var numero = partesDireccion.Length > 1 ? partesDireccion[1] : "1000";
+        string calle = nuevoEnvio.Calle ?? "";
+        string numero = nuevoEnvio.Numero ?? "";
+        if (string.IsNullOrWhiteSpace(calle))
+        {
+            var partesDireccion = nuevoEnvio.DireccionDestino.Split(' ', 2);
+            calle = partesDireccion.Length > 0 ? partesDireccion[0] : "Calle Principal";
+            numero = partesDireccion.Length > 1 ? partesDireccion[1] : "1000";
+        }
+
+        var bultosPayload = (nuevoEnvio.Bultos != null && nuevoEnvio.Bultos.Count > 0)
+            ? nuevoEnvio.Bultos.Select(b => new { Peso = b.Peso, Alto = b.Alto, Ancho = b.Ancho, Profundo = b.Profundo }).ToArray()
+            : new[] { new { Peso = nuevoEnvio.PesoKg ?? 1m, Alto = 10m, Ancho = 10m, Profundo = 10m } };
+
+        var direccionCompleta = !string.IsNullOrWhiteSpace(nuevoEnvio.DireccionDestino)
+            ? nuevoEnvio.DireccionDestino
+            : $"{calle} {numero}, {nuevoEnvio.Ciudad}".Trim();
 
         var payload = new
         {
             NombreDestinatario = nuevoEnvio.NombreDestinatario,
             Calle = calle,
-            Numero = numero,
-            Ciudad = "Montevideo",
+            Numero = string.IsNullOrWhiteSpace(numero) ? "S/N" : numero,
+            Ciudad = string.IsNullOrWhiteSpace(nuevoEnvio.Ciudad) ? "Montevideo" : nuevoEnvio.Ciudad,
             Telefono = nuevoEnvio.TelefonoDestinatario,
             Email = nuevoEnvio.EmailDestinatario,
-            Bultos = new[]
-            {
-                new { Peso = nuevoEnvio.PesoKg ?? 1m, Alto = 10m, Ancho = 10m, Profundo = 10m }
-            }
+            Documento = nuevoEnvio.DocumentoDestinatario,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            Bultos = bultosPayload
         };
 
         var respuesta = await _clienteHttp.PostAsJsonAsync("/api/envios", payload, OpcionesJson, cancelacion);
@@ -187,9 +199,14 @@ public class HttpEnviosApi : IEnviosApi
             Id = creado.Id,
             CodigoSeguimiento = creado.CodigoSeguimiento,
             NombreDestinatario = nuevoEnvio.NombreDestinatario,
-            DireccionDestino = nuevoEnvio.DireccionDestino,
+            DireccionDestino = direccionCompleta,
             FechaCreacion = DateTime.UtcNow,
-            Estado = EstadoEnvioDto.Admitido
+            Estado = EstadoEnvioDto.Admitido,
+            Tarifa = creado.Tarifa,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            BultosIdentificaciones = creado.Bultos,
+            PesoKg = nuevoEnvio.PesoKg,
+            VolumenM3 = nuevoEnvio.VolumenM3
         };
     }
 
@@ -397,5 +414,5 @@ public class HttpEnviosApi : IEnviosApi
 
     private record EventoDetalleApiDto(DateTime Fecha, string TipoEvento, int EstadoNuevo, string Origen, string? Detalle);
 
-    private record EnvioCreadoApiDto(Guid Id, string CodigoSeguimiento, string Estado, decimal Tarifa);
+    private record EnvioCreadoApiDto(Guid Id, string CodigoSeguimiento, string Estado, decimal Tarifa, List<string>? Bultos = null);
 }

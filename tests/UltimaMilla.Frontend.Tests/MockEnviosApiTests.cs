@@ -81,4 +81,71 @@ public class MockEnviosApiTests
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.CodigoEstado);
         Assert.Contains("Faltan columnas obligatorias", ex.Message);
     }
+
+    [Fact]
+    public async Task CrearEnvioAsync_ConDatosValidos_CalculaTarifaGeneraCodigoYDevuelveEstadoAdmitido()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var nuevoEnvio = new CrearEnvioDto
+        {
+            NombreDestinatario = "Lucía Rodríguez",
+            DireccionDestino = "18 de Julio 1234, Montevideo",
+            ModalidadServicio = "Estandar",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 2.0m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+
+        // Act
+        var resultado = await api.CrearEnvioAsync(nuevoEnvio);
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.StartsWith("TRK-2026-", resultado.CodigoSeguimiento);
+        Assert.Equal(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Admitido, resultado.Estado);
+        Assert.NotNull(resultado.Tarifa);
+        Assert.True(resultado.Tarifa > 0m);
+        Assert.Single(resultado.BultosIdentificaciones!);
+        Assert.Contains("-B01", resultado.BultosIdentificaciones![0]);
+    }
+
+    [Fact]
+    public async Task CrearEnvioAsync_ConModalidadExpressYVariosBultos_AplicaRecargosYGeneraIdentificadores()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var envioEstandar = new CrearEnvioDto
+        {
+            NombreDestinatario = "Cliente Base",
+            DireccionDestino = "Canelones 890",
+            ModalidadServicio = "Estandar",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.0m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+
+        var envioExpressMultiBulto = new CrearEnvioDto
+        {
+            NombreDestinatario = "Cliente Prioritario",
+            DireccionDestino = "Rambla Gandhi 456",
+            ModalidadServicio = "Express",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.5m, Alto = 15m, Ancho = 15m, Profundo = 15m },
+                new CrearBultoItemDto { Peso = 2.5m, Alto = 20m, Ancho = 20m, Profundo = 20m }
+            }
+        };
+
+        // Act
+        var resEstandar = await api.CrearEnvioAsync(envioEstandar);
+        var resExpress = await api.CrearEnvioAsync(envioExpressMultiBulto);
+
+        // Assert
+        Assert.True(resExpress.Tarifa > resEstandar.Tarifa, "La tarifa Express multi-bulto debe ser mayor a la Estándar de 1 bulto.");
+        Assert.Equal(2, resExpress.BultosIdentificaciones!.Count);
+        Assert.Equal("Express", resExpress.ModalidadServicio);
+    }
 }

@@ -7,7 +7,17 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
     <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
   </PropertyGroup>
+
+  <Target Name="QuitarSimbolosPdbDeWasm" BeforeTargets="GeneratePublishWasmBootConfig;GenerateWasmBootConfig;_GenerateWasmBootConfig">
+    <ItemGroup>
+      <_WasmPdbFiles Remove="@(_WasmPdbFiles)" />
+      <WasmBootConfigPdb Remove="@(WasmBootConfigPdb)" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\Frontend.Contracts\UltimaMilla.Frontend.Contracts.csproj" />

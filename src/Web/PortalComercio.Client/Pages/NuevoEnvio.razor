@@ -2,134 +2,429 @@
 @inject IEnviosApi EnviosApi
 @inject NavigationManager Navegador
 
-<PageTitle>Portal del Comercio — Nuevo Envío (UC-24)</PageTitle>
+<PageTitle>Portal del Comercio — Registrar Envío</PageTitle>
 
+<!-- Encabezado de la Vista -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-        <h1 class="h4 fw-bold mb-1">Registrar Nuevo Envío (UC-24)</h1>
+        <h1 class="h4 fw-bold mb-1">Registrar Nuevo Envío</h1>
         <p class="text-muted small mb-0">
-            Ingrese los datos del destinatario para generar la orden de despacho. El comercio emisor se asocia automáticamente a partir de su sesión.
+            Complete los datos del destinatario, dirección, bultos y modalidad. La tarifa se calculará según el cuadro vigente.
         </p>
     </div>
-    <a href="envios" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+    <a href="envios" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
         <Icono Nombre="volver" Tamano="14" />
         <span>Volver a envíos</span>
     </a>
 </div>
 
-@if (!string.IsNullOrEmpty(mensajeExito))
-{
-    <div class="alert alert-success shadow-sm rounded-3 mb-4" role="alert">
-        <div class="d-flex align-items-center">
-            <div class="text-success me-3">
-                <Icono Nombre="check" Tamano="24" />
-            </div>
-            <div>
-                <strong>¡Orden de envío registrada exitosamente!</strong>
-                <div class="small mt-1">@mensajeExito</div>
-            </div>
-        </div>
-        <div class="mt-3">
-            <a href="envios" class="btn btn-outline-success btn-sm me-2">Ver en el listado</a>
-            <button type="button" class="btn btn-sm btn-success" @onclick="LimpiarFormulario">Registrar otro envío</button>
-        </div>
-    </div>
-}
-
 @if (!string.IsNullOrEmpty(mensajeError))
 {
-    <div class="alert alert-danger shadow-sm rounded-3 mb-4" role="alert">
-        <strong>Error:</strong> @mensajeError
+    <div class="alert alert-danger shadow-sm rounded-3 mb-4 d-flex align-items-center gap-2" role="alert">
+        <Icono Nombre="alerta" Tamano="20" Clase="text-danger flex-shrink-0" />
+        <div>
+            <strong>Error al registrar envío:</strong> @mensajeError
+        </div>
     </div>
 }
 
-<div class="card border-0 shadow-sm rounded-3" style="max-width: 800px;">
-    <div class="card-body p-4">
-        <EditForm Model="@modelo" OnValidSubmit="GuardarEnvio">
-            <DataAnnotationsValidator />
+@if (envioCreado != null)
+{
+    <!-- =========================================================================
+         Pantalla de Confirmación de Alta Exitosa
+         ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+        <div class="text-center py-2">
+            <div class="rounded-circle d-inline-flex p-3 bg-success-subtle text-success mb-3">
+                <Icono Nombre="check" Tamano="40" />
+            </div>
+            <h2 class="h3 fw-bold text-dark mb-2">¡Envío Registrado Exitosamente!</h2>
+            <p class="text-secondary mb-4" style="max-width: 600px; margin: 0 auto;">
+                El envío ha quedado en estado <strong>Admitido</strong> con su código de seguimiento y ya se encuentra disponible para su recepción física en depósito.
+            </p>
 
-            <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">1. Datos del Destinatario</h2>
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <label for="nombreDestinatario" class="form-label small fw-semibold">Nombre y Apellido *</label>
-                    <InputText id="nombreDestinatario" class="form-control" placeholder="Ej: Mariana Pérez" @bind-Value="modelo.NombreDestinatario" />
-                    <ValidationMessage For="@(() => modelo.NombreDestinatario)" class="text-danger small" />
-                </div>
-                <div class="col-md-6">
-                    <label for="telefonoDestinatario" class="form-label small fw-semibold">Teléfono de Contacto</label>
-                    <InputText id="telefonoDestinatario" class="form-control" placeholder="Ej: 099 123 456" @bind-Value="modelo.TelefonoDestinatario" />
-                    <ValidationMessage For="@(() => modelo.TelefonoDestinatario)" class="text-danger small" />
-                </div>
-                <div class="col-12">
-                    <label for="direccionDestino" class="form-label small fw-semibold">Dirección de Entrega Completa *</label>
-                    <InputText id="direccionDestino" class="form-control" placeholder="Ej: Av. 18 de Julio 1520 Apto 302, Montevideo" @bind-Value="modelo.DireccionDestino" />
-                    <ValidationMessage For="@(() => modelo.DireccionDestino)" class="text-danger small" />
-                </div>
-                <div class="col-md-6">
-                    <label for="emailDestinatario" class="form-label small fw-semibold">Correo Electrónico (opcional)</label>
-                    <InputText id="emailDestinatario" class="form-control" placeholder="destinatario@correo.com" @bind-Value="modelo.EmailDestinatario" />
-                    <ValidationMessage For="@(() => modelo.EmailDestinatario)" class="text-danger small" />
+            <!-- Datos Clave del Envío -->
+            <div class="row justify-content-center text-start mb-4">
+                <div class="col-12 col-md-10 col-lg-8">
+                    <div class="card bg-light border-0 rounded-3 p-4">
+                        <div class="row g-3 mb-3 border-bottom pb-3">
+                            <div class="col-sm-6">
+                                <div class="text-secondary small">Código de Seguimiento</div>
+                                <div class="font-monospace fw-bold fs-5 text-dark">@envioCreado.CodigoSeguimiento</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-secondary small">Tarifa Calculada</div>
+                                <div class="font-monospace fw-bold fs-5 text-success">
+                                    @(envioCreado.Tarifa.HasValue ? $"$ {envioCreado.Tarifa.Value:N2}" : "Tarificada según cuadro")
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3 border-bottom pb-3 small">
+                            <div class="col-sm-6">
+                                <div class="text-secondary">Estado Inicial:</div>
+                                <div class="fw-semibold text-dark">Admitido</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-secondary">Modalidad de Servicio:</div>
+                                <div class="fw-semibold text-dark">@(envioCreado.ModalidadServicio ?? modelo.ModalidadServicio)</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-secondary">Destinatario:</div>
+                                <div class="fw-semibold text-dark">@envioCreado.NombreDestinatario</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-secondary">Dirección de Entrega:</div>
+                                <div class="fw-semibold text-dark">@envioCreado.DireccionDestino</div>
+                            </div>
+                        </div>
+
+                        <!-- Resumen de Bultos Generados -->
+                        <div>
+                            <div class="text-secondary small fw-bold text-uppercase mb-2">
+                                Bultos Declarados (@(envioCreado.BultosIdentificaciones?.Count ?? modelo.Bultos.Count)):
+                            </div>
+                            @if (envioCreado.BultosIdentificaciones != null && envioCreado.BultosIdentificaciones.Count > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var idBulto in envioCreado.BultosIdentificaciones)
+                                    {
+                                        <div class="p-2 bg-white rounded border font-monospace small">
+                                            <Icono Nombre="paquete" Tamano="14" Clase="text-secondary me-1" />
+                                            <span class="fw-bold text-dark">@idBulto</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-dark small">
+                                    @modelo.Bultos.Count bulto(s) · Peso total: @((modelo.PesoKg ?? 0m).ToString("N2")) kg
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">2. Características del Paquete</h2>
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <label for="pesoKg" class="form-label small fw-semibold">Peso estimado (kg)</label>
-                    <InputNumber id="pesoKg" class="form-control" placeholder="Ej: 1.50" @bind-Value="modelo.PesoKg" />
-                    <ValidationMessage For="@(() => modelo.PesoKg)" class="text-danger small" />
-                </div>
-                <div class="col-md-6">
-                    <label for="volumenM3" class="form-label small fw-semibold">Volumen estimado (m³)</label>
-                    <InputNumber id="volumenM3" class="form-control" placeholder="Ej: 0.015" @bind-Value="modelo.VolumenM3" />
-                    <ValidationMessage For="@(() => modelo.VolumenM3)" class="text-danger small" />
-                </div>
-                <div class="col-12">
-                    <label for="observaciones" class="form-label small fw-semibold">Instrucciones u Observaciones para el Repartidor</label>
-                    <InputTextArea id="observaciones" class="form-control" rows="2" placeholder="Ej: Timbre blanco o dejar en portería." @bind-Value="modelo.Observaciones" />
-                    <ValidationMessage For="@(() => modelo.Observaciones)" class="text-danger small" />
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
-                <a href="envios" class="btn btn-outline-secondary">Cancelar</a>
-                <button type="submit" class="btn btn-marca px-4" disabled="@estaGuardando">
-                    @if (estaGuardando)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        <span>Registrando envío...</span>
-                    }
-                    else
-                    {
-                        <span>Registrar Envío</span>
-                    }
+            <!-- Acciones Posteriores -->
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-marca px-4 py-2" @onclick="RegistrarOtroEnvio">
+                    Registrar otro envío
                 </button>
+                <a href="envios" class="btn btn-outline-secondary px-4 py-2">
+                    Ver listado de envíos
+                </a>
             </div>
-        </EditForm>
+        </div>
     </div>
-</div>
+}
+else
+{
+    <!-- =========================================================================
+         Formulario de Alta de Envío Individual
+         ========================================================================= -->
+    <EditForm Model="@modelo" OnValidSubmit="GuardarEnvio">
+        <DataAnnotationsValidator />
+
+        <div class="row g-4 align-items-start">
+            <!-- Columna Izquierda: Entradas de Datos -->
+            <div class="col-12 col-lg-8">
+                <!-- 1. Datos del Destinatario -->
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 fw-bold mb-0 text-dark">1. Datos del Destinatario</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label for="nombreDestinatario" class="form-label small fw-semibold text-dark">
+                                    Nombre y Apellido <span class="text-danger">*</span>
+                                </label>
+                                <InputText id="nombreDestinatario" class="form-control" placeholder="Ej: Mariana Pérez" @bind-Value="modelo.NombreDestinatario" />
+                                <ValidationMessage For="@(() => modelo.NombreDestinatario)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-5">
+                                <label for="documentoDestinatario" class="form-label small fw-semibold text-dark">
+                                    Documento / C.I. (opcional)
+                                </label>
+                                <InputText id="documentoDestinatario" class="form-control" placeholder="Ej: 4.876.543-2" @bind-Value="modelo.DocumentoDestinatario" />
+                                <ValidationMessage For="@(() => modelo.DocumentoDestinatario)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telefonoDestinatario" class="form-label small fw-semibold text-dark">
+                                    Teléfono de Contacto
+                                </label>
+                                <InputText id="telefonoDestinatario" class="form-control" placeholder="Ej: 099 123 456" @bind-Value="modelo.TelefonoDestinatario" />
+                                <ValidationMessage For="@(() => modelo.TelefonoDestinatario)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="emailDestinatario" class="form-label small fw-semibold text-dark">
+                                    Correo Electrónico (opcional)
+                                </label>
+                                <InputText id="emailDestinatario" class="form-control" placeholder="destinatario@correo.com" @bind-Value="modelo.EmailDestinatario" />
+                                <ValidationMessage For="@(() => modelo.EmailDestinatario)" class="text-danger small" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Dirección de Entrega -->
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 fw-bold mb-0 text-dark">2. Dirección de Entrega</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="calleDestino" class="form-label small fw-semibold text-dark">
+                                    Calle / Avenida <span class="text-danger">*</span>
+                                </label>
+                                <InputText id="calleDestino" class="form-control" placeholder="Ej: Av. 18 de Julio" @bind-Value="modelo.Calle" />
+                                <ValidationMessage For="@(() => modelo.Calle)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="numeroPuerta" class="form-label small fw-semibold text-dark">
+                                    Número de Puerta / Apto
+                                </label>
+                                <InputText id="numeroPuerta" class="form-control" placeholder="Ej: 1520 Apto 302" @bind-Value="modelo.Numero" />
+                                <ValidationMessage For="@(() => modelo.Numero)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ciudadDestino" class="form-label small fw-semibold text-dark">
+                                    Ciudad / Localidad
+                                </label>
+                                <InputText id="ciudadDestino" class="form-control" placeholder="Ej: Montevideo" @bind-Value="modelo.Ciudad" />
+                                <ValidationMessage For="@(() => modelo.Ciudad)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="direccionCompleta" class="form-label small fw-semibold text-dark">
+                                    Dirección Completa de Referencia
+                                </label>
+                                <InputText id="direccionCompleta" class="form-control" placeholder="Ej: Av. 18 de Julio 1520, Montevideo" @bind-Value="modelo.DireccionDestino" />
+                                <ValidationMessage For="@(() => modelo.DireccionDestino)" class="text-danger small" />
+                            </div>
+                            <div class="col-12">
+                                <label for="observaciones" class="form-label small fw-semibold text-dark">
+                                    Instrucciones u Observaciones para la Entrega
+                                </label>
+                                <InputTextArea id="observaciones" class="form-control" rows="2" placeholder="Ej: Tocar timbre 302 o dejar en portería de 9 a 18 hs." @bind-Value="modelo.Observaciones" />
+                                <ValidationMessage For="@(() => modelo.Observaciones)" class="text-danger small" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Modalidad de Servicio -->
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 fw-bold mb-0 text-dark">3. Modalidad de Servicio</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check p-3 rounded-3 border @(modelo.ModalidadServicio == "Estandar" ? "border-primary bg-primary-subtle" : "bg-white")">
+                                    <input class="form-check-input ms-0 me-2" type="radio" name="modalidadServicio" id="modalidadEstandar"
+                                           checked="@(modelo.ModalidadServicio == "Estandar")"
+                                           @onchange='() => modelo.ModalidadServicio = "Estandar"' />
+                                    <label class="form-check-label fw-bold text-dark cursor-pointer" for="modalidadEstandar">
+                                        Modalidad Estándar
+                                    </label>
+                                    <div class="small text-secondary mt-1">
+                                        Entrega regular en 24 a 48 hs hábiles desde el ingreso a depósito. Tarifa general según cuadro vigente.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check p-3 rounded-3 border @(modelo.ModalidadServicio == "Express" ? "border-danger bg-danger-subtle" : "bg-white")">
+                                    <input class="form-check-input ms-0 me-2" type="radio" name="modalidadServicio" id="modalidadExpress"
+                                           checked="@(modelo.ModalidadServicio == "Express")"
+                                           @onchange='() => modelo.ModalidadServicio = "Express"' />
+                                    <label class="form-check-label fw-bold text-dark cursor-pointer" for="modalidadExpress">
+                                        Modalidad Express (Prioritario)
+                                    </label>
+                                    <div class="small text-secondary mt-1">
+                                        Tratamiento prioritario para entrega en el mismo día. Sujeta a recargo según cuadro tarifario del operador.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Bultos del Envío -->
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="h6 fw-bold mb-0 text-dark">4. Bultos del Envío</h2>
+                            <span class="text-secondary small">Declare cada bulto físico con su peso y dimensiones</span>
+                        </div>
+                        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" @onclick="AgregarBulto">
+                            <Icono Nombre="plus" Tamano="14" />
+                            <span>Agregar Bulto</span>
+                        </button>
+                    </div>
+                    <div class="card-body p-4">
+                        @for (int i = 0; i < modelo.Bultos.Count; i++)
+                        {
+                            var indice = i;
+                            var bulto = modelo.Bultos[indice];
+
+                            <div class="p-3 mb-3 bg-light rounded-3 border">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-dark small text-uppercase">Bulto #@(indice + 1)</span>
+                                    @if (modelo.Bultos.Count > 1)
+                                    {
+                                        <button type="button" class="btn btn-link text-danger btn-sm p-0 text-decoration-none" @onclick="() => EliminarBulto(indice)">
+                                            Eliminar
+                                        </button>
+                                    }
+                                </div>
+
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Peso (kg) *</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="modelo.Bultos[indice].Peso" />
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Alto (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="modelo.Bultos[indice].Alto" />
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Ancho (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="modelo.Bultos[indice].Ancho" />
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Profundo (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="modelo.Bultos[indice].Profundo" />
+                                    </div>
+                                </div>
+                                <div class="text-secondary small mt-2" style="font-size: 0.725rem;">
+                                    Volumen estimado: @bulto.VolumenM3.ToString("N4") m³ (@(bulto.Alto) x @(bulto.Ancho) x @(bulto.Profundo) cm)
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Resumen de Orden y Tarifa -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 sticky-top" style="top: 20px;">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 fw-bold mb-0 text-dark">Resumen de la Orden</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-secondary small">Total de Bultos:</span>
+                            <span class="fw-bold text-dark font-monospace">@modelo.Bultos.Count @(modelo.Bultos.Count == 1 ? "bulto" : "bultos")</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-secondary small">Peso Total Declarado:</span>
+                            <span class="fw-bold text-dark font-monospace">@((modelo.PesoKg ?? 0m).ToString("N2")) kg</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="text-secondary small">Volumen Total Estimado:</span>
+                            <span class="fw-bold text-dark font-monospace">@((modelo.VolumenM3 ?? 0m).ToString("N4")) m³</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <span class="text-secondary small">Modalidad Seleccionada:</span>
+                            <span class="fw-bold @(modelo.ModalidadServicio == "Express" ? "text-danger" : "text-dark")">
+                                @(modelo.ModalidadServicio == "Express" ? "Express" : "Estándar")
+                            </span>
+                        </div>
+
+                        <!-- Información Operativa -->
+                        <div class="p-3 bg-light rounded-3 mb-4 small text-secondary">
+                            <div class="fw-semibold text-dark mb-1">Cálculo de Tarifa y Admisión</div>
+                            La tarifa final será calculada por el sistema según el cuadro tarifario vigente de su operador. El envío quedará registrado en estado <strong>Admitido</strong> y disponible para su recepción en depósito.
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <button type="submit" class="btn btn-marca w-100 py-2 fw-semibold shadow-sm mb-2 d-inline-flex align-items-center justify-content-center gap-2" disabled="@estaGuardando">
+                            @if (estaGuardando)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                <span>Calculando tarifa y registrando...</span>
+                            }
+                            else
+                            {
+                                <span>Registrar Envío</span>
+                            }
+                        </button>
+                        <a href="envios" class="btn btn-outline-secondary w-100 py-2">
+                            Cancelar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
 
 @code {
     private CrearEnvioDto modelo = new();
+    private EnvioDto? envioCreado;
     private bool estaGuardando = false;
-    private string? mensajeExito;
     private string? mensajeError;
+
+    protected override void OnInitialized()
+    {
+        InicializarFormulario();
+    }
+
+    private void InicializarFormulario()
+    {
+        modelo = new CrearEnvioDto
+        {
+            ModalidadServicio = "Estandar",
+            Ciudad = "Montevideo",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.0m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+        envioCreado = null;
+        mensajeError = null;
+    }
+
+    private void AgregarBulto()
+    {
+        modelo.Bultos.Add(new CrearBultoItemDto { Peso = 1.0m, Alto = 10m, Ancho = 10m, Profundo = 10m });
+    }
+
+    private void EliminarBulto(int indice)
+    {
+        if (modelo.Bultos.Count > 1 && indice >= 0 && indice < modelo.Bultos.Count)
+        {
+            modelo.Bultos.RemoveAt(indice);
+        }
+    }
 
     private async Task GuardarEnvio()
     {
         estaGuardando = true;
-        mensajeExito = null;
         mensajeError = null;
 
         try
         {
-            var resultado = await EnviosApi.CrearEnvioAsync(modelo);
-            mensajeExito = $"Se asignó el código de seguimiento: {resultado.CodigoSeguimiento} (Estado inicial: {resultado.Estado})";
-            modelo = new();
+            // Sincronizar campo DireccionDestino si solo se completó calle y número
+            if (string.IsNullOrWhiteSpace(modelo.DireccionDestino) && !string.IsNullOrWhiteSpace(modelo.Calle))
+            {
+                modelo.DireccionDestino = $"{modelo.Calle} {modelo.Numero}, {modelo.Ciudad}".Trim();
+            }
+
+            if (modelo.Bultos.Count == 0)
+            {
+                mensajeError = "Debe incluir al menos un bulto en el envío.";
+                return;
+            }
+
+            envioCreado = await EnviosApi.CrearEnvioAsync(modelo);
         }
         catch (Exception ex)
         {
-            mensajeError = $"No fue posible registrar el envío: {ex.Message}";
+            mensajeError = ex.Message;
         }
         finally
         {
@@ -137,10 +432,8 @@
         }
     }
 
-    private void LimpiarFormulario()
+    private void RegistrarOtroEnvio()
     {
-        modelo = new();
-        mensajeExito = null;
-        mensajeError = null;
+        InicializarFormulario();
     }
 }

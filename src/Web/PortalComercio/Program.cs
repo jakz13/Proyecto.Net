@@ -12,7 +12,8 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseWebAssemblyDebugging();
+    // Desactivado para evitar errores de descarga e integridad SRI de archivos .pdb en el navegador
+    // app.UseWebAssemblyDebugging();
 }
 else
 {
