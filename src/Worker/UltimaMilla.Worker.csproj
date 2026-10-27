@@ -14,5 +14,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Domain\UltimaMilla.Domain.csproj" />
     <ProjectReference Include="..\Application\UltimaMilla.Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\UltimaMilla.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
