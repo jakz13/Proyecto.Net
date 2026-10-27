@@ -105,7 +105,10 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
             .Where(r => r.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(r => r.Id);
 
-        var nombres = (await _usuarioRepository.ObtenerPorIdsAsync(repartidores.Values.Select(r => r.UsuarioId), ct))
+        var nombres = (await _usuarioRepository.ObtenerPorIdsAsync(
+                repartidores.Values.Select(r => r.UsuarioId),
+                _currentTenant.OperadorId,
+                ct))
             .ToDictionary(u => u.Id, u => u.Nombre);
 
         var direccionIds = envios.Values

@@ -55,7 +55,7 @@ public class RecalcularIndicadoresCumplimientoCommandHandler : IRequestHandler<R
         var rutaIds = envios.Where(e => e.HojaDeRutaId.HasValue).Select(e => e.HojaDeRutaId!.Value).Distinct().ToList();
         var repartidorPorRuta = rutaIds.Count == 0
             ? new Dictionary<Guid, Guid?>()
-            : (await _rutaRepository.GetByIdsAsync(rutaIds, cancellationToken)).ToDictionary(r => r.Id, r => r.RepartidorId);
+            : (await _rutaRepository.GetByIdsAsync(rutaIds, request.OperadorId, cancellationToken)).ToDictionary(r => r.Id, r => r.RepartidorId);
 
         var acumulados = new Dictionary<ClaveIndicador, Acumulado>();
         foreach (var envio in envios)

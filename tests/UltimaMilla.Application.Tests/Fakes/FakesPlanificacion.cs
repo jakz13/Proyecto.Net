@@ -43,6 +43,19 @@ public class FakeRutaRepository : IRutaRepository
     }
 
     public Task UpdateAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<List<HojaDeRuta>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        Guid operadorId,
+        CancellationToken cancellationToken = default)
+    {
+        var idsBuscados = ids.ToHashSet();
+
+        return Task.FromResult(Rutas
+            .Where(r => r.OperadorId == operadorId &&
+                        idsBuscados.Contains(r.Id))
+            .ToList());
+    }
 }
 
 public class FakeRepartidorRepository : IRepartidorRepository

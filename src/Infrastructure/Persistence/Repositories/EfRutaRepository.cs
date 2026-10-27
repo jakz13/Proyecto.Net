@@ -19,6 +19,34 @@ public class EfRutaRepository : IRutaRepository
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
     }
 
+    public async Task<List<HojaDeRuta>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        Guid operadorId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        if (operadorId == Guid.Empty)
+            throw new ArgumentException(
+                "El identificador del operador no puede ser vacío.",
+                nameof(operadorId));
+
+        var idsValidos = ids
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (idsValidos.Length == 0)
+            return new List<HojaDeRuta>();
+
+        return await _dbContext.HojasDeRuta
+            .AsNoTracking()
+            .Where(h =>
+                h.OperadorId == operadorId &&
+                idsValidos.Contains(h.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbContext.HojasDeRuta

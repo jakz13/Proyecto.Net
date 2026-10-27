@@ -6,6 +6,8 @@ using UltimaMilla.Infrastructure.Messaging;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Infrastructure.Persistence.Repositories;
 using UltimaMilla.Infrastructure.Services;
+using UltimaMilla.Application.Ports;
+using UltimaMilla.Infrastructure.Persistence.Repositories;
 
 namespace UltimaMilla.Infrastructure;
 
@@ -44,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IIncidenciaRepository, EfIncidenciaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
+        services.AddScoped<IUsuarioRepository, EfUsuarioRepository>();
 
         // Mensajería asíncrona y procesos en segundo plano (los consume el Worker; la API solo escribe en el outbox)
         services.AddScoped<IOutboxRepository, EfOutboxRepository>();

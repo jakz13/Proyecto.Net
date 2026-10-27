@@ -35,7 +35,12 @@ public class TableroOperacionQueryHandlerTests
     public TableroOperacionQueryHandlerTests()
     {
         var usuario = new Domain.Entities.Identidad.Usuario(
-            Guid.NewGuid(), "Juan Perez", "juan.perez@ultimamilla.com.uy", "hash", _tenant.OperadorId, null, Guid.NewGuid());
+            Guid.NewGuid(),
+            "Juan Perez",
+            "juan.perez@ultimamilla.com.uy",
+            "hash",
+            perfilId: Guid.NewGuid(),
+            operadorId: _tenant.OperadorId);
         _usuarios.Usuarios.Add(usuario);
 
         _repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, _tenant.OperadorId, "1.111.111-1", "099123456");
