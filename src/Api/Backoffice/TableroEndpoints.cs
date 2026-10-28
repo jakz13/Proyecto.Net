@@ -1,9 +1,7 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Application.Tablero;
-using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
@@ -12,11 +10,9 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>Tablero de operación en vivo: flota en calle y envíos en riesgo de incumplir su ventana (UC-12, RF-29).</summary>
-public static class TableroEndpoints
+public static class TableroEnVivoEndpoints
 {
-    private const int MaximoCaracteresInstruccion = 500;
-
-    public static IEndpointRouteBuilder MapTableroEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapTableroEnVivoEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/tablero")
             .RequireAuthorization()
@@ -69,48 +65,9 @@ public static class TableroEndpoints
             .WithName("ObtenerDetalleVehiculoEnVivo")
             .WithSummary("Telemetría y paradas de una hoja de ruta en curso");
 
-        grupo.MapPost("/repartidores/{repartidorId:guid}/instrucciones", (
-            Guid repartidorId,
-            InstruccionRepartidorRequest peticion,
-            AppDbContext db,
-            ICurrentTenant tenant,
-            IOutboxStorage outbox,
-            IUnitOfWork unidadDeTrabajo,
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
-            {
-                var mensaje = peticion.Mensaje?.Trim();
-                if (string.IsNullOrEmpty(mensaje))
-                    return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Escriba el mensaje para el repartidor.");
-                if (mensaje.Length > MaximoCaracteresInstruccion)
-                    return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, $"El mensaje no puede superar los {MaximoCaracteresInstruccion} caracteres.");
-
-                var existe = await db.Repartidores.AsNoTracking()
-                    .AnyAsync(r => r.Id == repartidorId && r.OperadorId == tenant.OperadorId, ct);
-                if (!existe)
-                    return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el repartidor.");
-
-                // Se publica por la outbox: la entrega al dispositivo (notificación push) la resuelve el worker
-                await outbox.SaveAsync(new OutboxMessage(Guid.NewGuid(), "Repartidor", repartidorId, "InstruccionRepartidorIntegrationEvent",
-                    JsonSerializer.Serialize(new
-                    {
-                        Version = 1,
-                        tenant.OperadorId,
-                        RepartidorId = repartidorId,
-                        Mensaje = mensaje,
-                        EnviadaPorUsuarioId = tenant.UsuarioId,
-                        OcurridoEn = DateTime.UtcNow
-                    })), ct);
-                await unidadDeTrabajo.SaveChangesAsync(ct);
-
-                return Results.Accepted();
-            }))
-            .WithName("EnviarInstruccionRepartidor")
-            .WithSummary("Envía un mensaje prioritario al dispositivo del repartidor");
-
         return app;
     }
 
-    public record InstruccionRepartidorRequest(string? Mensaje);
 }
 
 /// <summary>Arma los datos del tablero a partir de las rutas despachadas, sus paradas y la última posición de cada vehículo.</summary>

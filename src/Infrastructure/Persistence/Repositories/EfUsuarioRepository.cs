@@ -44,6 +44,23 @@ public class EfUsuarioRepository : IUsuarioRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Usuario>> ObtenerPorIdsAsync(IEnumerable<Guid> usuarioIds, Guid? operadorId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(usuarioIds);
+
+        if (operadorId is not Guid idOperador || idOperador == Guid.Empty)
+            return new List<Usuario>();
+
+        var ids = usuarioIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (ids.Count == 0)
+            return new List<Usuario>();
+
+        return await _context.Usuarios
+            .AsNoTracking()
+            .Where(u => ids.Contains(u.Id) && u.OperadorId == idOperador)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Perfil?> ObtenerPerfilPorIdAsync(Guid perfilId, CancellationToken cancellationToken = default)
     {
         if (perfilId == Guid.Empty)

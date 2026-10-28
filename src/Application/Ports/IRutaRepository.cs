@@ -17,4 +17,8 @@ public interface IRutaRepository
     Task<List<HojaDeRuta>> ListarAsync(Guid operadorId, DateOnly? fecha, Guid? repartidorId, IReadOnlyCollection<string>? estados, CancellationToken cancellationToken = default);
     Task AddAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default);
     Task UpdateAsync(HojaDeRuta hojaDeRuta, CancellationToken cancellationToken = default);
+    Task<List<HojaDeRuta>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        Guid operadorId,
+        CancellationToken cancellationToken = default);
 }

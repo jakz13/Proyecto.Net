@@ -58,6 +58,12 @@ public class AppDbContext : DbContext
     public DbSet<Perfil> Perfiles => Set<Perfil>();
     public DbSet<Permiso> Permisos => Set<Permiso>();
     public DbSet<PerfilPermiso> PerfilPermisos => Set<PerfilPermiso>();
+    public DbSet<ClaveIdempotenciaConsumidor> ClavesIdempotenciaConsumidor => Set<ClaveIdempotenciaConsumidor>();
+    public DbSet<SuscripcionAviso> SuscripcionesAviso => Set<SuscripcionAviso>();
+    public DbSet<AvisoComercio> AvisosComercio => Set<AvisoComercio>();
+    public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
+    public DbSet<IndicadorCumplimiento> IndicadoresCumplimiento => Set<IndicadorCumplimiento>();
+    public DbSet<CierreDiarioOperacion> CierresDiariosOperacion => Set<CierreDiarioOperacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -470,6 +476,67 @@ public class AppDbContext : DbContext
             builder.Property(m => m.TipoMensaje).IsRequired().HasMaxLength(100);
             builder.Property(m => m.ColaOrigen).IsRequired().HasMaxLength(100);
             builder.Property(m => m.Estado).IsRequired().HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<ClaveIdempotenciaConsumidor>(builder =>
+        {
+            builder.ToTable("ClavesIdempotenciaConsumidor");
+            builder.HasKey(c => c.Id);
+            // La unicidad es lo que impide que dos instancias del worker apliquen los efectos del mismo mensaje
+            builder.Property(c => c.MensajeId).IsRequired().HasMaxLength(100);
+            builder.HasIndex(c => c.MensajeId).IsUnique();
+            builder.Property(c => c.Resultado).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<SuscripcionAviso>(builder =>
+        {
+            builder.ToTable("SuscripcionesAviso");
+            builder.HasKey(s => s.Id);
+            builder.Property(s => s.TipoEvento).IsRequired().HasMaxLength(100);
+            builder.Property(s => s.UrlWebhook).IsRequired().HasMaxLength(500);
+            builder.Property(s => s.ClaveFirma).IsRequired().HasMaxLength(200);
+            builder.HasIndex(s => new { s.ComercioOperadorId, s.Activa });
+        });
+
+        modelBuilder.Entity<AvisoComercio>(builder =>
+        {
+            builder.ToTable("AvisosComercio");
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.Payload).IsRequired();
+            builder.Property(a => a.FirmaEnviada).IsRequired().HasMaxLength(200);
+            builder.Property(a => a.Estado).IsRequired().HasMaxLength(30);
+            builder.Property(a => a.UltimaRespuestaHttp).HasMaxLength(1000);
+            builder.HasIndex(a => new { a.Estado, a.ProximoReintento });
+            builder.HasIndex(a => a.SuscripcionAvisoId);
+            builder.HasIndex(a => a.EnvioId);
+        });
+
+        modelBuilder.Entity<Notificacion>(builder =>
+        {
+            builder.ToTable("Notificaciones");
+            builder.HasKey(n => n.Id);
+            builder.Property(n => n.Canal).IsRequired().HasMaxLength(30);
+            builder.Property(n => n.TipoEvento).IsRequired().HasMaxLength(100);
+            builder.Property(n => n.EstadoEnvio).HasConversion<string>().HasMaxLength(50);
+            builder.HasIndex(n => n.EnvioId);
+        });
+
+        modelBuilder.Entity<IndicadorCumplimiento>(builder =>
+        {
+            builder.ToTable("IndicadoresCumplimiento");
+            builder.HasKey(i => i.Id);
+            builder.Property(i => i.Periodo).IsRequired().HasMaxLength(20);
+            builder.Property(i => i.PorcentajeCumplimiento).HasPrecision(5, 2);
+            builder.HasIndex(i => new { i.OperadorId, i.Periodo });
+        });
+
+        modelBuilder.Entity<CierreDiarioOperacion>(builder =>
+        {
+            builder.ToTable("CierresDiariosOperacion");
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.ResumenJson).IsRequired();
+            // Un único cierre por operador y día: hace idempotente el proceso aunque corra en más de una instancia
+            builder.HasIndex(c => new { c.OperadorId, c.Fecha }).IsUnique();
         });
 
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base

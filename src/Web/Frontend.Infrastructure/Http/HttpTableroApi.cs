@@ -36,12 +36,19 @@ public class HttpTableroApi : ITableroApi
 
     public async Task<bool> EnviarInstruccionRepartidorAsync(Guid repartidorId, string mensaje, CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.PostAsJsonAsync($"api/tablero/repartidores/{repartidorId}/instrucciones", new { mensaje }, cancelacion);
-        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+        if (repartidorId == Guid.Empty || string.IsNullOrWhiteSpace(mensaje))
+            return false;
+
+        // La instrucción la registra el módulo de tablero de operación, que la publica para que el worker la entregue al dispositivo
+        var respuesta = await _http.PostAsJsonAsync("api/operacion/tablero/instrucciones", new { repartidorId, mensaje = mensaje.Trim() }, cancelacion);
+        if (respuesta.IsSuccessStatusCode)
+            return true;
+
+        if (respuesta.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
             return false;
 
         await AsegurarExitoAsync(respuesta, cancelacion);
-        return true;
+        return false;
     }
 
     private static async Task AsegurarExitoAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
