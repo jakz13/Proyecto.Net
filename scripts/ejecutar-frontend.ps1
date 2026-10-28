@@ -65,6 +65,24 @@ function Iniciar-Proyecto {
     }
 }
 
+function Iniciar-Todas {
+    # Compila una sola vez para evitar que los 3 'dotnet watch' compilen en paralelo
+    # el proyecto compartido Frontend.Contracts (error CS2012: archivo bloqueado).
+    Write-Host "Compilando el frontend una sola vez antes de lanzar las aplicaciones..." -ForegroundColor Cyan
+    Set-Location $directorioRaiz
+    dotnet build UltimaMilla.Frontend.slnf
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "La compilación falló. No se lanzan las aplicaciones." -ForegroundColor Red
+        return
+    }
+
+    Iniciar-Proyecto -nombre "Backoffice del Operador" -rutaProyecto "src/Web/Backoffice" -puerto "5002" -enNuevaVentana $true
+    Start-Sleep -Seconds 5
+    Iniciar-Proyecto -nombre "Portal del Comercio" -rutaProyecto "src/Web/PortalComercio" -puerto "5003" -enNuevaVentana $true
+    Start-Sleep -Seconds 5
+    Iniciar-Proyecto -nombre "Seguimiento Público" -rutaProyecto "src/Web/SeguimientoPublico" -puerto "5004" -enNuevaVentana $true
+}
+
 function Mostrar-Menu {
     Clear-Host
     Write-Host "==========================================================" -ForegroundColor Blue
@@ -87,9 +105,7 @@ function Mostrar-Menu {
     switch ($opcion) {
         "1" {
             Write-Host "`nLanzando las 3 aplicaciones en ventanas separadas..." -ForegroundColor Green
-            Iniciar-Proyecto -nombre "Backoffice del Operador" -rutaProyecto "src/Web/Backoffice" -puerto "5002" -enNuevaVentana $true
-            Iniciar-Proyecto -nombre "Portal del Comercio" -rutaProyecto "src/Web/PortalComercio" -puerto "5003" -enNuevaVentana $true
-            Iniciar-Proyecto -nombre "Seguimiento Público" -rutaProyecto "src/Web/SeguimientoPublico" -puerto "5004" -enNuevaVentana $true
+            Iniciar-Todas
             Write-Host "`nLas 3 aplicaciones están corriendo. Puede editar archivos .razor, .cshtml o .css para ver los cambios en vivo." -ForegroundColor Green
         }
         "2" {
@@ -133,9 +149,7 @@ function Mostrar-Menu {
 # Ejecución según parámetro o menú interactivo
 switch ($Aplicacion) {
     "todas" {
-        Iniciar-Proyecto -nombre "Backoffice del Operador" -rutaProyecto "src/Web/Backoffice" -puerto "5002" -enNuevaVentana $true
-        Iniciar-Proyecto -nombre "Portal del Comercio" -rutaProyecto "src/Web/PortalComercio" -puerto "5003" -enNuevaVentana $true
-        Iniciar-Proyecto -nombre "Seguimiento Público" -rutaProyecto "src/Web/SeguimientoPublico" -puerto "5004" -enNuevaVentana $true
+        Iniciar-Todas
     }
     "backoffice" {
         Iniciar-Proyecto -nombre "Backoffice del Operador" -rutaProyecto "src/Web/Backoffice" -puerto "5002" -enNuevaVentana $false
