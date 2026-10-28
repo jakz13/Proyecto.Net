@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 using UltimaMilla.Frontend.Infrastructure.Http;
 using UltimaMilla.Infrastructure.Persistence;
 
@@ -152,6 +153,76 @@ public class CicloDeOperacionApiTests
         var publico = seguimiento.GetRawText();
         Assert.DoesNotContain("1.234.567-8", publico);
         Assert.DoesNotContain("18 de Julio", publico);
+
+        // Reportes de gestión con el cliente real del backoffice: el envío entregado aparece en cada reporte
+        var reportes = new HttpReportesApi(cliente);
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        FiltroReporteDto Periodo(string tipo) => new() { TipoReporte = tipo, FechaDesde = hoy.AddDays(-1), FechaHasta = hoy.AddDays(1) };
+
+        foreach (var tipo in new[] { "CumplimientoZona", "CumplimientoRepartidor", "CumplimientoComercio" })
+        {
+            var cumplimiento = await reportes.GenerarReporteAsync(Periodo(tipo));
+            Assert.True(cumplimiento.TotalEntregados >= 1, $"{tipo}: debería contar la entrega");
+            Assert.All(cumplimiento.ItemsCumplimiento, i => Assert.True(i.EntregadosEnPlazo + i.EntregadosConDemora + i.NoEntregados <= i.TotalAsignados));
+        }
+
+        var volumen = await reportes.GenerarReporteAsync(Periodo("VolumenPeriodo"));
+        Assert.True(volumen.ItemsVolumen.Sum(v => v.CantidadGuias) >= 1);
+        Assert.True(volumen.ItemsVolumen.Sum(v => v.PesoTotalKg) > 0);
+
+        var motivos = await reportes.GenerarReporteAsync(Periodo("MotivosNoEntrega"));
+        Assert.All(motivos.ItemsMotivos, m => Assert.True(m.CantidadOcurrencias > 0));
+
+        var liquidacion = await reportes.GenerarReporteAsync(Periodo("LiquidacionComercio"));
+        Assert.NotEmpty(liquidacion.ItemsLiquidacion);
+        Assert.True(liquidacion.TotalFacturadoLiquidacion > 0);
+
+        var csv = await reportes.ExportarReporteCsvAsync(Periodo("LiquidacionComercio"));
+        Assert.Contains("Total Facturado", System.Text.Encoding.UTF8.GetString(csv));
+
+        await Assert.ThrowsAsync<UltimaMilla.Frontend.Infrastructure.Excepciones.ApiExcepcion>(() => reportes.GenerarReporteAsync(Periodo("Inexistente")));
+
+        // Cierre del período: se liquida lo entregado una sola vez y queda en la cuenta corriente del comercio
+        var comercioOperadorId = liquidacion.ItemsLiquidacion.First().ComercioId;
+        var generacion = await Json(await cliente.PostAsJsonAsync("/api/liquidaciones/generar",
+            new { desde = hoy.AddDays(-1), hasta = hoy.AddDays(1), comercioOperadorId }), HttpStatusCode.OK);
+        Assert.True(generacion.GetProperty("enviosLiquidados").GetInt32() >= 1);
+        var liquidacionCreada = generacion.GetProperty("liquidaciones")[0];
+        var liquidacionId = liquidacionCreada.GetProperty("id").GetGuid();
+        Assert.Equal("Pendiente", liquidacionCreada.GetProperty("estado").GetString());
+        Assert.Equal(
+            liquidacionCreada.GetProperty("subtotal").GetDecimal() + liquidacionCreada.GetProperty("iva").GetDecimal(),
+            liquidacionCreada.GetProperty("montoTotal").GetDecimal());
+
+        var repetida = await Json(await cliente.PostAsJsonAsync("/api/liquidaciones/generar",
+            new { desde = hoy.AddDays(-1), hasta = hoy.AddDays(1), comercioOperadorId }), HttpStatusCode.OK);
+        Assert.Equal(0, repetida.GetProperty("enviosLiquidados").GetInt32());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PostAsync($"/api/liquidaciones/{liquidacionId}/pagar", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PostAsync($"/api/liquidaciones/{liquidacionId}/aprobar", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PostAsync($"/api/liquidaciones/{liquidacionId}/aprobar", null)).StatusCode);
+
+        var listadas = await Json(await cliente.GetAsync($"/api/liquidaciones?comercioOperadorId={comercioOperadorId}&estado=Aprobada"), HttpStatusCode.OK);
+        Assert.Contains(listadas.EnumerateArray(), l => l.GetProperty("id").GetGuid() == liquidacionId);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PostAsync($"/api/liquidaciones/{liquidacionId}/pagar", null)).StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var movimientos = await db.MovimientosCuentaCorriente.AsNoTracking().Where(m => m.LiquidacionId == liquidacionId).ToListAsync();
+            Assert.Equal(liquidacionCreada.GetProperty("montoTotal").GetDecimal(), movimientos.Where(m => m.Monto > 0).Sum(m => m.Monto));
+            Assert.Equal(0m, movimientos.Sum(m => m.Monto)); // el pago compensa exactamente los cargos de esta liquidación
+        }
+
+        // Lo que ve el propio comercio en el portal: saldo en cero tras el pago y la liquidación pagada
+        var cuenta = await Json(await cliente.GetAsync("/api/comercio/cuenta-corriente"), HttpStatusCode.OK);
+        Assert.Equal(0m, cuenta.GetProperty("saldo").GetDecimal());
+        Assert.True(cuenta.GetProperty("movimientos").GetArrayLength() >= 3);
+
+        var delComercio = await Json(await cliente.GetAsync("/api/comercio/liquidaciones"), HttpStatusCode.OK);
+        var propia = Assert.Single(delComercio.EnumerateArray(), l => l.GetProperty("id").GetGuid() == liquidacionId);
+        Assert.Equal("Pagada", propia.GetProperty("estado").GetString());
     }
 
     private static string EstadoComoTexto(JsonElement estado) =>

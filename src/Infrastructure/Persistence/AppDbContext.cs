@@ -37,6 +37,9 @@ public class AppDbContext : DbContext
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
     public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
     public DbSet<PosicionVehiculo> PosicionesVehiculo => Set<PosicionVehiculo>();
+    public DbSet<Liquidacion> Liquidaciones => Set<Liquidacion>();
+    public DbSet<CuentaCorriente> CuentasCorrientes => Set<CuentaCorriente>();
+    public DbSet<MovimientoCuentaCorriente> MovimientosCuentaCorriente => Set<MovimientoCuentaCorriente>();
     public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
     public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
@@ -268,6 +271,38 @@ public class AppDbContext : DbContext
             builder.HasKey(e => e.Id);
             builder.Property(e => e.Resultado).IsRequired().HasMaxLength(50);
             builder.HasIndex(e => new { e.HojaDeRutaId, e.BultoId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Liquidacion>(builder =>
+        {
+            builder.ToTable("Liquidaciones");
+            builder.HasKey(l => l.Id);
+            builder.Property(l => l.Estado).IsRequired().HasMaxLength(30);
+            builder.Property(l => l.MontoTotal).HasPrecision(18, 2);
+            builder.HasIndex(l => new { l.ComercioOperadorId, l.PeriodoDesde });
+        });
+
+        modelBuilder.Entity<CuentaCorriente>(builder =>
+        {
+            builder.ToTable("CuentasCorrientes");
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.Moneda).IsRequired().HasMaxLength(3);
+            builder.Property(c => c.Saldo).HasPrecision(18, 2);
+            builder.Property(c => c.SelloModificacion).IsConcurrencyToken();
+            // Una sola cuenta por vínculo comercio-operador
+            builder.HasIndex(c => c.ComercioOperadorId).IsUnique();
+            builder.HasMany(c => c.Movimientos).WithOne().HasForeignKey(m => m.CuentaCorrienteId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MovimientoCuentaCorriente>(builder =>
+        {
+            builder.ToTable("MovimientosCuentaCorriente");
+            builder.HasKey(m => m.Id);
+            builder.Property(m => m.Concepto).IsRequired().HasMaxLength(200);
+            builder.Property(m => m.Monto).HasPrecision(18, 2);
+            builder.HasIndex(m => new { m.CuentaCorrienteId, m.Fecha });
+            // Un envío no puede cargarse en dos liquidaciones: protege el cierre del período ante ejecuciones simultáneas
+            builder.HasIndex(m => m.EnvioId).IsUnique().HasFilter("\"EnvioId\" IS NOT NULL AND \"LiquidacionId\" IS NOT NULL");
         });
 
         modelBuilder.Entity<PosicionVehiculo>(builder =>

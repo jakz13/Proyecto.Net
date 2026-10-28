@@ -178,46 +178,6 @@ public class MockReportesApi : IReportesApi
     public async Task<byte[]> ExportarReporteCsvAsync(FiltroReporteDto filtro, CancellationToken cancelacion = default)
     {
         var datos = await GenerarReporteAsync(filtro, cancelacion);
-        var sb = new StringBuilder();
-
-        // Encabezado general con UTF-8
-        sb.AppendLine($"Reporte de Gestión;Tipo: {filtro.TipoReporte};Periodo: {filtro.FechaDesde:dd/MM/yyyy} a {filtro.FechaHasta:dd/MM/yyyy}");
-        sb.AppendLine($"Generado el;{DateTime.UtcNow:dd/MM/yyyy HH:mm:ss}");
-        sb.AppendLine();
-
-        if (datos.ItemsCumplimiento.Count > 0)
-        {
-            sb.AppendLine("Entidad/Zona;Detalle;Asignados;En Plazo;Con Demora;No Entregados;% Efectividad SLA;% Entrega Total");
-            foreach (var item in datos.ItemsCumplimiento)
-            {
-                sb.AppendLine($"\"{item.Agrupador}\";\"{item.DetalleAdicional}\";{item.TotalAsignados};{item.EntregadosEnPlazo};{item.EntregadosConDemora};{item.NoEntregados};{item.PorcentajeEfectividad}%;{item.PorcentajeEntregaTotal}%");
-            }
-        }
-        else if (datos.ItemsMotivos.Count > 0)
-        {
-            sb.AppendLine("Codigo Motivo;Descripcion;Categoria;Ocurrencias;% del Total;Impacto Operativo");
-            foreach (var m in datos.ItemsMotivos)
-            {
-                sb.AppendLine($"\"{m.CodigoMotivo}\";\"{m.DescripcionMotivo}\";\"{m.Categoria}\";{m.CantidadOcurrencias};{m.PorcentajeDelTotal}%;\"{m.ImpactoComun}\"");
-            }
-        }
-        else if (datos.ItemsVolumen.Count > 0)
-        {
-            sb.AppendLine("Fecha;Guias;Bultos;Peso Total (kg);Volumen Total (m3);Rutas Despachadas");
-            foreach (var v in datos.ItemsVolumen)
-            {
-                sb.AppendLine($"{v.Fecha:dd/MM/yyyy};{v.CantidadGuias};{v.CantidadBultos};{v.PesoTotalKg};{v.VolumenTotalM3};{v.RutasDespachadas}");
-            }
-        }
-        else if (datos.ItemsLiquidacion.Count > 0)
-        {
-            sb.AppendLine("Comercio;RUT;Envios;Tarifa Base ($);Recargo Peso ($);Subtotal ($);IVA 22% ($);Total Facturado ($)");
-            foreach (var l in datos.ItemsLiquidacion)
-            {
-                sb.AppendLine($"\"{l.RazonSocial}\";\"{l.Rut}\";{l.CantidadEnviosLiquidados};{l.TarifaBaseTotal:F2};{l.RecargoPesoTotal:F2};{l.Subtotal:F2};{l.Iva:F2};{l.TotalFacturado:F2}");
-            }
-        }
-
-        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+        return ReporteCsv.Generar(datos);
     }
 }

@@ -330,6 +330,12 @@ app.MapMobilePosicionEndpoints();
 // Tablero de operación en vivo (RF-29)
 app.MapTableroEndpoints();
 
+// Reportes de gestión (RF-30)
+app.MapReportesEndpoints();
+
+// Liquidaciones a comercios y cuenta corriente (RF-30, RF-34)
+app.MapLiquidacionesEndpoints();
+
 // Registrar endpoints de depósito (UC-14, UC-15)
 app.MapDepositoEndpoints();
 

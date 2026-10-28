@@ -99,6 +99,105 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("ComerciosOperadores", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Comercio.CuentaCorriente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComercioOperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<decimal>("Saldo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("SelloModificacion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComercioOperadorId")
+                        .IsUnique();
+
+                    b.ToTable("CuentasCorrientes", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Comercio.Liquidacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComercioOperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("FechaGeneracion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("MontoTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("PeriodoDesde")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PeriodoHasta")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComercioOperadorId", "PeriodoDesde");
+
+                    b.ToTable("Liquidaciones", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Comercio.MovimientoCuentaCorriente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("CuentaCorrienteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("EnvioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LiquidacionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnvioId")
+                        .IsUnique()
+                        .HasFilter("\"EnvioId\" IS NOT NULL AND \"LiquidacionId\" IS NOT NULL");
+
+                    b.HasIndex("CuentaCorrienteId", "Fecha");
+
+                    b.ToTable("MovimientosCuentaCorriente", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.Devolucion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1423,6 +1522,15 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("SolicitudesReprogramacion", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Comercio.MovimientoCuentaCorriente", b =>
+                {
+                    b.HasOne("UltimaMilla.Domain.Entities.Comercio.CuentaCorriente", null)
+                        .WithMany("Movimientos")
+                        .HasForeignKey("CuentaCorrienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.EscaneoCargaVehiculo", b =>
                 {
                     b.HasOne("UltimaMilla.Domain.Entities.Planificacion.HojaDeRuta", null)
@@ -1529,6 +1637,11 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasForeignKey("HojaDeRutaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Comercio.CuentaCorriente", b =>
+                {
+                    b.Navigation("Movimientos");
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.IntentoEntrega", b =>

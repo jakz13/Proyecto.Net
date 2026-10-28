@@ -120,9 +120,7 @@ internal static class ConstructorTablero
     private static readonly TimeSpan SinSenal = TimeSpan.FromMinutes(10);
     private const double VelocidadDetenidoKmh = 3;
 
-    private static readonly TimeZoneInfo ZonaHoraria = ObtenerZonaHoraria();
-
-    public static DateOnly FechaLocal(DateTime utc) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, ZonaHoraria));
+    public static DateOnly FechaLocal(DateTime utc) => ZonaHorariaOperador.FechaLocal(utc);
 
     public static int PesoNivel(string nivel) => nivel switch { "Critico" => 3, "Alto" => 2, _ => 1 };
 
@@ -197,7 +195,7 @@ internal static class ConstructorTablero
                 RiesgoEvaluado? riesgo = null;
                 if (EstaPendiente(parada) && franja is not null)
                 {
-                    var limite = ALaHoraUtc(ruta.Fecha, franja.HoraFin);
+                    var limite = ZonaHorariaOperador.ALaHoraUtc(ruta.Fecha, franja.HoraFin);
                     var recorrido = pendientes.TakeWhile(p => p.Id != parada.Id).Append(parada)
                         .Select(p => PuntoDe(direcciones.GetValueOrDefault(p.DireccionId))).ToList();
                     var llegada = EvaluadorRiesgoVentana.EstimarLlegada(ahora, origen, recorrido);
@@ -300,21 +298,5 @@ internal static class ConstructorTablero
             return "DetenidoAlerta";
 
         return estadoParadaActual == "EnSitio" || velocidad is < VelocidadDetenidoKmh ? "EnParada" : "EnMovimiento";
-    }
-
-    /// <summary>Las franjas se configuran en hora local del operador; los instantes se manejan en UTC.</summary>
-    private static DateTime ALaHoraUtc(DateOnly fecha, TimeOnly hora) =>
-        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(fecha.ToDateTime(hora), DateTimeKind.Unspecified), ZonaHoraria);
-
-    private static TimeZoneInfo ObtenerZonaHoraria()
-    {
-        foreach (var id in new[] { "America/Montevideo", "Montevideo Standard Time" })
-        {
-            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
-            catch (TimeZoneNotFoundException) { }
-            catch (InvalidTimeZoneException) { }
-        }
-
-        return TimeZoneInfo.CreateCustomTimeZone("UTC-03", TimeSpan.FromHours(-3), "UTC-03", "UTC-03");
     }
 }
