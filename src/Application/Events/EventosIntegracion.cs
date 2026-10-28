@@ -24,6 +24,7 @@ public static class EventosIntegracion
         public const string EnvioRecibidoEnDeposito = "EnvioRecibidoEnDepositoIntegrationEvent";
         public const string EnvioClasificado = "EnvioClasificadoIntegrationEvent";
         public const string EnvioAsignadoARuta = "EnvioAsignadoARutaIntegrationEvent";
+        public const string EnvioExtraviado = "EnvioExtraviadoIntegrationEvent";
 
         // Hoja de ruta
         public const string RutaArmada = "RutaArmadaIntegrationEvent";

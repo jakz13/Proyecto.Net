@@ -58,7 +58,7 @@ public class AutenticacionApiTests
         var resultado = await respuesta.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>();
         Assert.NotNull(resultado);
         Assert.Equal("admin2@gmail.com", resultado.Email);
-        Assert.Equal(Guid.Parse("00000000-0000-0000-0000-000000000002"), resultado.OperadorId);
+        Assert.Equal(UltimaMilla.Infrastructure.Persistence.DatabaseSeeder.Operador2Id, resultado.OperadorId);
     }
 
     [FactPostgres]

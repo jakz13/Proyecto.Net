@@ -395,6 +395,25 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         TransicionarEstado(EstadoEnvio.EnDeposito, tipoEvento, responsableUsuarioId, "Backoffice", payload: detalle);
     }
 
+    /// <summary>
+    /// Declara el envío como extraviado (RF-11): estado terminal que se admite desde cualquier estado no terminal.
+    /// Si estaba asignado a una ruta se desvincula; la parada de la ruta la cancela quien invoca (el agregado de la ruta).
+    /// </summary>
+    public void MarcarExtraviado(string motivo, Guid responsableUsuarioId)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new DomainValidationException("Indique el motivo del extravío.");
+
+        if (motivo.Trim().Length > 500)
+            throw new DomainValidationException("El motivo del extravío no puede superar los 500 caracteres.");
+
+        if (MaquinaEstadosEnvio.EsEstadoTerminal(EstadoActual))
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede declarar extraviado porque su estado es '{EstadoActual}'.");
+
+        TransicionarEstado(EstadoEnvio.Extraviado, "EnvioExtraviado", responsableUsuarioId, "Backoffice", payload: motivo.Trim());
+        HojaDeRutaId = null;
+    }
+
     public void TransicionarEstado(
         EstadoEnvio nuevoEstado,
         string tipoEvento,
