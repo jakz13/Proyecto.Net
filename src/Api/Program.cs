@@ -324,6 +324,12 @@ app.MapAuthEndpoints();
 // Registrar endpoints de operación en calle (UC-18, UC-19, UC-20, UC-21)
 app.MapMobileRutasEndpoints();
 
+// Posición del vehículo durante la jornada (RF-23)
+app.MapMobilePosicionEndpoints();
+
+// Tablero de operación en vivo (RF-29)
+app.MapTableroEndpoints();
+
 // Registrar endpoints de depósito (UC-14, UC-15)
 app.MapDepositoEndpoints();
 

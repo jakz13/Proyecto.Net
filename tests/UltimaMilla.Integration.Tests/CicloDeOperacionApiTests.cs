@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using UltimaMilla.Frontend.Infrastructure.Http;
 using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Integration.Tests;
@@ -102,6 +103,25 @@ public class CicloDeOperacionApiTests
         await Json(await cliente.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/carga/confirmar",
             new { codigosBultosCargados = new[] { bulto }, idempotencyKey = Guid.NewGuid().ToString() }), HttpStatusCode.OK);
         await Json(await cliente.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
+
+        // Tablero en vivo: la ruta despachada aparece con la posición que informa la app
+        await Json(await cliente.PostAsJsonAsync("/api/mobile/v1/posiciones", new
+        {
+            posiciones = new[] { new { latitud = -34.9, longitud = -56.16, velocidadKmh = 20.0, bateriaPct = 80, hojaDeRutaId = rutaId } }
+        }), HttpStatusCode.OK);
+
+        var tablero = new HttpTableroApi(cliente);
+        var resumen = await tablero.ObtenerResumenEnVivoAsync();
+        var enVivo = Assert.Single(resumen.Vehiculos, v => v.HojaDeRutaId == rutaId);
+        Assert.Equal(-34.9, enVivo.Latitud, 3);
+        Assert.Equal(80, enVivo.NivelBateriaPct);
+        Assert.Equal(1, enVivo.TotalParadas);
+        Assert.Equal(codigo, Assert.Single(enVivo.Paradas).CodigoSeguimiento);
+        Assert.True(resumen.TotalEnviosEnTransito >= 1);
+        Assert.Equal(rutaId, (await tablero.ObtenerDetalleVehiculoEnVivoAsync(rutaId))!.HojaDeRutaId);
+        Assert.Null(await tablero.ObtenerDetalleVehiculoEnVivoAsync(Guid.NewGuid()));
+        Assert.False(await tablero.EnviarInstruccionRepartidorAsync(Guid.NewGuid(), "Hola"));
+        Assert.True(await tablero.EnviarInstruccionRepartidorAsync(enVivo.RepartidorId, "Pasá por el depósito"));
 
         // Entrega en la parada
         Guid paradaId;

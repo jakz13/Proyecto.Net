@@ -195,6 +195,50 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("IntentosEntrega", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PosicionVehiculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("BateriaPct")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("HojaDeRutaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("Latitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("RepartidorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VehiculoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("VelocidadKmh")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId", "VehiculoId", "Timestamp");
+
+                    b.ToTable("PosicionesVehiculo", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PruebaDeEntrega", b =>
                 {
                     b.Property<Guid>("Id")

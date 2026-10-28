@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
     public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
+    public DbSet<PosicionVehiculo> PosicionesVehiculo => Set<PosicionVehiculo>();
     public DbSet<Destinatario> Destinatarios => Set<Destinatario>();
     public DbSet<Direccion> Direcciones => Set<Direccion>();
     public DbSet<CuadroTarifario> CuadrosTarifarios => Set<CuadroTarifario>();
@@ -267,6 +268,15 @@ public class AppDbContext : DbContext
             builder.HasKey(e => e.Id);
             builder.Property(e => e.Resultado).IsRequired().HasMaxLength(50);
             builder.HasIndex(e => new { e.HojaDeRutaId, e.BultoId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PosicionVehiculo>(builder =>
+        {
+            builder.ToTable("PosicionesVehiculo");
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Origen).IsRequired().HasMaxLength(30);
+            // La consulta del tablero pide la última posición de cada vehículo del operador
+            builder.HasIndex(p => new { p.OperadorId, p.VehiculoId, p.Timestamp });
         });
 
         modelBuilder.Entity<AsignacionEnvioRuta>(builder =>
