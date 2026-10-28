@@ -9,11 +9,12 @@ namespace UltimaMilla.Application.Tests;
 
 public class ClasificarBultosCommandHandlerTests
 {
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeUnitOfWork _uow = new();
     private readonly FakeCurrentTenant _tenant = new();
 
-    private ClasificarBultosCommandHandler CrearHandler() => new(_envios, _uow, _tenant);
+    private ClasificarBultosCommandHandler CrearHandler() => new(_envios, _uow, _tenant, _outbox);
 
     private Envio CrearEnvioEnDeposito(int bultos = 2, Guid? operadorId = null, bool recepcionar = true)
     {

@@ -13,6 +13,7 @@ public class ArmarHojaDeRutaCommandHandlerTests
     // El reloj fijo es jueves 15/10/2026; la jornada de las rutas es el viernes 16/10/2026
     private static readonly DateOnly Viernes = new(2026, 10, 16);
 
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeRutaRepository _rutas = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeRepartidorRepository _repartidores = new();
@@ -36,7 +37,7 @@ public class ArmarHojaDeRutaCommandHandlerTests
     }
 
     private ArmarHojaDeRutaCommandHandler CrearHandler() =>
-        new(_rutas, _envios, _repartidores, _vehiculos, _franjas, _uow, _tenant, _clock);
+        new(_rutas, _envios, _repartidores, _vehiculos, _franjas, _uow, _tenant, _clock, _outbox);
 
     private ReglaOperativa CrearRegla(int maxParadas = 50) =>
         new(Guid.NewGuid(), _tenant.OperadorId, 1, _clock.UtcNow.AddDays(-10), 3, TimeSpan.FromHours(24),

@@ -281,7 +281,7 @@ public class ConsultasPlanificacionQueryHandlerTests
             TimeSpan.FromHours(24), "Firma", "Dev", TimeSpan.FromHours(48), TimeSpan.FromHours(24));
         var a = CrearEnvio();
         var uow = new FakeUnitOfWork();
-        var handler = new ArmarHojaDeRutaCommandHandler(_rutas, _envios, _repartidores, _vehiculos, _franjas, uow, _tenant, new FakeClock());
+        var handler = new ArmarHojaDeRutaCommandHandler(_rutas, _envios, _repartidores, _vehiculos, _franjas, uow, _tenant, new FakeClock(), new FakeOutboxStorage());
 
         var resultado = await handler.Handle(
             new ArmarHojaDeRutaCommand(_repartidor.Id, _vehiculo.Id, Viernes, new[] { a.Id }, SoloValidar: true), default);

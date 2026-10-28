@@ -8,6 +8,7 @@ namespace UltimaMilla.Application.Tests;
 
 public class AltaEnvioCommandHandlerTests
 {
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeDestinatarioRepository _destinatarios = new();
     private readonly FakeDireccionRepository _direcciones = new();
@@ -18,7 +19,7 @@ public class AltaEnvioCommandHandlerTests
     private Guid ComercioDeSesion => _tenant.ComercioOperadorId!.Value;
 
     private AltaEnvioCommandHandler CrearHandler() =>
-        new(new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock), _tenant, _uow);
+        new(new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock, _outbox), _tenant, _uow);
 
     private CuadroTarifario CrearCuadro(params ReglaTarifa[] reglas)
     {
@@ -93,6 +94,19 @@ public class AltaEnvioCommandHandlerTests
         Assert.Single(_direcciones.Direcciones);
         Assert.Single(envio.Eventos);
         Assert.Equal("AltaEnvio", envio.Eventos.Single().TipoEvento);
+
+        var mensaje = Assert.Single(_outbox.Mensajes);
+        Assert.Equal("EnvioAdmitidoIntegrationEvent", mensaje.TipoEvento);
+        Assert.Equal(envio.Id, mensaje.AgregadoId);
+        Assert.Contains(resultado.CodigoSeguimiento, mensaje.Payload);
+    }
+
+    [Fact]
+    public async Task AltaRechazada_NoDejaEventosEnLaOutbox()
+    {
+        await Assert.ThrowsAsync<DomainValidationException>(() => CrearHandler().Handle(Comando(), CancellationToken.None));
+
+        Assert.Empty(_outbox.Mensajes);
     }
 
     [Fact]

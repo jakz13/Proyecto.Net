@@ -1,5 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Commands.Incidencias.AbrirIncidencia;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
@@ -12,17 +13,20 @@ public class CerrarIncidenciaCommandHandler : IRequestHandler<CerrarIncidenciaCo
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IOutboxStorage _outboxStorage;
 
     public CerrarIncidenciaCommandHandler(
         IIncidenciaRepository incidenciaRepository,
         ICurrentTenant currentTenant,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IOutboxStorage outboxStorage)
     {
         _incidenciaRepository = incidenciaRepository;
         _currentTenant = currentTenant;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<IncidenciaResultDto> Handle(CerrarIncidenciaCommand request, CancellationToken cancellationToken)
@@ -42,6 +46,7 @@ public class CerrarIncidenciaCommandHandler : IRequestHandler<CerrarIncidenciaCo
 
         incidencia.Cerrar(usuarioId, request.Resolucion ?? string.Empty, _clock.UtcNow);
 
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeIncidencia(EventosIntegracion.Tipos.IncidenciaCerrada, incidencia), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return IncidenciaMapper.ToResult(incidencia);

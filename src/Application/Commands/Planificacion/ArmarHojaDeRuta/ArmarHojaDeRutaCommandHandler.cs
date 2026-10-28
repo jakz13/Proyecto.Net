@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
@@ -18,6 +19,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly IOutboxStorage _outboxStorage;
 
     public ArmarHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -27,7 +29,8 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         IFranjaHorariaRepository franjaHorariaRepository,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        IOutboxStorage outboxStorage)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -37,6 +40,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<ArmarHojaDeRutaResultDto> Handle(ArmarHojaDeRutaCommand request, CancellationToken cancellationToken)
@@ -157,6 +161,12 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
 
         await _rutaRepository.AddAsync(ruta, cancellationToken);
         await _envioRepository.UpdateRangeAsync(incluidos, cancellationToken);
+
+        var eventos = incluidos
+            .Select((e, i) => EventosIntegracion.DeEnvio(EventosIntegracion.Tipos.EnvioAsignadoARuta, e, new { HojaDeRutaId = ruta.Id, OrdenParada = i + 1 }))
+            .Append(EventosIntegracion.DeRuta(EventosIntegracion.Tipos.RutaArmada, ruta, new { ruta.Fecha, CantidadParadas = incluidos.Count }));
+        await _outboxStorage.SaveRangeAsync(eventos, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ArmarHojaDeRutaResultDto(

@@ -1,3 +1,4 @@
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Exceptions;
@@ -18,19 +19,22 @@ public class AltaEnvioProcesador
     private readonly IDireccionRepository _direccionRepository;
     private readonly ICuadroTarifarioRepository _cuadroTarifarioRepository;
     private readonly IClock _clock;
+    private readonly IOutboxStorage _outboxStorage;
 
     public AltaEnvioProcesador(
         IEnvioRepository envioRepository,
         IDestinatarioRepository destinatarioRepository,
         IDireccionRepository direccionRepository,
         ICuadroTarifarioRepository cuadroTarifarioRepository,
-        IClock clock)
+        IClock clock,
+        IOutboxStorage outboxStorage)
     {
         _envioRepository = envioRepository;
         _destinatarioRepository = destinatarioRepository;
         _direccionRepository = direccionRepository;
         _cuadroTarifarioRepository = cuadroTarifarioRepository;
         _clock = clock;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<AltaEnvioResultDto> ProcesarAsync(
@@ -126,6 +130,16 @@ public class AltaEnvioProcesador
         await _destinatarioRepository.AddAsync(destinatario, cancellationToken);
         await _direccionRepository.AddAsync(direccion, cancellationToken);
         await _envioRepository.AddAsync(envio, cancellationToken);
+
+        // El evento se persiste junto con el envío (outbox): el alta y su publicación se confirman o se descartan juntas
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeEnvio(EventosIntegracion.Tipos.EnvioAdmitido, envio, new
+        {
+            Tarifa = envio.TarifaCalculada,
+            envio.ModalidadServicio,
+            CantidadBultos = identificaciones.Count,
+            LoteImportacionId = loteImportacionId,
+            envio.ReferenciaExterna
+        }), cancellationToken);
 
         return new AltaEnvioResultDto(
             envio.Id,
