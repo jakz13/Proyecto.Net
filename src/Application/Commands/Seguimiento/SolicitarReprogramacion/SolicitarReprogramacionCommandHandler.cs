@@ -25,6 +25,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private readonly IOutboxStorage _outboxStorage;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentTenant? _currentTenant;
 
     public SolicitarReprogramacionCommandHandler(
         IEnvioRepository envioRepository,
@@ -33,7 +34,8 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         ISolicitudReprogramacionRepository solicitudRepository,
         IOutboxStorage outboxStorage,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentTenant? currentTenant = null)
     {
         _envioRepository = envioRepository;
         _direccionRepository = direccionRepository;
@@ -42,6 +44,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         _outboxStorage = outboxStorage;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _currentTenant = currentTenant;
     }
 
     public async Task<ResultadoReprogramacionDto> Handle(SolicitarReprogramacionCommand request, CancellationToken cancellationToken)
@@ -55,6 +58,9 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
 
         var consultado = await _envioRepository.GetByCodigoSeguimientoAsync(codigo, cancellationToken)
             ?? throw new NotFoundException("No se encontró un envío con el código indicado.");
+
+        // Fija el operador dueño del envío resuelto por su código público para que la lectura rastreada y el guardado queden acotados a ese operador
+        _currentTenant?.EstablecerOperadorDeProceso(consultado.OperadorId);
 
         // La consulta por código no rastrea la entidad; se vuelve a leer para poder modificarla
         var envio = await _envioRepository.GetByIdAsync(consultado.Id, cancellationToken)

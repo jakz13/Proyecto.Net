@@ -44,14 +44,14 @@ public class DemoOfflineSyncApiTests
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var hojaDeRuta = await db.HojasDeRuta
+        var hojaDeRuta = await db.HojasDeRuta.IgnoreQueryFilters()
             .Include(h => h.Paradas)
             .SingleAsync(h => h.Id == DatabaseSeeder.DefaultHojaDeRutaId);
 
         Assert.Equal("Despachada", hojaDeRuta.Estado);
         Assert.All(hojaDeRuta.Paradas, p => Assert.Equal("Pendiente", p.Estado));
 
-        var envios = await db.Envios
+        var envios = await db.Envios.IgnoreQueryFilters()
             .Include(e => e.IntentosEntrega)
             .Where(e => e.Id == DatabaseSeeder.Envio1Id || e.Id == DatabaseSeeder.Envio2Id || e.Id == DatabaseSeeder.Envio3Id)
             .ToListAsync();
@@ -120,7 +120,7 @@ public class DemoOfflineSyncApiTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var envio3 = await db.Envios
+            var envio3 = await db.Envios.IgnoreQueryFilters()
                 .Include(e => e.IntentosEntrega)
                 .SingleAsync(e => e.Id == DatabaseSeeder.Envio3Id);
 
@@ -142,8 +142,8 @@ public class DemoOfflineSyncApiTests
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var envio2 = await db.Envios.Include(e => e.IntentosEntrega).SingleAsync(e => e.Id == DatabaseSeeder.Envio2Id);
-            var envio3 = await db.Envios.Include(e => e.IntentosEntrega).SingleAsync(e => e.Id == DatabaseSeeder.Envio3Id);
+            var envio2 = await db.Envios.IgnoreQueryFilters().Include(e => e.IntentosEntrega).SingleAsync(e => e.Id == DatabaseSeeder.Envio2Id);
+            var envio3 = await db.Envios.IgnoreQueryFilters().Include(e => e.IntentosEntrega).SingleAsync(e => e.Id == DatabaseSeeder.Envio3Id);
 
             Assert.Equal(EstadoEnvio.EnTransito, envio2.EstadoActual);
             Assert.Equal(EstadoEnvio.EnTransito, envio3.EstadoActual);

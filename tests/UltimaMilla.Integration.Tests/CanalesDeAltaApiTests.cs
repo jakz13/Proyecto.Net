@@ -44,7 +44,7 @@ public class CanalesDeAltaApiTests
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        return await db.Envios.CountAsync(e => e.ReferenciaExterna != null && e.ReferenciaExterna.StartsWith(prefijo));
+        return await db.Envios.IgnoreQueryFilters().CountAsync(e => e.ReferenciaExterna != null && e.ReferenciaExterna.StartsWith(prefijo));
     }
 
     [FactPostgres]
@@ -118,7 +118,7 @@ public class CanalesDeAltaApiTests
         Assert.Equal(HttpStatusCode.Created, respuesta.StatusCode);
         var id = (await respuesta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         using var scope = _factory.Services.CreateScope();
-        var envio = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Envios.AsNoTracking().SingleAsync(e => e.Id == id);
+        var envio = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Envios.IgnoreQueryFilters().AsNoTracking().SingleAsync(e => e.Id == id);
         Assert.NotEqual(comercioAjeno, envio.ComercioOperadorId);
         Assert.Equal(DatabaseSeeder.DefaultComercioOperadorId, envio.ComercioOperadorId);
     }
@@ -131,6 +131,7 @@ public class CanalesDeAltaApiTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var _ = db.HabilitarEscrituraAdministrativa();
             db.Envios.Add(ajeno);
             await db.SaveChangesAsync();
         }
@@ -182,7 +183,7 @@ public class CanalesDeAltaApiTests
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         using var scope = _factory.Services.CreateScope();
-        var envio = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Envios.AsNoTracking()
+        var envio = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Envios.IgnoreQueryFilters().AsNoTracking()
             .SingleAsync(e => e.ReferenciaExterna == "IT-LATIN-1");
         Assert.Equal("José Ñandú", envio.NombreDestinatario);
     }

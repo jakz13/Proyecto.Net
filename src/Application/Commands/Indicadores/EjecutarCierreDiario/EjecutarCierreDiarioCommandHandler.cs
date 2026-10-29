@@ -16,19 +16,22 @@ public class EjecutarCierreDiarioCommandHandler : IRequestHandler<EjecutarCierre
     private readonly IRutaRepository _rutaRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly ICurrentTenant? _currentTenant;
 
     public EjecutarCierreDiarioCommandHandler(
         ICierreDiarioRepository cierreRepository,
         IProcesosProgramadosRepository procesosRepository,
         IRutaRepository rutaRepository,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        ICurrentTenant? currentTenant = null)
     {
         _cierreRepository = cierreRepository;
         _procesosRepository = procesosRepository;
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _currentTenant = currentTenant;
     }
 
     public async Task<ResultadoCierreDiario> Handle(EjecutarCierreDiarioCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,9 @@ public class EjecutarCierreDiarioCommandHandler : IRequestHandler<EjecutarCierre
 
         if (request.Fecha > ZonaHorariaOperacion.FechaLocalDe(_clock.UtcNow))
             throw new DomainValidationException("No se puede cerrar una jornada futura.");
+
+        if (_currentTenant is { IsAuthenticated: false })
+            _currentTenant.EstablecerOperadorDeProceso(request.OperadorId);
 
         var existente = await _cierreRepository.GetAsync(request.OperadorId, request.Fecha, cancellationToken);
         if (existente is not null)

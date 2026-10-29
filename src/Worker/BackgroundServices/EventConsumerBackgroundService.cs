@@ -5,6 +5,8 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 using UltimaMilla.Application.Commands.Mensajeria.RegistrarMensajeFallido;
+using UltimaMilla.Application.Messaging;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Messaging;
 
 namespace UltimaMilla.Worker.BackgroundServices;
@@ -116,6 +118,9 @@ public class EventConsumerBackgroundService : BackgroundService
         try
         {
             using var scope = _scopeFactory.CreateScope();
+            if (PayloadMensaje.OperadorIdDe(payload) is { } operadorDelEvento)
+                scope.ServiceProvider.GetRequiredService<ICurrentTenant>().EstablecerOperadorDeProceso(operadorDelEvento);
+
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var resultado = await mediator.Send(new ProcesarMensajeCommand(messageId, agregadoOrigen, agregadoId, tipoEvento, payload), cancellationToken);
 

@@ -41,6 +41,8 @@ public static class DatabaseSeederSegundoOperador
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(logger);
 
+        using var _ = context.HabilitarEscrituraAdministrativa();
+
         if (!await context.Operadores.AnyAsync(o => o.Id == OperadorId, cancellationToken))
         {
             await context.Operadores.AddAsync(

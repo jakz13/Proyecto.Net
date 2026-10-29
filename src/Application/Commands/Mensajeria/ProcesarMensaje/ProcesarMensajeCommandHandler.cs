@@ -33,6 +33,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private readonly IAvisoComercioRepository _avisoRepository;
     private readonly AvisoComercioEntregador _entregador;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentTenant? _currentTenant;
 
     public ProcesarMensajeCommandHandler(
         IIdempotenciaConsumidorRepository idempotenciaRepository,
@@ -42,7 +43,8 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         INotificacionDestinatarioService notificacionService,
         IAvisoComercioRepository avisoRepository,
         AvisoComercioEntregador entregador,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentTenant? currentTenant = null)
     {
         _idempotenciaRepository = idempotenciaRepository;
         _envioRepository = envioRepository;
@@ -52,6 +54,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         _avisoRepository = avisoRepository;
         _entregador = entregador;
         _unitOfWork = unitOfWork;
+        _currentTenant = currentTenant;
     }
 
     public async Task<ResultadoProcesamientoMensaje> Handle(ProcesarMensajeCommand request, CancellationToken cancellationToken)
@@ -79,6 +82,9 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
 
         var evento = EventoEnvioPublicado.Deserializar(request.Payload)
             ?? throw new MensajeInvalidoException($"El payload del mensaje {claveMensaje} no es un evento de cambio de estado válido.");
+
+        // Fija el operador declarado por el evento en el alcance actual antes de consultar la base
+        _currentTenant?.EstablecerOperadorDeProceso(evento.OperadorId);
 
         var envio = await _envioRepository.GetByIdAsync(evento.EnvioId, cancellationToken)
             ?? throw new NotFoundException($"No se encontró el envío '{evento.EnvioId}' del evento.");

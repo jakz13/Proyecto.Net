@@ -28,6 +28,7 @@ public static class DatabaseSeederAdministracion
 
     public static async Task SembrarAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
+        using var _ = context.HabilitarEscrituraAdministrativa();
         await SembrarComercioAsync(context, cancellationToken);
         await SembrarZonasAsync(context, cancellationToken);
         await SembrarIdentidadVisualAsync(context, cancellationToken);
@@ -50,7 +51,7 @@ public static class DatabaseSeederAdministracion
 
     private static async Task SembrarZonasAsync(AppDbContext context, CancellationToken ct)
     {
-        if (await context.ZonasCobertura.AnyAsync(z => z.OperadorId == DatabaseSeeder.DefaultOperadorId, ct))
+        if (await context.ZonasCobertura.IgnoreQueryFilters().AnyAsync(z => z.OperadorId == DatabaseSeeder.DefaultOperadorId, ct))
             return;
 
         var operadorId = DatabaseSeeder.DefaultOperadorId;
@@ -85,7 +86,7 @@ public static class DatabaseSeederAdministracion
 
     private static async Task SembrarIdentidadVisualAsync(AppDbContext context, CancellationToken ct)
     {
-        if (await context.IdentidadesVisuales.AnyAsync(i => i.OperadorId == DatabaseSeeder.DefaultOperadorId, ct))
+        if (await context.IdentidadesVisuales.IgnoreQueryFilters().AnyAsync(i => i.OperadorId == DatabaseSeeder.DefaultOperadorId, ct))
             return;
 
         var identidad = new IdentidadVisual(IdentidadVisualId, DatabaseSeeder.DefaultOperadorId, "#1D4ED8", "#F97316",

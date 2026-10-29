@@ -15,6 +15,7 @@ public class RecalcularIndicadoresCumplimientoCommandHandler : IRequestHandler<R
     private readonly IIndicadorCumplimientoRepository _indicadorRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly ICurrentTenant? _currentTenant;
 
     public RecalcularIndicadoresCumplimientoCommandHandler(
         IProcesosProgramadosRepository procesosRepository,
@@ -22,7 +23,8 @@ public class RecalcularIndicadoresCumplimientoCommandHandler : IRequestHandler<R
         IRutaRepository rutaRepository,
         IIndicadorCumplimientoRepository indicadorRepository,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        ICurrentTenant? currentTenant = null)
     {
         _procesosRepository = procesosRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
@@ -30,6 +32,7 @@ public class RecalcularIndicadoresCumplimientoCommandHandler : IRequestHandler<R
         _indicadorRepository = indicadorRepository;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _currentTenant = currentTenant;
     }
 
     public async Task<ResultadoRecalculoIndicadores> Handle(RecalcularIndicadoresCumplimientoCommand request, CancellationToken cancellationToken)
@@ -41,6 +44,9 @@ public class RecalcularIndicadoresCumplimientoCommandHandler : IRequestHandler<R
 
         if (request.Fecha > ZonaHorariaOperacion.FechaLocalDe(_clock.UtcNow))
             throw new DomainValidationException("No se pueden calcular indicadores de una fecha futura.");
+
+        if (_currentTenant is { IsAuthenticated: false })
+            _currentTenant.EstablecerOperadorDeProceso(request.OperadorId);
 
         var (desdeUtc, hastaUtc) = ZonaHorariaOperacion.LimitesUtcDelDia(request.Fecha);
         var periodo = request.Fecha.ToString("yyyy-MM-dd");

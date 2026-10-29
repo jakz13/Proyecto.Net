@@ -10,15 +10,18 @@ public class AltaEnvioPorApiCommandHandler : IRequestHandler<AltaEnvioPorApiComm
     private readonly IComercioOperadorRepository _comercioOperadorRepository;
     private readonly AltaEnvioProcesador _procesador;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentTenant? _currentTenant;
 
     public AltaEnvioPorApiCommandHandler(
         IComercioOperadorRepository comercioOperadorRepository,
         AltaEnvioProcesador procesador,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentTenant? currentTenant = null)
     {
         _comercioOperadorRepository = comercioOperadorRepository;
         _procesador = procesador;
         _unitOfWork = unitOfWork;
+        _currentTenant = currentTenant;
     }
 
     public async Task<AltaEnvioResultDto> Handle(AltaEnvioPorApiCommand request, CancellationToken cancellationToken)
@@ -33,6 +36,9 @@ public class AltaEnvioPorApiCommandHandler : IRequestHandler<AltaEnvioPorApiComm
                 ComercioOperador.CalcularHuellaClaveApi(request.ClaveApi), cancellationToken);
         if (comercioOperador is null || !comercioOperador.EstaActivo)
             throw new UnauthorizedAccessException("Clave de API inválida.");
+
+        // El canal por clave de API autentica al comercio y fija el operador dueño para el resto de la operación
+        _currentTenant?.EstablecerOperadorDeProceso(comercioOperador.OperadorId);
 
         var alta = new AltaEnvioCommand(
             comercioOperador.Id,

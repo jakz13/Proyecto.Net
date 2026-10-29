@@ -54,7 +54,8 @@ public static class DatabaseSeeder
         ArgumentNullException.ThrowIfNull(logger);
 
         // Verificación de idempotencia estricta
-        var rutaExiste = await context.HojasDeRuta.AnyAsync(h => h.Id == DefaultHojaDeRutaId, cancellationToken);
+        using var _ = context.HabilitarEscrituraAdministrativa();
+        var rutaExiste = await context.HojasDeRuta.IgnoreQueryFilters().AnyAsync(h => h.Id == DefaultHojaDeRutaId, cancellationToken);
         if (rutaExiste)
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
@@ -292,7 +293,7 @@ public static class DatabaseSeeder
     private static async Task SembrarOperacionAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
         // El motivo interno de la rendición debe existir también en bases sembradas antes de UC-16
-        if (!await context.MotivosNoEntrega.AnyAsync(m => m.OperadorId == DefaultOperadorId && m.Codigo == "RETORNO_SIN_INTENTO", cancellationToken))
+        if (!await context.MotivosNoEntrega.IgnoreQueryFilters().AnyAsync(m => m.OperadorId == DefaultOperadorId && m.Codigo == "RETORNO_SIN_INTENTO", cancellationToken))
         {
             await context.MotivosNoEntrega.AddAsync(
                 new MotivoNoEntrega(Guid.Parse("dddddddd-0008-0000-0000-000000000008"), DefaultOperadorId, "RETORNO_SIN_INTENTO", "Retorno a depósito sin intento de entrega", esInterno: true),
@@ -300,7 +301,7 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        if (await context.CuadrosTarifarios.AnyAsync(c => c.OperadorId == DefaultOperadorId, cancellationToken))
+        if (await context.CuadrosTarifarios.IgnoreQueryFilters().AnyAsync(c => c.OperadorId == DefaultOperadorId, cancellationToken))
             return;
 
         var reglaEstandarId = Guid.Parse("99999999-0001-0000-0000-000000000001");
@@ -378,7 +379,7 @@ public static class DatabaseSeeder
             await context.Operadores.AddAsync(op2, cancellationToken);
         }
 
-        if (!await context.ReglasOperativas.AnyAsync(r => r.Id == ReglaOperativa2Id, cancellationToken))
+        if (!await context.ReglasOperativas.IgnoreQueryFilters().AnyAsync(r => r.Id == ReglaOperativa2Id, cancellationToken))
         {
             var regla2 = new ReglaOperativa(
                 ReglaOperativa2Id,
@@ -395,7 +396,7 @@ public static class DatabaseSeeder
             await context.ReglasOperativas.AddAsync(regla2, cancellationToken);
         }
 
-        if (!await context.CuadrosTarifarios.AnyAsync(c => c.Id == CuadroTarifario2Id, cancellationToken))
+        if (!await context.CuadrosTarifarios.IgnoreQueryFilters().AnyAsync(c => c.Id == CuadroTarifario2Id, cancellationToken))
         {
             var cuadro2 = new CuadroTarifario(CuadroTarifario2Id, Operador2Id, 1, DateTime.UtcNow.AddYears(-1));
             cuadro2.AgregarRegla(new ReglaTarifa(Guid.Parse("99999999-0002-0000-0000-000000000001"), cuadro2.Id, "Estandar", 0m, 1000m, 0m, 1000000000m, 180m)); // Tarifa distinta: $180

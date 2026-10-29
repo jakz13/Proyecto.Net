@@ -101,6 +101,7 @@ public class ScheduledJobsBackgroundService : BackgroundService
         try
         {
             using var scope = _scopeFactory.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ICurrentTenant>().EstablecerOperadorDeProceso(operadorId);
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
             var indicadores = await mediator.Send(new RecalcularIndicadoresCumplimientoCommand(operadorId, fecha), cancellationToken);

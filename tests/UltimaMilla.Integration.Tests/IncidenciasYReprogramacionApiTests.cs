@@ -84,6 +84,7 @@ public class IncidenciasYReprogramacionApiTests
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         // Las franjas pertenecen a una zona de cobertura real del operador
+        using var _ = db.HabilitarEscrituraAdministrativa();
         db.ZonasCobertura.Add(new ZonaCobertura(zona, DatabaseSeeder.DefaultOperadorId, "Zona de prueba " + zona.ToString("N")[..8], "[[0,0],[1,1],[2,2]]"));
         db.FranjasHorarias.AddRange(manana, tarde);
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -116,7 +117,7 @@ public class IncidenciasYReprogramacionApiTests
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var envio = await db.Envios.AsNoTracking().SingleAsync(e => e.CodigoSeguimientoPublico == CodigoEnDeposito);
+        var envio = await db.Envios.IgnoreQueryFilters().AsNoTracking().SingleAsync(e => e.CodigoSeguimientoPublico == CodigoEnDeposito);
         Assert.Equal(tarde, envio.FranjaHorariaComprometidaId);
         Assert.Contains(envio.Eventos, e => e.TipoEvento == "ReprogramacionSolicitadaPorDestinatario");
         Assert.Equal(1, await db.SolicitudesReprogramacion.CountAsync(s => s.Estado == "Aprobada" && s.EnvioId == envio.Id));

@@ -153,7 +153,7 @@ public class ConcurrenciaYAislamientoApiTests
         // El envío del operador uno sigue exactamente como estaba
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(UltimaMilla.Domain.Enums.EstadoEnvio.EnDeposito, (await db.Envios.AsNoTracking().SingleAsync(e => e.Id == envioId)).EstadoActual);
+        Assert.Equal(UltimaMilla.Domain.Enums.EstadoEnvio.EnDeposito, (await db.Envios.IgnoreQueryFilters().AsNoTracking().SingleAsync(e => e.Id == envioId)).EstadoActual);
     }
 
     [FactPostgres]
@@ -183,7 +183,7 @@ public class ConcurrenciaYAislamientoApiTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var envio = await db.Envios.AsNoTracking().SingleAsync(e => e.Id == envioId);
+            var envio = await db.Envios.IgnoreQueryFilters().AsNoTracking().SingleAsync(e => e.Id == envioId);
             Assert.Equal(UltimaMilla.Domain.Enums.EstadoEnvio.Extraviado, envio.EstadoActual);
             Assert.Null(envio.HojaDeRutaId);
             Assert.Contains(envio.Eventos, e => e.TipoEvento == "EnvioExtraviado");

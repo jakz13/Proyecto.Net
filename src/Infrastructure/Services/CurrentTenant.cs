@@ -10,16 +10,28 @@ public class CurrentTenant : ICurrentTenant
     private static readonly Guid OperadorDemoDefault = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid UsuarioDemoDefault = Guid.Parse("77777777-7777-7777-7777-777777777777");
     private static readonly Guid ComercioOperadorDemoDefault = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private Guid? _operadorDeProceso;
 
     public CurrentTenant(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
     }
 
+    public void EstablecerOperadorDeProceso(Guid operadorId)
+    {
+        if (operadorId == Guid.Empty)
+            throw new ArgumentException("El identificador del operador del proceso no puede ser vacío.", nameof(operadorId));
+
+        _operadorDeProceso = operadorId;
+    }
+
     public Guid OperadorId
     {
         get
         {
+            if (_operadorDeProceso.HasValue)
+                return _operadorDeProceso.Value;
+
             var httpContext = _httpContextAccessor.HttpContext;
             var user = httpContext?.User;
             var tenantClaim = user?.FindFirst("operador_id")?.Value
@@ -86,8 +98,10 @@ public class CurrentTenant : ICurrentTenant
     }
 
     /// <summary>
-    /// Sin contexto HTTP (Worker, semillas, migraciones) no hay inquilino: los filtros globales de <c>AppDbContext</c>
-    /// no se aplican y cada proceso debe indicar el operador de forma explícita en sus consultas.
+    /// Es <c>true</c> cuando hay una sesión HTTP autenticada o cuando un proceso en segundo plano fijó explícitamente
+    /// su operador mediante <see cref="EstablecerOperadorDeProceso"/>. Sin ninguno de los dos (semillas, migraciones
+    /// o tareas transversales), es <c>false</c>.
     /// </summary>
-    public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+    public bool IsAuthenticated =>
+        _operadorDeProceso.HasValue || (_httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false);
 }

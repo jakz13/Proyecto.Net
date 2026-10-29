@@ -71,7 +71,9 @@ public class EfAvisoComercioRepository : IAvisoComercioRepository
             .ToListAsync(cancellationToken);
 
     public Task<SuscripcionAviso?> GetSuscripcionAsync(Guid suscripcionId, CancellationToken cancellationToken = default) =>
-        _dbContext.SuscripcionesAviso.AsNoTracking().FirstOrDefaultAsync(s => s.Id == suscripcionId, cancellationToken);
+        suscripcionId == Guid.Empty
+            ? Task.FromResult<SuscripcionAviso?>(null)
+            : _dbContext.SuscripcionesAviso.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(s => s.Id == suscripcionId, cancellationToken);
 
     public async Task AddAsync(AvisoComercio aviso, CancellationToken cancellationToken = default) =>
         await _dbContext.AvisosComercio.AddAsync(aviso, cancellationToken);

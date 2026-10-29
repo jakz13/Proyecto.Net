@@ -6,7 +6,6 @@ using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Envios;
-using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
@@ -28,7 +27,11 @@ public class AppDbContext : DbContext
     /// Operador al que se acotan las consultas (ADR-002). Es <c>null</c> cuando no hay un inquilino autenticado
     /// (Worker, semillas, migraciones), caso en que el filtro global no restringe nada.
     /// </summary>
-    private Guid? OperadorFiltro => _currentTenant is { IsAuthenticated: true } ? _currentTenant.OperadorId : null;
+    /// <summary>
+    /// Operador al que se acotan las consultas (ADR-002). Es <c>Guid.Empty</c> cuando no hay un inquilino autenticado
+    /// válido, caso en que el filtro global actúa en modo fail-closed (no devuelve registros).
+    /// </summary>
+    private Guid OperadorFiltro => _currentTenant is { IsAuthenticated: true } ? _currentTenant.OperadorId : Guid.Empty;
 
     public DbSet<Envio> Envios => Set<Envio>();
     public DbSet<Bulto> Bultos => Set<Bulto>();
@@ -564,6 +567,10 @@ public class AppDbContext : DbContext
         AplicarFiltroDeOperador<Repartidor>(modelBuilder);
         AplicarFiltroDeOperador<Vehiculo>(modelBuilder);
         AplicarFiltroDeOperador<ZonaCobertura>(modelBuilder);
+        AplicarFiltroDeComercioDelOperador<CuentaCorriente>(modelBuilder);
+        AplicarFiltroDeComercioDelOperador<Liquidacion>(modelBuilder);
+        AplicarFiltroDeComercioDelOperador<LoteImportacion>(modelBuilder);
+        AplicarFiltroDeComercioDelOperador<SuscripcionAviso>(modelBuilder);
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -579,6 +586,141 @@ public class AppDbContext : DbContext
     /// </summary>
     private void AplicarFiltroDeOperador<T>(ModelBuilder modelBuilder) where T : class, IMustHaveTenant
     {
-        modelBuilder.Entity<T>().HasQueryFilter(e => OperadorFiltro == null || EF.Property<Guid>(e, "OperadorId") == OperadorFiltro);
+        modelBuilder.Entity<T>().HasQueryFilter(e =>
+            OperadorFiltro != Guid.Empty && EF.Property<Guid>(e, "OperadorId") == OperadorFiltro);
+    }
+
+    /// <summary>
+    /// Filtro global para entidades de alcance de comercio-operador que no almacenan <c>OperadorId</c> directo.
+    /// Acota las filas a los comercios pertenecientes al operador autenticado actual, manteniendo compatibilidad con Backoffice y Portal.
+    /// </summary>
+    private void AplicarFiltroDeComercioDelOperador<T>(ModelBuilder modelBuilder) where T : class, IMustHaveComercioTenant
+    {
+        modelBuilder.Entity<T>().HasQueryFilter(e =>
+            OperadorFiltro != Guid.Empty
+            && ComerciosOperadores.Any(co => co.Id == e.ComercioOperadorId && co.OperadorId == OperadorFiltro));
+    }
+
+    private int _alcanceEscrituraAdministrativa;
+
+    /// <summary>
+    /// Habilita de forma explícita y acotada la escritura transversal sobre entidades multitenant
+    /// exclusivamente para semillas de datos o tareas administrativas autorizadas.
+    /// </summary>
+    public IDisposable HabilitarEscrituraAdministrativa()
+    {
+        _alcanceEscrituraAdministrativa++;
+        return new AlcanceEscrituraAdministrativa(this);
+    }
+
+    private sealed class AlcanceEscrituraAdministrativa(AppDbContext contexto) : IDisposable
+    {
+        private bool _cerrado;
+
+        public void Dispose()
+        {
+            if (_cerrado)
+                return;
+
+            _cerrado = true;
+            contexto._alcanceEscrituraAdministrativa--;
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ValidarAislamientoDeEscrituraAsync(CancellationToken.None).GetAwaiter().GetResult();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        await ValidarAislamientoDeEscrituraAsync(cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Garantiza el aislamiento en escritura (ADR-002):
+    /// 1. Exige un operador autenticado válido (<c>OperadorId != Guid.Empty</c>) o un alcance administrativo explícito
+    ///    (<see cref="HabilitarEscrituraAdministrativa"/>) para escribir cualquier entidad <see cref="IMustHaveTenant"/> o <see cref="IMustHaveComercioTenant"/>.
+    /// 2. Impide persistir identificadores de tenant vacíos (<c>Guid.Empty</c>).
+    /// 3. Comprueba contra la base de datos que las filas modificadas o eliminadas pertenezcan realmente al propietario esperado,
+    ///    bloqueando ataques por adjunción (<c>Attach</c>/<c>Update</c>/<c>Remove</c>) o transferencia de propietario.
+    /// </summary>
+    private async Task ValidarAislamientoDeEscrituraAsync(CancellationToken cancellationToken)
+    {
+        var cambiosOperador = ChangeTracker.Entries<IMustHaveTenant>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        var cambiosComercio = ChangeTracker.Entries<IMustHaveComercioTenant>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        if (cambiosOperador.Count == 0 && cambiosComercio.Count == 0)
+            return;
+
+        var esAdministrativo = _alcanceEscrituraAdministrativa > 0;
+        var operadorActual = OperadorFiltro;
+
+        if (!esAdministrativo && operadorActual == Guid.Empty)
+            throw new UnauthorizedAccessException("No se permite escribir recursos multitenant sin un operador autenticado válido o autorización administrativa explícita.");
+
+        foreach (var entry in cambiosOperador)
+        {
+            if (entry.Entity.OperadorId == Guid.Empty)
+                throw new UnauthorizedAccessException("No se permite persistir recursos multitenant con un OperadorId vacío.");
+
+            if (entry.State == EntityState.Added)
+            {
+                if (!esAdministrativo && entry.Entity.OperadorId != operadorActual)
+                    throw new UnauthorizedAccessException("No se permite insertar recursos pertenecientes a otro operador.");
+            }
+            else if (entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                var operadorOriginal = entry.OriginalValues.GetValue<Guid>(nameof(IMustHaveTenant.OperadorId));
+                if (operadorOriginal == Guid.Empty || entry.Entity.OperadorId != operadorOriginal)
+                    throw new UnauthorizedAccessException("No se permite cambiar el operador propietario de un recurso existente.");
+
+                if (!esAdministrativo && entry.Entity.OperadorId != operadorActual)
+                    throw new UnauthorizedAccessException("No se permite modificar ni eliminar recursos pertenecientes a otro operador.");
+
+                var valoresEnBase = await entry.GetDatabaseValuesAsync(cancellationToken);
+                if (valoresEnBase is null || valoresEnBase.GetValue<Guid>(nameof(IMustHaveTenant.OperadorId)) != entry.Entity.OperadorId)
+                    throw new UnauthorizedAccessException("No se permite modificar ni eliminar recursos pertenecientes a otro operador.");
+
+                if (entry.State == EntityState.Modified)
+                    entry.Property(nameof(IMustHaveTenant.OperadorId)).IsModified = false;
+            }
+        }
+
+        foreach (var entry in cambiosComercio)
+        {
+            if (entry.Entity.ComercioOperadorId == Guid.Empty)
+                throw new UnauthorizedAccessException("No se permite persistir recursos de comercio con un ComercioOperadorId vacío.");
+
+            if (!esAdministrativo)
+            {
+                var perteneceAlOperador = await ComerciosOperadores
+                    .AsNoTracking()
+                    .AnyAsync(co => co.Id == entry.Entity.ComercioOperadorId && co.OperadorId == operadorActual, cancellationToken);
+                if (!perteneceAlOperador)
+                    throw new UnauthorizedAccessException("No se permite operar sobre recursos de un comercio perteneciente a otro operador.");
+            }
+
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                var comercioOriginal = entry.OriginalValues.GetValue<Guid>(nameof(IMustHaveComercioTenant.ComercioOperadorId));
+                if (comercioOriginal == Guid.Empty || entry.Entity.ComercioOperadorId != comercioOriginal)
+                    throw new UnauthorizedAccessException("No se permite cambiar el comercio-operador propietario de un recurso existente.");
+
+                var valoresEnBase = await entry.GetDatabaseValuesAsync(cancellationToken);
+                if (valoresEnBase is null || valoresEnBase.GetValue<Guid>(nameof(IMustHaveComercioTenant.ComercioOperadorId)) != entry.Entity.ComercioOperadorId)
+                    throw new UnauthorizedAccessException("No se permite modificar ni eliminar recursos alterando su comercio-operador propietario.");
+
+                if (entry.State == EntityState.Modified)
+                    entry.Property(nameof(IMustHaveComercioTenant.ComercioOperadorId)).IsModified = false;
+            }
+        }
     }
 }

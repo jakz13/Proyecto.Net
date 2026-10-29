@@ -42,7 +42,7 @@ public class CicloDeOperacionApiTests
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            bultosDeLaRutaSembrada = await db.Envios.AsNoTracking()
+            bultosDeLaRutaSembrada = await db.Envios.IgnoreQueryFilters().AsNoTracking()
                 .Where(e => e.HojaDeRutaId == RutaSembrada)
                 .SelectMany(e => e.Bultos.Select(b => b.Identificacion))
                 .ToListAsync();
