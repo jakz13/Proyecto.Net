@@ -4,6 +4,8 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Indicadores.EjecutarCierreDiario;
 using UltimaMilla.Application.Commands.Indicadores.RecalcularIndicadoresCumplimiento;
+using UltimaMilla.Application.Commands.Mensajeria.GestionarWebhooks;
+using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Tablero;
@@ -12,8 +14,9 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Api.Endpoints;
 
 /// <summary>
-/// Endpoints de soporte para demostrar y verificar los procesos del worker:
+/// Endpoints de soporte para demostrar y verificar los procesos del worker y avisos a comercios:
 /// receptor de prueba de avisos a comercios con verificación de firma HMAC y simulación de fallas (§6.9),
+/// gestión de suscripciones de webhook por comercio (UC-36), historial y reenvío manual de avisos (UC-30),
 /// y ejecución bajo demanda del recálculo de indicadores (UC-37) y cierre diario (UC-38) del operador autenticado.
 /// </summary>
 public static class WorkerProcesosEndpoints
@@ -85,6 +88,117 @@ public static class WorkerProcesosEndpoints
             .RequireAuthorization()
             .WithName("ListarWebhooksRecibidosDePrueba")
             .WithSummary("Consultar los avisos recibidos por el receptor de prueba y la validez de su firma");
+
+        var suscripciones = app.MapGroup("/api/comercio/webhooks/suscripciones")
+            .WithTags("Suscripciones de Webhooks del Comercio (UC-36)")
+            .RequireAuthorization();
+
+        suscripciones.MapPost("/", async (
+            [FromBody] CrearSuscripcionAvisoRequest req,
+            [FromServices] IMediator mediator,
+            [FromServices] ICurrentTenant tenant,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var comercioOperadorId = req.ComercioOperadorId ?? tenant.ComercioOperadorId ?? Guid.Empty;
+                var resultado = await mediator.Send(
+                    new CrearSuscripcionAvisoCommand(comercioOperadorId, req.TipoEvento, req.UrlWebhook, req.ClaveFirma),
+                    ct);
+                return Results.Created($"/api/comercio/webhooks/suscripciones/{resultado.Id}", resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("CrearSuscripcionWebhookComercio")
+        .WithSummary("Registrar una nueva suscripción de webhook para avisos automáticos al comercio (UC-36)");
+
+        suscripciones.MapGet("/", async (
+            [FromQuery] Guid? comercioOperadorId,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var resultado = await mediator.Send(new ListarSuscripcionesAvisoQuery(comercioOperadorId), ct);
+            return Results.Ok(resultado);
+        })
+        .WithName("ListarSuscripcionesWebhookComercio")
+        .WithSummary("Listar las suscripciones de webhook del comercio u operador actual");
+
+        suscripciones.MapDelete("/{id:guid}", async (
+            Guid id,
+            [FromQuery] Guid? comercioOperadorId,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new DesactivarSuscripcionAvisoCommand(id, comercioOperadorId), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("DesactivarSuscripcionWebhookComercio")
+        .WithSummary("Desactivar una suscripción de webhook del comercio");
+
+        var operacionWebhooks = app.MapGroup("/api/operacion/webhooks")
+            .WithTags("Historial y Reenvío de Webhooks (UC-30)")
+            .RequireAuthorization();
+
+        operacionWebhooks.MapGet("/historial", async (
+            [FromQuery] Guid? comercioOperadorId,
+            [FromQuery] string? estado,
+            [FromQuery] int? limite,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var resultado = await mediator.Send(new ListarHistorialAvisosQuery(comercioOperadorId, estado, limite ?? 50), ct);
+            return Results.Ok(resultado);
+        })
+        .WithName("ListarHistorialWebhooksOperacion")
+        .WithSummary("Consultar el historial de avisos automáticos a comercios y su estado de entrega");
+
+        operacionWebhooks.MapPost("/{id:guid}/reenviar", async (
+            Guid id,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new ReenviarAvisoManualCommand(id), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        })
+        .WithName("ReenviarWebhookManualOperacion")
+        .WithSummary("Forzar el reenvío manual de un aviso automático a comercio fallido o agotado (UC-30)");
 
         var procesos = app.MapGroup("/api/operacion/procesos")
             .WithTags("Procesos de operación (UC-37, UC-38)")

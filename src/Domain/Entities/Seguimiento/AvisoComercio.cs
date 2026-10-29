@@ -73,4 +73,15 @@ public class AvisoComercio : Entity
         ProximoReintento = null;
         Estado = "Entregado";
     }
+
+    /// <summary>Habilita el reenvío manual desde operación o soporte cuando el aviso quedó fallido o agotado (UC-30).</summary>
+    public void PrepararReenvioManual()
+    {
+        if (Estado == "Entregado")
+            throw new DomainValidationException("El aviso ya fue entregado exitosamente y no requiere reenvío.");
+
+        Estado = "Pendiente";
+        Intentos = 0;
+        ProximoReintento = null;
+    }
 }

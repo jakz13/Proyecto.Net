@@ -84,6 +84,57 @@ public class EfAvisoComercioRepository : IAvisoComercioRepository
             .OrderBy(a => a.Timestamp)
             .Take(maximo)
             .ToListAsync(cancellationToken);
+
+    public Task<List<SuscripcionAviso>> ListarSuscripcionesAsync(Guid? comercioOperadorId = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.SuscripcionesAviso.AsNoTracking();
+        if (comercioOperadorId.HasValue && comercioOperadorId.Value != Guid.Empty)
+        {
+            query = query.Where(s => s.ComercioOperadorId == comercioOperadorId.Value);
+        }
+
+        return query.OrderBy(s => s.TipoEvento).ToListAsync(cancellationToken);
+    }
+
+    public Task<SuscripcionAviso?> GetSuscripcionParaEdicionAsync(Guid suscripcionId, CancellationToken cancellationToken = default) =>
+        suscripcionId == Guid.Empty
+            ? Task.FromResult<SuscripcionAviso?>(null)
+            : _dbContext.SuscripcionesAviso.FirstOrDefaultAsync(s => s.Id == suscripcionId, cancellationToken);
+
+    public async Task AddSuscripcionAsync(SuscripcionAviso suscripcion, CancellationToken cancellationToken = default) =>
+        await _dbContext.SuscripcionesAviso.AddAsync(suscripcion, cancellationToken);
+
+    public Task<List<AvisoComercio>> ListarHistorialAvisosAsync(Guid? comercioOperadorId = null, string? estado = null, int limite = 50, CancellationToken cancellationToken = default)
+    {
+        var tope = Math.Clamp(limite, 1, 200);
+        var suscripciones = _dbContext.SuscripcionesAviso.AsNoTracking();
+        if (comercioOperadorId.HasValue && comercioOperadorId.Value != Guid.Empty)
+        {
+            suscripciones = suscripciones.Where(s => s.ComercioOperadorId == comercioOperadorId.Value);
+        }
+
+        var query = _dbContext.AvisosComercio
+            .AsNoTracking()
+            .Where(a => suscripciones.Any(s => s.Id == a.SuscripcionAvisoId));
+
+        if (!string.IsNullOrWhiteSpace(estado))
+        {
+            var estadoNormalizado = estado.Trim();
+            query = query.Where(a => a.Estado == estadoNormalizado);
+        }
+
+        return query
+            .OrderByDescending(a => a.Timestamp)
+            .Take(tope)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<AvisoComercio?> GetAvisoByIdAsync(Guid avisoId, CancellationToken cancellationToken = default) =>
+        avisoId == Guid.Empty
+            ? Task.FromResult<AvisoComercio?>(null)
+            : _dbContext.AvisosComercio
+                .Where(a => _dbContext.SuscripcionesAviso.Any(s => s.Id == a.SuscripcionAvisoId))
+                .FirstOrDefaultAsync(a => a.Id == avisoId, cancellationToken);
 }
 
 public class EfIndicadorCumplimientoRepository : IIndicadorCumplimientoRepository

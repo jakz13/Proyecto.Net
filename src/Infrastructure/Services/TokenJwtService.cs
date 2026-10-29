@@ -23,7 +23,20 @@ public class TokenJwtService : ITokenJwtService
 
     public TokenJwtService(IConfiguration configuration)
     {
-        _claveSecreta = configuration["Jwt:SecretKey"] ?? ClaveSecretaPorDefecto;
+        var claveConfigurada = configuration["Jwt:SecretKey"]
+            ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+
+        if (string.IsNullOrWhiteSpace(claveConfigurada)
+            && string.Equals(configuration["Jwt:RequireConfiguredSecret"], "true", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Debe configurarse 'Jwt:SecretKey' (o variable de entorno JWT_SECRET_KEY) con al menos 32 caracteres.");
+        }
+
+        _claveSecreta = !string.IsNullOrWhiteSpace(claveConfigurada) ? claveConfigurada : ClaveSecretaPorDefecto;
+        if (_claveSecreta.Length < 32)
+        {
+            throw new InvalidOperationException("La clave secreta JWT debe poseer al menos 32 caracteres para HMAC-SHA256.");
+        }
         _emisor = configuration["Jwt:Issuer"] ?? "UltimaMilla.Api";
         _audiencia = configuration["Jwt:Audience"] ?? "UltimaMilla.Clients";
     }

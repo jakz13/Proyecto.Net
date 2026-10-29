@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Commands.Identidad.IniciarSesion;
+using UltimaMilla.Application.Commands.Mensajeria.GestionarWebhooks;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Persistence;
 
@@ -172,6 +173,58 @@ public class TableroSignalRApiTests
         await notifier.NotificarHitoParadaAsync(DatabaseSeeder.DefaultOperadorId, Guid.Empty, Guid.NewGuid(), "Entregada");
         await notifier.NotificarHitoParadaAsync(DatabaseSeeder.DefaultOperadorId, Guid.NewGuid(), Guid.Empty, "Entregada");
         await notifier.NotificarHitoParadaAsync(DatabaseSeeder.DefaultOperadorId, Guid.NewGuid(), Guid.NewGuid(), "   ");
+    }
+
+    [FactPostgres]
+    public async Task EndpointsWebhooksYCabecerasSeguridad_CicloCompletoYAislamientoPorOperador()
+    {
+        var cliente = _factory.CreateClient();
+
+        // 1. Verificar cabeceras OWASP (Fase 4)
+        var altaResp = await cliente.PostAsJsonAsync(
+            "/api/comercio/webhooks/suscripciones",
+            new CrearSuscripcionAvisoRequest(
+                DatabaseSeeder.DefaultComercioOperadorId,
+                "EnvioEntregado",
+                "http://localhost:5000/api/testing/webhook-receiver",
+                "secreto-demo-comercio"));
+
+        Assert.Equal(HttpStatusCode.Created, altaResp.StatusCode);
+        Assert.Equal("nosniff", altaResp.Headers.GetValues("X-Content-Type-Options").FirstOrDefault());
+        Assert.Equal("DENY", altaResp.Headers.GetValues("X-Frame-Options").FirstOrDefault());
+        Assert.Equal("strict-origin-when-cross-origin", altaResp.Headers.GetValues("Referrer-Policy").FirstOrDefault());
+        Assert.True(altaResp.Headers.Contains("Content-Security-Policy"));
+
+        var creada = await altaResp.Content.ReadFromJsonAsync<SuscripcionAvisoDto>();
+        Assert.NotNull(creada);
+        Assert.True(creada.Activa);
+
+        // 2. Anti-IDOR: Operador 1 no puede registrar suscripción para el comercio del Operador 2
+        var intentoCruzado = await cliente.PostAsJsonAsync(
+            "/api/comercio/webhooks/suscripciones",
+            new CrearSuscripcionAvisoRequest(
+                DatabaseSeederSegundoOperador.ComercioOperadorId,
+                "*",
+                "http://localhost:5000/api/testing/webhook-receiver",
+                "secreto-intruso-2026"));
+        Assert.True(intentoCruzado.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden);
+
+        // 3. Listar suscripciones y consultar historial de avisos (Fase 3)
+        var listaResp = await cliente.GetAsync($"/api/comercio/webhooks/suscripciones?comercioOperadorId={DatabaseSeeder.DefaultComercioOperadorId}");
+        Assert.Equal(HttpStatusCode.OK, listaResp.StatusCode);
+        var suscripciones = await listaResp.Content.ReadFromJsonAsync<List<SuscripcionAvisoDto>>();
+        Assert.NotNull(suscripciones);
+        Assert.Contains(suscripciones, s => s.Id == creada.Id && s.Activa);
+
+        var historialResp = await cliente.GetAsync("/api/operacion/webhooks/historial?limite=10");
+        Assert.Equal(HttpStatusCode.OK, historialResp.StatusCode);
+
+        // 4. Desactivar suscripción creada
+        var bajaResp = await cliente.DeleteAsync($"/api/comercio/webhooks/suscripciones/{creada.Id}");
+        Assert.Equal(HttpStatusCode.OK, bajaResp.StatusCode);
+        var desactivada = await bajaResp.Content.ReadFromJsonAsync<SuscripcionAvisoDto>();
+        Assert.NotNull(desactivada);
+        Assert.False(desactivada.Activa);
     }
 
     private static async Task EnviarHandshakeSignalRAsync(WebSocket ws, CancellationToken ct)

@@ -56,6 +56,13 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
         var operadorHeader = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
             ?? httpContext.Request.Headers["X-Operador-Id"].FirstOrDefault();
 
+        // En el Hub de SignalR (/hubs), si no se envió JWT ni cabecera explícita de operador, no autenticar anónimamente
+        if (httpContext.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(operadorHeader))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         var operadorId = Guid.TryParse(operadorHeader, out var parsedOp)
             ? parsedOp.ToString()
             : "11111111-1111-1111-1111-111111111111";

@@ -37,6 +37,11 @@ public interface IAvisoComercioRepository
 
     /// <summary>Avisos pendientes o en reintento cuyo próximo intento ya venció.</summary>
     Task<List<AvisoComercio>> ListarPendientesDeEntregaAsync(DateTime ahoraUtc, int maximo, CancellationToken cancellationToken = default);
+    Task<List<SuscripcionAviso>> ListarSuscripcionesAsync(Guid? comercioOperadorId = null, CancellationToken cancellationToken = default);
+    Task<SuscripcionAviso?> GetSuscripcionParaEdicionAsync(Guid suscripcionId, CancellationToken cancellationToken = default);
+    Task AddSuscripcionAsync(SuscripcionAviso suscripcion, CancellationToken cancellationToken = default);
+    Task<List<AvisoComercio>> ListarHistorialAvisosAsync(Guid? comercioOperadorId = null, string? estado = null, int limite = 50, CancellationToken cancellationToken = default);
+    Task<AvisoComercio?> GetAvisoByIdAsync(Guid avisoId, CancellationToken cancellationToken = default);
 }
 
 public interface IIndicadorCumplimientoRepository

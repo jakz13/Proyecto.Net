@@ -150,6 +150,32 @@ app.UseSwaggerUI(c =>
     c.InjectStylesheet("/swagger-custom.css");
 });
 
+// Cabeceras HTTP de seguridad OWASP y HSTS (Fase 4)
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+if (app.Configuration.GetValue<bool>("Security:EnforceHttps"))
+{
+    app.UseHttpsRedirection();
+}
+
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["X-Permitted-Cross-Domain-Policies"] = "none";
+    if (!context.Request.Path.StartsWithSegments("/swagger"))
+    {
+        headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+    }
+
+    await next();
+});
+
 app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();

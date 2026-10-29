@@ -444,6 +444,31 @@ public class WorkerHandlersTests
         public Task<SuscripcionAviso?> GetSuscripcionAsync(Guid suscripcionId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Suscripciones.FirstOrDefault(s => s.Id == suscripcionId));
 
+        public Task<List<SuscripcionAviso>> ListarSuscripcionesAsync(Guid? comercioOperadorId = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Suscripciones
+                .Where(s => !comercioOperadorId.HasValue || comercioOperadorId.Value == Guid.Empty || s.ComercioOperadorId == comercioOperadorId.Value)
+                .ToList());
+
+        public Task<SuscripcionAviso?> GetSuscripcionParaEdicionAsync(Guid suscripcionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Suscripciones.FirstOrDefault(s => s.Id == suscripcionId));
+
+        public Task AddSuscripcionAsync(SuscripcionAviso suscripcion, CancellationToken cancellationToken = default)
+        {
+            Suscripciones.Add(suscripcion);
+            return Task.CompletedTask;
+        }
+
+        public Task<List<AvisoComercio>> ListarHistorialAvisosAsync(Guid? comercioOperadorId = null, string? estado = null, int limite = 50, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Avisos
+                .Where(a => (!comercioOperadorId.HasValue || comercioOperadorId.Value == Guid.Empty || Suscripciones.Any(s => s.Id == a.SuscripcionAvisoId && s.ComercioOperadorId == comercioOperadorId.Value))
+                            && (string.IsNullOrWhiteSpace(estado) || a.Estado == estado.Trim()))
+                .OrderByDescending(a => a.Timestamp)
+                .Take(limite)
+                .ToList());
+
+        public Task<AvisoComercio?> GetAvisoByIdAsync(Guid avisoId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Avisos.FirstOrDefault(a => a.Id == avisoId));
+
         public Task AddAsync(AvisoComercio aviso, CancellationToken cancellationToken = default)
         {
             Avisos.Add(aviso);
