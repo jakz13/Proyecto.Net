@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -75,10 +76,11 @@ public partial class ParadaItemViewModel : ObservableObject
     public bool PuedeRegistrar => Estado == "Pendiente";
 }
 
-public partial class RutaDiaViewModel : ObservableObject
+public partial class RutaDiaViewModel : ObservableObject, IDisposable
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
+    private readonly IGeolocalizacionTrackingService? _trackingService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -116,24 +118,59 @@ public partial class RutaDiaViewModel : ObservableObject
     [ObservableProperty]
     private Color _indicadorConexionDotColor = Color.FromArgb("#DC2626");
 
+    // =========================================================================
+    // HITO 4: TELEMETRÍA Y GEOLOCALIZACIÓN EN TIEMPO REAL (SIGNALR + GPS)
+    // =========================================================================
+    [ObservableProperty]
+    private bool _isTrackingGpsActivo = false;
+
+    [ObservableProperty]
+    private string _estadoTrackingTexto = "GPS inactivo";
+
+    [ObservableProperty]
+    private Color _trackingBadgeBgColor = Color.FromArgb("#F3F4F6");
+
+    [ObservableProperty]
+    private Color _trackingBadgeBorderColor = Color.FromArgb("#E5E7EB");
+
+    [ObservableProperty]
+    private Color _trackingBadgeTextColor = Color.FromArgb("#4B5563");
+
+    [ObservableProperty]
+    private Color _trackingDotColor = Color.FromArgb("#9CA3AF");
+
+    [ObservableProperty]
+    private string _ultimaUbicacionTexto = "Sin coordenadas recientes";
+
     [ObservableProperty]
     private bool _isBusy;
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null)
+    public RutaDiaViewModel() : this(null, null, null)
     {
     }
 
-    public RutaDiaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService)
+    public RutaDiaViewModel(
+        ILocalDatabaseService? localDatabaseService,
+        ISyncService? syncService,
+        IGeolocalizacionTrackingService? trackingService)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
+        _trackingService = trackingService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
         {
             _syncService.OnSyncStateChanged += OnSyncStateChangedHandler;
+        }
+
+        if (_trackingService != null)
+        {
+            _trackingService.OnTrackingStateChanged += OnTrackingStateChangedHandler;
+            _trackingService.OnPosicionActualizada += OnPosicionActualizadaHandler;
+            ActualizarEstadoVisualTracking(_trackingService.IsTrackingActive);
         }
 
         ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, 0);
@@ -146,6 +183,53 @@ public partial class RutaDiaViewModel : ObservableObject
             ActualizarEstadoVisualConectividad(e.IsOnline, e.OperacionesPendientes);
             await RefrescarParadasDesdeSQLiteAsync();
         });
+    }
+
+    private void OnTrackingStateChangedHandler(object? sender, bool activo)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsTrackingGpsActivo = activo;
+            ActualizarEstadoVisualTracking(activo);
+        });
+    }
+
+    private void OnPosicionActualizadaHandler(object? sender, PosicionActualizadaEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            UltimaUbicacionTexto = $"{e.Latitud:F4}, {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
+            if (e.TransmitidaSignalR)
+            {
+                EstadoTrackingTexto = "GPS en vivo";
+                TrackingDotColor = Color.FromArgb("#16A34A");
+            }
+            else
+            {
+                EstadoTrackingTexto = "GPS activo (Local)";
+                TrackingDotColor = Color.FromArgb("#EAB308");
+            }
+        });
+    }
+
+    private void ActualizarEstadoVisualTracking(bool activo)
+    {
+        if (activo)
+        {
+            EstadoTrackingTexto = "GPS en vivo";
+            TrackingBadgeBgColor = Color.FromArgb("#ECFDF5");
+            TrackingBadgeBorderColor = Color.FromArgb("#A7F3D0");
+            TrackingBadgeTextColor = Color.FromArgb("#065F46");
+            TrackingDotColor = Color.FromArgb("#10B981");
+        }
+        else
+        {
+            EstadoTrackingTexto = "GPS inactivo";
+            TrackingBadgeBgColor = Color.FromArgb("#F3F4F6");
+            TrackingBadgeBorderColor = Color.FromArgb("#E5E7EB");
+            TrackingBadgeTextColor = Color.FromArgb("#4B5563");
+            TrackingDotColor = Color.FromArgb("#9CA3AF");
+        }
     }
 
     public async Task InicializarAsync()
@@ -185,6 +269,7 @@ public partial class RutaDiaViewModel : ObservableObject
             }
 
             RecalcularProgreso();
+            await EvaluarYActualizarTrackingAsync();
         }
         finally
         {
@@ -209,10 +294,42 @@ public partial class RutaDiaViewModel : ObservableObject
                 }
             }
             RecalcularProgreso();
+            await EvaluarYActualizarTrackingAsync();
         }
         catch
         {
             // Fallback
+        }
+    }
+
+    public async Task EvaluarYActualizarTrackingAsync()
+    {
+        if (_trackingService == null)
+            return;
+
+        bool hayParadasPendientes = Paradas.Any(p => p.Estado == "Pendiente");
+
+        if (hayParadasPendientes)
+        {
+            var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+            var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId);
+            if (rutaId == Guid.Empty)
+                rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+
+            var repartidorId = DemoDataDefaults.DefaultRepartidorId;
+
+            if (!_trackingService.IsTrackingActive)
+            {
+                await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
+            }
+        }
+        else if (Paradas.Count > 0 && !hayParadasPendientes)
+        {
+            // Se completaron todas las entregas de la jornada: detener tracking automáticamente
+            if (_trackingService.IsTrackingActive)
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
         }
     }
 
@@ -256,6 +373,11 @@ public partial class RutaDiaViewModel : ObservableObject
         ProgresoRuta = (double)completadas / total;
         ResumenProgresoTexto = $"{completadas} de {total} paradas completadas";
         ProgresoPorcentajeTexto = $"{Math.Round(ProgresoRuta * 100)}%";
+
+        if (total > 0 && completadas == total && _trackingService is { IsTrackingActive: true })
+        {
+            _ = Task.Run(async () => await _trackingService.DetenerTrackingAsync());
+        }
     }
 
     [RelayCommand]
@@ -432,5 +554,56 @@ public partial class RutaDiaViewModel : ObservableObject
             var fallbackDest = Uri.EscapeDataString($"{parada.Direccion}, {parada.Ciudad}");
             await Launcher.Default.OpenAsync($"https://www.google.com/maps/dir/?api=1&destination={fallbackDest}");
         }
+    }
+
+    [RelayCommand]
+    private async Task AlternarTrackingGpsAsync()
+    {
+        if (_trackingService == null)
+            return;
+
+        if (_trackingService.IsTrackingActive)
+        {
+            await _trackingService.DetenerTrackingAsync();
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Tracking GPS",
+                    "Rastreo de ubicación en tiempo real pausado.",
+                    "Aceptar");
+            }
+        }
+        else
+        {
+            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
+            if (rutaId == Guid.Empty)
+                rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+
+            await _trackingService.IniciarTrackingAsync(rutaId, DemoDataDefaults.DefaultRepartidorId);
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Tracking GPS en Vivo",
+                    $"Rastreo iniciado para la ruta.\nTransmitiendo posición cada {_trackingService.IntervaloTracking.TotalSeconds}s vía SignalR.",
+                    "Entendido");
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_syncService != null)
+        {
+            _syncService.OnSyncStateChanged -= OnSyncStateChangedHandler;
+        }
+
+        if (_trackingService != null)
+        {
+            _trackingService.OnTrackingStateChanged -= OnTrackingStateChangedHandler;
+            _trackingService.OnPosicionActualizada -= OnPosicionActualizadaHandler;
+        }
+
+        GC.SuppressFinalize(this);
     }
 }

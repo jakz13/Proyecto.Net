@@ -2,9 +2,12 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Ruta"
+             xmlns:controls="clr-namespace:UltimaMilla.Mobile.Controls"
              x:Class="UltimaMilla.Mobile.Views.Ruta.DetalleParadaPage"
              x:DataType="vm:DetalleParadaViewModel"
              Title="Detalle de Parada"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="{StaticResource PageBackground}">
 
     <Grid RowDefinitions="*, Auto">
@@ -13,7 +16,34 @@
         <!-- CONTENIDO PRINCIPAL SCROLLEABLE                           -->
         <!-- ========================================================= -->
         <ScrollView Grid.Row="0">
-            <VerticalStackLayout Spacing="16" Padding="16,16,16,20">
+            <VerticalStackLayout Spacing="14" Padding="{DynamicResource PaddingPaginaDetalle}">
+
+                <!-- Botón de Navegación Rápida: Volver a Mi Ruta -->
+                <Grid ColumnDefinitions="Auto, *" Margin="0,0,0,2">
+                    <Border Grid.Column="0"
+                            BackgroundColor="#EFF6FF"
+                            Stroke="#BFDBFE"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 8"
+                            Padding="12,6"
+                            VerticalOptions="Center">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding VolverCommand}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                            <Label Text="←"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}"
+                                   VerticalOptions="Center" />
+                            <Label Text="Volver a Mi Ruta"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
 
                 <!-- 1. Cabecera de la Parada y Estado -->
                 <Border Style="{StaticResource CardView}">
@@ -55,14 +85,18 @@
                                    FontAttributes="Bold" />
                         </Border>
 
-                        <!-- Horario Estimado -->
-                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Spacing="8">
-                            <Label Text="Ventana estimada de entrega:" Style="{StaticResource CaptionLabel}" />
-                            <Label Text="{Binding Parada.HoraEstimada, StringFormat='{0} hs'}"
-                                   Style="{StaticResource CaptionLabel}"
-                                   FontAttributes="Bold"
-                                   TextColor="{StaticResource Primary}" />
-                        </HorizontalStackLayout>
+                        <!-- Horario Estimado (Label con Spans: envuelve a la línea siguiente si no entra) -->
+                        <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                               Style="{StaticResource CaptionLabel}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Ventana estimada de entrega:  " />
+                                    <Span Text="{Binding Parada.HoraEstimada, StringFormat='{0} hs'}"
+                                          FontAttributes="Bold"
+                                          TextColor="{StaticResource Primary}" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
                     </Grid>
                 </Border>
 
@@ -105,19 +139,17 @@
                         </Grid>
 
                         <!-- Botones de Acción Ergonómicos en Calle: Llamada y Navegación GPS -->
-                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10" Margin="0,4,0,0">
-                            <Button Grid.Column="0"
-                                    Text="Llamar"
+                        <controls:AdaptiveRow Spacing="10" Margin="0,4,0,0">
+                            <Button Text="Llamar"
                                     Style="{StaticResource QuickCallButton}"
                                     HeightRequest="46"
                                     Command="{Binding LlamarClienteCommand}" />
 
-                            <Button Grid.Column="1"
-                                    Text="Abrir Mapa"
+                            <Button Text="Abrir Mapa"
                                     Style="{StaticResource QuickMapButton}"
                                     HeightRequest="46"
                                     Command="{Binding NavegarCommand}" />
-                        </Grid>
+                        </controls:AdaptiveRow>
                     </VerticalStackLayout>
                 </Border>
 
@@ -140,17 +172,21 @@
                 <!-- 4. Detalle de Bultos que Contiene el Envío -->
                 <Border Style="{StaticResource CardView}">
                     <VerticalStackLayout Spacing="12">
-                        <Grid ColumnDefinitions="*, Auto">
-                            <Label Grid.Column="0"
-                                   Text="Bultos del Envío"
-                                   Style="{StaticResource H3Label}" />
+                        <!-- Cabecera: el resumen baja de línea si no entra junto al título -->
+                        <FlexLayout Wrap="Wrap"
+                                    Direction="Row"
+                                    JustifyContent="SpaceBetween"
+                                    AlignItems="Center"
+                                    AlignContent="Start">
+                            <Label Text="Bultos del Envío"
+                                   Style="{StaticResource H3Label}"
+                                   Margin="0,0,8,2" />
 
-                            <Label Grid.Column="1"
-                                   Text="{Binding ResumenBultosTexto}"
+                            <Label Text="{Binding ResumenBultosTexto}"
                                    Style="{StaticResource CaptionLabel}"
                                    FontAttributes="Bold"
-                                   VerticalOptions="Center" />
-                        </Grid>
+                                   Margin="0,0,0,2" />
+                        </FlexLayout>
 
                         <!-- Lista de bultos declarados -->
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Parada.Bultos}"
@@ -212,27 +248,34 @@
         <!-- ========================================================= -->
         <!-- BARRA INFERIOR DE ACCIONES PRINCIPALES                    -->
         <!-- ========================================================= -->
-        <Border Grid.Row="1"
-                Stroke="{StaticResource CardBorder}"
-                StrokeThickness="0,1,0,0"
-                StrokeShape="Rectangle"
-                BackgroundColor="{StaticResource CardBackground}"
-                Padding="16,12,16,14">
+        <!-- Nota: NO usar Border con StrokeThickness="0,1,0,0": StrokeThickness es double y
+             ese valor se interpreta como 100px de borde gris. El divisor es un BoxView de 1px. -->
+        <Grid Grid.Row="1"
+              RowDefinitions="1, Auto"
+              BackgroundColor="{StaticResource CardBackground}">
 
-            <VerticalStackLayout Spacing="10">
-                <!-- Botón Principal: Confirmar Entrega -->
-                <Button Text="Confirmar Entrega"
+            <BoxView Grid.Row="0"
+                     HeightRequest="1"
+                     Color="{StaticResource CardBorder}" />
+
+            <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="{DynamicResource PaddingBarraAcciones}">
+                <!-- 1. Acción Principal de Éxito: Entrega Exitosa (Arriba) -->
+                <Button Text="Entrega Exitosa"
                         Style="{StaticResource SuccessButton}"
                         Command="{Binding IrAConfirmarEntregaCommand}"
-                        IsEnabled="{Binding PuedeAccionar}" />
+                        IsEnabled="{Binding PuedeAccionar}"
+                        HeightRequest="46"
+                        FontSize="14.5" />
 
-                <!-- Botón Secundario: Registrar Intento Fallido (UC-21) -->
-                <Button Text="Registrar Intento Fallido (UC-21)"
+                <!-- 2. Acción de Fallo / Incidencia: Fallo de Entrega (Abajo) -->
+                <Button Text="Fallo de Entrega"
                         Style="{StaticResource DangerOutlineButton}"
                         Command="{Binding IrARegistrarFalloCommand}"
-                        IsEnabled="{Binding PuedeAccionar}" />
+                        IsEnabled="{Binding PuedeAccionar}"
+                        HeightRequest="46"
+                        FontSize="14.5" />
             </VerticalStackLayout>
-        </Border>
+        </Grid>
 
     </Grid>
 

@@ -5,6 +5,9 @@ namespace UltimaMilla.Mobile.Data;
 public static class DemoDataDefaults
 {
     public static readonly Guid DefaultHojaDeRutaId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
+    public static readonly Guid DefaultRepartidorId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    public static readonly Guid DefaultUsuarioRepartidorId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+
     public static readonly Guid Parada1Id = Guid.Parse("bbbbbbbb-1111-2222-3333-000000000001");
     public static readonly Guid Parada2Id = Guid.Parse("bbbbbbbb-1111-2222-3333-000000000002");
     public static readonly Guid Parada3Id = Guid.Parse("bbbbbbbb-1111-2222-3333-000000000003");

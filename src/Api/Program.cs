@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -8,6 +8,7 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 using UltimaMilla.Api.Auth;
 using UltimaMilla.Api.Backoffice;
 using UltimaMilla.Api.Endpoints;
+using UltimaMilla.Api.Hubs;
 using UltimaMilla.Application;
 using UltimaMilla.Application.Commands.AltaEnvio;
 using UltimaMilla.Application.DTOs;
@@ -22,6 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 // Configuración de autenticación para desarrollo y demo móvil
 builder.Services.AddAuthentication(options =>
@@ -351,6 +353,9 @@ app.MapIdentidadVisualEndpoints();
 app.MapFlotaEndpoints();
 app.MapMensajeriaEndpoints();
 app.MapReasignacionesEndpoints();
+
+// Hub de SignalR para streaming de telemetría de operaciones y seguimiento de flota (Hito 4 / RNF 6.10)
+app.MapHub<OperacionHub>("/hubs/operacion");
 
 await app.RunAsync();
 

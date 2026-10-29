@@ -2,13 +2,14 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Diagnostic"
+             xmlns:controls="clr-namespace:UltimaMilla.Mobile.Controls"
              x:Class="UltimaMilla.Mobile.Views.Diagnostic.DiagnosticPage"
              x:DataType="vm:DiagnosticViewModel"
              Title="{Binding Title}"
              BackgroundColor="{StaticResource PageBackground}">
 
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="16">
+        <VerticalStackLayout Padding="{DynamicResource PaddingPagina}" Spacing="{DynamicResource EspaciadoSecciones}">
 
             <!-- Header Card -->
             <Border>
@@ -73,17 +74,15 @@
 
                     <Label Text="Permite registrar entregas sin conexión y sincronizarlas de forma diferida." FontSize="12" TextColor="{StaticResource TextSecondary}" />
 
-                    <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
-                        <Button Grid.Column="0" 
-                                Text="➕ Encolar Operación"
+                    <controls:AdaptiveRow Spacing="10">
+                        <Button Text="➕ Encolar Operación"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding EnqueueTestOfflineOperationCommand}" />
                         
-                        <Button Grid.Column="1" 
-                                Text="📋 Refrescar Cola"
+                        <Button Text="📋 Refrescar Cola"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding RefreshOfflineCountCommand}" />
-                    </Grid>
+                    </controls:AdaptiveRow>
                 </VerticalStackLayout>
             </Border>
 
