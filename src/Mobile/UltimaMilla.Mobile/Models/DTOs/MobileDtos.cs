@@ -85,3 +85,13 @@ public record ResultadoVerificacionCargaDto(
     bool EsCargaCompletaYExacta,
     string Mensaje
 );
+
+public record RetiroDevolucionResultDto(
+    Guid EnvioId,
+    string CodigoSeguimiento,
+    string EstadoEnvio,
+    string EstadoDevolucion,
+    int BultosEnRetorno,
+    bool Idempotente,
+    string Mensaje
+);

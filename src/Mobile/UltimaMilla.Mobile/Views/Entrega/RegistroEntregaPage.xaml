@@ -128,17 +128,73 @@
             <!-- FOTOGRAFÍA / EVIDENCIA DE ENTREGA                         -->
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="12">
                     <Label Text="Evidencia Fotográfica"
                            Style="{StaticResource H3Label}" />
 
-                    <Button Text="Abrir Cámara para Foto"
-                            Style="{StaticResource SecondaryButton}"
-                            Command="{Binding AbrirCamaraCommand}" />
+                    <Label Text="Capture o adjunte una fotografía del bulto entregado o del remito conformado:"
+                           Style="{StaticResource CaptionLabel}" />
 
-                    <Label Text="{Binding FotoStatusText}"
-                           Style="{StaticResource CaptionLabel}"
-                           HorizontalOptions="Center" />
+                    <!-- Botón principal de captura cuando aún no hay fotografía -->
+                    <Button Text="Capturar / Adjuntar Fotografía"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding AbrirCamaraCommand}"
+                            IsVisible="{Binding NoTieneFoto}" />
+
+                    <!-- Contenedor de previsualización de miniatura cuando hay foto adjunta -->
+                    <Border IsVisible="{Binding TieneFoto}"
+                            BackgroundColor="#F8FAFC"
+                            Stroke="{StaticResource CardBorder}"
+                            StrokeThickness="1.2"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="10">
+                        <VerticalStackLayout Spacing="10">
+                            <Border HeightRequest="180"
+                                    Stroke="{StaticResource InputBorder}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 8"
+                                    BackgroundColor="#FFFFFF"
+                                    Padding="4">
+                                <Image Source="{Binding FotoPreviewSource}"
+                                       Aspect="AspectFit"
+                                       HeightRequest="170"
+                                       HorizontalOptions="Fill"
+                                       VerticalOptions="Fill" />
+                            </Border>
+
+                            <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                                <Button Grid.Column="0"
+                                        Text="Reemplazar Foto"
+                                        Style="{StaticResource SecondaryButton}"
+                                        HeightRequest="42"
+                                        MinimumHeightRequest="40"
+                                        Padding="12,6"
+                                        FontSize="13"
+                                        Command="{Binding AbrirCamaraCommand}" />
+
+                                <Button Grid.Column="1"
+                                        Text="Quitar Foto"
+                                        Style="{StaticResource DangerOutlineButton}"
+                                        HeightRequest="42"
+                                        MinimumHeightRequest="40"
+                                        Padding="12,6"
+                                        FontSize="13"
+                                        Command="{Binding QuitarFotoCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Indicador de estado de la evidencia fotográfica -->
+                    <Border BackgroundColor="#F8FAFC"
+                            Stroke="{StaticResource CardBorder}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 8"
+                            Padding="12,8">
+                        <Label Text="{Binding FotoStatusText}"
+                               Style="{StaticResource CaptionLabel}"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                    </Border>
                 </VerticalStackLayout>
             </Border>
 

@@ -6,6 +6,7 @@ public static class TiposOperacionOffline
     public const string SeleccionarParada = "SELECCIONAR_PARADA";
     public const string EntregaExitosa = "ENTREGA_EXITOSA";
     public const string FalloEntrega = "FALLO_ENTREGA";
+    public const string RetiroDevolucion = "RETIRO_DEVOLUCION";
 }
 
 public class ConfirmarCargaOfflinePayload
@@ -54,4 +55,16 @@ public class IntentoFallidoOfflinePayload
     public double? Latitud { get; set; }
     public double? Longitud { get; set; }
     public DateTime? FechaHoraDispositivoUtc { get; set; }
+}
+
+public class RetiroDevolucionOfflinePayload
+{
+    public Guid HojaDeRutaId { get; set; }
+    public Guid ParadaId { get; set; }
+    public Guid EnvioId { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public double? Latitud { get; set; }
+    public double? Longitud { get; set; }
+    public DateTime? FechaHoraDispositivoUtc { get; set; }
+    public string? Observaciones { get; set; }
 }

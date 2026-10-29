@@ -48,27 +48,28 @@ public partial class ParadaItemViewModel : ObservableObject
     public Color EstadoBgColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#DCFCE7"),
-        "Fallido" => Color.FromArgb("#FEE2E2"),
+        "Fallido" or "EnDevolucion" => Color.FromArgb("#FEE2E2"),
         _ => Color.FromArgb("#FEF3C7")
     };
 
     public Color EstadoTextColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#15803D"),
-        "Fallido" => Color.FromArgb("#B91C1C"),
+        "Fallido" or "EnDevolucion" => Color.FromArgb("#B91C1C"),
         _ => Color.FromArgb("#B45309")
     };
 
     public Color EstadoBorderColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#86EFAC"),
-        "Fallido" => Color.FromArgb("#FCA5A5"),
+        "Fallido" or "EnDevolucion" => Color.FromArgb("#FCA5A5"),
         _ => Color.FromArgb("#FCD34D")
     };
 
     public string EstadoTextoBadge => Estado switch
     {
         "Entregado" => "Entregado",
+        "EnDevolucion" => "En Devolución",
         "Fallido" => "Fallido",
         _ => "Pendiente"
     };
@@ -368,7 +369,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             return;
         }
 
-        int completadas = Paradas.Count(p => p.Estado == "Entregado" || p.Estado == "Fallido");
+        int completadas = Paradas.Count(p => p.Estado == "Entregado" || p.Estado == "Fallido" || p.Estado == "EnDevolucion");
         int total = Paradas.Count;
         ProgresoRuta = (double)completadas / total;
         ResumenProgresoTexto = $"{completadas} de {total} paradas completadas";
