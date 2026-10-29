@@ -357,6 +357,166 @@ public class HttpEnviosApi : IEnviosApi
             filas);
     }
 
+    private string _claveApiSesion = string.Empty;
+
+    /// <summary>
+    /// Devuelve la última clave de API obtenida en la sesión actual.
+    /// </summary>
+    public Task<string> ObtenerClaveApiActivaAsync(CancellationToken cancelacion = default)
+    {
+        return Task.FromResult(_claveApiSesion);
+    }
+
+    /// <summary>
+    /// Solicita la generación y rotación de la clave de API del comercio autenticado.
+    /// </summary>
+    public async Task<ClaveApiComercioDto> RegenerarClaveApiAsync(CancellationToken cancelacion = default)
+    {
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsync("/api/comercio/clave-api", null, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al generar clave de API: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al generar clave de API." : detalleError);
+        }
+
+        var resultadoApi = await respuesta.Content.ReadFromJsonAsync<ClaveApiGeneradaRespuestaDto>(OpcionesJson, cancelacion);
+        if (resultadoApi is null || string.IsNullOrWhiteSpace(resultadoApi.ClaveApi))
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible procesar la nueva clave de API generada.");
+        }
+
+        _claveApiSesion = resultadoApi.ClaveApi;
+        return new ClaveApiComercioDto(
+            resultadoApi.ClaveApi,
+            resultadoApi.Aviso ?? "Guarde esta clave ahora: no volverá a mostrarse. La clave anterior ya no es válida.",
+            DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Invoca el endpoint de integración de envíos autenticado con la cabecera X-Api-Key.
+    /// </summary>
+    public async Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
+        SolicitudAltaEnvioApiDto solicitud,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(solicitud);
+
+        if (string.IsNullOrWhiteSpace(solicitud.ClaveApi))
+        {
+            throw new ArgumentException("Debe proporcionar una clave de API para autenticar la solicitud.", nameof(solicitud));
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.NombreDestinatario))
+        {
+            throw new ArgumentException("El nombre del destinatario es obligatorio.", nameof(solicitud));
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.Calle) || string.IsNullOrWhiteSpace(solicitud.Numero))
+        {
+            throw new ArgumentException("La calle y el número de puerta son obligatorios.", nameof(solicitud));
+        }
+
+        if (solicitud.Bultos is null || solicitud.Bultos.Count == 0)
+        {
+            throw new ArgumentException("El envío debe incluir al menos un bulto.", nameof(solicitud));
+        }
+
+        var cuerpoSolicitud = new
+        {
+            ModalidadServicio = string.IsNullOrWhiteSpace(solicitud.ModalidadServicio) ? "Estandar" : solicitud.ModalidadServicio.Trim(),
+            NombreDestinatario = solicitud.NombreDestinatario.Trim(),
+            Documento = string.IsNullOrWhiteSpace(solicitud.Documento) ? null : solicitud.Documento.Trim(),
+            Email = string.IsNullOrWhiteSpace(solicitud.Email) ? null : solicitud.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(solicitud.Telefono) ? null : solicitud.Telefono.Trim(),
+            Calle = solicitud.Calle.Trim(),
+            Numero = solicitud.Numero.Trim(),
+            Ciudad = string.IsNullOrWhiteSpace(solicitud.Ciudad) ? "Montevideo" : solicitud.Ciudad.Trim(),
+            Referencia = string.IsNullOrWhiteSpace(solicitud.Referencia) ? null : solicitud.Referencia.Trim(),
+            ReferenciaExterna = string.IsNullOrWhiteSpace(solicitud.ReferenciaExterna) ? null : solicitud.ReferenciaExterna.Trim(),
+            Bultos = solicitud.Bultos.Select(b => new
+            {
+                Peso = b.Peso,
+                Alto = b.Alto,
+                Ancho = b.Ancho,
+                Profundo = b.Profundo
+            }).ToList()
+        };
+
+        using var peticion = new HttpRequestMessage(HttpMethod.Post, "/api/integracion/v1/envios")
+        {
+            Content = JsonContent.Create(cuerpoSolicitud, options: OpcionesJson)
+        };
+        peticion.Headers.TryAddWithoutValidation("X-Api-Key", solicitud.ClaveApi.Trim());
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.SendAsync(peticion, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al invocar API de integración: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al registrar envío por API." : detalleError);
+        }
+
+        var creado = await respuesta.Content.ReadFromJsonAsync<AltaEnvioIntegracionRespuestaDto>(OpcionesJson, cancelacion);
+        if (creado is null)
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible interpretar la respuesta del servidor en el alta por API.");
+        }
+
+        return new RespuestaAltaEnvioApiDto(
+            creado.Id,
+            creado.CodigoSeguimiento,
+            string.IsNullOrWhiteSpace(creado.Estado) ? "Admitido" : creado.Estado,
+            creado.Tarifa,
+            creado.Bultos ?? Array.Empty<string>(),
+            creado.Duplicado);
+    }
+
+    private static async Task<string> ExtraerMensajeErrorAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
+    {
+        var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+        try
+        {
+            using var documento = JsonDocument.Parse(detalleError);
+            if (documento.RootElement.TryGetProperty("error", out var propiedadError))
+            {
+                return propiedadError.GetString() ?? detalleError;
+            }
+        }
+        catch
+        {
+            // Se conserva el texto plano si no es JSON válido
+        }
+
+        return detalleError;
+    }
+
+    private record ClaveApiGeneradaRespuestaDto(string ClaveApi, string? Aviso);
+
+    private record AltaEnvioIntegracionRespuestaDto(
+        Guid Id,
+        string CodigoSeguimiento,
+        string Estado,
+        decimal Tarifa,
+        IReadOnlyList<string>? Bultos = null,
+        bool Duplicado = false);
+
     private record ResultadoImportacionApiDto(
         Guid LoteId,
         string ClaveIdempotencia,

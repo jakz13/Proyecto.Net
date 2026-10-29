@@ -1,0 +1,678 @@
+@page "/envios/api"
+@page "/integracion-api"
+@using System.Text.Json
+@using UltimaMilla.Frontend.Contracts.Interfaces
+@using UltimaMilla.Frontend.Contracts.Modelos.Envios
+@using UltimaMilla.Frontend.Infrastructure.Excepciones
+@inject IEnviosApi EnviosApi
+@inject IJSRuntime JS
+
+<PageTitle>Portal del Comercio — Alta de Envíos por API</PageTitle>
+
+<!-- Encabezado -->
+<div class="mb-4">
+    <h1 class="h4 fw-bold mb-1">Alta de Envíos por API</h1>
+    <p class="text-muted small mb-0">
+        Integración directa para que el sistema de su comercio invoque la plataforma con los datos del envío, valide credenciales, calcule la tarifa vigente y obtenga el código de seguimiento.
+    </p>
+</div>
+
+<!-- Fila Principal: Credenciales y Formulario de Invocación (Misma Altura) -->
+<div class="row g-4 align-items-stretch mb-4">
+    <!-- Panel Izquierdo: Credenciales de API y Contrato Técnico -->
+    <div class="col-12 col-lg-5 d-flex">
+        <div class="card border-0 shadow-sm rounded-3 w-100 h-100 d-flex flex-column">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h2 class="h6 fw-bold mb-0 text-dark">Credenciales de API del Comercio</h2>
+                <span class="small fw-semibold @(string.IsNullOrWhiteSpace(claveApiVigente) ? "text-danger" : "text-success")">
+                    @(string.IsNullOrWhiteSpace(claveApiVigente) ? "Sin clave activa" : "Credencial vigente")
+                </span>
+            </div>
+
+            <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                <p class="text-secondary small mb-3">
+                    El sistema de su comercio debe incluir la clave vigente en la cabecera <code class="text-dark fw-semibold">X-Api-Key</code> al invocar el servicio de alta.
+                </p>
+
+                <!-- Clave Vigente -->
+                <div class="mb-3">
+                    <label for="claveApiMostrada" class="form-label small fw-semibold text-dark mb-1">
+                        Clave de API Activa
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input id="claveApiMostrada"
+                               type="@(mostrarClave ? "text" : "password")"
+                               class="form-control font-monospace bg-light"
+                               value="@claveApiVigente"
+                               readonly />
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                @onclick="AlternarVisibilidadClave">
+                            @(mostrarClave ? "Ocultar" : "Mostrar")
+                        </button>
+                        <button type="button"
+                                class="btn btn-outline-secondary d-inline-flex align-items-center gap-1"
+                                @onclick="CopiarClaveAlPortapapeles"
+                                disabled="@string.IsNullOrWhiteSpace(claveApiVigente)">
+                            <Icono Nombre="copiar" Tamano="14" />
+                            <span>@(claveCopiada ? "Copiada" : "Copiar")</span>
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(avisoRegeneracion))
+                {
+                    <div class="p-3 bg-light border-start border-3 border-primary rounded-end mb-3 small text-dark">
+                        @avisoRegeneracion
+                    </div>
+                }
+
+                <div class="mb-4">
+                    <button type="button"
+                            class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                            disabled="@estaRegenerandoClave"
+                            @onclick="RegenerarClaveApi">
+                        <Icono Nombre="repetir" Tamano="14" />
+                        <span>@(estaRegenerandoClave ? "Generando nueva credencial..." : "Generar nueva clave de API")</span>
+                    </button>
+                </div>
+
+                <!-- Especificación del Endpoint -->
+                <div class="border-top pt-3 mb-3 small">
+                    <div class="fw-bold text-dark mb-2">Especificación de la Solicitud</div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-secondary">Endpoint HTTP:</span>
+                        <span class="font-monospace fw-semibold text-dark">POST /api/integracion/v1/envios</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-secondary">Cabecera requerida:</span>
+                        <span class="font-monospace fw-semibold text-dark">X-Api-Key</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-secondary">Formato de carga:</span>
+                        <span class="font-monospace text-dark">application/json</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1">
+                        <span class="text-secondary">Idempotencia:</span>
+                        <span class="text-dark">Campo <code class="text-dark">referenciaExterna</code></span>
+                    </div>
+                </div>
+
+                <!-- Vista Previa del Payload JSON -->
+                <div class="mt-auto">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small fw-semibold text-secondary">Cuerpo JSON a enviar</span>
+                        <span class="small text-muted font-monospace">@solicitud.Bultos.Count bulto(s) · @solicitud.PesoTotalKg.ToString("N2") kg</span>
+                    </div>
+                    <pre class="bg-dark text-light p-3 rounded-3 small font-monospace mb-0 overflow-auto" style="max-height: 220px; font-size: 0.75rem;">@ObtenerJsonSolicitud()</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Simulador / Invocación del Sistema del Comercio -->
+    <div class="col-12 col-lg-7 d-flex">
+        <div class="card border-0 shadow-sm rounded-3 w-100 h-100 d-flex flex-column">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">Invocar Alta de Envío desde Sistema del Comercio</h2>
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm py-1 px-2"
+                        @onclick="CargarDatosEjemplo">
+                    Cargar datos de prueba
+                </button>
+            </div>
+
+            <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                <EditForm Model="@solicitud" OnValidSubmit="InvocarAltaPorApi" class="d-flex flex-column flex-grow-1">
+                    <DataAnnotationsValidator />
+
+                    <!-- 1. Credencial y Referencia del Pedido -->
+                    <div class="row g-3 mb-3 pb-3 border-bottom">
+                        <div class="col-md-5">
+                            <label for="inputClaveHeader" class="form-label small fw-semibold text-dark mb-1">
+                                Cabecera X-Api-Key <span class="text-danger">*</span>
+                            </label>
+                            <InputText id="inputClaveHeader"
+                                       class="form-control form-control-sm font-monospace"
+                                       placeholder="um_..."
+                                       @bind-Value="solicitud.ClaveApi" />
+                            <ValidationMessage For="@(() => solicitud.ClaveApi)" class="text-danger small" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="inputReferenciaExterna" class="form-label small fw-semibold text-dark mb-1">
+                                Referencia Externa (ERP)
+                            </label>
+                            <InputText id="inputReferenciaExterna"
+                                       class="form-control form-control-sm font-monospace"
+                                       placeholder="Ej: PED-2026-901"
+                                       @bind-Value="solicitud.ReferenciaExterna" />
+                        </div>
+                        <div class="col-md-3">
+                            <label for="selectModalidad" class="form-label small fw-semibold text-dark mb-1">
+                                Modalidad <span class="text-danger">*</span>
+                            </label>
+                            <InputSelect id="selectModalidad" class="form-select form-select-sm" @bind-Value="solicitud.ModalidadServicio">
+                                <option value="Estandar">Estándar</option>
+                                <option value="Express">Express</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <!-- 2. Datos del Destinatario -->
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="small fw-bold text-dark mb-2">Datos del Destinatario</div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label for="apiDestinatario" class="form-label small text-secondary mb-1">Nombre y Apellido *</label>
+                                <InputText id="apiDestinatario" class="form-control form-control-sm" placeholder="Ej: Sofía Bentancur" @bind-Value="solicitud.NombreDestinatario" />
+                                <ValidationMessage For="@(() => solicitud.NombreDestinatario)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="apiDocumento" class="form-label small text-secondary mb-1">Documento / C.I.</label>
+                                <InputText id="apiDocumento" class="form-control form-control-sm" placeholder="Ej: 4.512.890-3" @bind-Value="solicitud.Documento" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="apiTelefono" class="form-label small text-secondary mb-1">Teléfono</label>
+                                <InputText id="apiTelefono" class="form-control form-control-sm" placeholder="Ej: 099 321 654" @bind-Value="solicitud.Telefono" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="apiEmail" class="form-label small text-secondary mb-1">Correo Electrónico</label>
+                                <InputText id="apiEmail" class="form-control form-control-sm" placeholder="sofia@ejemplo.com" @bind-Value="solicitud.Email" />
+                                <ValidationMessage For="@(() => solicitud.Email)" class="text-danger small" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Dirección de Destino -->
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="small fw-bold text-dark mb-2">Dirección de Entrega</div>
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <label for="apiCalle" class="form-label small text-secondary mb-1">Calle / Avenida *</label>
+                                <InputText id="apiCalle" class="form-control form-control-sm" placeholder="Ej: Av. Brasil" @bind-Value="solicitud.Calle" />
+                                <ValidationMessage For="@(() => solicitud.Calle)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-3">
+                                <label for="apiNumero" class="form-label small text-secondary mb-1">Número / Apto *</label>
+                                <InputText id="apiNumero" class="form-control form-control-sm" placeholder="Ej: 2850 Apto 401" @bind-Value="solicitud.Numero" />
+                                <ValidationMessage For="@(() => solicitud.Numero)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="apiCiudad" class="form-label small text-secondary mb-1">Ciudad *</label>
+                                <InputText id="apiCiudad" class="form-control form-control-sm" placeholder="Montevideo" @bind-Value="solicitud.Ciudad" />
+                                <ValidationMessage For="@(() => solicitud.Ciudad)" class="text-danger small" />
+                            </div>
+                            <div class="col-12">
+                                <label for="apiReferenciaDir" class="form-label small text-secondary mb-1">Referencia u Observaciones</label>
+                                <InputText id="apiReferenciaDir" class="form-control form-control-sm" placeholder="Ej: Recepción abierta de 9 a 18 hs." @bind-Value="solicitud.Referencia" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Bultos del Envío -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold text-dark">Bultos del Envío</span>
+                            <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2" @onclick="AgregarBulto">
+                                + Agregar bulto
+                            </button>
+                        </div>
+
+                        @for (int i = 0; i < solicitud.Bultos.Count; i++)
+                        {
+                            var indice = i;
+                            <div class="p-2 mb-2 bg-light rounded border">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Peso (kg) *</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="solicitud.Bultos[indice].Peso" />
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <label class="form-label small text-secondary mb-1">Alto (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="solicitud.Bultos[indice].Alto" />
+                                    </div>
+                                    <div class="col-6 col-sm-2">
+                                        <label class="form-label small text-secondary mb-1">Ancho (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="solicitud.Bultos[indice].Ancho" />
+                                    </div>
+                                    <div class="col-6 col-sm-2">
+                                        <label class="form-label small text-secondary mb-1">Prof. (cm)</label>
+                                        <InputNumber class="form-control form-control-sm" @bind-Value="solicitud.Bultos[indice].Profundo" />
+                                    </div>
+                                    <div class="col-12 col-sm-2 text-end">
+                                        @if (solicitud.Bultos.Count > 1)
+                                        {
+                                            <button type="button" class="btn btn-link text-danger btn-sm p-0 text-decoration-none" @onclick="() => EliminarBulto(indice)">
+                                                Quitar
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Botón de Envío API -->
+                    <div class="mt-auto pt-2">
+                        <button type="submit"
+                                class="btn btn-marca w-100 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2"
+                                disabled="@estaEnviando">
+                            @if (estaEnviando)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                <span>Validando credencial, calculando tarifa y admitiendo envío...</span>
+                            }
+                            else
+                            {
+                                <Icono Nombre="api" Tamano="16" />
+                                <span>Invocar API de Alta de Envío</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resultado de la Última Invocación -->
+@if (!string.IsNullOrWhiteSpace(mensajeErrorApi))
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-4 border-start border-4 border-danger">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="h6 fw-bold text-danger mb-0">Solicitud Rechazada por la Plataforma</h3>
+                <span class="font-monospace small fw-bold estado-fallo">@codigoEstadoUltimoError</span>
+            </div>
+            <p class="text-dark small mb-0">@mensajeErrorApi</p>
+        </div>
+    </div>
+}
+else if (ultimaRespuesta is not null)
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h3 class="h6 fw-bold mb-0 text-dark">Respuesta de la Plataforma</h3>
+            @if (ultimaRespuesta.Duplicado)
+            {
+                <span class="small estado-intermedio">
+                    200 OK · Solicitud idempotente reconocida (envío ya admitido previamente)
+                </span>
+            }
+            else
+            {
+                <span class="small estado-entregado">
+                    201 Created · Envío validado, tarifado y admitido
+                </span>
+            }
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-stretch">
+                <div class="col-12 col-lg-7 d-flex">
+                    <div class="p-3 bg-light rounded-3 w-100 h-100 d-flex flex-column justify-content-between">
+                        <div class="row g-3 mb-3 pb-3 border-bottom">
+                            <div class="col-sm-6">
+                                <div class="text-secondary small">Código de Seguimiento</div>
+                                <div class="font-monospace fw-bold fs-5 text-dark">@ultimaRespuesta.CodigoSeguimiento</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-secondary small">Tarifa Calculada</div>
+                                <div class="font-monospace fw-bold fs-5 text-success">$ @ultimaRespuesta.Tarifa.ToString("N2")</div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3 small">
+                            <div class="col-sm-4">
+                                <div class="text-secondary">Estado en Plataforma:</div>
+                                <div class="estado-intermedio">@ultimaRespuesta.Estado</div>
+                            </div>
+                            <div class="col-sm-8">
+                                <div class="text-secondary">Identificadores de Bultos (@ultimaRespuesta.Bultos.Count):</div>
+                                <div class="font-monospace fw-semibold text-dark">
+                                    @(ultimaRespuesta.Bultos.Count > 0 ? string.Join(", ", ultimaRespuesta.Bultos) : "—")
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="small text-secondary border-top pt-2 mt-auto">
+                            El envío ha quedado en estado <strong class="text-dark">Admitido</strong> en la plataforma, disponible para su recepción en depósito igual que por los otros canales de alta.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-5 d-flex">
+                    <div class="w-100 h-100 d-flex flex-column">
+                        <div class="small fw-semibold text-secondary mb-1">Cuerpo JSON devuelto por la API</div>
+                        <pre class="bg-dark text-light p-3 rounded-3 small font-monospace mb-0 flex-grow-1 overflow-auto" style="font-size: 0.75rem;">@ObtenerJsonRespuesta(ultimaRespuesta)</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Historial de Solicitudes Procesadas por API en la Sesión -->
+@if (historialInvocaciones.Count > 0)
+{
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h3 class="h6 fw-bold mb-0 text-dark">Registro de Invocaciones por API</h3>
+            <span class="small text-secondary">@historialInvocaciones.Count solicitud(es) procesada(s)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small">
+                    <tr>
+                        <th>Hora</th>
+                        <th>Referencia Externa</th>
+                        <th>Destinatario</th>
+                        <th>Dirección</th>
+                        <th>Modalidad</th>
+                        <th>Código Seguimiento</th>
+                        <th class="text-end">Tarifa</th>
+                        <th>Estado</th>
+                        <th>Resultado API</th>
+                    </tr>
+                </thead>
+                <tbody class="small">
+                    @foreach (var item in historialInvocaciones)
+                    {
+                        <tr>
+                            <td class="text-muted font-monospace">@item.Hora.ToString("HH:mm:ss")</td>
+                            <td class="font-monospace">@(string.IsNullOrWhiteSpace(item.ReferenciaExterna) ? "—" : item.ReferenciaExterna)</td>
+                            <td class="fw-medium text-dark">@item.Destinatario</td>
+                            <td class="text-muted">@item.Direccion</td>
+                            <td class="@(item.Modalidad == "Express" ? "text-danger fw-semibold" : "text-dark")">
+                                @(item.Modalidad == "Express" ? "Express" : "Estándar")
+                            </td>
+                            <td class="font-monospace fw-bold text-primary">@(item.CodigoSeguimiento ?? "—")</td>
+                            <td class="text-end font-monospace fw-semibold">
+                                @(item.Tarifa.HasValue ? $"$ {item.Tarifa.Value:N2}" : "—")
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(item.EstadoEnvio))
+                                {
+                                    <span class="estado-intermedio">@item.EstadoEnvio</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.Exito && !item.Duplicado)
+                                {
+                                    <span class="estado-entregado">201 Admitido</span>
+                                }
+                                else if (item.Exito && item.Duplicado)
+                                {
+                                    <span class="estado-intermedio">200 Idempotente</span>
+                                }
+                                else
+                                {
+                                    <span class="estado-fallo">@item.DetalleResultado</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly JsonSerializerOptions OpcionesFormatoJson = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    private string claveApiVigente = string.Empty;
+    private bool mostrarClave = false;
+    private bool claveCopiada = false;
+    private bool estaRegenerandoClave = false;
+    private string? avisoRegeneracion;
+
+    private SolicitudAltaEnvioApiDto solicitud = new();
+    private bool estaEnviando = false;
+    private string? mensajeErrorApi;
+    private string? codigoEstadoUltimoError;
+    private RespuestaAltaEnvioApiDto? ultimaRespuesta;
+
+    private readonly List<RegistroInvocacionApi> historialInvocaciones = new();
+    private int contadorEjemplos = 101;
+
+    protected override async Task OnInitializedAsync()
+    {
+        claveApiVigente = await EnviosApi.ObtenerClaveApiActivaAsync();
+        InicializarSolicitud();
+    }
+
+    private void InicializarSolicitud()
+    {
+        solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveApiVigente,
+            ModalidadServicio = "Estandar",
+            Ciudad = "Montevideo",
+            ReferenciaExterna = $"ERP-2026-{contadorEjemplos}",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.5m, Alto = 15m, Ancho = 20m, Profundo = 25m }
+            }
+        };
+    }
+
+    private void AlternarVisibilidadClave()
+    {
+        mostrarClave = !mostrarClave;
+    }
+
+    private async Task CopiarClaveAlPortapapeles()
+    {
+        if (string.IsNullOrWhiteSpace(claveApiVigente))
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", claveApiVigente);
+            claveCopiada = true;
+        }
+        catch
+        {
+            mostrarClave = true;
+        }
+    }
+
+    private async Task RegenerarClaveApi()
+    {
+        estaRegenerandoClave = true;
+        claveCopiada = false;
+        mensajeErrorApi = null;
+
+        try
+        {
+            var nuevaCredencial = await EnviosApi.RegenerarClaveApiAsync();
+            claveApiVigente = nuevaCredencial.ClaveApi;
+            avisoRegeneracion = nuevaCredencial.Aviso;
+            mostrarClave = true;
+            solicitud.ClaveApi = claveApiVigente;
+        }
+        catch (Exception ex)
+        {
+            mensajeErrorApi = ex.Message;
+            codigoEstadoUltimoError = "Error al generar clave";
+        }
+        finally
+        {
+            estaRegenerandoClave = false;
+        }
+    }
+
+    private void CargarDatosEjemplo()
+    {
+        contadorEjemplos++;
+        mensajeErrorApi = null;
+
+        var esExpress = contadorEjemplos % 2 == 0;
+        solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveApiVigente,
+            ModalidadServicio = esExpress ? "Express" : "Estandar",
+            ReferenciaExterna = $"ERP-2026-{contadorEjemplos}",
+            NombreDestinatario = esExpress ? "Sofía Bentancur" : "Nicolás Pereira",
+            Documento = esExpress ? "4.512.890-3" : "3.987.654-1",
+            Telefono = esExpress ? "099 321 654" : "098 741 852",
+            Email = esExpress ? "sofia.bentancur@ejemplo.com" : "nicolas.pereira@ejemplo.com",
+            Calle = esExpress ? "Av. Brasil" : "Bvar. España",
+            Numero = esExpress ? "2850 Apto 401" : "2140",
+            Ciudad = "Montevideo",
+            Referencia = esExpress ? "Entregar en recepción de 9 a 18 hs." : "Tocar timbre del local comercial.",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = esExpress ? 2.4m : 1.5m, Alto = 15m, Ancho = 20m, Profundo = 25m }
+            }
+        };
+    }
+
+    private void AgregarBulto()
+    {
+        solicitud.Bultos.Add(new CrearBultoItemDto { Peso = 1.0m, Alto = 10m, Ancho = 15m, Profundo = 20m });
+    }
+
+    private void EliminarBulto(int indice)
+    {
+        if (solicitud.Bultos.Count > 1 && indice >= 0 && indice < solicitud.Bultos.Count)
+        {
+            solicitud.Bultos.RemoveAt(indice);
+        }
+    }
+
+    private async Task InvocarAltaPorApi()
+    {
+        estaEnviando = true;
+        mensajeErrorApi = null;
+        codigoEstadoUltimoError = null;
+
+        var direccionResumen = $"{solicitud.Calle} {solicitud.Numero}, {solicitud.Ciudad}".Trim();
+
+        try
+        {
+            var respuesta = await EnviosApi.CrearEnvioPorApiIntegracionAsync(solicitud);
+            ultimaRespuesta = respuesta;
+
+            historialInvocaciones.Insert(0, new RegistroInvocacionApi(
+                DateTime.Now,
+                solicitud.ReferenciaExterna,
+                solicitud.NombreDestinatario,
+                direccionResumen,
+                solicitud.ModalidadServicio,
+                respuesta.CodigoSeguimiento,
+                respuesta.Tarifa,
+                respuesta.Estado,
+                Exito: true,
+                Duplicado: respuesta.Duplicado,
+                DetalleResultado: respuesta.Duplicado ? "200 Idempotente" : "201 Admitido"));
+        }
+        catch (ApiExcepcion ex)
+        {
+            ultimaRespuesta = null;
+            codigoEstadoUltimoError = $"HTTP {(int)ex.CodigoEstado} ({ex.CodigoEstado})";
+            mensajeErrorApi = ex.Message;
+
+            historialInvocaciones.Insert(0, new RegistroInvocacionApi(
+                DateTime.Now,
+                solicitud.ReferenciaExterna,
+                solicitud.NombreDestinatario,
+                direccionResumen,
+                solicitud.ModalidadServicio,
+                CodigoSeguimiento: null,
+                Tarifa: null,
+                EstadoEnvio: null,
+                Exito: false,
+                Duplicado: false,
+                DetalleResultado: $"{(int)ex.CodigoEstado} Rechazado"));
+        }
+        catch (Exception ex)
+        {
+            ultimaRespuesta = null;
+            codigoEstadoUltimoError = "400 Solicitud inválida";
+            mensajeErrorApi = ex.Message;
+
+            historialInvocaciones.Insert(0, new RegistroInvocacionApi(
+                DateTime.Now,
+                solicitud.ReferenciaExterna,
+                solicitud.NombreDestinatario,
+                direccionResumen,
+                solicitud.ModalidadServicio,
+                CodigoSeguimiento: null,
+                Tarifa: null,
+                EstadoEnvio: null,
+                Exito: false,
+                Duplicado: false,
+                DetalleResultado: "Error de validación"));
+        }
+        finally
+        {
+            estaEnviando = false;
+        }
+    }
+
+    private string ObtenerJsonSolicitud()
+    {
+        var objetoPayload = new
+        {
+            modalidadServicio = solicitud.ModalidadServicio,
+            nombreDestinatario = solicitud.NombreDestinatario,
+            documento = solicitud.Documento,
+            email = solicitud.Email,
+            telefono = solicitud.Telefono,
+            calle = solicitud.Calle,
+            numero = solicitud.Numero,
+            ciudad = solicitud.Ciudad,
+            referencia = solicitud.Referencia,
+            referenciaExterna = solicitud.ReferenciaExterna,
+            bultos = solicitud.Bultos.Select(b => new
+            {
+                peso = b.Peso,
+                alto = b.Alto,
+                ancho = b.Ancho,
+                profundo = b.Profundo
+            }).ToArray()
+        };
+
+        return JsonSerializer.Serialize(objetoPayload, OpcionesFormatoJson);
+    }
+
+    private static string ObtenerJsonRespuesta(RespuestaAltaEnvioApiDto respuesta)
+    {
+        var objetoRespuesta = new
+        {
+            id = respuesta.Id,
+            codigoSeguimiento = respuesta.CodigoSeguimiento,
+            estado = respuesta.Estado,
+            tarifa = respuesta.Tarifa,
+            bultos = respuesta.Bultos,
+            duplicado = respuesta.Duplicado
+        };
+
+        return JsonSerializer.Serialize(objetoRespuesta, OpcionesFormatoJson);
+    }
+
+    private record RegistroInvocacionApi(
+        DateTime Hora,
+        string? ReferenciaExterna,
+        string Destinatario,
+        string Direccion,
+        string Modalidad,
+        string? CodigoSeguimiento,
+        decimal? Tarifa,
+        string? EstadoEnvio,
+        bool Exito,
+        bool Duplicado,
+        string DetalleResultado);
+}
+

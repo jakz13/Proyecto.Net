@@ -582,4 +582,149 @@ public class MockEnviosApi : IEnviosApi
         LotesPorClave[clave] = resultadoFinal;
         return Task.FromResult(resultadoFinal);
     }
+
+    private static string _claveApiVigente = "um_k9Xz2Lm8Qp4Vn7Rt1Yw5Bc3Df6Gh0Jk2";
+    private static readonly Dictionary<string, RespuestaAltaEnvioApiDto> EnviosPorReferenciaApi = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Obtiene la clave de API vigente del comercio para el operador actual.
+    /// </summary>
+    public Task<string> ObtenerClaveApiActivaAsync(CancellationToken cancelacion = default)
+    {
+        return Task.FromResult(_claveApiVigente);
+    }
+
+    /// <summary>
+    /// Genera una nueva clave de API e invalida la anterior.
+    /// </summary>
+    public Task<ClaveApiComercioDto> RegenerarClaveApiAsync(CancellationToken cancelacion = default)
+    {
+        var nuevaClave = "um_" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(24))
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+
+        _claveApiVigente = nuevaClave;
+
+        var resultado = new ClaveApiComercioDto(
+            nuevaClave,
+            "Guarde esta clave ahora: no volverá a mostrarse. La clave anterior ya no es válida.",
+            DateTime.UtcNow);
+
+        return Task.FromResult(resultado);
+    }
+
+    /// <summary>
+    /// Procesa el alta de un envío invocada desde el sistema del comercio vía API con validación de credenciales, tarifa e idempotencia.
+    /// </summary>
+    public Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
+        SolicitudAltaEnvioApiDto solicitud,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(solicitud);
+
+        if (string.IsNullOrWhiteSpace(solicitud.ClaveApi) ||
+            !string.Equals(solicitud.ClaveApi.Trim(), _claveApiVigente, StringComparison.Ordinal))
+        {
+            throw new ApiExcepcion(HttpStatusCode.Unauthorized, "Clave de API inválida.");
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.NombreDestinatario))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El nombre del destinatario es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.Calle) ||
+            string.IsNullOrWhiteSpace(solicitud.Numero) ||
+            string.IsNullOrWhiteSpace(solicitud.Ciudad))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "La dirección completa (calle, número y ciudad) es obligatoria.");
+        }
+
+        if (solicitud.Bultos is null || solicitud.Bultos.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El envío debe incluir al menos un bulto.");
+        }
+
+        if (solicitud.Bultos.Any(b => b.Peso <= 0 || b.Alto <= 0 || b.Ancho <= 0 || b.Profundo <= 0))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "Cada bulto debe tener peso y dimensiones mayores a cero.");
+        }
+
+        var referenciaExternaLimpia = string.IsNullOrWhiteSpace(solicitud.ReferenciaExterna)
+            ? null
+            : solicitud.ReferenciaExterna.Trim();
+
+        if (referenciaExternaLimpia is not null &&
+            EnviosPorReferenciaApi.TryGetValue(referenciaExternaLimpia, out var envioPrevio))
+        {
+            return Task.FromResult(envioPrevio with { Duplicado = true });
+        }
+
+        var nuevoId = Guid.NewGuid();
+        var codigoSeguimiento = $"TRK-2026-{Interlocked.Increment(ref _contadorSecuencial):D4}";
+
+        var totalBultos = solicitud.Bultos.Count;
+        var totalPeso = solicitud.Bultos.Sum(b => b.Peso);
+        var totalVolumen = solicitud.Bultos.Sum(b => b.VolumenM3);
+        var esExpress = solicitud.ModalidadServicio.Equals("Express", StringComparison.OrdinalIgnoreCase);
+
+        var baseTarifa = esExpress ? 250m : 160m;
+        var tarifaCalculada = Math.Round(baseTarifa + (totalPeso * 25m) + ((totalBultos - 1) * 35m), 2);
+
+        var identificacionesBultos = Enumerable.Range(1, totalBultos)
+            .Select(i => $"{codigoSeguimiento}-B{i:D2}")
+            .ToList();
+
+        var direccionDestino = $"{solicitud.Calle.Trim()} {solicitud.Numero.Trim()}, {solicitud.Ciudad.Trim()}";
+
+        var entidadEnvio = new EnvioDto
+        {
+            Id = nuevoId,
+            CodigoSeguimiento = codigoSeguimiento,
+            NombreDestinatario = solicitud.NombreDestinatario.Trim(),
+            DireccionDestino = direccionDestino,
+            TelefonoDestinatario = solicitud.Telefono?.Trim(),
+            FechaCreacion = DateTime.UtcNow,
+            Estado = EstadoEnvioDto.Admitido,
+            Observaciones = solicitud.Referencia?.Trim(),
+            PesoKg = totalPeso,
+            VolumenM3 = totalVolumen,
+            Tarifa = tarifaCalculada,
+            ModalidadServicio = esExpress ? "Express" : "Estandar",
+            BultosIdentificaciones = identificacionesBultos,
+            ComercioNombre = "Comercio Integración API",
+            SelloModificacion = Guid.NewGuid().ToString("N")
+        };
+
+        lock (EnviosEnMemoria)
+        {
+            EnviosEnMemoria.Insert(0, entidadEnvio);
+        }
+
+        RegistrarEventoHistorico(nuevoId, new EventoHistorialEnvioDto
+        {
+            EnvioId = nuevoId,
+            FechaHora = DateTime.UtcNow,
+            EstadoAnterior = null,
+            NuevoEstado = EstadoEnvioDto.Admitido,
+            Usuario = "Integración API",
+            DescripcionEvento = $"Envío admitido por API del comercio{(referenciaExternaLimpia is not null ? $" (Ref: {referenciaExternaLimpia})" : "")}. Tarifa calculada: ${tarifaCalculada:F2}."
+        });
+
+        var respuesta = new RespuestaAltaEnvioApiDto(
+            nuevoId,
+            codigoSeguimiento,
+            "Admitido",
+            tarifaCalculada,
+            identificacionesBultos,
+            Duplicado: false);
+
+        if (referenciaExternaLimpia is not null)
+        {
+            EnviosPorReferenciaApi[referenciaExternaLimpia] = respuesta;
+        }
+
+        return Task.FromResult(respuesta);
+    }
 }

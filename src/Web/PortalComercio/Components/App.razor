@@ -5,9 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <ImportMap />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="UltimaMilla.PortalComercio.styles.css" />
+    <link rel="stylesheet" href="app.css?v=@VersionArranque" />
+    <link rel="stylesheet" href="UltimaMilla.PortalComercio.styles.css?v=@VersionArranque" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="ModoWasm" />
 </head>
@@ -16,8 +17,8 @@
     <Routes @rendermode="ModoWasm" />
     @* Se oculta solo cuando el cliente WASM termina de cargar y dibuja el layout (.page) *@
     <div class="cargando-wasm">Cargando Portal del Comercio…</div>
-    <script src="_framework/blazor.web.js"></script>
-    <script src="js/notificaciones.js"></script>
+    <script src="_framework/blazor.web.js?v=@VersionArranque"></script>
+    <script src="js/notificaciones.js?v=@VersionArranque"></script>
 </body>
 
 </html>
@@ -25,4 +26,7 @@
 @code {
     // Sin prerenderizado: el cliente WASM necesita el HttpClient hacia la API, que solo existe en el navegador.
     private static readonly IComponentRenderMode ModoWasm = new InteractiveWebAssemblyRenderMode(prerender: false);
+
+    // Sello de arranque para evitar caché obsoleta del navegador al reiniciar el servidor
+    private static readonly string VersionArranque = DateTime.UtcNow.Ticks.ToString();
 }

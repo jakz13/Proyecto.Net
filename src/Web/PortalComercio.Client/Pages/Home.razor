@@ -126,6 +126,15 @@
             enDeposito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnDeposito);
             enviosRecientes = resultado.Elementos.Take(5).ToList();
         }
+        catch
+        {
+            // Evita bloquear la carga inicial si la API backend aún no responde en modo sin mocks
+            totalEnvios = 0;
+            enTransito = 0;
+            entregados = 0;
+            enDeposito = 0;
+            enviosRecientes = new();
+        }
         finally
         {
             estaCargando = false;

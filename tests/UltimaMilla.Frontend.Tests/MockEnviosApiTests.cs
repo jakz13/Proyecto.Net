@@ -148,4 +148,162 @@ public class MockEnviosApiTests
         Assert.Equal(2, resExpress.BultosIdentificaciones!.Count);
         Assert.Equal("Express", resExpress.ModalidadServicio);
     }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConCredencialValida_CalculaTarifaAdmiteEnvioYGeneraSeguimiento()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var claveVigente = await api.ObtenerClaveApiActivaAsync();
+        var solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveVigente,
+            ModalidadServicio = "Estandar",
+            NombreDestinatario = "Sofía Bentancur",
+            Calle = "Av. Brasil",
+            Numero = "2850",
+            Ciudad = "Montevideo",
+            ReferenciaExterna = "REF-API-" + Guid.NewGuid(),
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 2.0m, Alto = 10m, Ancho = 15m, Profundo = 20m }
+            }
+        };
+
+        // Act
+        var respuesta = await api.CrearEnvioPorApiIntegracionAsync(solicitud);
+
+        // Assert
+        Assert.NotNull(respuesta);
+        Assert.NotEqual(Guid.Empty, respuesta.Id);
+        Assert.StartsWith("TRK-2026-", respuesta.CodigoSeguimiento);
+        Assert.Equal("Admitido", respuesta.Estado);
+        Assert.True(respuesta.Tarifa > 0m);
+        Assert.False(respuesta.Duplicado);
+        Assert.Single(respuesta.Bultos);
+
+        // Verificar postcondición: el envío queda admitido en el listado general igual que por los otros canales
+        var envioEnPlataforma = await api.ObtenerPorIdAsync(respuesta.Id);
+        Assert.NotNull(envioEnPlataforma);
+        Assert.Equal(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Admitido, envioEnPlataforma!.Estado);
+    }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConMismaReferenciaExterna_EsIdempotenteYNoDuplica()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var claveVigente = await api.ObtenerClaveApiActivaAsync();
+        var referenciaCompartida = "ORD-ERP-" + Guid.NewGuid();
+
+        var solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveVigente,
+            ModalidadServicio = "Express",
+            NombreDestinatario = "Nicolás Pereira",
+            Calle = "Bvar. España",
+            Numero = "2140",
+            Ciudad = "Montevideo",
+            ReferenciaExterna = referenciaCompartida,
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.5m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+
+        // Act
+        var primera = await api.CrearEnvioPorApiIntegracionAsync(solicitud);
+        var reintento = await api.CrearEnvioPorApiIntegracionAsync(solicitud);
+
+        // Assert
+        Assert.False(primera.Duplicado);
+        Assert.True(reintento.Duplicado);
+        Assert.Equal(primera.Id, reintento.Id);
+        Assert.Equal(primera.CodigoSeguimiento, reintento.CodigoSeguimiento);
+        Assert.Equal(primera.Tarifa, reintento.Tarifa);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("um_clave_inexistente_12345")]
+    public async Task CrearEnvioPorApiIntegracion_ConCredencialInvalida_LanzaApiExcepcionUnauthorized(string claveInvalida)
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveInvalida,
+            NombreDestinatario = "Cliente Prueba",
+            Calle = "Colonia",
+            Numero = "1000",
+            Ciudad = "Montevideo"
+        };
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(solicitud));
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, ex.CodigoEstado);
+    }
+
+    [Fact]
+    public async Task RegenerarClaveApi_InvalidaClaveAnteriorYGeneraNuevaCredencialVigente()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var claveAnterior = await api.ObtenerClaveApiActivaAsync();
+
+        // Act
+        var nuevaCredencial = await api.RegenerarClaveApiAsync();
+
+        // Assert
+        Assert.NotNull(nuevaCredencial);
+        Assert.StartsWith("um_", nuevaCredencial.ClaveApi);
+        Assert.NotEqual(claveAnterior, nuevaCredencial.ClaveApi);
+
+        // Invocar con la clave anterior debe fallar con 401
+        var solicitudClaveVieja = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = claveAnterior,
+            NombreDestinatario = "Test Rotación",
+            Calle = "18 de Julio",
+            Numero = "1200",
+            Ciudad = "Montevideo"
+        };
+
+        var ex = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(solicitudClaveVieja));
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, ex.CodigoEstado);
+    }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConDatosInvalidosONulos_LanzaExcepcionTipada()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var clave = await api.ObtenerClaveApiActivaAsync();
+
+        // 1. Solicitud nula
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(null!));
+
+        // 2. Peso fuera de rango (<= 0)
+        var solicitudPesoCero = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = clave,
+            NombreDestinatario = "Cliente",
+            Calle = "Rivera",
+            Numero = "2000",
+            Ciudad = "Montevideo",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 0m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+
+        var exPeso = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(solicitudPesoCero));
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, exPeso.CodigoEstado);
+    }
 }

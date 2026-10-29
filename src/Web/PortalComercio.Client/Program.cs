@@ -5,9 +5,9 @@ using UltimaMilla.PortalComercio.Client.Auth;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-// Configuración de URL y modo mock desde wwwroot/appsettings.json
+// Configuración de URL y modo mock desde /appsettings.json (servido dinámicamente por el host)
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
-var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", true);
+var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", false);
 
 // Soporte de autorización en Blazor WebAssembly
 builder.Services.AddAuthorizationCore();
@@ -33,7 +33,8 @@ if (usarMocks)
 }
 else
 {
-    // TODO: Registrar implementaciones HTTP reales cuando el backend exponga la API completa
+    // Registra clientes HTTP reales conectados al backend
+    builder.Services.AgregarHttpClientsFrontend(urlBaseApi);
 }
 
 await builder.Build().RunAsync();
