@@ -5,7 +5,9 @@ using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Auth;
 using UltimaMilla.Mobile.ViewModels.Carga;
 using UltimaMilla.Mobile.ViewModels.Diagnostic;
@@ -25,7 +27,13 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder
-            .UseMauiApp<App>();
+            .UseMauiApp<App>()
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler(typeof(Shell), typeof(UltimaMilla.Mobile.Platforms.Android.CustomShellRenderer));
+#endif
+            });
 
 #if DEBUG
         builder.Logging.AddDebug();
@@ -36,6 +44,10 @@ public static class MauiProgram
 
         // 1b. Motor de Sincronización Resiliente Offline-First (UC-17 a UC-21)
         builder.Services.AddSingleton<ISyncService, SyncService>();
+
+        // 1c. Telemetría y Geolocalización en Tiempo Real con SignalR (Hito 4 / RNF 6.10, RNF 6.11)
+        builder.Services.AddSingleton<IRealtimeTrackingService, RealtimeTrackingService>();
+        builder.Services.AddSingleton<IGeolocalizacionTrackingService, GeolocalizacionTrackingService>();
 
         // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
         builder.Services.AddTransient<AuthDelegatingHandler>();

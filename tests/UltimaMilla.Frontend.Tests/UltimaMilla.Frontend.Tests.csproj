@@ -19,4 +19,8 @@
     <ProjectReference Include="..\..\src\Web\Frontend.Infrastructure\UltimaMilla.Frontend.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\src\Mobile\UltimaMilla.Mobile\Responsive\ReglasResponsive.cs" Link="Responsive\ReglasResponsive.cs" />
+  </ItemGroup>
+
 </Project>

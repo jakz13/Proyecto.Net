@@ -1,3 +1,5 @@
+using UltimaMilla.Mobile.Responsive;
+
 namespace UltimaMilla.Mobile;
 
 public partial class App : Application
@@ -12,7 +14,27 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(_appShell);
+        var window = new Window(_appShell);
+
+        AplicarTokensSegunDisplay();
+        window.SizeChanged += (_, _) => TokensResponsive.Aplicar(this, window.Width);
+
+        return window;
+    }
+
+    /// <summary>
+    /// En teléfonos el ancho de ventana puede no estar disponible al crearla; se usa el ancho del
+    /// display (en dp) para que la primera pantalla ya se dibuje con los tokens correctos.
+    /// </summary>
+    private void AplicarTokensSegunDisplay()
+    {
+        if (DeviceInfo.Current.Idiom != DeviceIdiom.Phone)
+            return;
+
+        var display = DeviceDisplay.Current.MainDisplayInfo;
+        if (display.Density > 0)
+            TokensResponsive.Aplicar(this, display.Width / display.Density);
     }
 }
+
 

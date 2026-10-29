@@ -5,7 +5,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:ruta="clr-namespace:UltimaMilla.Mobile.Views.Ruta"
     xmlns:carga="clr-namespace:UltimaMilla.Mobile.Views.Carga"
-    Title="Última Milla Repartidor">
+    Title="Última Milla Repartidor"
+    Shell.TabBarBackgroundColor="#0F172A"
+    Shell.TabBarForegroundColor="#FFFFFF"
+    Shell.TabBarTitleColor="#FFFFFF"
+    Shell.TabBarUnselectedColor="#94A3B8">
 
     <!-- ========================================================= -->
     <!-- NAVEGACIÓN PRINCIPAL: TABBAR INFERIOR MODERNO             -->

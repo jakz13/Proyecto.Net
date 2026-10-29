@@ -2,13 +2,15 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Carga"
+             xmlns:controls="clr-namespace:UltimaMilla.Mobile.Controls"
              x:Class="UltimaMilla.Mobile.Views.Carga.CargaVehiculoPage"
              x:DataType="vm:CargaVehiculoViewModel"
              Title="Control de Carga"
+             Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBackground}">
 
     <ScrollView>
-        <VerticalStackLayout Spacing="16" Padding="20">
+        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
 
             <!-- ========================================================= -->
             <!-- TARJETA DE RESUMEN DE VEHÍCULO Y RUTA                     -->
@@ -46,13 +48,17 @@
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="10">
-                    <Grid ColumnDefinitions="*, Auto">
-                        <Label Grid.Column="0" Text="Progreso de Escaneo" Style="{StaticResource H3Label}" />
-                        <Label Grid.Column="1"
-                               Text="{Binding BultosCargados, StringFormat='{0} de 6 bultos'}"
+                    <FlexLayout Wrap="Wrap"
+                                Direction="Row"
+                                JustifyContent="SpaceBetween"
+                                AlignItems="Center"
+                                AlignContent="Start">
+                        <Label Text="Progreso de Escaneo" Style="{StaticResource H3Label}" Margin="0,0,8,2" />
+                        <Label Text="{Binding BultosCargados, StringFormat='{0} de 6 bultos'}"
                                FontAttributes="Bold"
-                               TextColor="{StaticResource Primary}" />
-                    </Grid>
+                               TextColor="{StaticResource Primary}"
+                               Margin="0,0,0,2" />
+                    </FlexLayout>
 
                     <ProgressBar Progress="{Binding ProgresoEscaneo}"
                                  ProgressColor="{StaticResource Primary}"
@@ -79,23 +85,21 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Botones de Acción de Escaneo -->
-                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10" Margin="0,6,0,0">
-                        <Button Grid.Column="0"
-                                Text="Escanear Bulto (QR / Barras)"
+                    <!-- Botones de Acción de Escaneo (se apilan si no entran en el ancho) -->
+                    <controls:AdaptiveRow Spacing="10" Margin="0,6,0,0">
+                        <Button Text="Escanear Bulto (QR / Barras)"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding EscanearBultoCommand}"
                                 HeightRequest="44"
                                 FontSize="13" />
 
-                        <Button Grid.Column="1"
-                                Text="Reiniciar"
+                        <Button Text="Reiniciar"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding ReiniciarCargaCommand}"
                                 HeightRequest="44"
                                 Padding="16,0"
                                 FontSize="13" />
-                    </Grid>
+                    </controls:AdaptiveRow>
                 </VerticalStackLayout>
             </Border>
 
@@ -111,16 +115,21 @@
                     <DataTemplate x:DataType="vm:BultoCargaItemViewModel">
                         <Border Style="{StaticResource CardView}" Padding="14">
                             <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto, Auto" RowSpacing="4">
-                                <!-- Código de Bulto y Destinatario -->
-                                <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="8">
-                                    <Label Text="{Binding CodigoBulto}"
-                                           FontAttributes="Bold"
-                                           FontSize="15"
-                                           TextColor="{StaticResource TextPrimary}" />
-                                    <Label Text="{Binding ParadaOrden, StringFormat='(Parada {0})'}"
-                                           FontSize="13"
-                                           TextColor="{StaticResource TextMuted}" />
-                                </HorizontalStackLayout>
+                                <!-- Código de Bulto y Parada (Spans: envuelve en vez de pisar el badge) -->
+                                <Label Grid.Row="0" Grid.Column="0" Margin="0,0,8,0" VerticalOptions="Center">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{Binding CodigoBulto}"
+                                                  FontAttributes="Bold"
+                                                  FontSize="15"
+                                                  TextColor="{StaticResource TextPrimary}" />
+                                            <Span Text="  " />
+                                            <Span Text="{Binding ParadaOrden, StringFormat='(Parada {0})'}"
+                                                  FontSize="13"
+                                                  TextColor="{StaticResource TextMuted}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
 
                                 <!-- Badge de Estado -->
                                 <Border Grid.Row="0" Grid.Column="1"
@@ -128,7 +137,8 @@
                                         Stroke="Transparent"
                                         StrokeThickness="0"
                                         StrokeShape="RoundRectangle 6"
-                                        Padding="8,3">
+                                        Padding="8,3"
+                                        VerticalOptions="Start">
                                     <Label Text="{Binding EstadoTexto}"
                                            FontSize="11"
                                            FontAttributes="Bold"

@@ -8,7 +8,7 @@
              BackgroundColor="{StaticResource PageBackground}">
 
     <ScrollView>
-        <VerticalStackLayout Spacing="16" Padding="16,16,16,24">
+        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingFormulario}">
 
             <!-- ========================================================= -->
             <!-- 1. BANNER DE PROTOCOLO Y RESUMEN DE LA PARADA             -->

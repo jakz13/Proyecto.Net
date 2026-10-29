@@ -268,7 +268,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 paradaLocal.Orden = p.Orden;
                 
                 // Preservar estado completado local si aún no se sincroniza
-                if (isNew || (paradaLocal.Estado != "Entregado" && paradaLocal.Estado != "Fallido"))
+                if (isNew || (paradaLocal.Estado != "Entregado" && paradaLocal.Estado != "Fallido" && paradaLocal.Estado != "EnDevolucion"))
                 {
                     paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
                 }
@@ -569,7 +569,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             "Completada" or "Entregada" or "Entregado" => "Entregado",
             "Fallida" or "Fallido" => "Fallido",
             "Reprogramado" => "Fallido",
-            "EnDevolucion" => "Fallido",
+            "EnDevolucion" or "EnRetornoADeposito" => "EnDevolucion",
             "EnCamino" or "EnSitio" or "Pendiente" => "Pendiente",
             _ => "Pendiente"
         };
