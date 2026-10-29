@@ -312,6 +312,37 @@
         return mostrar(opts);
     };
 
+    window.descargarArchivoEtiquetas = function (nombreArchivo, contenidoHtml) {
+        if (!contenidoHtml) return;
+        var blob = new Blob([contenidoHtml], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = nombreArchivo || 'etiquetas-envios.html';
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        setTimeout(function () {
+            URL.revokeObjectURL(url);
+        }, 2000);
+    };
+
+    window.imprimirDocumentoEtiquetas = function (contenidoHtml) {
+        if (!contenidoHtml) return;
+        var ventanaImpresion = window.open('', '_blank', 'width=900,height=720');
+        if (!ventanaImpresion) {
+            window.descargarArchivoEtiquetas('etiquetas-envios.html', contenidoHtml);
+            return;
+        }
+        ventanaImpresion.document.open();
+        ventanaImpresion.document.write(contenidoHtml);
+        ventanaImpresion.document.close();
+        ventanaImpresion.focus();
+        setTimeout(function () {
+            ventanaImpresion.print();
+        }, 300);
+    };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', asegurarContenedores);
     } else {

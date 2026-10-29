@@ -356,6 +356,17 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 justify-content-end align-items-center">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                title="Ubicar camión y paradas en el mapa"
+                                                onclick="irAVehiculoEnMapa('@veh.VehiculoMatricula')">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                                <circle cx="12" cy="10" r="3"></circle>
+                                            </svg>
+                                        </button>
                                         <button type="button" 
                                                 class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
                                                 data-bs-toggle="tooltip"
@@ -388,73 +399,64 @@
     </div>
 
     <!-- =========================================================================
-         SOLAPA 3: MAPA TÁCTICO URBANO (VISTA MINIMALISTA Y SOBRIA)
+         SOLAPA 3: MAPA TÁCTICO URBANO CON LEAFLET (CAMIONES Y PARADAS)
          ========================================================================= -->
     <div class="tab-pane fade" id="pill-mapa" role="tabpanel" aria-labelledby="pill-mapa-tab">
-        <div class="row g-4">
-            <!-- Lienzo Limpio del Mapa de Montevideo -->
-            <div class="col-12 col-lg-8">
-                <div class="card border-0 shadow-sm rounded-3">
-                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark">Radar Metropolitano de Flota</span>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="text-secondary small fw-semibold">
-                                4 Unidades Rastreadas
-                            </span>
+        <div class="row g-4 align-items-stretch">
+            <!-- Mapa Interactivo de Montevideo y Área Metropolitana (Leaflet) -->
+            <div class="col-12 col-lg-8 d-flex">
+                <div class="card border-0 shadow-sm rounded-3 w-100 h-100 d-flex flex-column">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="fw-bold text-dark">Radar Metropolitano de Flota y Paradas</span>
+                            <span class="text-secondary small ms-2">(@Model.Resumen.Vehiculos.Count unidades rastreadas)</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            @foreach (var unidad in Model.Resumen.Vehiculos)
+                            {
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace"
+                                        style="font-size: 0.72rem;"
+                                        onclick="enfocarUnidadTablero('@unidad.VehiculoMatricula')">
+                                    @unidad.VehiculoMatricula
+                                </button>
+                            }
+                            <button type="button"
+                                    class="btn btn-dark btn-sm py-0 px-2"
+                                    style="font-size: 0.72rem;"
+                                    onclick="if(window.MapasUltimaMilla) window.MapasUltimaMilla.ajustarVistaGeneralMapa('mapaTableroFlotaLeaflet');">
+                                Vista general
+                            </button>
                         </div>
                     </div>
-                    <div class="card-body p-0 bg-light rounded-bottom-3 position-relative" style="min-height: 440px;">
-                        <svg id="lienzoMapaOperacion" width="100%" height="440" viewBox="0 0 800 440" class="w-100 h-100" style="background-color: #f8fafc;">
-                            <defs>
-                                <pattern id="patronRejillaLimpia" width="40" height="40" patternUnits="userSpaceOnUse">
-                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
-                                </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill="url(#patronRejillaLimpia)" />
-
-                            <!-- Línea de Costa Montevideo Sutil -->
-                            <path d="M 0,250 Q 180,240 280,280 T 500,320 T 700,350 T 800,370 L 800,440 L 0,440 Z" 
-                                  fill="#e2e8f0" fill-opacity="0.6" stroke="#cbd5e1" stroke-width="1.2" />
-
-                            <!-- Ejes Viales Principales de Montevideo -->
-                            <path d="M 300,30 Q 340,170 520,330" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" />
-                            <path d="M 140,230 Q 360,210 720,270" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" />
-                            <path d="M 200,50 L 280,220" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" />
-                            <path d="M 400,200 Q 580,170 800,150" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" />
-
-                            <!-- Rótulos Geográficos Sutiles -->
-                            <text x="200" y="130" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">PRADO</text>
-                            <text x="280" y="210" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">CENTRO</text>
-                            <text x="380" y="260" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">CORDÓN</text>
-                            <text x="510" y="300" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">POCITOS</text>
-                            <text x="700" y="240" fill="#94a3b8" font-size="10" font-family="sans-serif" font-weight="bold" letter-spacing="1">MALVÍN</text>
-
-                            <!-- Capas dinámicas -->
-                            <g id="capaRutas"></g>
-                            <g id="capaVehiculos"></g>
-                        </svg>
-
-                        <!-- Leyenda compacta en esquina -->
-                        <div class="position-absolute bottom-0 start-0 m-3 p-2 bg-white rounded-2 border shadow-sm small" style="font-size: 0.725rem;">
-                            <div class="d-flex align-items-center gap-3">
-                                <span class="d-inline-flex align-items-center gap-1">
-                                    <span class="d-inline-block rounded-circle bg-success" style="width: 8px; height: 8px;"></span> Normal
-                                </span>
-                                <span class="d-inline-flex align-items-center gap-1">
-                                    <span class="d-inline-block rounded-circle bg-danger" style="width: 8px; height: 8px;"></span> Riesgo SLA
-                                </span>
-                                <span class="d-inline-flex align-items-center gap-1">
-                                    <span class="d-inline-block rounded-circle bg-warning" style="width: 8px; height: 8px;"></span> Detenido
-                                </span>
-                            </div>
+                    <div class="card-body p-0 bg-light position-relative flex-grow-1">
+                        <div id="mapaTableroFlotaLeaflet" class="um-mapa-leaflet" style="height: 440px;"></div>
+                    </div>
+                    <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-3 small" style="font-size: 0.725rem;">
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span> Depósito Central
+                            </span>
+                            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span> Camión en movimiento
+                            </span>
+                            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B91C1C;"></span> Camión / Parada con riesgo SLA
+                            </span>
+                            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B45309;"></span> Camión detenido
+                            </span>
+                            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #475569;"></span> Parada numerada (1..N)
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Ficha Lateral Unificada de la Unidad Seleccionada (Altura fija) -->
-            <div class="col-12 col-lg-4">
-                <div class="card border-0 shadow-sm rounded-3 bg-white h-100" style="min-height: 440px;">
+            <!-- Ficha Lateral Unificada de la Unidad Seleccionada (Altura igualada) -->
+            <div class="col-12 col-lg-4 d-flex">
+                <div class="card border-0 shadow-sm rounded-3 bg-white w-100 h-100" style="min-height: 440px;">
                     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                         <span class="fw-bold text-dark" id="mapaPanelTitulo">Detalle de Unidad</span>
                         <span class="text-secondary small fw-semibold" id="mapaBadgeEstado">Seleccione en mapa</span>
@@ -624,83 +626,33 @@
         var datosVehiculos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Resumen.Vehiculos));
         var vehiculoSeleccionadoEnMapa = null;
 
-        function proyectarCoordenadas(lat, lng) {
-            var minLat = -34.94, maxLat = -34.84;
-            var minLng = -56.24, maxLng = -56.06;
-
-            var y = 50 + ((maxLat - lat) / (maxLat - minLat)) * 340;
-            var x = 70 + ((lng - minLng) / (maxLng - minLng)) * 660;
-
-            return { x: Math.round(x), y: Math.round(y) };
+        function dibujarMapa() {
+            if (!window.MapasUltimaMilla) return;
+            window.MapasUltimaMilla.renderizarMapaTableroFlota('mapaTableroFlotaLeaflet', datosVehiculos, function (v) {
+                seleccionarEnMapa(v);
+            });
         }
 
-        function dibujarMapa() {
-            var capaVehiculos = document.getElementById('capaVehiculos');
-            var capaRutas = document.getElementById('capaRutas');
-            if (!capaVehiculos || !capaRutas) return;
+        function enfocarUnidadTablero(matricula) {
+            if (!datosVehiculos) return;
+            var encontrado = datosVehiculos.find(function (v) { return v.VehiculoMatricula === matricula; });
+            if (encontrado) {
+                seleccionarEnMapa(encontrado);
+            }
+            if (window.MapasUltimaMilla) {
+                window.MapasUltimaMilla.enfocarVehiculoEnTablero('mapaTableroFlotaLeaflet', matricula, true);
+            }
+        }
 
-            capaVehiculos.innerHTML = '';
-            capaRutas.innerHTML = '';
-
-            datosVehiculos.forEach(function (v) {
-                var pVeh = proyectarCoordenadas(v.Latitud, v.Longitud);
-
-                // Dibujar paradas
-                if (v.Paradas && v.Paradas.length > 0) {
-                    var puntosPath = [];
-                    v.Paradas.forEach(function (par) {
-                        var pPar = proyectarCoordenadas(par.Latitud, par.Longitud);
-                        puntosPath.push(pPar.x + ',' + pPar.y);
-
-                        var circlePar = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        circlePar.setAttribute('cx', pPar.x);
-                        circlePar.setAttribute('cy', pPar.y);
-                        circlePar.setAttribute('r', par.EnRiesgo ? '5' : '3.5');
-                        circlePar.setAttribute('fill', par.Estado === 'Entregado' ? '#10b981' : (par.EnRiesgo ? '#ef4444' : '#64748b'));
-                        circlePar.setAttribute('stroke', '#ffffff');
-                        circlePar.setAttribute('stroke-width', '1.2');
-                        capaRutas.appendChild(circlePar);
-                    });
-
-                    if (puntosPath.length > 1) {
-                        var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-                        polyline.setAttribute('points', puntosPath.join(' '));
-                        polyline.setAttribute('fill', 'none');
-                        polyline.setAttribute('stroke', v.TieneAlertasRiesgo ? '#ef4444' : '#94a3b8');
-                        polyline.setAttribute('stroke-width', '1.5');
-                        polyline.setAttribute('stroke-dasharray', '3,3');
-                        polyline.setAttribute('opacity', '0.5');
-                        capaRutas.appendChild(polyline);
-                    }
-                }
-
-                // Marcador del vehículo
-                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                g.setAttribute('style', 'cursor: pointer;');
-                g.onclick = function () { seleccionarEnMapa(v); };
-
-                var circulo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circulo.setAttribute('cx', pVeh.x);
-                circulo.setAttribute('cy', pVeh.y);
-                circulo.setAttribute('r', '11');
-                circulo.setAttribute('fill', v.TieneAlertasRiesgo ? '#ef4444' : (v.EstadoOperativo === 'EnMovimiento' ? '#10b981' : '#f59e0b'));
-                circulo.setAttribute('stroke', '#ffffff');
-                circulo.setAttribute('stroke-width', '2');
-                g.appendChild(circulo);
-
-                var textoMat = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                textoMat.setAttribute('x', pVeh.x);
-                textoMat.setAttribute('y', pVeh.y - 14);
-                textoMat.setAttribute('text-anchor', 'middle');
-                textoMat.setAttribute('fill', '#0f172a');
-                textoMat.setAttribute('font-size', '9.5');
-                textoMat.setAttribute('font-weight', 'bold');
-                textoMat.setAttribute('font-family', 'monospace');
-                textoMat.textContent = v.VehiculoMatricula;
-                g.appendChild(textoMat);
-
-                capaVehiculos.appendChild(g);
-            });
+        function irAVehiculoEnMapa(matricula) {
+            var tabMapa = document.getElementById('pill-mapa-tab');
+            if (tabMapa && window.bootstrap && window.bootstrap.Tab) {
+                var instanciaTab = bootstrap.Tab.getOrCreateInstance(tabMapa);
+                instanciaTab.show();
+            }
+            setTimeout(function () {
+                enfocarUnidadTablero(matricula);
+            }, 220);
         }
 
         function seleccionarEnMapa(v) {

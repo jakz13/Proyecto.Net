@@ -60,4 +60,11 @@ public interface IEnviosApi
     Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
         SolicitudAltaEnvioApiDto solicitud,
         CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido (UC-27).
+    /// </summary>
+    Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
+        IReadOnlyList<Guid> envioIds,
+        CancellationToken cancelacion = default);
 }

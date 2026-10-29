@@ -1,6 +1,7 @@
 @page "/envios/nuevo"
 @inject IEnviosApi EnviosApi
 @inject NavigationManager Navegador
+@inject IJSRuntime JS
 
 <PageTitle>Portal del Comercio — Registrar Envío</PageTitle>
 
@@ -109,6 +110,10 @@
 
             <!-- Acciones Posteriores -->
             <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-dark px-4 py-2 d-inline-flex align-items-center gap-2" @onclick="DescargarEtiquetaEnvioCreadoAsync">
+                    <Icono Nombre="descargar" Tamano="16" />
+                    <span>Descargar etiqueta para el bulto</span>
+                </button>
                 <button type="button" class="btn btn-marca px-4 py-2" @onclick="RegistrarOtroEnvio">
                     Registrar otro envío
                 </button>
@@ -435,5 +440,26 @@ else
     private void RegistrarOtroEnvio()
     {
         InicializarFormulario();
+    }
+
+    private async Task DescargarEtiquetaEnvioCreadoAsync()
+    {
+        if (envioCreado is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var resultado = await EnviosApi.GenerarEtiquetasEnviosAsync(new[] { envioCreado.Id });
+            await JS.InvokeVoidAsync(
+                "descargarArchivoEtiquetas",
+                resultado.NombreArchivoDescarga,
+                resultado.ContenidoHtmlDescargable);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = ex.Message;
+        }
     }
 }

@@ -412,3 +412,215 @@ html, body {
         transform: translateX(40px) scale(0.95);
     }
 }
+
+
+/* ==========================================================================
+   Mapas de Seguimiento Leaflet — Estilo Corporativo Última Milla
+   ========================================================================== */
+.um-mapa-leaflet {
+    width: 100%;
+    background-color: #F1F5F9;
+    font-family: inherit;
+    z-index: 1;
+}
+
+.um-mapa-leaflet .leaflet-tile-pane {
+    filter: saturate(0.82) contrast(1.03);
+}
+
+.um-mapa-leaflet .leaflet-control-zoom {
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 6px !important;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+}
+
+.um-mapa-leaflet .leaflet-control-zoom a {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 26px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+}
+
+.um-mapa-leaflet .leaflet-control-zoom a:hover {
+    background-color: #F8FAFC !important;
+    color: var(--color-primario) !important;
+}
+
+.um-mapa-leaflet .leaflet-control-attribution {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #64748B !important;
+    font-size: 0.65rem !important;
+    padding: 1px 6px !important;
+    border-top-left-radius: 4px;
+}
+
+.um-div-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Marcador de Depósito Logístico Central */
+.um-marker-deposito {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background-color: #0F172A;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Marcadores de Paradas de Entrega */
+.um-marker-parada {
+    border-radius: 9999px;
+    border: 2px solid #FFFFFF;
+    color: #FFFFFF;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.24);
+    transition: transform 0.15s ease;
+}
+
+.um-marker-parada:hover {
+    transform: scale(1.12);
+}
+
+.um-parada-entregado {
+    background-color: #15803D;
+}
+
+.um-parada-activo {
+    background-color: #1D4ED8;
+}
+
+.um-parada-pendiente {
+    background-color: #475569;
+}
+
+.um-parada-fallo {
+    background-color: #B91C1C;
+}
+
+.um-parada-destacada {
+    box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.22), 0 3px 8px rgba(15, 23, 42, 0.3);
+}
+
+/* Marcador de Camión de Reparto */
+.um-marker-camion-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.um-marker-camion-etiqueta {
+    background-color: #0F172A;
+    color: #FFFFFF;
+    font-size: 0.66rem;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-bottom: 3px;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.um-marker-camion-circulo {
+    width: 34px;
+    height: 34px;
+    border-radius: 9999px;
+    border: 2.5px solid #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.3);
+    transition: transform 0.15s ease;
+}
+
+.um-marker-camion-wrap:hover .um-marker-camion-circulo,
+.um-camion-seleccionado .um-marker-camion-circulo {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.35);
+}
+
+.um-camion-movimiento {
+    background-color: #15803D;
+}
+
+.um-camion-ruta {
+    background-color: #1D4ED8;
+}
+
+.um-camion-detenido {
+    background-color: #B45309;
+}
+
+.um-camion-riesgo {
+    background-color: #B91C1C;
+}
+
+/* Popups de Leaflet adaptados al diseño */
+.um-mapa-leaflet .leaflet-popup-content-wrapper {
+    background: #FFFFFF;
+    color: #0F172A;
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+    padding: 0;
+}
+
+.um-mapa-leaflet .leaflet-popup-content {
+    margin: 10px 12px;
+    line-height: 1.4;
+}
+
+.um-mapa-leaflet .leaflet-popup-tip {
+    background: #FFFFFF;
+}
+
+.um-popup-titulo {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0F172A;
+    margin-bottom: 2px;
+}
+
+.um-popup-sub {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1E293B;
+}
+
+.um-popup-meta {
+    font-size: 0.7rem;
+    color: #64748B;
+    margin-top: 2px;
+}
+
+.um-popup-estado {
+    font-size: 0.7rem;
+    color: #0F172A;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #F1F5F9;
+}
+
+.um-popup-alerta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #B91C1C;
+    margin-top: 3px;
+}

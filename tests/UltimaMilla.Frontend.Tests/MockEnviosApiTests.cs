@@ -1,3 +1,4 @@
+using UltimaMilla.Frontend.Contracts.Enums;
 using UltimaMilla.Frontend.Contracts.Modelos.Envios;
 using UltimaMilla.Frontend.Infrastructure.Excepciones;
 using UltimaMilla.Frontend.Infrastructure.Mocks;
@@ -305,5 +306,220 @@ public class MockEnviosApiTests
         var exPeso = await Assert.ThrowsAsync<ApiExcepcion>(() =>
             api.CrearEnvioPorApiIntegracionAsync(solicitudPesoCero));
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, exPeso.CodigoEstado);
+    }
+
+    [Fact]
+    public async Task GenerarEtiquetasEnviosAsync_ConUnEnvioAdmitido_GeneraEtiquetaYDocumentoDescargable()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var idEnvioAdmitido = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+
+        // Act
+        var resultado = await api.GenerarEtiquetasEnviosAsync(new[] { idEnvioAdmitido });
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(1, resultado.TotalEnviosSeleccionados);
+        Assert.Equal(1, resultado.TotalEtiquetasGeneradas);
+        Assert.Single(resultado.Etiquetas);
+        Assert.Equal("TRK-2026-0005", resultado.Etiquetas[0].CodigoSeguimiento);
+        Assert.Equal("TRK-2026-0005-B01", resultado.Etiquetas[0].IdentificacionBulto);
+        Assert.EndsWith(".html", resultado.NombreArchivoDescarga);
+        Assert.Contains("<!DOCTYPE html>", resultado.ContenidoHtmlDescargable);
+        Assert.Contains("TRK-2026-0005-B01", resultado.ContenidoHtmlDescargable);
+        Assert.Contains("Florencia Silva", resultado.ContenidoHtmlDescargable);
+    }
+
+    [Fact]
+    public async Task GenerarEtiquetasEnviosAsync_ConMultiplesEnviosAdmitidosYVariosBultos_GeneraTodasLasEtiquetasEIdempotenciaEnSeleccion()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var idAdmitidoSimple = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        var idAdmitidoDobleBulto = Guid.Parse("33445566-7788-99aa-bbcc-ddeeff001122");
+
+        // Act: enviamos IDs repetidos para validar que no duplique etiquetas del mismo envío
+        var resultado = await api.GenerarEtiquetasEnviosAsync(new[]
+        {
+            idAdmitidoSimple,
+            idAdmitidoDobleBulto,
+            idAdmitidoSimple
+        });
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(2, resultado.TotalEnviosSeleccionados);
+        Assert.Equal(3, resultado.TotalEtiquetasGeneradas);
+        Assert.Equal(3, resultado.Etiquetas.Count);
+        Assert.Contains(resultado.Etiquetas, e => e.IdentificacionBulto == "TRK-2026-0005-B01" && e.NumeroBulto == 1 && e.TotalBultos == 1);
+        Assert.Contains(resultado.Etiquetas, e => e.IdentificacionBulto == "TRK-2026-0009-B01" && e.NumeroBulto == 1 && e.TotalBultos == 2);
+        Assert.Contains(resultado.Etiquetas, e => e.IdentificacionBulto == "TRK-2026-0009-B02" && e.NumeroBulto == 2 && e.TotalBultos == 2);
+    }
+
+    [Fact]
+    public async Task GenerarEtiquetasEnviosAsync_ConEnvioNoAdmitido_RechazaPorPrecondicionViolada()
+    {
+        // Arrange: envío en estado Entregado (aaaaaaaa-...) y otro en estado EnTransito (bbbbbbbb-...)
+        var api = new MockEnviosApi();
+        var idEntregado = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.GenerarEtiquetasEnviosAsync(new[] { idEntregado }));
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.CodigoEstado);
+        Assert.Contains("Admitido", ex.Message);
+    }
+
+    [Fact]
+    public async Task GenerarEtiquetasEnviosAsync_ConEntradasNulasVaciasOInexistentes_LanzaExcepcionesTipadas()
+    {
+        var api = new MockEnviosApi();
+
+        // 1. Parámetro nulo
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            api.GenerarEtiquetasEnviosAsync(null!));
+
+        // 2. Colección vacía o solo Guid.Empty
+        var exVacio = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.GenerarEtiquetasEnviosAsync(Array.Empty<Guid>()));
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, exVacio.CodigoEstado);
+
+        var exGuidEmpty = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.GenerarEtiquetasEnviosAsync(new[] { Guid.Empty }));
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, exGuidEmpty.CodigoEstado);
+
+        // 3. Identificador inexistente
+        var exNoEncontrado = await Assert.ThrowsAsync<ApiExcepcion>(() =>
+            api.GenerarEtiquetasEnviosAsync(new[] { Guid.NewGuid() }));
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, exNoEncontrado.CodigoEstado);
+    }
+
+    [Fact]
+    public async Task ListarEnviosAsync_ConSoloEnviosPropiosComercio_MuestraUnicamenteEnviosDelComercioAutenticado()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+
+        // Act
+        var resultadoPortalComercio = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            Pagina = 1,
+            TamanoPagina = 50,
+            SoloEnviosPropiosComercio = true
+        });
+
+        var resultadoBackofficeOperador = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            Pagina = 1,
+            TamanoPagina = 50,
+            SoloEnviosPropiosComercio = false
+        });
+
+        // Assert
+        Assert.NotEmpty(resultadoPortalComercio.Elementos);
+        Assert.All(resultadoPortalComercio.Elementos, e =>
+            Assert.Equal(MockEnviosApi.ComercioAutenticadoPortal, e.ComercioNombre));
+
+        // Ningún envío de otros comercios debe filtrarse hacia el Portal del Comercio
+        Assert.DoesNotContain(resultadoPortalComercio.Elementos, e => e.ComercioNombre == "Supermercados Ta-Ta");
+        Assert.DoesNotContain(resultadoPortalComercio.Elementos, e => e.ComercioNombre == "Tienda Inglesa Express");
+        Assert.DoesNotContain(resultadoPortalComercio.Elementos, e => e.ComercioNombre == "Farmashop Uruguay");
+
+        // En cambio, la consulta global del operador sí ve todos los comercios
+        Assert.True(resultadoBackofficeOperador.TotalRegistros > resultadoPortalComercio.TotalRegistros);
+    }
+
+    [Fact]
+    public async Task ListarEnviosAsync_FiltrandoPorEstadoFechaYDestinatario_RetornaSubconjuntoCorrectoDelComercio()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+
+        // 1. Filtro por Estado (Admitido)
+        var porEstado = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            SoloEnviosPropiosComercio = true,
+            Estado = EstadoEnvioDto.Admitido,
+            Pagina = 1,
+            TamanoPagina = 20
+        });
+        Assert.NotEmpty(porEstado.Elementos);
+        Assert.All(porEstado.Elementos, e =>
+        {
+            Assert.Equal(EstadoEnvioDto.Admitido, e.Estado);
+            Assert.Equal(MockEnviosApi.ComercioAutenticadoPortal, e.ComercioNombre);
+        });
+
+        // 2. Filtro por Destinatario ("Lucía Fernández")
+        var porDestinatario = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            SoloEnviosPropiosComercio = true,
+            TerminoBusqueda = "Lucía Fernández",
+            Pagina = 1,
+            TamanoPagina = 20
+        });
+        Assert.Single(porDestinatario.Elementos);
+        Assert.Equal("TRK-2026-0001", porDestinatario.Elementos[0].CodigoSeguimiento);
+
+        // 3. Búsqueda de destinatario que pertenece a OTRO comercio ("Mariana González" de Supermercados Ta-Ta)
+        var destinatarioAjeno = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            SoloEnviosPropiosComercio = true,
+            TerminoBusqueda = "Mariana González",
+            Pagina = 1,
+            TamanoPagina = 20
+        });
+        Assert.Empty(destinatarioAjeno.Elementos);
+
+        // 4. Filtro por rango de fechas (últimas 24 horas)
+        var desdeAyer = DateTime.UtcNow.AddDays(-1).Date;
+        var hastaHoy = DateTime.UtcNow.Date;
+        var porFecha = await api.ListarEnviosAsync(new FiltroEnviosDto
+        {
+            SoloEnviosPropiosComercio = true,
+            FechaDesde = desdeAyer,
+            FechaHasta = hastaHoy,
+            Pagina = 1,
+            TamanoPagina = 20
+        });
+        Assert.NotEmpty(porFecha.Elementos);
+        Assert.All(porFecha.Elementos, e =>
+        {
+            Assert.True(e.FechaCreacion.Date >= desdeAyer && e.FechaCreacion.Date <= hastaHoy);
+            Assert.Equal(MockEnviosApi.ComercioAutenticadoPortal, e.ComercioNombre);
+        });
+    }
+
+    [Fact]
+    public async Task ObtenerHistorialEnvioAsync_ParaEnviosEnDistintosEstados_RetornaTrazabilidadCompleta()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var idEntregado = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var idNoEntregado = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        // Act
+        var historialEntregado = await api.ObtenerHistorialEnvioAsync(idEntregado);
+        var historialNoEntregado = await api.ObtenerHistorialEnvioAsync(idNoEntregado);
+        var historialInexistente = await api.ObtenerHistorialEnvioAsync(Guid.NewGuid());
+
+        // Assert
+        Assert.NotEmpty(historialEntregado);
+        Assert.Contains(historialEntregado, e => e.NuevoEstado == EstadoEnvioDto.Admitido);
+        Assert.Contains(historialEntregado, e => e.NuevoEstado == EstadoEnvioDto.Entregado);
+
+        Assert.NotEmpty(historialNoEntregado);
+        Assert.Contains(historialNoEntregado, e => e.NuevoEstado == EstadoEnvioDto.NoEntregado);
+
+        Assert.Empty(historialInexistente);
+    }
+
+    [Fact]
+    public async Task ListarEnviosAsync_ConFiltroNulo_LanzaArgumentNullException()
+    {
+        var api = new MockEnviosApi();
+        await Assert.ThrowsAsync<ArgumentNullException>(() => api.ListarEnviosAsync(null!));
     }
 }

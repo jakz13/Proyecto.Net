@@ -11,7 +11,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en HTTP/REST de IEnviosApi para consulta y gestión de envíos desde Backoffice.
+/// Implementación basada en HTTP/REST de IEnviosApi para consulta y gestión de envíos desde Backoffice y Portal del Comercio.
 /// </summary>
 public class HttpEnviosApi : IEnviosApi
 {
@@ -29,10 +29,22 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Consulta el listado de envíos aplicando filtros de estado, búsqueda y paginación.
+    /// Consulta el listado de envíos aplicando filtros de estado, fecha, búsqueda y paginación.
+    /// Cuando <see cref="FiltroEnviosDto.SoloEnviosPropiosComercio"/> es verdadero, consulta el endpoint aislado del comercio (UC-28).
     /// </summary>
     public async Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default)
     {
+        ArgumentNullException.ThrowIfNull(filtro);
+
+        if (filtro.SoloEnviosPropiosComercio)
+        {
+            var resultadoComercio = await ListarEnviosDelComercioAsync(filtro, cancelacion);
+            if (resultadoComercio is not null)
+            {
+                return resultadoComercio;
+            }
+        }
+
         HttpResponseMessage respuesta;
         try
         {
@@ -79,6 +91,16 @@ public class HttpEnviosApi : IEnviosApi
             elementos = elementos.Where(e => e.Estado == filtro.Estado.Value);
         }
 
+        if (filtro.FechaDesde.HasValue)
+        {
+            elementos = elementos.Where(e => e.FechaCreacion.Date >= filtro.FechaDesde.Value.Date);
+        }
+
+        if (filtro.FechaHasta.HasValue)
+        {
+            elementos = elementos.Where(e => e.FechaCreacion.Date <= filtro.FechaHasta.Value.Date);
+        }
+
         var listaTotal = elementos.ToList();
         var pagina = filtro.Pagina > 0 ? filtro.Pagina : 1;
         var tamano = filtro.TamanoPagina > 0 ? filtro.TamanoPagina : 20;
@@ -94,6 +116,100 @@ public class HttpEnviosApi : IEnviosApi
             TotalRegistros = listaTotal.Count,
             PaginaActual = pagina,
             TamanoPagina = tamano
+        };
+    }
+
+    /// <summary>
+    /// Consulta los envíos propios del comercio autenticado en <c>GET /api/comercio/envios</c> (UC-28).
+    /// </summary>
+    private async Task<ResultadoPaginadoDto<EnvioDto>?> ListarEnviosDelComercioAsync(FiltroEnviosDto filtro, CancellationToken cancelacion)
+    {
+        var pagina = filtro.Pagina > 0 ? filtro.Pagina : 1;
+        var tamano = filtro.TamanoPagina > 0 ? filtro.TamanoPagina : 20;
+
+        var parametros = new List<string>
+        {
+            $"pagina={pagina}",
+            $"tamano={tamano}"
+        };
+
+        if (filtro.Estado.HasValue)
+        {
+            parametros.Add($"estado={(int)filtro.Estado.Value}");
+        }
+
+        if (filtro.FechaDesde.HasValue)
+        {
+            parametros.Add($"desde={Uri.EscapeDataString(filtro.FechaDesde.Value.Date.ToString("yyyy-MM-dd"))}");
+        }
+
+        if (filtro.FechaHasta.HasValue)
+        {
+            parametros.Add($"hasta={Uri.EscapeDataString(filtro.FechaHasta.Value.Date.ToString("yyyy-MM-dd"))}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.TerminoBusqueda))
+        {
+            parametros.Add($"texto={Uri.EscapeDataString(filtro.TerminoBusqueda.Trim())}");
+        }
+
+        var url = $"/api/comercio/envios?{string.Join("&", parametros)}";
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.GetAsync(url, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error al consultar envíos propios del comercio: {ex.Message}");
+        }
+
+        if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return null;
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+        }
+
+        var paginaApi = await respuesta.Content.ReadFromJsonAsync<PaginaEnviosComercioApiDto>(OpcionesJson, cancelacion);
+        if (paginaApi is null)
+        {
+            return new ResultadoPaginadoDto<EnvioDto>
+            {
+                Elementos = Array.Empty<EnvioDto>(),
+                TotalRegistros = 0,
+                PaginaActual = pagina,
+                TamanoPagina = tamano
+            };
+        }
+
+        var elementos = (paginaApi.Items ?? Array.Empty<EnvioComercioItemApiDto>())
+            .Select(item => new EnvioDto
+            {
+                Id = item.EnvioId,
+                CodigoSeguimiento = item.CodigoSeguimiento,
+                NombreDestinatario = item.Destinatario,
+                DireccionDestino = item.Direccion,
+                FechaCreacion = item.FechaAlta,
+                Estado = Enum.IsDefined(typeof(EstadoEnvioDto), item.Estado)
+                    ? (EstadoEnvioDto)item.Estado
+                    : MapearEstado(item.EstadoNombre ?? string.Empty),
+                ModalidadServicio = item.ModalidadServicio ?? "Estandar",
+                Tarifa = item.Tarifa
+            })
+            .ToList();
+
+        return new ResultadoPaginadoDto<EnvioDto>
+        {
+            Elementos = elementos,
+            TotalRegistros = paginaApi.Total,
+            PaginaActual = paginaApi.Pagina > 0 ? paginaApi.Pagina : pagina,
+            TamanoPagina = paginaApi.TamanoPagina > 0 ? paginaApi.TamanoPagina : tamano
         };
     }
 
@@ -139,7 +255,10 @@ public class HttpEnviosApi : IEnviosApi
             DireccionDestino = detalleApi.DireccionDestino,
             FechaCreacion = detalleApi.FechaAlta,
             Estado = (EstadoEnvioDto)(int)detalleApi.EstadoActual,
+            ModalidadServicio = detalleApi.ModalidadServicio ?? "Estandar",
+            Tarifa = detalleApi.Tarifa,
             HojaDeRutaNumero = detalleApi.HojaDeRutaId?.ToString(),
+            BultosIdentificaciones = detalleApi.Bultos?.Select(b => b.Identificacion).ToList(),
             PesoKg = detalleApi.Bultos?.Sum(b => b.PesoKg) ?? 0
         };
     }
@@ -319,7 +438,6 @@ public class HttpEnviosApi : IEnviosApi
         if (!respuesta.IsSuccessStatusCode)
         {
             var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
-            // Intentar extraer mensaje si viene formateado en json { error: "..." }
             try
             {
                 using var documento = JsonDocument.Parse(detalleError);
@@ -487,6 +605,86 @@ public class HttpEnviosApi : IEnviosApi
             creado.Bultos ?? Array.Empty<string>(),
             creado.Duplicado);
     }
+
+    /// <summary>
+    /// Solicita al backend la generación de etiquetas para los envíos admitidos seleccionados y arma el documento descargable (UC-27).
+    /// </summary>
+    public async Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
+        IReadOnlyList<Guid> envioIds,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(envioIds);
+
+        var idsUnicos = envioIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (idsUnicos.Count == 0)
+        {
+            throw new ArgumentException("Debe seleccionar al menos un envío válido para generar etiquetas.", nameof(envioIds));
+        }
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsJsonAsync(
+                "/api/comercio/envios/etiquetas",
+                new { EnvioIds = idsUnicos },
+                OpcionesJson,
+                cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al generar etiquetas de envío: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(
+                respuesta.StatusCode,
+                string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al generar etiquetas." : detalleError);
+        }
+
+        var resultadoApi = await respuesta.Content.ReadFromJsonAsync<EtiquetasGeneradasApiDto>(OpcionesJson, cancelacion);
+        if (resultadoApi?.Etiquetas is null || resultadoApi.Etiquetas.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible obtener las etiquetas de los envíos seleccionados.");
+        }
+
+        var nombreArchivo = idsUnicos.Count == 1
+            ? $"etiqueta-{resultadoApi.Etiquetas[0].CodigoSeguimiento.ToLowerInvariant()}.html"
+            : $"etiquetas-envios-{DateTime.UtcNow:yyyyMMdd-HHmm}.html";
+
+        var htmlDescargable = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(resultadoApi.Etiquetas);
+
+        return new ResultadoGeneracionEtiquetasDto(
+            resultadoApi.Etiquetas,
+            resultadoApi.TotalEnviosSeleccionados,
+            resultadoApi.TotalEtiquetasGeneradas,
+            nombreArchivo,
+            htmlDescargable);
+    }
+
+    private record PaginaEnviosComercioApiDto(
+        IReadOnlyList<EnvioComercioItemApiDto>? Items,
+        int Total,
+        int Pagina,
+        int TamanoPagina,
+        int TotalPaginas);
+
+    private record EnvioComercioItemApiDto(
+        Guid EnvioId,
+        string CodigoSeguimiento,
+        int Estado,
+        string? EstadoNombre,
+        string Destinatario,
+        string Direccion,
+        string? ModalidadServicio,
+        decimal Tarifa,
+        DateTime FechaAlta);
+
+    private record EtiquetasGeneradasApiDto(
+        IReadOnlyList<EtiquetaBultoDto> Etiquetas,
+        int TotalEnviosSeleccionados,
+        int TotalEtiquetasGeneradas);
 
     private static async Task<string> ExtraerMensajeErrorAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
     {

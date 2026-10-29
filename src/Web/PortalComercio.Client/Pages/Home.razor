@@ -119,7 +119,12 @@
         estaCargando = true;
         try
         {
-            var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 20 });
+            var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto
+            {
+                Pagina = 1,
+                TamanoPagina = 20,
+                SoloEnviosPropiosComercio = true
+            });
             totalEnvios = resultado.TotalRegistros;
             enTransito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnTransito);
             entregados = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.Entregado);

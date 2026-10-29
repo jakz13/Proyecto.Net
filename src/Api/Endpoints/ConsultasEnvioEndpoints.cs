@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Commands.Comercio.ConfirmarDevolucion;
 using UltimaMilla.Application.Commands.Seguimiento.SolicitarReprogramacion;
+using UltimaMilla.Application.Queries.Comercio.GenerarEtiquetasEnvios;
 using UltimaMilla.Application.Queries.Comercio.ListarDevolucionesDelComercio;
 using UltimaMilla.Application.Queries.Comercio.ListarEnviosDelComercio;
 using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
@@ -133,6 +134,42 @@ public static class ConsultasEnvioEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
+        // UC-27: el comercio genera las etiquetas de uno o más envíos en estado Admitido para adherir al bulto
+        app.MapPost("/api/comercio/envios/etiquetas", async (
+            [FromBody] GenerarEtiquetasEnviosRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var ids = request?.EnvioIds ?? Array.Empty<Guid>();
+                var resultado = await mediator.Send(new GenerarEtiquetasEnviosQuery(ids), ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .RequireAuthorization()
+        .WithTags("Portal del comercio (UC-27)")
+        .WithName("GenerarEtiquetasEnvios")
+        .WithSummary("Generar etiquetas para uno o más envíos admitidos")
+        .WithDescription("Valida que los envíos seleccionados estén en estado Admitido y devuelve las etiquetas individuales por cada bulto listas para imprimir o descargar.")
+        .Produces<EtiquetasGeneradasResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status404NotFound)
+        .WithOpenApi();
+
         // UC-28: el comercio consulta y sigue únicamente sus propios envíos
         app.MapGet("/api/comercio/envios", async (
             [FromQuery] string? estado,
@@ -242,3 +279,4 @@ public static class ConsultasEnvioEndpoints
 }
 
 public record SolicitarReprogramacionRequest(Guid FranjaHorariaId);
+public record GenerarEtiquetasEnviosRequest(IReadOnlyList<Guid>? EnvioIds);
