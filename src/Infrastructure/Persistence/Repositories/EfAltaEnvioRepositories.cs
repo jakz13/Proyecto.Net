@@ -18,7 +18,9 @@ public class EfCuadroTarifarioRepository : ICuadroTarifarioRepository
 
     public async Task<CuadroTarifario?> GetVigenteAsync(Guid operadorId, DateTime fechaUtc, CancellationToken cancellationToken = default)
     {
+        // El operador llega explícito (también desde el canal por clave de API, que no tiene inquilino)
         return await _dbContext.CuadrosTarifarios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(c => c.OperadorId == operadorId
                         && c.VigenteDesde <= fechaUtc
@@ -86,7 +88,7 @@ public class EfComercioOperadorRepository : IComercioOperadorRepository
 
     public async Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.ComerciosOperadores.AsNoTracking().FirstOrDefaultAsync(c => c.ClaveApi == huella, cancellationToken);
+        return await _dbContext.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(c => c.ClaveApi == huella, cancellationToken);
     }
 }
 

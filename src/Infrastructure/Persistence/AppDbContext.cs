@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Identidad;
@@ -14,9 +16,18 @@ namespace UltimaMilla.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    private readonly ICurrentTenant? _currentTenant;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant? currentTenant = null) : base(options)
     {
+        _currentTenant = currentTenant;
     }
+
+    /// <summary>
+    /// Operador al que se acotan las consultas (ADR-002). Es <c>null</c> cuando no hay un inquilino autenticado
+    /// (Worker, semillas, migraciones), caso en que el filtro global no restringe nada.
+    /// </summary>
+    private Guid? OperadorFiltro => _currentTenant is { IsAuthenticated: true } ? _currentTenant.OperadorId : null;
 
     public DbSet<Envio> Envios => Set<Envio>();
     public DbSet<Bulto> Bultos => Set<Bulto>();
@@ -485,6 +496,20 @@ public class AppDbContext : DbContext
             builder.HasIndex(c => new { c.OperadorId, c.Fecha }).IsUnique();
         });
 
+        // Aislamiento por fila (ADR-002): toda entidad de alcance de operador queda acotada al operador del inquilino actual
+        AplicarFiltroDeOperador<ComercioOperador>(modelBuilder);
+        AplicarFiltroDeOperador<Envio>(modelBuilder);
+        AplicarFiltroDeOperador<HojaDeRuta>(modelBuilder);
+        AplicarFiltroDeOperador<Incidencia>(modelBuilder);
+        AplicarFiltroDeOperador<IndicadorCumplimiento>(modelBuilder);
+        AplicarFiltroDeOperador<CierreDiarioOperacion>(modelBuilder);
+        AplicarFiltroDeOperador<CuadroTarifario>(modelBuilder);
+        AplicarFiltroDeOperador<IdentidadVisual>(modelBuilder);
+        AplicarFiltroDeOperador<MotivoNoEntrega>(modelBuilder);
+        AplicarFiltroDeOperador<ReglaOperativa>(modelBuilder);
+        AplicarFiltroDeOperador<Repartidor>(modelBuilder);
+        AplicarFiltroDeOperador<Vehiculo>(modelBuilder);
+        AplicarFiltroDeOperador<ZonaCobertura>(modelBuilder);
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -492,5 +517,14 @@ public class AppDbContext : DbContext
             if (clave is { Properties.Count: 1 } && clave.Properties[0].ClrType == typeof(Guid))
                 clave.Properties[0].ValueGenerated = ValueGenerated.Never;
         }
+    }
+
+    /// <summary>
+    /// Filtro global por operador. Se lee <c>OperadorId</c> por nombre de propiedad para no depender de la interfaz en la traducción a SQL.
+    /// Los flujos sin inquilino (seguimiento público, clave de API) lo omiten de forma explícita con <c>IgnoreQueryFilters()</c>.
+    /// </summary>
+    private void AplicarFiltroDeOperador<T>(ModelBuilder modelBuilder) where T : class, IMustHaveTenant
+    {
+        modelBuilder.Entity<T>().HasQueryFilter(e => OperadorFiltro == null || EF.Property<Guid>(e, "OperadorId") == OperadorFiltro);
     }
 }

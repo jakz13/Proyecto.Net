@@ -85,5 +85,9 @@ public class CurrentTenant : ICurrentTenant
         }
     }
 
-    public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? true;
+    /// <summary>
+    /// Sin contexto HTTP (Worker, semillas, migraciones) no hay inquilino: los filtros globales de <c>AppDbContext</c>
+    /// no se aplican y cada proceso debe indicar el operador de forma explícita en sus consultas.
+    /// </summary>
+    public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
 }

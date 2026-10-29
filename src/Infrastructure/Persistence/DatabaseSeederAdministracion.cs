@@ -43,6 +43,9 @@ public static class DatabaseSeederAdministracion
 
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("DatabaseSeeder: datos de administración del operador verificados (perfiles, usuarios, zonas, identidad visual, cola de fallidos).");
+
+        // Segundo operador con configuración propia, para demostrar el aislamiento entre inquilinos
+        await DatabaseSeederSegundoOperador.SembrarAsync(context, logger, cancellationToken);
     }
 
     private static async Task SembrarPerfilesYUsuariosAsync(AppDbContext context, CancellationToken ct)
@@ -114,7 +117,7 @@ public static class DatabaseSeederAdministracion
     }
 
     /// <summary>Franjas de mañana y tarde de lunes a viernes.</summary>
-    private static void AgregarFranjasLaborales(ZonaCobertura zona, int capacidad)
+    internal static void AgregarFranjasLaborales(ZonaCobertura zona, int capacidad)
     {
         foreach (var dia in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
         {

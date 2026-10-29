@@ -23,7 +23,7 @@ public class EfEnvioRepository : IEnvioRepository
     public async Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
     {
         var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
-        return await _dbContext.Envios.AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
+        return await _dbContext.Envios.IgnoreQueryFilters().AnyAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
 
     public async Task<(List<Envio> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, FiltroEnviosComercio filtro, CancellationToken cancellationToken = default)
@@ -71,7 +71,9 @@ public class EfEnvioRepository : IEnvioRepository
 
     public async Task<Envio?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default)
     {
+        // Lo invoca el canal de integración por clave de API, sin inquilino: el alcance lo da el comercio explícito
         return await _dbContext.Envios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.ComercioOperadorId == comercioOperadorId && e.ReferenciaExterna == referenciaExterna, cancellationToken);
     }
@@ -79,7 +81,9 @@ public class EfEnvioRepository : IEnvioRepository
     public async Task<Envio?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default)
     {
         var codigo = codigoSeguimiento.Trim().ToUpperInvariant();
+        // Consulta pública y anónima: el código de seguimiento identifica al envío en cualquier operador
         return await _dbContext.Envios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.CodigoSeguimientoPublico == codigo, cancellationToken);
     }
@@ -138,6 +142,7 @@ public class EfEnvioRepository : IEnvioRepository
     public async Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.ReglasOperativas
+            .IgnoreQueryFilters()
             .Where(r => r.OperadorId == operadorId && (r.VigenteHasta == null || r.VigenteHasta > DateTime.UtcNow))
             .OrderByDescending(r => r.Version)
             .FirstOrDefaultAsync(cancellationToken);
