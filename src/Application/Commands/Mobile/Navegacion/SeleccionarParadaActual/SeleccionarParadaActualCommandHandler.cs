@@ -16,19 +16,22 @@ public class SeleccionarParadaActualCommandHandler : IRequestHandler<Seleccionar
     private readonly IOutboxStorage _outboxStorage;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public SeleccionarParadaActualCommandHandler(
         IRutaRepository rutaRepository,
         IUnitOfWork unitOfWork,
         IOutboxStorage outboxStorage,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
         _outboxStorage = outboxStorage;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<ParadaActualizadaDto> Handle(SeleccionarParadaActualCommand request, CancellationToken cancellationToken)
@@ -86,6 +89,18 @@ public class SeleccionarParadaActualCommandHandler : IRequestHandler<Seleccionar
         await _rutaRepository.UpdateAsync(ruta, cancellationToken);
         await _outboxStorage.SaveAsync(outboxMessage, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarHitoParadaAsync(ruta.OperadorId, ruta.Id, paradaAfectada.Id, paradaAfectada.Estado, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte ni invalida el hito de parada ya persistido
+            }
+        }
 
         string mensaje = paradaAfectada.Estado == "EnSitio"
             ? "Arribo a la parada registrado exitosamente."

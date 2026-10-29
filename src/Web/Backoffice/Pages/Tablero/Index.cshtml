@@ -16,7 +16,8 @@
         </p>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" onclick="location.reload()">
+        <span id="estadoConexionTiempoReal" class="badge rounded-pill small px-2 py-1 bg-light text-secondary border">Conectando...</span>
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2" onclick="window.TableroTiempoReal ? window.TableroTiempoReal.actualizar() : location.reload()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <polyline points="1 20 1 14 7 14"></polyline>
@@ -57,32 +58,32 @@
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Rutas en Ejecución</span>
-            <div class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRutasEnEjecucion</div>
+            <div id="metricaRutasEnEjecucion" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRutasEnEjecucion</div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Hojas de ruta activas hoy</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Repartidores en Calle</span>
-            <div class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRepartidoresEnCalle</div>
+            <div id="metricaRepartidoresEnCalle" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRepartidoresEnCalle</div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Personal en reparto activo</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Envíos en Tránsito</span>
-            <div class="h3 fw-bold mb-0 text-primary">@Model.Resumen.TotalEnviosEnTransito</div>
+            <div id="metricaEnviosEnTransito" class="h3 fw-bold mb-0 text-primary">@Model.Resumen.TotalEnviosEnTransito</div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Paradas pendientes de entrega</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "border-start border-danger border-4" : "")">
+        <div id="tarjetaEnviosEnRiesgo" class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "border-start border-danger border-4" : "")">
             <span class="text-secondary small fw-semibold mb-1">En Riesgo de Ventana</span>
-            <div class="h3 fw-bold mb-0 @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "text-danger" : "text-dark") d-flex align-items-center justify-content-between">
-                <span>@Model.Resumen.TotalEnviosEnRiesgo</span>
-                @if (Model.Resumen.TotalEnviosEnRiesgo > 0)
+            <div id="contenedorValorEnviosEnRiesgo" class="h3 fw-bold mb-0 @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "text-danger" : "text-dark") d-flex align-items-center justify-content-between">
+                <span id="metricaEnviosEnRiesgo">@Model.Resumen.TotalEnviosEnRiesgo</span>
+                @if (true)
                 {
-                    <span class="estado-fallo small fw-semibold" style="font-size: 0.725rem;">Atención requerida</span>
+                    <span id="badgeAtencionRiesgo" class="estado-fallo small fw-semibold" style="font-size: 0.725rem; @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "" : "display: none;")">Atención requerida</span>
                 }
             </div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Demoras estimadas sobre SLA</div>
@@ -271,7 +272,7 @@
                     <h2 class="h6 fw-bold mb-0 text-dark">Flota en Operación Urbana</h2>
                     <span class="text-secondary small">Telemetría de unidades, velocidad, carga de batería y avance del itinerario</span>
                 </div>
-                <span class="text-secondary small font-monospace fw-semibold">
+                <span id="contadorUnidadesFlota" class="text-secondary small font-monospace fw-semibold">
                     @Model.VehiculosFiltrados.Count unidades desplegadas
                 </span>
             </div>
@@ -398,8 +399,9 @@
                     <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                         <span class="fw-bold text-dark">Radar Metropolitano de Flota</span>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="text-secondary small fw-semibold">
-                                4 Unidades Rastreadas
+
+                            <span id="contadorUnidadesMapa" class="text-secondary small fw-semibold">
+                                @Model.Resumen.Vehiculos.Count Unidades Rastreadas
                             </span>
                         </div>
                     </div>
@@ -620,7 +622,12 @@
 </div>
 
 @section Scripts {
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/tablero-tiempo-real.js" asp-append-version="true"></script>
+
     <script>
+        var urlHubTablero = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.UrlHubTablero));
         var datosVehiculos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Resumen.Vehiculos));
         var vehiculoSeleccionadoEnMapa = null;
 
@@ -799,6 +806,9 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             dibujarMapa();
+            if (window.TableroTiempoReal && typeof window.TableroTiempoReal.iniciar === 'function') {
+                window.TableroTiempoReal.iniciar(urlHubTablero);
+            }
             if (datosVehiculos && datosVehiculos.length > 0) {
                 seleccionarEnMapa(datosVehiculos[0]);
             }

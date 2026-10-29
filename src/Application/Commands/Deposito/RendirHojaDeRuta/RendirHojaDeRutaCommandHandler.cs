@@ -20,6 +20,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public RendirHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -28,7 +29,8 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         IOutboxStorage outboxStorage,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -37,6 +39,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<RendicionResultDto> Handle(RendirHojaDeRutaCommand request, CancellationToken cancellationToken)
@@ -166,6 +169,18 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         await _envioRepository.UpdateRangeAsync(envios, cancellationToken);
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte ni invalida la rendición ya persistida
+            }
+        }
 
         return new RendicionResultDto(
             ruta.Id, ruta.Estado, entregados, devueltos, pendientes,

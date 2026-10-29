@@ -9,7 +9,7 @@ namespace UltimaMilla.Api.Auth;
 /// Esquema de autenticación para desarrollo y demo móvil.
 /// Permite que las llamadas de la app móvil hacia los endpoints de operación en calle
 /// resuelvan automáticamente la identidad del repartidor y el OperadorId del seeder,
-/// aceptando tokens Bearer enviados por AuthDelegatingHandler o peticiones directas en desarrollo.
+/// aceptando tokens Bearer enviados por AuthDelegatingHandler, access_token en SignalR (/hubs) o peticiones directas en desarrollo.
 /// </summary>
 public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -27,11 +27,16 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
     {
         var httpContext = Context;
 
-        // Si se provee una cabecera Authorization Bearer con token JWT real, validarlo criptográficamente
+        // Si se provee una cabecera Authorization Bearer o access_token en SignalR (/hubs), validarlo criptográficamente
         var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        var tokenString = !string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? authHeader["Bearer ".Length..].Trim()
+            : (httpContext.Request.Path.StartsWithSegments("/hubs")
+                ? httpContext.Request.Query["access_token"].FirstOrDefault()?.Trim()
+                : null);
+
+        if (!string.IsNullOrWhiteSpace(tokenString))
         {
-            var tokenString = authHeader["Bearer ".Length..].Trim();
             var principalValido = UltimaMilla.Infrastructure.Services.TokenJwtService.ValidarYExtraerClaims(tokenString);
             if (principalValido is not null)
             {

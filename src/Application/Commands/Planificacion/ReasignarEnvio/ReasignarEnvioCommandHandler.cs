@@ -25,6 +25,7 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public ReasignarEnvioCommandHandler(
         IRutaRepository rutaRepository,
@@ -34,7 +35,8 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
         IOutboxStorage outboxStorage,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -44,6 +46,7 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<ReasignacionResultDto> Handle(ReasignarEnvioCommand request, CancellationToken cancellationToken)
@@ -132,6 +135,18 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
         await _envioRepository.UpdateAsync(envio, cancellationToken);
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (enLaCalle && _tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarCambioRutaAsync(origen.OperadorId, origen.Id, origen.Estado, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte ni invalida la reasignación ya persistida
+            }
+        }
 
         return new ReasignacionResultDto(
             envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString(), accion, origen.Id, destinoId, enLaCalle, resumen);

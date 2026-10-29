@@ -19,6 +19,7 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
     private readonly IDistributedCacheService _cacheService;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public RegistrarEntregaExitosaCommandHandler(
         IEnvioRepository envioRepository,
@@ -27,7 +28,8 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         IOutboxStorage outboxStorage,
         IDistributedCacheService cacheService,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _envioRepository = envioRepository;
         _rutaRepository = rutaRepository;
@@ -36,6 +38,7 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         _cacheService = cacheService;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<EntregaExitosaResultDto> Handle(RegistrarEntregaExitosaCommand request, CancellationToken cancellationToken)
@@ -161,6 +164,20 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         // 9. Invalidación inmediata de la caché de seguimiento público
         await _cacheService.RemoveAsync($"seguimiento:{envio.CodigoSeguimientoPublico}", cancellationToken);
         await _cacheService.RemoveAsync($"envio:{envio.Id}", cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarHitoParadaAsync(ruta.OperadorId, ruta.Id, parada.Id, parada.Estado, cancellationToken);
+                if (ruta.Estado == "Finalizada")
+                    await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte ni invalida la entrega ya persistida
+            }
+        }
 
         return new EntregaExitosaResultDto(
             envio.Id,

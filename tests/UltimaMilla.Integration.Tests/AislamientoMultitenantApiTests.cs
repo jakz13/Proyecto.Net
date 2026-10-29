@@ -573,7 +573,7 @@ public class AislamientoMultitenantApiTests
 
         // 1. Login: búsqueda de usuario por correo sin tenant activo
         var usuarioRepo = scope.ServiceProvider.GetRequiredService<IUsuarioRepository>();
-        var adminOp2 = await usuarioRepo.ObtenerPorEmailAsync(DatabaseSeederSegundoOperador.EmailAdmin);
+        var adminOp2 = await usuarioRepo.ObtenerPorEmailAsync(DatabaseSeederSegundoOperador.EmailAdministrador);
         Assert.NotNull(adminOp2);
         Assert.Equal(Operador2, adminOp2.OperadorId);
 

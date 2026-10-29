@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Frontend.Infrastructure.Mocks;
+using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Backoffice.Pages;
 
@@ -39,7 +40,8 @@ public class LoginModel : PageModel
             new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
             new(ClaimTypes.Name, NombreUsuario),
             new(ClaimTypes.Role, RolSeleccionado),
-            new("operador_id", _contextoOperador.OperadorActivo.OperadorId)
+            new("operador_id", _contextoOperador.OperadorActivo.OperadorId),
+            new("tenant_id", ResolverOperadorGuid(_contextoOperador.OperadorActivo.OperadorId).ToString())
         };
 
         var identidad = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -68,5 +70,15 @@ public class LoginModel : PageModel
         }
 
         return RedirectToPage("/Index");
+    }
+
+    internal static Guid ResolverOperadorGuid(string? codigoOperador)
+    {
+        if (!string.IsNullOrWhiteSpace(codigoOperador) && Guid.TryParse(codigoOperador, out var guid) && guid != Guid.Empty)
+            return guid;
+
+        return string.Equals(codigoOperador, "OP-02", StringComparison.OrdinalIgnoreCase)
+            ? DatabaseSeederSegundoOperador.OperadorId
+            : DatabaseSeeder.DefaultOperadorId;
     }
 }

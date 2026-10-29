@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -8,6 +8,9 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 using UltimaMilla.Api.Auth;
 using UltimaMilla.Api.Backoffice;
 using UltimaMilla.Api.Endpoints;
+using UltimaMilla.Api.Hubs;
+using UltimaMilla.Api.Services;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application;
 using UltimaMilla.Application.Commands.AltaEnvio;
 using UltimaMilla.Application.DTOs;
@@ -101,6 +104,21 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// SignalR para el tablero en tiempo real con soporte opcional de Redis backplane (Fase 2)
+var signalRBuilder = builder.Services.AddSignalR();
+var redisBackplane = builder.Configuration.GetConnectionString("Redis")
+    ?? builder.Configuration["Redis:Configuration"];
+if (!string.IsNullOrWhiteSpace(redisBackplane))
+{
+    signalRBuilder.AddStackExchangeRedis(redisBackplane, opciones =>
+    {
+        opciones.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("UltimaMilla.Tablero");
+        opciones.Configuration.AbortOnConnectFail = false;
+    });
+}
+
+builder.Services.AddScoped<ITableroRealtimeNotifier, SignalRTableroNotifier>();
+
 // CORS restringido a los orígenes de las aplicaciones web (configurable: Cors:AllowedOrigins)
 var origenesPermitidos = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5002", "http://localhost:5003", "http://localhost:5004", "https://localhost:7002", "https://localhost:7003", "https://localhost:7004" };
@@ -111,7 +129,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(origenesPermitidos)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -367,6 +386,7 @@ app.MapFlotaEndpoints();
 app.MapMensajeriaEndpoints();
 app.MapReasignacionesEndpoints();
 app.MapWorkerProcesosEndpoints();
+app.MapHub<TableroHub>("/hubs/tablero");
 
 await app.RunAsync();
 

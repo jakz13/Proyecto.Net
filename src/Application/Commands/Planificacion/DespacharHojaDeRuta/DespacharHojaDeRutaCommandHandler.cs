@@ -19,6 +19,7 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public DespacharHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -26,7 +27,8 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         IOutboxStorage outboxStorage,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -34,6 +36,7 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<DespachoResultDto> Handle(DespacharHojaDeRutaCommand request, CancellationToken cancellationToken)
@@ -132,6 +135,18 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         await _envioRepository.UpdateRangeAsync(aDespachar.Concat(aRetirar), cancellationToken);
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte ni invalida el despacho ya persistido
+            }
+        }
 
         var retirados = aRetirar
             .Select(e => new EnvioRetiradoDto(e.Id, e.CodigoSeguimientoPublico, MotivoNoCargado))
