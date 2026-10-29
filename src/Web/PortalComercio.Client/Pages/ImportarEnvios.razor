@@ -178,36 +178,7 @@ else if (resultado is null)
 }
 else
 {
-    <!-- Panel de Resultados del Procesamiento -->
-    @if (resultado.Reimportacion)
-    {
-        <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 p-3 d-flex align-items-center gap-3">
-            <div class="p-2 bg-warning bg-opacity-25 rounded-circle text-warning-emphasis">
-                <Icono Nombre="repetir" Tamano="24" />
-            </div>
-            <div>
-                <h5 class="alert-heading fw-bold mb-1 fs-6">Reimportación de Lote Reconocida (Idempotencia)</h5>
-                <p class="mb-0 small text-dark-emphasis">
-                    El sistema detectó la clave de idempotencia <code>@resultado.ClaveIdempotencia</code>.
-                    Los envíos previamente ingresados se mantuvieron intactos sin duplicar registros ni generar dobles tarifas.
-                </p>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="alert alert-success border-0 shadow-sm rounded-4 mb-4 p-3 d-flex align-items-center gap-3">
-            <div class="p-2 bg-success bg-opacity-25 rounded-circle text-success">
-                <Icono Nombre="check" Tamano="24" />
-            </div>
-            <div>
-                <h5 class="alert-heading fw-bold mb-1 fs-6">¡Lote procesado exitosamente!</h5>
-                <p class="mb-0 small text-dark-emphasis">
-                    Se generaron las órdenes de envío en estado <strong>Admitido</strong> con cálculo de tarifa individual. Clave del lote: <code>@resultado.ClaveIdempotencia</code>
-                </p>
-            </div>
-        </div>
-    }
+
 
     <!-- Tarjetas Métricas Resumen -->
     <div class="row g-3 mb-4">
@@ -285,24 +256,15 @@ else
                                 <td>
                                     @if (fila.Estado == ResultadoFilaImportacionDto.Creado)
                                     {
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
-                                            <Icono Nombre="check" Tamano="12" />
-                                            <span>Creado</span>
-                                        </span>
+                                        <span class="estado-entregado">Creado</span>
                                     }
                                     else if (fila.Estado == ResultadoFilaImportacionDto.Duplicado)
                                     {
-                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1">
-                                            <Icono Nombre="repetir" Tamano="12" />
-                                            <span>Duplicado</span>
-                                        </span>
+                                        <span class="estado-intermedio">Duplicado</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1">
-                                            <Icono Nombre="cruz" Tamano="12" />
-                                            <span>Error</span>
-                                        </span>
+                                        <span class="estado-fallo">Error</span>
                                     }
                                 </td>
                                 <td>
@@ -457,14 +419,59 @@ else
                 contenido,
                 nombreArchivo,
                 claveIdempotenciaPersonalizada);
+
+            if (resultado is not null)
+            {
+                var tituloNotif = resultado.Reimportacion 
+                    ? "Reimportación de Lote Reconocida" 
+                    : "¡Lote procesado exitosamente!";
+                var mensajeNotif = resultado.Reimportacion
+                    ? $"Se reconocieron {resultado.Duplicados} registros previos sin duplicar datos."
+                    : $"Se generaron {resultado.Creados} órdenes de envío en estado Admitido.";
+
+                await JS.InvokeVoidAsync("SistemaNotificaciones.mostrar", new
+                {
+                    tipo = resultado.Reimportacion ? "alerta" : "exito",
+                    titulo = tituloNotif,
+                    mensajeBreve = mensajeNotif,
+                    detalle = $"Archivo: {nombreArchivo}. Se procesaron con éxito {resultado.Creados} de {resultado.TotalRegistros} registros con cálculo automatizado de tarifas.",
+                    estadisticas = new
+                    {
+                        total = resultado.TotalRegistros,
+                        exitos = resultado.Creados,
+                        duplicados = resultado.Duplicados,
+                        errores = resultado.ConError
+                    },
+                    metadatos = new Dictionary<string, string>
+                    {
+                        ["Archivo"] = nombreArchivo,
+                        ["Clave de Lote"] = resultado.ClaveIdempotencia,
+                        ["Reimportación"] = resultado.Reimportacion ? "Sí (Idempotente)" : "No (Nueva alta)"
+                    }
+                });
+            }
         }
         catch (ApiExcepcion ex)
         {
             mensajeError = ex.Message;
+            await JS.InvokeVoidAsync("SistemaNotificaciones.mostrar", new
+            {
+                tipo = "error",
+                titulo = "Error al procesar lote",
+                mensajeBreve = ex.Message,
+                detalle = ex.Message
+            });
         }
         catch (Exception ex)
         {
             mensajeError = $"Error inesperado al procesar la importación: {ex.Message}";
+            await JS.InvokeVoidAsync("SistemaNotificaciones.mostrar", new
+            {
+                tipo = "error",
+                titulo = "Error inesperado",
+                mensajeBreve = ex.Message,
+                detalle = ex.Message
+            });
         }
         finally
         {

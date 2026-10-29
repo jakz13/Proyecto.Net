@@ -128,13 +128,17 @@ public static class InyeccionDependencias
             cliente.Timeout = TimeSpan.FromSeconds(15);
         });
 
-        // Servicios auxiliares aún no conectados por HTTP se mantienen en singleton mock para resiliencia
         servicios.AddHttpClient<ITableroApi, HttpTableroApi>(cliente =>
         {
             cliente.BaseAddress = new Uri(urlBaseApi);
             cliente.Timeout = TimeSpan.FromSeconds(15);
         });
-        servicios.AddSingleton<IReportesApi, MockReportesApi>();
+
+        servicios.AddHttpClient<IReportesApi, HttpReportesApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(30);
+        });
 
         return servicios;
     }

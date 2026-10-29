@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Incidencias;
@@ -13,6 +14,7 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IOutboxStorage _outboxStorage;
 
     public AbrirIncidenciaCommandHandler(
         IIncidenciaRepository incidenciaRepository,
@@ -20,7 +22,8 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
         IRutaRepository rutaRepository,
         ICurrentTenant currentTenant,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IOutboxStorage outboxStorage)
     {
         _incidenciaRepository = incidenciaRepository;
         _envioRepository = envioRepository;
@@ -28,6 +31,7 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
         _currentTenant = currentTenant;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<IncidenciaResultDto> Handle(AbrirIncidenciaCommand request, CancellationToken cancellationToken)
@@ -66,6 +70,7 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
             _clock.UtcNow);
 
         await _incidenciaRepository.AddAsync(incidencia, cancellationToken);
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeIncidencia(EventosIntegracion.Tipos.IncidenciaAbierta, incidencia), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return IncidenciaMapper.ToResult(incidencia);

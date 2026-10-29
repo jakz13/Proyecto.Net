@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IRendicionRepository, EfRendicionRepository>();
         services.AddScoped<IDevolucionRepository, EfDevolucionRepository>();
         services.AddScoped<IRepartidorRepository, EfRepartidorRepository>();
+        services.AddScoped<IPosicionVehiculoRepository, EfPosicionVehiculoRepository>();
         services.AddScoped<IVehiculoRepository, EfVehiculoRepository>();
         services.AddScoped<IFranjaHorariaRepository, EfFranjaHorariaRepository>();
         services.AddScoped<ICuadroTarifarioRepository, EfCuadroTarifarioRepository>();
@@ -44,6 +45,9 @@ public static class DependencyInjection
         services.AddScoped<ILoteImportacionRepository, EfLoteImportacionRepository>();
         services.AddScoped<ISolicitudReprogramacionRepository, EfSolicitudReprogramacionRepository>();
         services.AddScoped<IIncidenciaRepository, EfIncidenciaRepository>();
+        services.AddScoped<IUsuarioRepository, EfUsuarioRepository>();
+        services.AddScoped<IReglaOperativaRepository, EfReglaOperativaRepository>();
+        services.AddScoped<IMotivoNoEntregaRepository, EfMotivoNoEntregaRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IOutboxStorage, EfOutboxStorage>();
         services.AddScoped<IUsuarioRepository, EfUsuarioRepository>();
@@ -70,6 +74,8 @@ public static class DependencyInjection
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
+        services.AddSingleton<ITokenJwtService, TokenJwtService>();
 
         return services;
     }

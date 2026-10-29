@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
@@ -12,15 +13,18 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
     private readonly IEnvioRepository _envioRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IOutboxStorage _outboxStorage;
 
     public ClasificarBultosCommandHandler(
         IEnvioRepository envioRepository,
         IUnitOfWork unitOfWork,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IOutboxStorage outboxStorage)
     {
         _envioRepository = envioRepository;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<ClasificacionResultDto> Handle(ClasificarBultosCommand request, CancellationToken cancellationToken)
@@ -48,6 +52,11 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
         envio.ClasificarBultos(clasificaciones, usuarioId);
 
         await _envioRepository.UpdateAsync(envio, cancellationToken);
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeEnvio(EventosIntegracion.Tipos.EnvioClasificado, envio, new
+        {
+            ClasificacionCompleta = envio.EstaClasificado,
+            BultosClasificados = clasificaciones.Count
+        }), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var recibidos = envio.Bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado").ToList();

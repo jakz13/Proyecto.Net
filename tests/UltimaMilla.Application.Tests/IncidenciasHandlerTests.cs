@@ -12,6 +12,7 @@ namespace UltimaMilla.Application.Tests;
 
 public class IncidenciasHandlerTests
 {
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeIncidenciaRepository _incidencias = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeRutaRepository _rutas = new();
@@ -19,9 +20,9 @@ public class IncidenciasHandlerTests
     private readonly FakeClock _clock = new();
     private readonly FakeUnitOfWork _uow = new();
 
-    private AbrirIncidenciaCommandHandler Abrir() => new(_incidencias, _envios, _rutas, _tenant, _clock, _uow);
-    private RegistrarSeguimientoIncidenciaCommandHandler Seguimiento() => new(_incidencias, _tenant, _clock, _uow);
-    private CerrarIncidenciaCommandHandler Cerrar() => new(_incidencias, _tenant, _clock, _uow);
+    private AbrirIncidenciaCommandHandler Abrir() => new(_incidencias, _envios, _rutas, _tenant, _clock, _uow, _outbox);
+    private RegistrarSeguimientoIncidenciaCommandHandler Seguimiento() => new(_incidencias, _tenant, _clock, _uow, _outbox);
+    private CerrarIncidenciaCommandHandler Cerrar() => new(_incidencias, _tenant, _clock, _uow, _outbox);
 
     private Incidencia CrearIncidencia(Guid? operadorId = null)
     {
@@ -39,6 +40,7 @@ public class IncidenciasHandlerTests
         Assert.Equal(_tenant.OperadorId, guardada.OperadorId);
         Assert.Equal("Abierta", resultado.Estado);
         Assert.Equal("Alta", resultado.Severidad);
+        Assert.Equal("IncidenciaAbiertaIntegrationEvent", Assert.Single(_outbox.Mensajes).TipoEvento);
         Assert.Equal(_tenant.UsuarioId, guardada.CreadaPorUsuarioId);
     }
 

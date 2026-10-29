@@ -13,6 +13,7 @@ public class CanalesDeAltaHandlerTests
 {
     private const string ClaveApi = "clave-secreta-del-comercio";
 
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeDestinatarioRepository _destinatarios = new();
     private readonly FakeDireccionRepository _direcciones = new();
@@ -35,7 +36,7 @@ public class CanalesDeAltaHandlerTests
         _cuadros.Cuadros.Add(cuadro);
     }
 
-    private AltaEnvioProcesador Procesador() => new(_envios, _destinatarios, _direcciones, _cuadros, _clock);
+    private AltaEnvioProcesador Procesador() => new(_envios, _destinatarios, _direcciones, _cuadros, _clock, _outbox);
 
     private AltaEnvioPorApiCommand ComandoApi(string? clave = ClaveApi, string? referencia = "PED-1") => new(
         clave,

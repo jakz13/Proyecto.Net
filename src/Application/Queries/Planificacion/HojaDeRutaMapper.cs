@@ -5,7 +5,7 @@ using UltimaMilla.Domain.Entities.Planificacion;
 namespace UltimaMilla.Application.Queries.Planificacion;
 
 /// <summary>Arma las vistas de lectura de las hojas de ruta a partir de las entidades ya cargadas.</summary>
-internal static class HojaDeRutaMapper
+public static class HojaDeRutaMapper
 {
     public static string NumeroRuta(HojaDeRuta ruta) =>
         $"HR-{ruta.Fecha:yyyyMMdd}-{ruta.Id.ToString()[..4].ToUpperInvariant()}";

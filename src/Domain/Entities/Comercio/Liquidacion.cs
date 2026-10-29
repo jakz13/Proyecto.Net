@@ -39,18 +39,32 @@ public class Liquidacion : Entity, IMustHaveComercioTenant
         FechaGeneracion = DateTime.UtcNow;
     }
 
+    public const string EstadoPendiente = "Pendiente";
+    public const string EstadoAprobada = "Aprobada";
+    public const string EstadoPagada = "Pagada";
+    public const string EstadoAnulada = "Anulada";
+
     public void Aprobar()
     {
-        Estado = "Aprobada";
+        if (Estado != EstadoPendiente)
+            throw new DomainValidationException($"Solo se puede aprobar una liquidación pendiente (estado actual: '{Estado}').");
+
+        Estado = EstadoAprobada;
     }
 
     public void Pagar()
     {
-        Estado = "Pagada";
+        if (Estado != EstadoAprobada)
+            throw new DomainValidationException($"Solo se puede pagar una liquidación aprobada (estado actual: '{Estado}').");
+
+        Estado = EstadoPagada;
     }
 
     public void Anular()
     {
-        Estado = "Anulada";
+        if (Estado == EstadoPagada)
+            throw new DomainValidationException("No se puede anular una liquidación ya pagada.");
+
+        Estado = EstadoAnulada;
     }
 }

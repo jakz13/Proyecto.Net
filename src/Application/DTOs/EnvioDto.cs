@@ -7,5 +7,9 @@ public record EnvioDto(
     string NombreDestinatario,
     DateTime FechaCreacion,
     string Estado,
-    string? CodigoSeguimiento = null
+    string? CodigoSeguimiento = null,
+    string? HojaDeRutaNumero = null,
+    string? RepartidorNombre = null,
+    string? ComercioNombre = null,
+    decimal? PesoKg = null
 );

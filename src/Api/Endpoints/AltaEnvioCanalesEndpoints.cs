@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -103,12 +103,15 @@ public static class AltaEnvioCanalesEndpoints
         // UC-25: el comercio carga un archivo CSV con muchos envíos
         app.MapPost("/api/comercio/envios/importacion", async (
             IFormFile archivo,
-            [FromForm] string? claveIdempotencia,
+            HttpRequest request,
             [FromServices] IMediator mediator,
             CancellationToken ct) =>
         {
             try
             {
+                var claveIdempotencia = request.HasFormContentType && request.Form.TryGetValue("claveIdempotencia", out var claveForm)
+                    ? claveForm.ToString()
+                    : request.Headers["X-Idempotency-Key"].FirstOrDefault();
                 if (archivo is null || archivo.Length == 0)
                     throw new DomainValidationException("Adjunte un archivo CSV con los envíos.");
 

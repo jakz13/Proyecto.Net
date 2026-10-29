@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Deposito.ClasificarBultos;
+using UltimaMilla.Application.Commands.Deposito.MarcarEnvioExtraviado;
 using UltimaMilla.Application.Commands.Deposito.RecepcionarBultos;
 using UltimaMilla.Application.Commands.Deposito.RendirHojaDeRuta;
 using UltimaMilla.Application.Exceptions;
@@ -50,6 +51,38 @@ public static class DepositoEndpoints
         .WithSummary("Recepcionar bultos de un envío en depósito")
         .WithDescription("Contrasta los bultos escaneados contra los declarados. Sin discrepancias el envío pasa a EnDeposito; con discrepancias se requiere documentarlas en las observaciones.")
         .Produces<RecepcionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        group.MapPost("/extravio", async (
+            [FromRoute] Guid envioId,
+            [FromBody] MarcarEnvioExtraviadoRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await mediator.Send(new MarcarEnvioExtraviadoCommand(envioId, request.Motivo ?? string.Empty), ct));
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("MarcarEnvioExtraviado")
+        .WithSummary("Declarar un envío como extraviado")
+        .WithDescription("Estado terminal (RF-11). Si el envío estaba en una hoja de ruta se retira de ella, y se publica el evento para avisar al comercio.")
+        .Produces<MarcarEnvioExtraviadoResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)
@@ -148,6 +181,8 @@ public record RendirHojaDeRutaRequest(
     string? Observaciones = null);
 
 public record ClasificarBultosRequest(List<ClasificacionBultoDto>? Bultos);
+
+public record MarcarEnvioExtraviadoRequest(string? Motivo);
 
 public record RecepcionarBultosRequest(
     List<string>? CodigosBultosEscaneados,

@@ -302,15 +302,11 @@
                                     <td>
                                         @if (vehiculo.Activo)
                                         {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                                ● Activo
-                                            </span>
+                                            <span class="estado-entregado">Activo</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
-                                                Inactivo / Taller
-                                            </span>
+                                            <span class="estado-fallo">Inactivo / Taller</span>
                                         }
                                     </td>
                                     <td>
@@ -596,21 +592,15 @@
                                     <td>
                                         @if (repartidor.Estado == "Disponible")
                                         {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                                ● Disponible
-                                            </span>
+                                            <span class="estado-entregado">Disponible</span>
                                         }
                                         else if (repartidor.Estado == "En Ruta")
                                         {
-                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                                En Ruta
-                                            </span>
+                                            <span class="estado-intermedio">En Ruta</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
-                                                Inactivo
-                                            </span>
+                                            <span class="estado-fallo">Inactivo</span>
                                         }
                                     </td>
                                     <td>

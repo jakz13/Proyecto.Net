@@ -195,26 +195,18 @@
                             <td class="text-center">
                                 @switch (inc.Estado)
                                 {
-                                    case "Abierta":
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.75rem;">
-                                            Abierta
-                                        </span>
-                                        break;
-                                    case "EnInvestigacion":
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.75rem;">
-                                            En Seguimiento
-                                        </span>
-                                        break;
                                     case "Cerrada":
                                     case "Resuelta":
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.75rem;">
-                                            Cerrada
-                                        </span>
+                                        <span class="estado-entregado">Cerrada</span>
+                                        break;
+                                    case "Abierta":
+                                        <span class="estado-fallo">Abierta</span>
+                                        break;
+                                    case "EnInvestigacion":
+                                        <span class="estado-intermedio">En Seguimiento</span>
                                         break;
                                     default:
-                                        <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;">
-                                            @inc.Estado
-                                        </span>
+                                        <span class="estado-intermedio">@inc.Estado</span>
                                         break;
                                 }
                             </td>

@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
@@ -11,17 +12,20 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
     private readonly IEnvioRepository _envioRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IOutboxStorage _outboxStorage;
 
     public ConfirmarCargaCommandHandler(
         IRutaRepository rutaRepository,
         IEnvioRepository envioRepository,
         IUnitOfWork unitOfWork,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IOutboxStorage outboxStorage)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<ConfirmarCargaResultDto> Handle(ConfirmarCargaCommand request, CancellationToken cancellationToken)
@@ -70,6 +74,12 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
         ruta.RegistrarCargaEscaneada(cargados.Select(b => b.Id));
 
         await _rutaRepository.UpdateAsync(ruta, cancellationToken);
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeRuta(EventosIntegracion.Tipos.CargaVehiculoRegistrada, ruta, new
+        {
+            BultosCargados = cargados.Count,
+            Faltantes = faltantes,
+            Sobrantes = sobrantes
+        }), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var mensaje = faltantes > 0 || sobrantes > 0

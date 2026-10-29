@@ -12,8 +12,8 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261021233451_AdministracionDelOperador")]
-    partial class AdministracionDelOperador
+    [Migration("20261028010608_PosicionesVehiculo")]
+    partial class PosicionesVehiculo
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -196,6 +196,50 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasIndex("EnvioId");
 
                     b.ToTable("IntentosEntrega", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PosicionVehiculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("BateriaPct")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("HojaDeRutaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("Latitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("RepartidorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VehiculoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("VelocidadKmh")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId", "VehiculoId", "Timestamp");
+
+                    b.ToTable("PosicionesVehiculo", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PruebaDeEntrega", b =>
@@ -617,7 +661,7 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.HasKey("PerfilId", "PermisoId");
 
-                    b.ToTable("PerfilesPermisos", (string)null);
+                    b.ToTable("PerfilPermisos", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Identidad.Permiso", b =>
@@ -651,6 +695,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("BloqueadoHasta")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("ComercioId")
                         .HasColumnType("uuid");
 
@@ -662,6 +709,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaAlta")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("IntentosFallidos")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -672,16 +722,22 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("PerfilId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ComercioId");
+
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("OperadorId");
+
+                    b.HasIndex("PerfilId");
 
                     b.ToTable("Usuarios", (string)null);
                 });

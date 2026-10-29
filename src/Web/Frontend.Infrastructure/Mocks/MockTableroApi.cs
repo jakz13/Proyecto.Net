@@ -35,7 +35,7 @@ public class MockTableroApi : ITableroApi
                 CausaRiesgo = "Tráfico detenido por obras en Bulevar España.",
                 RepartidorNombre = "Juan Pérez",
                 RepartidorTelefono = "099 123 456",
-                VehiculoMatricula = "STX-1021",
+                VehiculoMatricula = "STX 1021",
                 Latitud = -34.9165,
                 Longitud = -56.1510
             }
@@ -61,7 +61,7 @@ public class MockTableroApi : ITableroApi
                 CausaRiesgo = "Vehículo inmovilizado por falla de frenos (Incidencia INC-2026-0041).",
                 RepartidorNombre = "Lucía Fernández",
                 RepartidorTelefono = "098 456 789",
-                VehiculoMatricula = "STX-1029",
+                VehiculoMatricula = "STX 1029",
                 Latitud = -34.8690,
                 Longitud = -56.2045
             },
@@ -83,7 +83,7 @@ public class MockTableroApi : ITableroApi
                 CausaRiesgo = "Pendiente de trasbordo a vehículo sustituto.",
                 RepartidorNombre = "Lucía Fernández",
                 RepartidorTelefono = "098 456 789",
-                VehiculoMatricula = "STX-1029",
+                VehiculoMatricula = "STX 1029",
                 Latitud = -34.8640,
                 Longitud = -56.2090
             }
@@ -109,7 +109,7 @@ public class MockTableroApi : ITableroApi
                 CausaRiesgo = "Demora acumulada en descarga de bultos voluminosos.",
                 RepartidorNombre = "Martín Silva",
                 RepartidorTelefono = "092 334 455",
-                VehiculoMatricula = "STX-1077",
+                VehiculoMatricula = "STX 1077",
                 Latitud = -34.8940,
                 Longitud = -56.0950
             }
@@ -125,7 +125,7 @@ public class MockTableroApi : ITableroApi
                 RepartidorNombre = "Juan Pérez",
                 RepartidorTelefono = "099 123 456",
                 VehiculoId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                VehiculoMatricula = "STX-1021",
+                VehiculoMatricula = "STX 1021",
                 VehiculoModelo = "Renault Kangoo Maxi",
                 Latitud = -34.9150,
                 Longitud = -56.1520,
@@ -162,7 +162,7 @@ public class MockTableroApi : ITableroApi
                 RepartidorNombre = "Lucía Fernández",
                 RepartidorTelefono = "098 456 789",
                 VehiculoId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
-                VehiculoMatricula = "STX-1029",
+                VehiculoMatricula = "STX 1029",
                 VehiculoModelo = "Peugeot Partner HDi",
                 Latitud = -34.8680,
                 Longitud = -56.2050,
@@ -198,7 +198,7 @@ public class MockTableroApi : ITableroApi
                 RepartidorNombre = "Carlos Gómez",
                 RepartidorTelefono = "091 876 543",
                 VehiculoId = Guid.Parse("66666666-6666-6666-6666-666666666666"),
-                VehiculoMatricula = "STX-1045",
+                VehiculoMatricula = "STX 1045",
                 VehiculoModelo = "Mercedes-Benz Sprinter 313",
                 Latitud = -34.9030,
                 Longitud = -56.1820,
@@ -230,7 +230,7 @@ public class MockTableroApi : ITableroApi
                 RepartidorNombre = "Martín Silva",
                 RepartidorTelefono = "092 334 455",
                 VehiculoId = Guid.Parse("88888888-8888-8888-8888-888888888888"),
-                VehiculoMatricula = "STX-1077",
+                VehiculoMatricula = "STX 1077",
                 VehiculoModelo = "Fiat Fiorino 1.4 EVO",
                 Latitud = -34.8920,
                 Longitud = -56.0980,

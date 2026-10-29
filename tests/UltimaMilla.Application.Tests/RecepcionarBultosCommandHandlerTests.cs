@@ -9,11 +9,12 @@ namespace UltimaMilla.Application.Tests;
 
 public class RecepcionarBultosCommandHandlerTests
 {
+    private readonly FakeOutboxStorage _outbox = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeUnitOfWork _uow = new();
     private readonly FakeCurrentTenant _tenant = new();
 
-    private RecepcionarBultosCommandHandler CrearHandler() => new(_envios, _uow, _tenant);
+    private RecepcionarBultosCommandHandler CrearHandler() => new(_envios, _uow, _tenant, _outbox);
 
     private Envio CrearEnvio(int cantidadBultos = 2, Guid? operadorId = null)
     {
@@ -50,6 +51,10 @@ public class RecepcionarBultosCommandHandlerTests
         var evento = envio.Eventos.Last();
         Assert.Equal("RecepcionEnDeposito", evento.TipoEvento);
         Assert.Equal(_tenant.UsuarioId, evento.ResponsableUsuarioId);
+
+        var mensaje = Assert.Single(_outbox.Mensajes);
+        Assert.Equal("EnvioRecibidoEnDepositoIntegrationEvent", mensaje.TipoEvento);
+        Assert.Equal(envio.Id, mensaje.AgregadoId);
     }
 
     [Fact]

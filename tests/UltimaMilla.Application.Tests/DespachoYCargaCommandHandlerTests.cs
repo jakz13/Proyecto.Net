@@ -19,6 +19,8 @@ public class DespachoYCargaCommandHandlerTests
     private readonly FakeRutaRepository _rutas = new();
     private readonly FakeEnvioRepository _envios = new();
     private readonly FakeOutboxStorage _outbox = new();
+    // La carga publica sus propios eventos; se separan para que las pruebas del despacho cuenten solo los suyos
+    private readonly FakeOutboxStorage _outboxCarga = new();
     private readonly FakeUnitOfWork _uow = new();
     private readonly FakeCurrentTenant _tenant = new();
     private readonly FakeClock _clock = new();
@@ -32,7 +34,7 @@ public class DespachoYCargaCommandHandlerTests
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB1234", "Furgoneta", 500m, 100000m);
     }
 
-    private ConfirmarCargaCommandHandler HandlerCarga() => new(_rutas, _envios, _uow, _tenant);
+    private ConfirmarCargaCommandHandler HandlerCarga() => new(_rutas, _envios, _uow, _tenant, _outboxCarga);
 
     private DespacharHojaDeRutaCommandHandler HandlerDespacho() => new(_rutas, _envios, _outbox, _uow, _tenant, _clock);
 

@@ -1,14 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
-using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
 /// <summary>
-/// Datos semilla de la administración del operador (perfiles, usuarios, zonas, identidad visual y cola de mensajes fallidos).
+/// Datos semilla de la administración del operador (zonas, identidad visual y cola de mensajes fallidos); perfiles y usuarios los siembra DatabaseSeeder.
 /// Es idempotente: cada bloque verifica su existencia, por lo que también completa bases creadas antes de estos módulos.
 /// </summary>
 public static class DatabaseSeederAdministracion
@@ -16,16 +14,11 @@ public static class DatabaseSeederAdministracion
     /// <summary>Contraseña provisional de los usuarios de la demo.</summary>
     public const string PasswordDemo = "demo1234";
 
-    public static readonly Guid PerfilAdministradorId = Guid.Parse("a1000000-0000-0000-0000-000000000001");
-    public static readonly Guid PerfilDespachadorId = Guid.Parse("a1000000-0000-0000-0000-000000000002");
-    public static readonly Guid PerfilOperarioId = Guid.Parse("a1000000-0000-0000-0000-000000000003");
-    public static readonly Guid PerfilRepartidorId = Guid.Parse("a1000000-0000-0000-0000-000000000004");
-    public static readonly Guid PerfilComercioId = Guid.Parse("a1000000-0000-0000-0000-000000000005");
-
-    public static readonly Guid UsuarioAdministradorId = Guid.Parse("a2000000-0000-0000-0000-000000000001");
-    public static readonly Guid UsuarioDespachadorId = Guid.Parse("a2000000-0000-0000-0000-000000000002");
-    public static readonly Guid UsuarioOperarioId = Guid.Parse("a2000000-0000-0000-0000-000000000003");
-    public static readonly Guid UsuarioComercioId = Guid.Parse("a2000000-0000-0000-0000-000000000005");
+    public static readonly Guid PerfilAdministradorId = DatabaseSeeder.DefaultPerfilAdminId;
+    public static readonly Guid PerfilDespachadorId = DatabaseSeeder.DefaultPerfilDespachadorId;
+    public static readonly Guid PerfilOperarioId = DatabaseSeeder.DefaultPerfilOperarioId;
+    public static readonly Guid PerfilRepartidorId = DatabaseSeeder.DefaultPerfilRepartidorId;
+    public static readonly Guid PerfilComercioId = DatabaseSeeder.DefaultPerfilComercioId;
 
     public static readonly Guid ZonaCentroId = Guid.Parse("a3000000-0000-0000-0000-000000000001");
     public static readonly Guid ZonaCostaId = Guid.Parse("a3000000-0000-0000-0000-000000000002");
@@ -35,52 +28,16 @@ public static class DatabaseSeederAdministracion
 
     public static async Task SembrarAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
-        await SembrarPerfilesYUsuariosAsync(context, cancellationToken);
         await SembrarComercioAsync(context, cancellationToken);
         await SembrarZonasAsync(context, cancellationToken);
         await SembrarIdentidadVisualAsync(context, cancellationToken);
         await SembrarMensajesFallidosAsync(context, cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("DatabaseSeeder: datos de administración del operador verificados (perfiles, usuarios, zonas, identidad visual, cola de fallidos).");
+        logger.LogInformation("DatabaseSeeder: datos de administración del operador verificados (zonas, identidad visual, cola de fallidos).");
 
         // Segundo operador con configuración propia, para demostrar el aislamiento entre inquilinos
         await DatabaseSeederSegundoOperador.SembrarAsync(context, logger, cancellationToken);
-    }
-
-    private static async Task SembrarPerfilesYUsuariosAsync(AppDbContext context, CancellationToken ct)
-    {
-        var perfiles = new[]
-        {
-            new Perfil(PerfilAdministradorId, "Administrador", "Configura el operador: comercios, zonas, tarifas, reglas y flota."),
-            new Perfil(PerfilDespachadorId, "Despachador", "Arma hojas de ruta, controla el despacho y gestiona incidencias."),
-            new Perfil(PerfilOperarioId, "Operario", "Recibe, clasifica y despacha bultos en el depósito."),
-            new Perfil(PerfilRepartidorId, "Repartidor", "Realiza las entregas en calle desde la app móvil."),
-            new Perfil(PerfilComercioId, "Comercio", "Usuario del comercio cliente en el portal de envíos.")
-        };
-
-        var perfilesExistentes = await context.Perfiles.Select(p => p.Nombre).ToListAsync(ct);
-        foreach (var perfil in perfiles.Where(p => !perfilesExistentes.Contains(p.Nombre)))
-            await context.Perfiles.AddAsync(perfil, ct);
-
-        var emailsExistentes = await context.Usuarios.Select(u => u.Email).ToListAsync(ct);
-        var operadorId = DatabaseSeeder.DefaultOperadorId;
-        var hash = HashContrasena.Generar(PasswordDemo);
-
-        var usuarios = new[]
-        {
-            new Usuario(DatabaseSeeder.DefaultUsuarioRepartidorId, "Martín Rodríguez", "martin.rodriguez@ultimamilla.com.uy", hash, PerfilRepartidorId, operadorId),
-            new Usuario(UsuarioAdministradorId, "Felipe Bernardi", "felipe.bernardi@ultimamilla.com.uy", hash, PerfilAdministradorId, operadorId),
-            new Usuario(UsuarioDespachadorId, "Valeria Souza", "valeria.souza@ultimamilla.com.uy", hash, PerfilDespachadorId, operadorId),
-            new Usuario(UsuarioOperarioId, "Gonzalo Techera", "gonzalo.techera@ultimamilla.com.uy", hash, PerfilOperarioId, operadorId),
-            new Usuario(UsuarioComercioId, "Ana Pereira (MegaStore)", "ana.pereira@megastore.com.uy", hash, PerfilComercioId, operadorId, DatabaseSeeder.DefaultComercioId)
-        };
-
-        foreach (var usuario in usuarios.Where(u => !emailsExistentes.Contains(u.Email)))
-        {
-            if (!await context.Usuarios.AnyAsync(x => x.Id == usuario.Id, ct))
-                await context.Usuarios.AddAsync(usuario, ct);
-        }
     }
 
     /// <summary>Completa los datos de contacto del comercio demo, que se sembró antes de existir nombre de fantasía y dirección.</summary>

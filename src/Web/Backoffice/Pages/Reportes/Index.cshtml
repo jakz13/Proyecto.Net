@@ -296,27 +296,24 @@
                                 <span class="fw-bold text-dark">@item.TotalAsignados</span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-success-subtle border border-success-subtle px-2 py-1 fw-bold" style="color: #166534 !important;">
+                                <span class="fw-bold estado-entregado">
                                     @item.EntregadosEnPlazo
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-warning-subtle border border-warning-subtle px-2 py-1 fw-bold" style="color: #92400E !important;">
+                                <span class="fw-bold estado-intermedio">
                                     @item.EntregadosConDemora
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-danger-subtle border border-danger-subtle px-2 py-1 fw-bold" style="color: #991B1B !important;">
+                                <span class="fw-bold estado-fallo">
                                     @item.NoEntregados
                                 </span>
                             </td>
                             <td class="text-end">
-                                <div class="d-flex align-items-center justify-content-end gap-2">
-                                    <div class="progress flex-grow-1" style="height: 6px; max-width: 60px;">
-                                        <div class="progress-bar @(item.PorcentajeEfectividad >= 92 ? "bg-success" : "bg-warning")" style="width: @item.PorcentajeEfectividad%;"></div>
-                                    </div>
-                                    <strong class="text-dark small">@item.PorcentajeEfectividad%</strong>
-                                </div>
+                                <span class="fw-bold @(item.PorcentajeEfectividad >= 90 ? "estado-entregado" : (item.PorcentajeEfectividad <= 30 ? "estado-fallo" : "text-dark"))">
+                                    @item.PorcentajeEfectividad%
+                                </span>
                             </td>
                         </tr>
                     }
@@ -341,7 +338,7 @@
                     {
                         <tr>
                             <td>
-                                <span class="badge bg-light text-dark border font-monospace">@m.CodigoMotivo</span>
+                                <span class="font-monospace text-dark fw-semibold small">@m.CodigoMotivo</span>
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark small">@m.DescripcionMotivo</div>
@@ -350,13 +347,13 @@
                                 @switch (m.Categoria)
                                 {
                                     case "ExternoDestinatario":
-                                        <span class="badge bg-secondary-subtle text-dark border" style="font-size: 0.725rem;">Destinatario</span>
+                                        <span class="small fw-semibold text-secondary">Destinatario</span>
                                         break;
                                     case "Interno":
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.725rem;">Interno / Flota</span>
+                                        <span class="small fw-semibold estado-fallo">Interno / Flota</span>
                                         break;
                                     default:
-                                        <span class="badge bg-warning-subtle border border-warning-subtle" style="font-size: 0.725rem; color: #92400E !important;">Fuerza Mayor</span>
+                                        <span class="small fw-semibold estado-intermedio">Fuerza Mayor</span>
                                         break;
                                 }
                             </td>
@@ -404,7 +401,7 @@
                                 <span class="fw-bold text-dark">@v.CantidadGuias</span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                <span class="fw-bold estado-intermedio">
                                     @v.CantidadBultos
                                 </span>
                             </td>
@@ -415,7 +412,7 @@
                                 @v.VolumenTotalM3.ToString("N2") m³
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-light text-dark border">
+                                <span class="small text-secondary fw-semibold">
                                     @v.RutasDespachadas rutas
                                 </span>
                             </td>
@@ -449,7 +446,7 @@
                                 <span class="text-secondary small font-monospace">@l.Rut</span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-light text-dark border font-monospace">@l.CantidadEnviosLiquidados</span>
+                                <span class="fw-bold text-dark font-monospace">@l.CantidadEnviosLiquidados</span>
                             </td>
                             <td class="text-end font-monospace text-dark small">
                                 $@l.TarifaBaseTotal.ToString("N2")

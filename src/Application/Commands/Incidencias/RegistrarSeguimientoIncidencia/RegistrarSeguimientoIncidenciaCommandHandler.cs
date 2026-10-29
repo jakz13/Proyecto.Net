@@ -1,5 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Commands.Incidencias.AbrirIncidencia;
+using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
@@ -12,17 +13,20 @@ public class RegistrarSeguimientoIncidenciaCommandHandler : IRequestHandler<Regi
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IOutboxStorage _outboxStorage;
 
     public RegistrarSeguimientoIncidenciaCommandHandler(
         IIncidenciaRepository incidenciaRepository,
         ICurrentTenant currentTenant,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IOutboxStorage outboxStorage)
     {
         _incidenciaRepository = incidenciaRepository;
         _currentTenant = currentTenant;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _outboxStorage = outboxStorage;
     }
 
     public async Task<IncidenciaResultDto> Handle(RegistrarSeguimientoIncidenciaCommand request, CancellationToken cancellationToken)
@@ -49,6 +53,7 @@ public class RegistrarSeguimientoIncidenciaCommandHandler : IRequestHandler<Regi
         if (!string.IsNullOrWhiteSpace(request.Comentario))
             incidencia.AgregarNota(usuarioId, request.Comentario, _clock.UtcNow);
 
+        await _outboxStorage.SaveAsync(EventosIntegracion.DeIncidencia(EventosIntegracion.Tipos.IncidenciaConSeguimiento, incidencia), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return IncidenciaMapper.ToResult(incidencia);

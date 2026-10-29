@@ -6,43 +6,32 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
-/// <summary>
-/// Implementación HTTP de ITableroApi (UC-12, RF-29) sobre /api/operacion/tablero.
-/// Conecta el Backoffice con los datos reales de hojas de ruta en ejecución,
-/// última posición conocida de cada unidad y detección de riesgo en franjas comprometidas.
-/// </summary>
+/// <summary>Cliente HTTP del tablero de operación en vivo (UC-12, RF-29).</summary>
 public class HttpTableroApi : ITableroApi
 {
-    private const string RutaTablero = "/api/operacion/tablero";
-    private const string RutaInstrucciones = "/api/operacion/tablero/instrucciones";
-
-    // Coordenadas por defecto en Montevideo central si la unidad o parada aún no reportó GPS
-    private const double LatitudPorDefecto = -34.9011;
-    private const double LongitudPorDefecto = -56.1645;
-
     private readonly HttpClient _http;
 
     public HttpTableroApi(HttpClient http)
     {
-        _http = http ?? throw new ArgumentNullException(nameof(http));
+        _http = http;
     }
 
     public async Task<ResumenTableroDto> ObtenerResumenEnVivoAsync(CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.GetAsync(RutaTablero, cancelacion);
+        var respuesta = await _http.GetAsync("api/tablero/resumen", cancelacion);
         await AsegurarExitoAsync(respuesta, cancelacion);
-
-        var apiDto = await respuesta.Content.ReadFromJsonAsync<TableroOperacionApiResponse>(CatalogosHttp.OpcionesJson, cancelacion);
-        if (apiDto is null)
-            return new ResumenTableroDto();
-
-        return MapearResumen(apiDto);
+        return await respuesta.Content.ReadFromJsonAsync<ResumenTableroDto>(cancellationToken: cancelacion)
+            ?? throw new ApiExcepcion("La API devolvió un tablero vacío.");
     }
 
     public async Task<VehiculoEnVivoDto?> ObtenerDetalleVehiculoEnVivoAsync(Guid hojaDeRutaId, CancellationToken cancelacion = default)
     {
-        var resumen = await ObtenerResumenEnVivoAsync(cancelacion);
-        return resumen.Vehiculos.FirstOrDefault(v => v.HojaDeRutaId == hojaDeRutaId);
+        var respuesta = await _http.GetAsync($"api/tablero/hojas-de-ruta/{hojaDeRutaId}", cancelacion);
+        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        await AsegurarExitoAsync(respuesta, cancelacion);
+        return await respuesta.Content.ReadFromJsonAsync<VehiculoEnVivoDto>(cancellationToken: cancelacion);
     }
 
     public async Task<bool> EnviarInstruccionRepartidorAsync(Guid repartidorId, string mensaje, CancellationToken cancelacion = default)
@@ -50,12 +39,8 @@ public class HttpTableroApi : ITableroApi
         if (repartidorId == Guid.Empty || string.IsNullOrWhiteSpace(mensaje))
             return false;
 
-        var respuesta = await _http.PostAsJsonAsync(RutaInstrucciones, new
-        {
-            RepartidorId = repartidorId,
-            Mensaje = mensaje.Trim()
-        }, CatalogosHttp.OpcionesJson, cancelacion);
-
+        // La instrucción la registra el módulo de tablero de operación, que la publica para que el worker la entregue al dispositivo
+        var respuesta = await _http.PostAsJsonAsync("api/operacion/tablero/instrucciones", new { repartidorId, mensaje = mensaje.Trim() }, cancelacion);
         if (respuesta.IsSuccessStatusCode)
             return true;
 
@@ -66,202 +51,12 @@ public class HttpTableroApi : ITableroApi
         return false;
     }
 
-    private static ResumenTableroDto MapearResumen(TableroOperacionApiResponse api)
-    {
-        var alertas = (api.AlertasRiesgo ?? new List<AlertaApiDto>())
-            .Select(MapearAlerta)
-            .ToList();
-
-        var vehiculos = (api.Vehiculos ?? new List<VehiculoApiDto>())
-            .Select(MapearVehiculo)
-            .ToList();
-
-        return new ResumenTableroDto
-        {
-            TotalRutasEnEjecucion = api.TotalRutasEnEjecucion,
-            TotalRepartidoresEnCalle = api.TotalRepartidoresEnCalle,
-            TotalEnviosEnTransito = api.TotalEnviosEnTransito,
-            TotalEnviosEntregadosHoy = api.TotalEnviosEntregados,
-            TotalEnviosEnRiesgo = api.TotalEnviosEnRiesgo,
-            UltimaSincronizacion = api.UltimaSincronizacion,
-            Vehiculos = vehiculos,
-            AlertasRiesgo = alertas
-        };
-    }
-
-    private static VehiculoEnVivoDto MapearVehiculo(VehiculoApiDto v)
-    {
-        var paradas = (v.Paradas ?? new List<ParadaApiDto>())
-            .Select(MapearParada)
-            .ToList();
-
-        var enviosRiesgo = (v.EnviosEnRiesgo ?? new List<AlertaApiDto>())
-            .Select(MapearAlerta)
-            .ToList();
-
-        // Si la unidad no tiene latitud reportada, buscar la primera parada con coordenadas o usar Montevideo centro
-        var lat = v.Latitud ?? paradas.FirstOrDefault(p => p.Latitud != 0)?.Latitud ?? LatitudPorDefecto;
-        var lon = v.Longitud ?? paradas.FirstOrDefault(p => p.Longitud != 0)?.Longitud ?? LongitudPorDefecto;
-
-        var estadoOperativo = v.EstadoOperativo switch
-        {
-            "EnParada" => "EnParada",
-            "EnCamino" => "EnMovimiento",
-            _ => v.TieneAlertasRiesgo ? "DetenidoAlerta" : "EnMovimiento"
-        };
-
-        var velocidad = estadoOperativo == "EnMovimiento" ? 28 : 0;
-
-        return new VehiculoEnVivoDto
-        {
-            HojaDeRutaId = v.HojaDeRutaId,
-            NumeroRuta = v.NumeroRuta,
-            RepartidorId = v.RepartidorId,
-            RepartidorNombre = v.RepartidorNombre,
-            RepartidorTelefono = v.RepartidorTelefono,
-            VehiculoId = v.VehiculoId,
-            VehiculoMatricula = v.VehiculoMatricula,
-            VehiculoModelo = string.IsNullOrWhiteSpace(v.VehiculoTipo) ? "Furgón Urbano" : v.VehiculoTipo,
-            Latitud = lat,
-            Longitud = lon,
-            DireccionAproximada = v.DireccionAproximada ?? "En recorrido urbano",
-            ZonaActual = "Área Operativa",
-            NivelBateriaPct = 85,
-            VelocidadKmh = velocidad,
-            UltimaActualizacion = v.UltimaActualizacion ?? DateTime.UtcNow,
-            EstadoOperativo = estadoOperativo,
-            ParadasCompletadas = v.ParadasCompletadas,
-            TotalParadas = v.TotalParadas,
-            ParadaActualCodigo = v.ParadaActualCodigo,
-            ParadaActualDireccion = v.ParadaActualDireccion,
-            TieneAlertasRiesgo = v.TieneAlertasRiesgo,
-            CantidadEnviosEnRiesgo = v.CantidadEnviosEnRiesgo,
-            EnviosEnRiesgo = enviosRiesgo,
-            Paradas = paradas
-        };
-    }
-
-    private static EnvioRiesgoDto MapearAlerta(AlertaApiDto a)
-    {
-        var retraso = a.MinutosParaCierreVentana < 0
-            ? Math.Abs(a.MinutosParaCierreVentana)
-            : Math.Max(15, 30 - a.MinutosParaCierreVentana);
-
-        var llegada = a.HoraLimiteVentana.AddMinutes(retraso);
-
-        return new EnvioRiesgoDto
-        {
-            EnvioId = a.EnvioId,
-            HojaDeRutaId = a.HojaDeRutaId,
-            NumeroRuta = a.NumeroRuta,
-            CodigoSeguimiento = a.CodigoSeguimiento,
-            Destinatario = a.Destinatario,
-            DestinatarioTelefono = a.RepartidorTelefono,
-            Direccion = a.Direccion,
-            Zona = "Área de Cobertura",
-            FranjaHoraria = a.FranjaHoraria,
-            HoraLimiteVentana = a.HoraLimiteVentana,
-            HoraEstimadaLlegada = llegada,
-            MinutosRetrasoEstimado = retraso,
-            NivelRiesgo = a.NivelRiesgo,
-            CausaRiesgo = a.CausaRiesgo,
-            RepartidorNombre = a.RepartidorNombre,
-            RepartidorTelefono = a.RepartidorTelefono,
-            VehiculoMatricula = a.VehiculoMatricula,
-            Latitud = a.Latitud ?? LatitudPorDefecto,
-            Longitud = a.Longitud ?? LongitudPorDefecto
-        };
-    }
-
-    private static ParadaEnVivoDto MapearParada(ParadaApiDto p)
-    {
-        return new ParadaEnVivoDto
-        {
-            EnvioId = p.EnvioId,
-            CodigoSeguimiento = p.CodigoSeguimiento,
-            Orden = p.Orden,
-            Destinatario = p.Destinatario,
-            Direccion = p.Direccion,
-            Latitud = p.Latitud ?? LatitudPorDefecto,
-            Longitud = p.Longitud ?? LongitudPorDefecto,
-            FranjaHoraria = p.FranjaHoraria ?? string.Empty,
-            Estado = p.Estado,
-            EnRiesgo = p.EnRiesgo,
-            MotivoRiesgo = p.MotivoRiesgo
-        };
-    }
-
-    private static async Task AsegurarExitoAsync(HttpResponseMessage respuesta, CancellationToken ct)
+    private static async Task AsegurarExitoAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
     {
         if (respuesta.IsSuccessStatusCode)
             return;
 
-        var cuerpo = await respuesta.Content.ReadAsStringAsync(ct);
-        throw new ApiExcepcion(respuesta.StatusCode, HttpIncidenciasApi.ExtraerMensaje(cuerpo) ?? $"Error HTTP {(int)respuesta.StatusCode}");
+        var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+        throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(cuerpo) ? $"Error HTTP {(int)respuesta.StatusCode}" : cuerpo);
     }
-
-    private sealed record TableroOperacionApiResponse(
-        int TotalRutasEnEjecucion,
-        int TotalRepartidoresEnCalle,
-        int TotalEnviosEnTransito,
-        int TotalEnviosEntregados,
-        int TotalEnviosEnRiesgo,
-        DateTime UltimaSincronizacion,
-        List<VehiculoApiDto> Vehiculos,
-        List<AlertaApiDto> AlertasRiesgo);
-
-    private sealed record VehiculoApiDto(
-        Guid HojaDeRutaId,
-        string NumeroRuta,
-        Guid RepartidorId,
-        string RepartidorNombre,
-        string RepartidorTelefono,
-        Guid VehiculoId,
-        string VehiculoMatricula,
-        string VehiculoTipo,
-        double? Latitud,
-        double? Longitud,
-        string? DireccionAproximada,
-        string? OrigenPosicion,
-        DateTime? UltimaActualizacion,
-        string EstadoOperativo,
-        int ParadasCompletadas,
-        int TotalParadas,
-        string? ParadaActualCodigo,
-        string? ParadaActualDireccion,
-        bool TieneAlertasRiesgo,
-        int CantidadEnviosEnRiesgo,
-        List<AlertaApiDto> EnviosEnRiesgo,
-        List<ParadaApiDto> Paradas);
-
-    private sealed record AlertaApiDto(
-        Guid EnvioId,
-        Guid HojaDeRutaId,
-        string NumeroRuta,
-        string CodigoSeguimiento,
-        string Destinatario,
-        string Direccion,
-        string FranjaHoraria,
-        DateTime HoraLimiteVentana,
-        int MinutosParaCierreVentana,
-        string NivelRiesgo,
-        string CausaRiesgo,
-        string RepartidorNombre,
-        string RepartidorTelefono,
-        string VehiculoMatricula,
-        double? Latitud,
-        double? Longitud);
-
-    private sealed record ParadaApiDto(
-        Guid EnvioId,
-        string CodigoSeguimiento,
-        int Orden,
-        string Destinatario,
-        string Direccion,
-        double? Latitud,
-        double? Longitud,
-        string? FranjaHoraria,
-        string Estado,
-        bool EnRiesgo,
-        string? MotivoRiesgo);
 }
