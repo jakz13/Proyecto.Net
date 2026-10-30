@@ -2,6 +2,7 @@ using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Seguimiento;
+using Comercio = UltimaMilla.Domain.Entities.Comercio.Comercio;
 
 namespace UltimaMilla.Application.Ports;
 
@@ -25,12 +26,26 @@ public interface IDireccionRepository
     Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Relación comercio-operador, usada para autenticar la integración por clave de API.</summary>
+/// <summary>Elemento que vincula un comercio con su relación hacia un operador específico.</summary>
+public record ComercioConRelacionOperador(Comercio Comercio, ComercioOperador Relacion);
+
+/// <summary>Relación comercio-operador, usada para autenticar la integración por clave de API y gestión de comercios (UC-01).</summary>
 public interface IComercioOperadorRepository
 {
     Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     /// <summary>Busca la relación por la huella SHA-256 de su clave de API.</summary>
     Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default);
+    Task<ComercioOperador?> ObtenerPorComercioYOperadorAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
+    Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
+    Task AgregarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);
+    Task ActualizarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<ComercioConRelacionOperador> Elementos, int Total)> ListarComerciosDelOperadorAsync(
+        Guid operadorId,
+        string? busqueda,
+        bool? soloActivos,
+        int pagina,
+        int tamanoPagina,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Lotes de importación masiva, identificados por comercio y clave de idempotencia.</summary>

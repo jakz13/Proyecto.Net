@@ -67,4 +67,12 @@ public interface IEnviosApi
     Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
         IReadOnlyList<Guid> envioIds,
         CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// El envío transiciona a estado Devuelto.
+    /// </summary>
+    Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(
+        Guid envioId,
+        CancellationToken cancelacion = default);
 }

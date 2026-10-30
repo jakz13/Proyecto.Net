@@ -552,4 +552,82 @@ public class MockEnviosApiTests
         var api = new MockEnviosApi();
         await Assert.ThrowsAsync<ArgumentNullException>(() => api.ListarEnviosAsync(null!));
     }
+
+    [Fact]
+    public async Task ConfirmarDevolucionAsync_EnvioEnDevolucion_CambiaADevueltoYRegistraEvento()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var envioId = Guid.NewGuid();
+        MockEnviosApi.ConfigurarEnvioEnMemoriaParaPruebas(new EnvioDto
+        {
+            Id = envioId,
+            CodigoSeguimiento = "TRK-TEST-DEV-1",
+            Estado = EstadoEnvioDto.EnDevolucion,
+            NombreDestinatario = "Destinatario Test",
+            DireccionDestino = "Calle Test 123",
+            ComercioNombre = MockEnviosApi.ComercioAutenticadoPortal,
+            FechaCreacion = DateTime.UtcNow.AddDays(-1)
+        });
+
+        // Act
+        var resultado = await api.ConfirmarDevolucionAsync(envioId);
+        var envioActualizado = await api.ObtenerPorIdAsync(envioId);
+        var historial = await api.ObtenerHistorialEnvioAsync(envioId);
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal("Devuelto", resultado.EstadoEnvio);
+        Assert.False(resultado.Idempotente);
+
+        Assert.NotNull(envioActualizado);
+        Assert.Equal(EstadoEnvioDto.Devuelto, envioActualizado.Estado);
+
+        Assert.Contains(historial, e => e.NuevoEstado == EstadoEnvioDto.Devuelto);
+    }
+
+    [Fact]
+    public async Task ConfirmarDevolucionAsync_ReconfirmacionIdempotente_RetornaIdempotenteTrue()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var envioId = Guid.NewGuid();
+        MockEnviosApi.ConfigurarEnvioEnMemoriaParaPruebas(new EnvioDto
+        {
+            Id = envioId,
+            CodigoSeguimiento = "TRK-TEST-DEV-2",
+            Estado = EstadoEnvioDto.EnDevolucion,
+            NombreDestinatario = "Destinatario Test 2",
+            DireccionDestino = "Calle Test 456",
+            ComercioNombre = MockEnviosApi.ComercioAutenticadoPortal,
+            FechaCreacion = DateTime.UtcNow.AddDays(-1)
+        });
+
+        // Act
+        await api.ConfirmarDevolucionAsync(envioId);
+        var resultadoSegundaVez = await api.ConfirmarDevolucionAsync(envioId);
+
+        // Assert
+        Assert.True(resultadoSegundaVez.Idempotente);
+        Assert.Equal("Devuelto", resultadoSegundaVez.EstadoEnvio);
+    }
+
+    [Fact]
+    public async Task ConfirmarDevolucionAsync_EnvioNoEnDevolucion_LanzaApiExcepcion()
+    {
+        // Arrange
+        var api = new MockEnviosApi();
+        var envioAdmitidoId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ApiExcepcion>(() => api.ConfirmarDevolucionAsync(envioAdmitidoId));
+    }
+
+    [Fact]
+    public async Task ConfirmarDevolucionAsync_IdVacioOInexistente_LanzaApiExcepcion()
+    {
+        var api = new MockEnviosApi();
+        await Assert.ThrowsAsync<ApiExcepcion>(() => api.ConfirmarDevolucionAsync(Guid.Empty));
+        await Assert.ThrowsAsync<ApiExcepcion>(() => api.ConfirmarDevolucionAsync(Guid.NewGuid()));
+    }
 }
