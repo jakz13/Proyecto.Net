@@ -433,6 +433,48 @@ public class SyncService : ISyncService, IDisposable
                             break;
                         }
 
+                        case TiposOperacionOffline.EventoGeocerca:
+                        {
+                            var payload = JsonSerializer.Deserialize<EventoGeocercaOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada1Id;
+                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio1Id;
+                                if (string.IsNullOrWhiteSpace(payload.IdempotencyKey))
+                                    payload.IdempotencyKey = $"GEO-{payload.TipoEvento}-{payload.ParadaId:N}-{payload.TimestampUtc.Ticks}";
+
+                                var req = new
+                                {
+                                    EnvioId = payload.EnvioId,
+                                    TipoEvento = payload.TipoEvento,
+                                    Latitud = payload.Latitud,
+                                    Longitud = payload.Longitud,
+                                    DistanciaMetros = payload.DistanciaMetros,
+                                    TiempoPermanenciaSegundos = payload.TiempoPermanenciaSegundos,
+                                    TimestampUtc = payload.TimestampUtc,
+                                    IdempotencyKey = payload.IdempotencyKey
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/geocerca";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "EventoGeocerca", detallesErrores, cancellationToken);
+                                if (ok)
+                                {
+                                    if (payload.EventoLocalId.HasValue)
+                                    {
+                                        await _localDatabaseService.MarcarEventoGeocercaSincronizadoAsync(payload.EventoLocalId.Value);
+                                    }
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
                         default:
                             _logger.LogWarning("Tipo de operación offline no reconocido: {Tipo}", op.TipoOperacion);
                             var errorTipo = $"Op #{op.Id}: Tipo de operación '{op.TipoOperacion}' no soportado.";
@@ -469,11 +511,11 @@ public class SyncService : ISyncService, IDisposable
             string mensaje;
             if (detenidoPorCorteDeRed)
             {
-                mensaje = $"Sincronización interrumpida por pérdida de conexión.\n• Enviadas: {exitosas}\n• Pendientes con observación: {erroresNegocio}\n" + string.Join("\n", detallesErrores);
+                mensaje = $"Sincronización interrumpida por pérdida de conexión.\n- Enviadas: {exitosas}\n- Pendientes con observación: {erroresNegocio}\n" + string.Join("\n", detallesErrores);
             }
             else if (erroresNegocio > 0)
             {
-                mensaje = $"Sincronización finalizada con observaciones del servidor:\n• Exitosas: {exitosas}\n• Rechazadas por servidor: {erroresNegocio}\n\nDetalles del backend:\n" + string.Join("\n", detallesErrores);
+                mensaje = $"Sincronización finalizada con observaciones del servidor:\n- Exitosas: {exitosas}\n- Rechazadas por servidor: {erroresNegocio}\n\nDetalles del backend:\n" + string.Join("\n", detallesErrores);
             }
             else
             {

@@ -15,7 +15,7 @@
 
             <!-- Encabezado / Branding -->
             <Label
-                Text="📦 Última Milla"
+                Text="Última Milla"
                 FontSize="{DynamicResource FontSizeLoginTitulo}"
                 FontAttributes="Bold"
                 HorizontalOptions="Center"

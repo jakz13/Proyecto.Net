@@ -46,7 +46,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly IHttpClientFactory? _httpClientFactory;
 
     [ObservableProperty]
-    private string _titulo = "Control de Carga de Vehículo";
+    private string _titulo = "Control de Carga en Vehículo";
 
     [ObservableProperty]
     private string _patente = "SBA-4321";
@@ -230,7 +230,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             return;
 
         var opcion = await Shell.Current.DisplayActionSheetAsync(
-            "Simulador de Escaneo (UC-18)",
+            "Control de Carga en Vehículo",
             "Cancelar",
             null,
             "Escanear siguiente bulto pendiente",
@@ -277,7 +277,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         if (Shell.Current is not null)
         {
             Shell.Current.DisplayAlertAsync(
-                "Bulto Verificado (UC-18)",
+                "Bulto Verificado",
                 $"Bulto {siguiente.CodigoBulto} escaneado correctamente.\nEnvío: {siguiente.CodigoSeguimiento}\nDestinatario: {siguiente.Destinatario}",
                 "Continuar");
         }
@@ -295,7 +295,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         if (Shell.Current is not null)
         {
             Shell.Current.DisplayAlertAsync(
-                "Carga Completa (UC-18)",
+                "Carga Completa",
                 "Se han escaneado los 6 bultos de la hoja de ruta con éxito. El vehículo se encuentra listo para iniciar reparto.",
                 "Aceptar");
         }
@@ -326,13 +326,13 @@ public partial class CargaVehiculoViewModel : ObservableObject
         };
 
         BultosSobrantes.Add(sobrante);
-        MensajeDiscrepancia = "Alerta UC-18: Se detectó 1 bulto sobrante (BLT-999-SOBRANTE) que no pertenece a esta ruta. Debe ser devuelto a depósito.";
+        MensajeDiscrepancia = "Discrepancia: Se detectó 1 bulto sobrante (BLT-999-SOBRANTE) que no pertenece a esta ruta. Debe ser devuelto a depósito.";
         ActualizarConteos();
 
         if (Shell.Current is not null)
         {
             Shell.Current.DisplayAlertAsync(
-                "Alerta de Discrepancia (UC-18)",
+                "Alerta de Discrepancia",
                 "El bulto BLT-999-SOBRANTE no está asignado a su hoja de ruta.\n\nSe ha registrado la discrepancia visualmente para control del depósito.",
                 "Entendido");
         }
@@ -381,11 +381,11 @@ public partial class CargaVehiculoViewModel : ObservableObject
             };
 
             BultosSobrantes.Add(esSobrante);
-            MensajeDiscrepancia = $"Alerta UC-18: El bulto {codigoNormalizado} no corresponde a esta ruta.";
+            MensajeDiscrepancia = $"Discrepancia: El bulto {codigoNormalizado} no corresponde a esta ruta.";
             ActualizarConteos();
 
             await Shell.Current.DisplayAlertAsync(
-                "Bulto Sobrante (UC-18)",
+                "Bulto Sobrante",
                 $"El bulto {codigoNormalizado} no pertenece a esta hoja de ruta. Se ha registrado la discrepancia.",
                 "Entendido");
         }
@@ -430,7 +430,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             if (Shell.Current is not null)
             {
                 var continuar = await Shell.Current.DisplayAlertAsync(
-                    "Confirmación con Discrepancias (UC-18)",
+                    "Confirmación con Discrepancias",
                     $"Se detectaron las siguientes discrepancias en la verificación:\n- {faltantes} bulto(s) faltante(s) sin escanear.\n- {sobrantes} bulto(s) sobrante(s).\n\n¿Desea registrar las discrepancias y confirmar la salida del vehículo?",
                     "Confirmar con Discrepancias",
                     "Revisar Bultos");
@@ -510,7 +510,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
                     : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al conectarse.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Carga Confirmada (UC-18)",
+                    "Carga Confirmada",
                     $"La carga del vehículo {Patente} fue confirmada exitosamente.\n{detalleConexion}",
                     "Iniciar Ruta");
 

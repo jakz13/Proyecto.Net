@@ -14,16 +14,16 @@
             <!-- Header Card -->
             <Border>
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="📦 Última Milla Repartidor" Style="{StaticResource TitleLabel}" />
-                    <Label Text="Esqueleto Ejecutable - Walking Skeleton" Style="{StaticResource SubtitleLabel}" />
-                    <Label Text="Validación de Arquitectura MVVM, Offline SQLite y Conectividad con Web API." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="Última Milla Repartidor" Style="{StaticResource TitleLabel}" />
+                    <Label Text="Panel de Diagnóstico y Conectividad" Style="{StaticResource SubtitleLabel}" />
+                    <Label Text="Estado del motor local SQLite y conectividad con el servidor central." FontSize="12" TextColor="{StaticResource TextSecondary}" />
                 </VerticalStackLayout>
             </Border>
 
             <!-- API Connection Card -->
             <Border>
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="🌐 Estado de Conexión Web API" FontAttributes="Bold" FontSize="16" />
+                    <Label Text="Estado de Conexión Web API" FontAttributes="Bold" FontSize="16" />
                     
                     <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto" RowSpacing="6" ColumnSpacing="8">
                         <Label Grid.Row="0" Grid.Column="0" Text="URL Base:" FontAttributes="Bold" />
@@ -43,20 +43,20 @@
 
                     <!-- Success Message Alert -->
                     <Border BackgroundColor="#E8F5E9" Stroke="#A5D6A7" IsVisible="{Binding HasSuccess}" Padding="10">
-                        <Label Text="✅ Conexión establecida con éxito con el backend en Docker." TextColor="#2E7D32" FontAttributes="Bold" />
+                        <Label Text="Conexión establecida con éxito con el servidor central." TextColor="#2E7D32" FontAttributes="Bold" />
                     </Border>
 
                     <!-- Error Message Alert -->
                     <Border BackgroundColor="#FFEBEE" Stroke="#EF9A9A" IsVisible="{Binding HasError}" Padding="10">
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="❌ Fallo de Conectividad:" TextColor="#C62828" FontAttributes="Bold" />
+                            <Label Text="Fallo de Conectividad:" TextColor="#C62828" FontAttributes="Bold" />
                             <Label Text="{Binding ErrorMessage}" TextColor="#C62828" FontSize="12" />
                         </VerticalStackLayout>
                     </Border>
 
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HeightRequest="30" />
 
-                    <Button Text="🔄 Probar Conexión con API"
+                    <Button Text="Probar Conexión con API"
                             Command="{Binding CheckConnectivityCommand}"
                             IsEnabled="{Binding IsNotBusy}" />
                 </VerticalStackLayout>
@@ -65,21 +65,21 @@
             <!-- Offline Storage Card -->
             <Border>
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="💾 Motor Offline-First (SQLite)" FontAttributes="Bold" FontSize="16" />
+                    <Label Text="Almacenamiento Local (SQLite)" FontAttributes="Bold" FontSize="16" />
                     
                     <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8">
                         <Label Text="Operaciones en cola local:" FontAttributes="Bold" />
                         <Label Grid.Column="1" Text="{Binding PendingOfflineOperationsCount}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
                     </Grid>
 
-                    <Label Text="Permite registrar entregas sin conexión y sincronizarlas de forma diferida." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="Permite registrar operaciones sin conexión y sincronizarlas de forma diferida." FontSize="12" TextColor="{StaticResource TextSecondary}" />
 
                     <controls:AdaptiveRow Spacing="10">
-                        <Button Text="➕ Encolar Operación"
+                        <Button Text="Encolar Operación"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding EnqueueTestOfflineOperationCommand}" />
                         
-                        <Button Text="📋 Refrescar Cola"
+                        <Button Text="Refrescar Cola"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding RefreshOfflineCountCommand}" />
                     </controls:AdaptiveRow>

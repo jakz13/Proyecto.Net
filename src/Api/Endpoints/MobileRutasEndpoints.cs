@@ -6,6 +6,7 @@ using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
 using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
+using UltimaMilla.Application.Commands.Mobile.Navegacion.RegistrarEventoGeocerca;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
@@ -406,6 +407,55 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
+        // =========================================================================
+        // GEOCERCAS: DETECCIÓN AUTOMÁTICA DE LLEGADA Y SALIDA (Sección 7.3)
+        // =========================================================================
+        group.MapPost("/paradas/{paradaId:guid}/geocerca", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromRoute] Guid paradaId,
+            [FromBody] RegistrarEventoGeocercaRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new RegistrarEventoGeocercaCommand(
+                    hojaDeRutaId,
+                    paradaId,
+                    request.EnvioId,
+                    request.TipoEvento,
+                    request.Latitud,
+                    request.Longitud,
+                    request.DistanciaMetros,
+                    request.TiempoPermanenciaSegundos,
+                    request.TimestampUtc,
+                    request.IdempotencyKey);
+
+                var resultado = await mediator.Send(command, ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("RegistrarEventoGeocerca")
+        .WithSummary("Sección 7.3: Registrar evento automático de llegada o salida de geocerca")
+        .WithDescription("Registra en el envío el evento LLEGADA_GEOCERCA (< 100m) o SALIDA_GEOCERCA (> 150m) con histéresis e invalida la caché de seguimiento público. Es idempotente.")
+        .Produces<EventoGeocercaResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         // REINICIO DE DATOS DE DEMO (MODO OFFLINE/ONLINE)
         // =========================================================================
         app.MapPost("/api/mobile/v1/demo/reset", async (
@@ -429,6 +479,7 @@ public static class MobileRutasEndpoints
 
             var envios = await dbContext.Envios
                 .Include(e => e.Bultos)
+                .Include(e => e.Eventos)
                 .Include(e => e.IntentosEntrega)
                 .Where(e => e.Id == id1 || e.Id == id2 || e.Id == id3)
                 .ToListAsync(ct);
@@ -448,6 +499,16 @@ public static class MobileRutasEndpoints
 
                 dbContext.PruebasDeEntrega.RemoveRange(pruebas);
                 dbContext.IntentosEntrega.RemoveRange(intentos);
+            }
+
+            var eventosGeocercaODemo = await dbContext.EventosEnvio
+                .Where(ev => (ev.EnvioId == id1 || ev.EnvioId == id2 || ev.EnvioId == id3)
+                    && (ev.TipoEvento == "LlegadaGeocerca" || ev.TipoEvento == "SalidaGeocerca" || ev.TipoEvento == "ReinicioDemo"))
+                .ToListAsync(ct);
+
+            if (eventosGeocercaODemo.Count > 0)
+            {
+                dbContext.EventosEnvio.RemoveRange(eventosGeocercaODemo);
             }
 
             foreach (var envio in envios)
@@ -474,6 +535,16 @@ public static class MobileRutasEndpoints
         return app;
     }
 }
+
+public record RegistrarEventoGeocercaRequest(
+    Guid EnvioId,
+    string TipoEvento,
+    double Latitud,
+    double Longitud,
+    double DistanciaMetros,
+    int? TiempoPermanenciaSegundos = null,
+    DateTime? TimestampUtc = null,
+    string? IdempotencyKey = null);
 
 public record RegistrarRetiroDevolucionRequest(
     Guid EnvioId,

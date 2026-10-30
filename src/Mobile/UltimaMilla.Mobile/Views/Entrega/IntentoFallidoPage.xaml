@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
              x:Class="UltimaMilla.Mobile.Views.Entrega.IntentoFallidoPage"
              x:DataType="vm:IntentoFallidoViewModel"
-             Title="Registro de Intento Fallido"
+             Title="Registrar Intento Fallido"
              BackgroundColor="{StaticResource PageBackground}">
 
     <ScrollView>
@@ -24,7 +24,7 @@
                                 StrokeShape="RoundRectangle 6"
                                 Padding="8,4"
                                 VerticalOptions="Start">
-                            <Label Text="UC-21"
+                            <Label Text="INCIDENCIA"
                                    FontSize="11"
                                    FontAttributes="Bold"
                                    TextColor="{StaticResource DangerText}" />
@@ -142,9 +142,9 @@
             </Border>
 
             <!-- ========================================================= -->
-            <!-- 6. BOTÓN PRINCIPAL: REGISTRAR INCIDENCIA                  -->
+            <!-- 6. BOTÓN PRINCIPAL: REGISTRAR INTENTO FALLIDO             -->
             <!-- ========================================================= -->
-            <Button Text="Registrar Incidencia"
+            <Button Text="Registrar Intento Fallido"
                     Style="{StaticResource DangerButton}"
                     HeightRequest="54"
                     FontSize="16"

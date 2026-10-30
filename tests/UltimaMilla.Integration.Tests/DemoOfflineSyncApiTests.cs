@@ -9,7 +9,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Valida el ciclo completo de sincronización de operaciones realizadas en modo offline (UC-20, UC-21)
+/// Valida el ciclo completo de sincronización de operaciones realizadas en modo offline (UC-20, UC-21, Geocercas 7.3)
 /// y la capacidad de reinicio de la demo (/api/mobile/v1/demo/reset) contra PostgreSQL real.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]
@@ -155,5 +155,77 @@ public class DemoOfflineSyncApiTests
             Assert.Equal("Pendiente", parada2.Estado);
             Assert.Equal("Pendiente", parada3.Estado);
         }
+    }
+
+    [FactPostgres]
+    public async Task Geocercas_LlegadaYSalida_RegistraEventosEnSeguimientoPublicoYDemoResetLosLimpia()
+    {
+        var cliente = _factory.CreateClient();
+
+        // 1. Asegurar estado inicial limpio
+        await Json(await cliente.PostAsync("/api/mobile/v1/demo/reset", null), HttpStatusCode.OK);
+
+        // 2. Registrar LLEGADA_GEOCERCA (< 100m, ej. 45m) en Parada 1 (ENV-2026-00108)
+        var llegadaPayload = new
+        {
+            envioId = DatabaseSeeder.Envio1Id,
+            tipoEvento = "LLEGADA_GEOCERCA",
+            latitud = -34.905395,
+            longitud = -56.1885,
+            distanciaMetros = 45.0,
+            idempotencyKey = "geo-in-" + Guid.NewGuid()
+        };
+
+        var resLlegada = await cliente.PostAsJsonAsync(
+            $"/api/mobile/v1/rutas/{DatabaseSeeder.DefaultHojaDeRutaId}/paradas/{DatabaseSeeder.Parada1Id}/geocerca",
+            llegadaPayload);
+        var jsonLlegada = await Json(resLlegada, HttpStatusCode.OK);
+        Assert.Equal("LlegadaGeocerca", jsonLlegada.GetProperty("tipoEvento").GetString());
+        Assert.False(jsonLlegada.GetProperty("idempotente").GetBoolean());
+
+        // Verificar idempotencia ante reintento consecutivo de LLEGADA_GEOCERCA
+        var resLlegadaDuplicada = await cliente.PostAsJsonAsync(
+            $"/api/mobile/v1/rutas/{DatabaseSeeder.DefaultHojaDeRutaId}/paradas/{DatabaseSeeder.Parada1Id}/geocerca",
+            llegadaPayload);
+        var jsonLlegadaDuplicada = await Json(resLlegadaDuplicada, HttpStatusCode.OK);
+        Assert.True(jsonLlegadaDuplicada.GetProperty("idempotente").GetBoolean());
+
+        // 3. Registrar SALIDA_GEOCERCA (> 150m, ej. 220m) en Parada 1 (ENV-2026-00108)
+        var salidaPayload = new
+        {
+            envioId = DatabaseSeeder.Envio1Id,
+            tipoEvento = "SALIDA_GEOCERCA",
+            latitud = -34.903820,
+            longitud = -56.1885,
+            distanciaMetros = 220.0,
+            tiempoPermanenciaSegundos = 95,
+            idempotencyKey = "geo-out-" + Guid.NewGuid()
+        };
+
+        var resSalida = await cliente.PostAsJsonAsync(
+            $"/api/mobile/v1/rutas/{DatabaseSeeder.DefaultHojaDeRutaId}/paradas/{DatabaseSeeder.Parada1Id}/geocerca",
+            salidaPayload);
+        var jsonSalida = await Json(resSalida, HttpStatusCode.OK);
+        Assert.Equal("SalidaGeocerca", jsonSalida.GetProperty("tipoEvento").GetString());
+        Assert.False(jsonSalida.GetProperty("idempotente").GetBoolean());
+
+        // 4. Comprobar que GET /api/seguimiento/ENV-2026-00108 refleja ambos eventos públicos (caché invalidada)
+        var seguimiento00108 = await Json(await cliente.GetAsync("/api/seguimiento/ENV-2026-00108"), HttpStatusCode.OK);
+        var hitos = seguimiento00108.GetProperty("historialEventos").EnumerateArray()
+            .Select(h => h.GetProperty("descripcionPublica").GetString() ?? string.Empty)
+            .ToList();
+
+        Assert.Contains(hitos, d => d.Contains("Repartidor ingresó a la zona de entrega", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(hitos, d => d.Contains("Repartidor salió de la zona de entrega (Permanencia: 95s)", StringComparison.OrdinalIgnoreCase));
+
+        // 5. Ejecutar /api/mobile/v1/demo/reset y verificar que se limpien los eventos de geocerca
+        await Json(await cliente.PostAsync("/api/mobile/v1/demo/reset", null), HttpStatusCode.OK);
+
+        var seguimientoTrasReset = await Json(await cliente.GetAsync("/api/seguimiento/ENV-2026-00108"), HttpStatusCode.OK);
+        var hitosTrasReset = seguimientoTrasReset.GetProperty("historialEventos").EnumerateArray()
+            .Select(h => h.GetProperty("descripcionPublica").GetString() ?? string.Empty)
+            .ToList();
+
+        Assert.DoesNotContain(hitosTrasReset, d => d.Contains("zona de entrega", StringComparison.OrdinalIgnoreCase));
     }
 }

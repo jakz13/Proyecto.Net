@@ -47,6 +47,7 @@ public static class MauiProgram
 
         // 1c. Telemetría y Geolocalización en Tiempo Real con SignalR (Hito 4 / RNF 6.10, RNF 6.11)
         builder.Services.AddSingleton<IRealtimeTrackingService, RealtimeTrackingService>();
+        builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
         builder.Services.AddSingleton<IGeolocalizacionTrackingService, GeolocalizacionTrackingService>();
 
         // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)

@@ -169,16 +169,43 @@
                                 </Border>
                             </Grid>
 
-                            <!-- Fila 2: Metadatos Estructurados (Zona, Destinatario, Bultos, Horario) -->
+                            <!-- Fila 2: Metadatos Estructurados (Zona, Geocerca/Distancia, Destinatario, Bultos, Horario) -->
                             <VerticalStackLayout Spacing="6">
-                                <HorizontalStackLayout Spacing="6">
-                                    <Label Text="Zona:"
-                                           FontSize="12"
-                                           FontAttributes="Bold"
-                                           TextColor="{StaticResource TextSecondary}" />
-                                    <Label Text="{Binding Ciudad}"
-                                           Style="{StaticResource CaptionLabel}" />
-                                </HorizontalStackLayout>
+                                <FlexLayout Wrap="Wrap"
+                                            Direction="Row"
+                                            JustifyContent="SpaceBetween"
+                                            AlignItems="Center">
+                                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center" Margin="0,0,8,2">
+                                        <Label Text="Zona:"
+                                               FontSize="12"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                        <Label Text="{Binding Ciudad}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </HorizontalStackLayout>
+
+                                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                        <Border IsVisible="{Binding MostrarBadgeGeocerca}"
+                                                BackgroundColor="{Binding GeocercaBgColor}"
+                                                Stroke="{Binding GeocercaBorderColor}"
+                                                StrokeThickness="1"
+                                                StrokeShape="RoundRectangle 10"
+                                                Padding="8,3"
+                                                VerticalOptions="Center">
+                                            <Label Text="{Binding GeocercaTextoBadge}"
+                                                   TextColor="{Binding GeocercaTextColor}"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold" />
+                                        </Border>
+
+                                        <Label IsVisible="{Binding MostrarDistanciaGeocerca}"
+                                               Text="{Binding DistanciaFormateadaTexto}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextSecondary}"
+                                               VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </FlexLayout>
 
                                 <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="12" Margin="0,2,0,0">
                                     <VerticalStackLayout Grid.Column="0" Spacing="1">
@@ -213,23 +240,22 @@
                             <!-- Divisor Estructural Sutil -->
                             <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,2" />
 
-                            <!-- Fila 3: Accesos Rápidos Ergonómicos (se apilan solo si no entran en el ancho) -->
-                            <controls:AdaptiveRow Spacing="8">
-                                <Button Text="Llamar"
-                                        Style="{StaticResource QuickCallButton}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=LlamarClienteCommand}"
-                                        CommandParameter="{Binding .}" />
-
-                                <Button Text="Navegar"
+                            <!-- Fila 3: Accesos Rápidos Ergonómicos -->
+                            <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                                <Button Grid.Column="0"
+                                        Text="Navegar"
                                         Style="{StaticResource QuickMapButton}"
+                                        HorizontalOptions="Fill"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=NavegarAParadaCommand}"
                                         CommandParameter="{Binding .}" />
 
-                                <Button Text="Ver Detalle"
+                                <Button Grid.Column="1"
+                                        Text="Ver Detalle"
                                         Style="{StaticResource SmallActionButton}"
+                                        HorizontalOptions="Fill"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RutaDiaViewModel}}, Path=IrAParadaCommand}"
                                         CommandParameter="{Binding .}" />
-                            </controls:AdaptiveRow>
+                            </Grid>
 
                         </VerticalStackLayout>
                     </Border>
