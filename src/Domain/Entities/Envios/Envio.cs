@@ -781,12 +781,70 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     /// <summary>
     /// Restablece el envío a estado EnTransito (4) para repetición fluida de demostraciones de calle (Demo Reset).
     /// </summary>
+    public (EventoEnvio Evento, bool Idempotente) RegistrarEventoGeocerca(
+        string tipoEventoGeocerca,
+        double latitud,
+        double longitud,
+        double distanciaMetros,
+        int? tiempoPermanenciaSegundos = null,
+        Guid? responsableUsuarioId = null)
+    {
+        if (string.IsNullOrWhiteSpace(tipoEventoGeocerca))
+            throw new DomainValidationException("El tipo de evento de geocerca no puede ser vacío.");
+
+        if (double.IsNaN(latitud) || latitud < -90 || latitud > 90)
+            throw new DomainValidationException("La latitud de la geocerca debe estar entre -90 y 90 grados.");
+
+        if (double.IsNaN(longitud) || longitud < -180 || longitud > 180)
+            throw new DomainValidationException("La longitud de la geocerca debe estar entre -180 y 180 grados.");
+
+        if (double.IsNaN(distanciaMetros) || distanciaMetros < 0)
+            throw new DomainValidationException("La distancia en metros a la parada no puede ser negativa.");
+
+        string tipoNormalizado = tipoEventoGeocerca.Trim().ToUpperInvariant() switch
+        {
+            "LLEGADA_GEOCERCA" or "LLEGADAGEOCERCA" => "LlegadaGeocerca",
+            "SALIDA_GEOCERCA" or "SALIDAGEOCERCA" => "SalidaGeocerca",
+            _ => throw new DomainValidationException($"Tipo de evento de geocerca no válido: '{tipoEventoGeocerca}'. Use 'LLEGADA_GEOCERCA' o 'SALIDA_GEOCERCA'.")
+        };
+
+        var ultimoEventoGeocerca = _eventos
+            .LastOrDefault(e => e.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca");
+
+        if (ultimoEventoGeocerca is not null && ultimoEventoGeocerca.TipoEvento == tipoNormalizado)
+        {
+            return (ultimoEventoGeocerca, true);
+        }
+
+        string descripcionPublica = tipoNormalizado == "LlegadaGeocerca"
+            ? $"Repartidor ingresó a la zona de entrega (Geocerca < 100m, distancia: {Math.Round(distanciaMetros)}m)"
+            : $"Repartidor salió de la zona de entrega (Permanencia: {Math.Max(0, tiempoPermanenciaSegundos ?? 0)}s)";
+
+        var nuevoEvento = new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            tipoNormalizado,
+            EstadoActual,
+            EstadoActual,
+            "MobileApp",
+            responsableUsuarioId,
+            latitud,
+            longitud,
+            descripcionPublica);
+
+        _eventos.Add(nuevoEvento);
+        SelloModificacion = Guid.NewGuid();
+
+        return (nuevoEvento, false);
+    }
+
     public void ReiniciarParaDemoEnTransito(Guid hojaDeRutaId)
     {
         HojaDeRutaId = hojaDeRutaId;
         EstadoActual = EstadoEnvio.EnTransito;
         SelloModificacion = Guid.NewGuid();
         _intentosEntrega.Clear();
+        _eventos.RemoveAll(e => e.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "ReinicioDemo");
         foreach (var bulto in _bultos)
         {
             bulto.MarcarCargadoEnVehiculo();
