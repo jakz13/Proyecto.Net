@@ -3,6 +3,9 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Seguimiento;
 
+/// <summary>
+/// Representa el intento o registro de entrega de un aviso/webhook hacia los sistemas del comercio (UC-29, UC-30, RF-28).
+/// </summary>
 public class AvisoComercio : Entity
 {
     public Guid SuscripcionAvisoId { get; private set; }
@@ -57,6 +60,14 @@ public class AvisoComercio : Entity
         Estado = "Reintentando";
     }
 
+    public void MarcarFallido(string respuestaHttp)
+    {
+        Intentos++;
+        UltimaRespuestaHttp = respuestaHttp;
+        ProximoReintento = null;
+        Estado = "Fallido";
+    }
+
     /// <summary>Los reintentos automáticos se agotaron: el aviso queda en la cola de fallidos para reenvío manual (UC-30).</summary>
     public void MarcarAgotado(string respuestaHttp)
     {
@@ -83,5 +94,15 @@ public class AvisoComercio : Entity
         Estado = "Pendiente";
         Intentos = 0;
         ProximoReintento = null;
+    }
+
+    /// <summary>Reenvío solicitado por el propio comercio desde su portal: conserva el contador de intentos y se reintenta de inmediato (UC-30).</summary>
+    public void SolicitarReenvioManual()
+    {
+        if (Estado == "Entregado")
+            throw new DomainValidationException("El aviso ya fue entregado exitosamente y no requiere reenvío manual.");
+
+        Estado = "Reintentando";
+        ProximoReintento = DateTime.UtcNow;
     }
 }

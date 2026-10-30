@@ -2,9 +2,10 @@
 @inject IIdentidadVisualApi IdentidadApi
 @inject MockContextoOperador ContextoOperador
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navegador
 @implements IDisposable
 
-@* Inyección dinámica de variables CSS de identidad visual del operador *@
+@* Inyección dinámica de variables CSS de identidad visual del operador con transición suave *@
 <style>
     :root {
         --color-primario: @colorPrimarioValido;
@@ -15,34 +16,94 @@
 </style>
 
 <div class="page d-flex flex-column min-vh-100">
-    <SelectorOperadorDemo AlCambiar="CargarIdentidadVisual" />
-
     <!-- Barra de Navegación Superior -->
-    <header class="navbar navbar-expand-lg navbar-dark bg-marca-primario shadow-sm py-2">
+    <header class="navbar navbar-expand-lg navbar-dark bg-marca-primario shadow-sm py-2 transicion-suave">
         <div class="container-fluid px-3 px-md-4">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white text-decoration-none" href="">
-                @if (!string.IsNullOrEmpty(identidad.LogoUrl))
+            <!-- Selector de Operador Logístico / Identidad Visual (Superior Izquierda) -->
+            <div class="d-flex align-items-center position-relative">
+                @if (operadoresDisponibles.Count >= 2)
                 {
-                    <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" height="32" />
+                    <div class="dropdown">
+                        <button class="btn btn-link text-white text-decoration-none p-0 d-flex align-items-center gap-2 border-0 boton-selector-operador"
+                                type="button"
+                                @onclick="AlternarMenuOperadores"
+                                aria-expanded="@desplegableOperadoresAbierto"
+                                title="Cambiar operador logístico">
+                            @if (!string.IsNullOrEmpty(identidad.LogoUrl))
+                            {
+                                <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" height="32" class="rounded transicion-suave" />
+                            }
+                            else
+                            {
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave"
+                                     style="width: 32px; height: 32px; font-size: 0.95rem;">
+                                    @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
+                                </div>
+                            }
+                            <span class="fw-bold fs-6">@identidad.NombreComercial</span>
+                            <!-- Flecha hacia abajo indicando selector de múltiples operadores -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-chevron-down flecha-desplegable ms-1 @(desplegableOperadoresAbierto ? "flecha-rotada" : "")" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+                            </svg>
+                        </button>
+
+                        @if (desplegableOperadoresAbierto)
+                        {
+                            <!-- Fondo invisible para cerrar el menú al hacer clic fuera -->
+                            <div class="dropdown-backdrop-transparente" @onclick="CerrarMenuOperadores"></div>
+
+                            <div class="dropdown-menu dropdown-menu-start show shadow-lg border-0 rounded-3 mt-2 p-2 menu-operadores-flotante">
+                                <div class="px-3 py-1 mb-1 text-uppercase text-muted fw-bold" style="font-size: 0.68rem; letter-spacing: 0.05em;">
+                                    Operadores Disponibles (@operadoresDisponibles.Count)
+                                </div>
+                                @foreach (var operador in operadoresDisponibles)
+                                {
+                                    var esSeleccionado = operador.OperadorId == identidad.OperadorId;
+                                    <button type="button"
+                                            class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 mb-1 @(esSeleccionado ? "active fw-semibold" : "")"
+                                            @onclick="() => SeleccionarOperadorAsync(operador.OperadorId)">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="punto-color-operador" style="background-color: @operador.ColorPrimario;"></span>
+                                            <span>@operador.NombreComercial</span>
+                                        </div>
+                                        @if (esSeleccionado)
+                                        {
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2 ms-2" viewBox="0 0 16 16">
+                                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0"/>
+                                            </svg>
+                                        }
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
                 }
                 else
                 {
-                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold"
-                         style="width: 32px; height: 32px; font-size: 0.95rem;">
-                        @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
+                    <!-- Si el comercio pertenece a un único operador -->
+                    <div class="d-flex align-items-center gap-2 fw-bold text-white">
+                        @if (!string.IsNullOrEmpty(identidad.LogoUrl))
+                        {
+                            <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" height="32" class="rounded transicion-suave" />
+                        }
+                        else
+                        {
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave"
+                                 style="width: 32px; height: 32px; font-size: 0.95rem;">
+                                @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
+                            </div>
+                        }
+                        <span class="fs-6">@identidad.NombreComercial</span>
                     </div>
                 }
-                <span>@identidad.NombreComercial</span>
-                <span class="badge bg-white text-dark ms-2 fw-semibold" style="font-size: 0.75rem;">Portal del Comercio</span>
-            </a>
+            </div>
 
-            <!-- Usuario Autenticado / Claims Display (Regla 1) -->
+            <!-- Usuario Autenticado / Claims Display (Sin texto de perfil) -->
             <div class="d-flex align-items-center gap-3">
                 <AuthorizeView>
                     <Authorized>
-                        <div class="d-none d-sm-block text-end text-white small">
-                            <div class="fw-semibold">@context.User.Identity?.Name</div>
-                            <div class="opacity-75" style="font-size: 0.8rem;">Perfil: @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
+                        <div class="d-none d-sm-block text-end text-white">
+                            <div class="fw-semibold" style="font-size: 0.88rem;">@context.User.Identity?.Name</div>
                         </div>
                     </Authorized>
                     <NotAuthorized>
@@ -67,15 +128,19 @@
         </div>
     </div>
 
+    <!-- Pie de Página Limpio -->
     <footer class="bg-white border-top py-3 text-center text-muted small mt-auto">
         <div class="container-fluid">
-            Operador logístico: <strong>@identidad.NombreComercial</strong> &copy; 2026. Todos los derechos reservados.
+            &copy; 2026 Última Milla. Plataforma de Gestión Logística.
         </div>
     </footer>
 </div>
 
 @code {
     private IdentidadVisualDto identidad = new();
+    private IReadOnlyList<IdentidadVisualDto> operadoresDisponibles = [];
+    private bool desplegableOperadoresAbierto = false;
+
     private string colorPrimarioValido = "#1D4ED8";
     private string colorSecundarioValido = "#F97316";
     private string colorTextoPrimario = "#FFFFFF";
@@ -84,7 +149,28 @@
     protected override async Task OnInitializedAsync()
     {
         ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
+        await CargarOperadoresDisponibles();
         await CargarIdentidadVisual();
+    }
+
+    private async Task CargarOperadoresDisponibles()
+    {
+        try
+        {
+            var lista = await IdentidadApi.ListarOperadoresDemoAsync();
+            if (lista != null && lista.Count > 0)
+            {
+                operadoresDisponibles = lista;
+            }
+            else
+            {
+                operadoresDisponibles = ContextoOperador.ListarOperadores();
+            }
+        }
+        catch
+        {
+            operadoresDisponibles = ContextoOperador.ListarOperadores();
+        }
     }
 
     private async Task CargarIdentidadVisual()
@@ -95,8 +181,8 @@
         }
         catch
         {
-            // En caso de fallo de red o backend no disponible en modo sin mocks, mantiene identidad por defecto
-            identidad = new IdentidadVisualDto();
+            // En caso de fallo de red o backend no disponible, mantiene la identidad activa del contexto
+            identidad = ContextoOperador.OperadorActivo ?? new IdentidadVisualDto();
         }
 
         colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
@@ -106,6 +192,25 @@
         colorTextoSecundario = ColorUtil.ObtenerColorTextoParaFondo(colorSecundarioValido);
 
         StateHasChanged();
+    }
+
+    private void AlternarMenuOperadores()
+    {
+        desplegableOperadoresAbierto = !desplegableOperadoresAbierto;
+    }
+
+    private void CerrarMenuOperadores()
+    {
+        desplegableOperadoresAbierto = false;
+    }
+
+    private async Task SeleccionarOperadorAsync(string operadorId)
+    {
+        desplegableOperadoresAbierto = false;
+        ContextoOperador.SeleccionarOperador(operadorId);
+        await CargarIdentidadVisual();
+        // Redirige al Dashboard del comercio para aislar la información del operador anterior y cargar el nuevo operador
+        Navegador.NavigateTo("", forceLoad: true);
     }
 
     private void ManejarCambioOperador()

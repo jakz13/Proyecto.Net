@@ -47,3 +47,9 @@ public interface ISolicitudReprogramacionRepository
     Task<int> ContarAprobadasAsync(Guid envioId, CancellationToken cancellationToken = default);
     Task<int> ContarTodasAsync(Guid envioId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Acceso a datos del operador logístico para emisión de etiquetas y documentos de viaje.</summary>
+public interface IOperadorRepository
+{
+    Task<Operador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+}

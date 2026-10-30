@@ -1,0 +1,736 @@
+@page "/avisos"
+@inject IAvisosComercioApi AvisosApi
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Avisos Automáticos y Webhooks · Portal del Comercio</PageTitle>
+
+<div class="d-flex flex-column gap-3">
+    <!-- Encabezado de la página -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 pb-2 border-bottom">
+        <div>
+            <h1 class="h5 fw-bold text-dark mb-1">Configuración y Auditoría de Avisos Automáticos</h1>
+            <p class="text-secondary small mb-0">
+                Configure la URL de webhook de sus sistemas (UC-29) y monitoree / reintente avisos fallidos o agotados (UC-30, RF-28).
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                    disabled="@(cargando || guardando || probando || reintentando)"
+                    @onclick="CargarDatosCompletosAsync">
+                <Icono Nombre="repetir" Tamano="14" />
+                <span>Actualizar</span>
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-marca d-flex align-items-center gap-1"
+                    disabled="@(cargando || guardando || probando || reintentando)"
+                    @onclick="GuardarConfiguracionAsync">
+                @if (guardando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    <span>Guardando...</span>
+                }
+                else
+                {
+                    <Icono Nombre="guardar" Tamano="14" />
+                    <span>Guardar Cambios</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas de estado -->
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger py-2 px-3 small rounded-3 d-flex justify-content-between align-items-center" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <Icono Nombre="alerta" Tamano="16" />
+                <span>@mensajeError</span>
+            </div>
+            <button type="button" class="btn-close btn-sm" aria-label="Cerrar" @onclick="() => mensajeError = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(mensajeExito))
+    {
+        <div class="alert alert-success py-2 px-3 small rounded-3 d-flex justify-content-between align-items-center" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <Icono Nombre="check" Tamano="16" />
+                <span>@mensajeExito</span>
+            </div>
+            <button type="button" class="btn-close btn-sm" aria-label="Cerrar" @onclick="() => mensajeExito = null"></button>
+        </div>
+    }
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando configuración...</span>
+            </div>
+            <div class="text-secondary small mt-2">Cargando configuración y registro de avisos...</div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            <!-- Columna Izquierda: Parámetros del Webhook -->
+            <div class="col-12 col-lg-6 d-flex flex-column gap-3">
+                <!-- Tarjeta 1: URL y Estado -->
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold small text-dark d-flex align-items-center gap-2">
+                            <Icono Nombre="webhook" Tamano="16" />
+                            <span>Endpoint de Recepción (URL)</span>
+                        </span>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="switchActiva"
+                                   @bind="suscripcionActiva" />
+                            <label class="form-check-label small fw-semibold" for="switchActiva">
+                                @(suscripcionActiva ? "Suscripción Activa" : "Pausada")
+                            </label>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="mb-3">
+                            <label for="urlWebhookInput" class="form-label small fw-semibold text-secondary mb-1">
+                                URL del Webhook en su Servidor / API <span class="text-danger">*</span>
+                            </label>
+                            <input type="url"
+                                   id="urlWebhookInput"
+                                   class="form-control form-control-sm font-monospace"
+                                   placeholder="https://api.sucomercio.com/webhooks/ultimamilla"
+                                   @bind="urlWebhook" />
+                            <div class="form-text small" style="font-size: 0.75rem;">
+                                Debe ser una URL accesible vía HTTP o HTTPS (POST). El sistema enviará un payload JSON cada vez que un evento configurado ocurra.
+                            </div>
+                        </div>
+
+                        <!-- Clave Secreta para Validación de Firma HMAC -->
+                        <div class="mb-2">
+                            <label for="claveFirmaInput" class="form-label small fw-semibold text-secondary mb-1">
+                                Clave Secreta de Firma (HMAC SHA-256)
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light">
+                                    <Icono Nombre="candado" Tamano="14" />
+                                </span>
+                                <input type="text"
+                                       id="claveFirmaInput"
+                                       class="form-control font-monospace"
+                                       placeholder="Clave secreta para verificar X-Firma-Sha256"
+                                       @bind="claveFirma" />
+                                <button class="btn btn-outline-secondary"
+                                        type="button"
+                                        title="Copiar al portapapeles"
+                                        @onclick="CopiarClaveFirmaAsync">
+                                    <Icono Nombre="copiar" Tamano="14" />
+                                </button>
+                                <button class="btn btn-outline-secondary"
+                                        type="button"
+                                        title="Generar nueva clave aleatoria"
+                                        @onclick="GenerarNuevaClaveFirma">
+                                    <Icono Nombre="repetir" Tamano="14" />
+                                    <span>Regenerar</span>
+                                </button>
+                            </div>
+                            <div class="form-text small" style="font-size: 0.75rem;">
+                                Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Firma-Sha256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Diagnóstico y Prueba en Vivo -->
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold small text-dark d-flex align-items-center gap-2">
+                            <Icono Nombre="notificacion" Tamano="16" />
+                            <span>Herramienta de Prueba (Ping Diagnóstico)</span>
+                        </span>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+                                disabled="@(probando || guardando || string.IsNullOrWhiteSpace(urlWebhook))"
+                                @onclick="EjecutarPruebaWebhookAsync">
+                            @if (probando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Enviando Ping...</span>
+                            }
+                            else
+                            {
+                                <Icono Nombre="enviar" Tamano="14" />
+                                <span>Probar Webhook (Ping)</span>
+                            }
+                        </button>
+                    </div>
+                    <div class="card-body p-3">
+                        <p class="text-secondary small mb-2" style="font-size: 0.8rem;">
+                            Envíe un payload simulado con un paquete de muestra para certificar que su servidor responde con <span class="badge bg-success-subtle text-success border">HTTP 200 OK</span> y valida la firma correctamente.
+                        </p>
+
+                        @if (resultadoPrueba is not null)
+                        {
+                            <div class="p-2 border rounded-2 bg-light mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold small text-dark">Resultado del Ping:</span>
+                                    <span class="badge @(resultadoPrueba.Exitoso ? "bg-success" : "bg-danger")">
+                                        HTTP @resultadoPrueba.CodigoHttp @(resultadoPrueba.Exitoso ? "OK" : "ERROR")
+                                    </span>
+                                </div>
+                                <div class="small text-secondary mb-2" style="font-size: 0.76rem;">
+                                    @resultadoPrueba.Mensaje
+                                </div>
+                                <div class="mb-1">
+                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Cabecera X-Firma-Sha256 generada:</span>
+                                    <div class="font-monospace text-dark bg-white p-1 rounded border text-break small" style="font-size: 0.7rem;">
+                                        @resultadoPrueba.FirmaGenerada
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Payload JSON enviado:</span>
+                                    <pre class="bg-dark text-light p-2 rounded small mb-0 font-monospace text-break" style="max-height: 140px; overflow-y: auto; font-size: 0.7rem;">@resultadoPrueba.PayloadEnviado</pre>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Catálogo de Eventos Suscritos -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="fw-bold small text-dark d-flex align-items-center gap-2">
+                            <Icono Nombre="campana" Tamano="16" />
+                            <span>Eventos del Ciclo de Vida del Envío</span>
+                        </span>
+                        <div class="d-flex gap-2">
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 text-decoration-none small text-primary"
+                                    @onclick="SeleccionarTodosLosEventos">
+                                Todos
+                            </button>
+                            <span class="text-secondary small">|</span>
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 text-decoration-none small text-secondary"
+                                    @onclick="LimpiarSeleccionEventos">
+                                Ninguno
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <p class="text-secondary small mb-2" style="font-size: 0.8rem;">
+                            Marque los cambios de estado ante los cuales su sistema desea recibir un aviso automático:
+                        </p>
+
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var ev in catalogoEventos)
+                            {
+                                var estaMarcado = eventosSeleccionados.Contains(ev.Codigo);
+                                <div class="p-2 border rounded-2 d-flex align-items-start gap-2 @(estaMarcado ? "bg-light border-primary" : "bg-white")"
+                                     style="cursor: pointer;"
+                                     @onclick="() => AlternarEvento(ev.Codigo)">
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               checked="@estaMarcado"
+                                               id="chk_@ev.Codigo"
+                                               @onchange="() => AlternarEvento(ev.Codigo)" />
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <label class="form-check-label fw-bold text-dark small mb-0" for="chk_@ev.Codigo">
+                                                @ev.Titulo
+                                            </label>
+                                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.65rem;">
+                                                @ev.Categoria
+                                            </span>
+                                        </div>
+                                        <div class="text-secondary" style="font-size: 0.76rem; line-height: 1.3;">
+                                            @ev.Descripcion
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Auditoría, Historial y Reintentos (UC-30, RF-28) -->
+        <div class="card border-0 shadow-sm rounded-3 mt-3">
+            <div class="card-header bg-white py-3 px-3 border-bottom d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+                <div>
+                    <h2 class="h6 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <Icono Nombre="reloj" Tamano="16" />
+                        <span>Historial de Entregas de Avisos y Reintentos (UC-30)</span>
+                    </h2>
+                    <div class="small text-secondary mt-1" style="font-size: 0.78rem;">
+                        Consulte los avisos enviados, verifique su estado HTTP y solicite el reenvío manual ante fallos o entregas agotadas.
+                    </div>
+                </div>
+
+                <!-- Barra de filtros -->
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <div class="input-group input-group-sm" style="max-width: 200px;">
+                        <span class="input-group-text bg-light">
+                            <Icono Nombre="buscar" Tamano="13" />
+                        </span>
+                        <input type="text"
+                               class="form-control"
+                               placeholder="Filtrar tracking..."
+                               @bind="filtroTracking"
+                               @bind:event="oninput"
+                               @onkeyup="FiltrarHistorialAsync" />
+                    </div>
+
+                    <select class="form-select form-select-sm" style="width: auto;" @bind="filtroEstado" @bind:after="FiltrarHistorialAsync">
+                        <option value="todos">Todos los estados</option>
+                        <option value="Entregado">Entregados (200 OK)</option>
+                        <option value="Fallido">Fallidos</option>
+                        <option value="Agotado">Agotados</option>
+                        <option value="Reintentando">Reintentando</option>
+                    </select>
+
+                    <button type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            title="Refrescar lista"
+                            @onclick="FiltrarHistorialAsync">
+                        <Icono Nombre="repetir" Tamano="13" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de avisos -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                        <tr>
+                            <th class="ps-3 py-2">Fecha y Hora</th>
+                            <th class="py-2">Evento</th>
+                            <th class="py-2">Código Envío</th>
+                            <th class="py-2">Respuesta HTTP</th>
+                            <th class="py-2">Intentos</th>
+                            <th class="py-2">Estado</th>
+                            <th class="pe-3 py-2 text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (cargandoHistorial)
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Consultando historial de avisos...
+                                </td>
+                            </tr>
+                        }
+                        else if (historialDetallado.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    No se encontraron avisos con los filtros aplicados.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in historialDetallado)
+                            {
+                                var esFallido = item.Estado != "Entregado";
+                                <tr>
+                                    <td class="ps-3 text-secondary" style="font-size: 0.78rem;">
+                                        @item.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold text-dark">@item.TipoEvento</span>
+                                    </td>
+                                    <td>
+                                        <span class="font-monospace fw-bold text-dark">@item.CodigoSeguimiento</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(item.CodigoRespuestaHttp == 200 ? "bg-success" : "bg-danger")" style="font-size: 0.72rem;">
+                                            @item.CodigoRespuestaHttp @(item.CodigoRespuestaHttp == 200 ? "OK" : "ERROR")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-secondary">@item.Intentos intento(s)</span>
+                                    </td>
+                                    <td>
+                                        @if (item.Estado == "Entregado")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold" style="font-size: 0.72rem;">
+                                                Entregado
+                                            </span>
+                                        }
+                                        else if (item.Estado == "Fallido")
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold" style="font-size: 0.72rem;">
+                                                Fallido
+                                            </span>
+                                        }
+                                        else if (item.Estado == "Agotado")
+                                        {
+                                            <span class="badge bg-dark text-white fw-semibold" style="font-size: 0.72rem;">
+                                                Agotado
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle fw-semibold" style="font-size: 0.72rem;">
+                                                @item.Estado
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="pe-3 text-end">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <button type="button"
+                                                    class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                                    style="font-size: 0.75rem;"
+                                                    title="Ver Payload y Respuesta HTTP"
+                                                    @onclick="() => AbrirDetalleAviso(item)">
+                                                <Icono Nombre="ver" Tamano="13" />
+                                                <span>Detalle</span>
+                                            </button>
+
+                                            @if (esFallido)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
+                                                        style="font-size: 0.75rem;"
+                                                        disabled="@(idAvisoReintentando == item.Id)"
+                                                        @onclick="() => ReintentarAvisoAsync(item.Id)">
+                                                    @if (idAvisoReintentando == item.Id)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm" role="status" style="width: 11px; height: 11px;"></span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <Icono Nombre="repetir" Tamano="13" />
+                                                    }
+                                                    <span>Reintentar</span>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal de Detalle de Aviso y Payload -->
+@if (avisoSeleccionadoParaVer is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg border-0 rounded-3">
+                <div class="modal-header py-2 px-3 bg-light border-bottom">
+                    <h5 class="modal-title h6 fw-bold mb-0 text-dark">
+                        Detalle del Aviso al Webhook: <span class="font-monospace text-primary">@avisoSeleccionadoParaVer.CodigoSeguimiento</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-sm" aria-label="Cerrar" @onclick="CerrarDetalleAviso"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="row g-2 mb-3 small">
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary fw-semibold">Tipo de Evento:</span>
+                            <div class="fw-bold text-dark">@avisoSeleccionadoParaVer.TipoEvento</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary fw-semibold">Estado:</span>
+                            <div>
+                                <span class="badge @(avisoSeleccionadoParaVer.Estado == "Entregado" ? "bg-success" : "bg-danger")">
+                                    @avisoSeleccionadoParaVer.Estado (HTTP @avisoSeleccionadoParaVer.CodigoRespuestaHttp)
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary fw-semibold">Intentos:</span>
+                            <div class="text-dark">@avisoSeleccionadoParaVer.Intentos intento(s)</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <span class="text-secondary fw-semibold">Fecha de Transmisión:</span>
+                            <div class="text-dark">@avisoSeleccionadoParaVer.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</div>
+                        </div>
+                        <div class="col-12 border-top pt-2">
+                            <span class="text-secondary fw-semibold">URL de Destino:</span>
+                            <div class="font-monospace text-dark text-break">@avisoSeleccionadoParaVer.UrlWebhook</div>
+                        </div>
+                        <div class="col-12">
+                            <span class="text-secondary fw-semibold">Firma Enviada (X-Firma-Sha256):</span>
+                            <div class="font-monospace text-dark bg-light p-1 rounded border small text-break">@avisoSeleccionadoParaVer.FirmaEnviada</div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(avisoSeleccionadoParaVer.UltimaRespuestaHttp))
+                        {
+                            <div class="col-12">
+                                <span class="text-secondary fw-semibold">Última Respuesta HTTP del Servidor:</span>
+                                <div class="bg-light p-2 rounded border small font-monospace text-break">
+                                    @avisoSeleccionadoParaVer.UltimaRespuestaHttp
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-1">
+                        <span class="small fw-bold text-secondary">Payload JSON Emitido:</span>
+                    </div>
+                    <pre class="bg-dark text-light p-3 rounded small font-monospace mb-0" style="max-height: 250px; overflow-y: auto; font-size: 0.75rem;">@avisoSeleccionadoParaVer.Payload</pre>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light border-top d-flex justify-content-between">
+                    <div>
+                        @if (avisoSeleccionadoParaVer.Estado != "Entregado")
+                        {
+                            <button type="button"
+                                    class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
+                                    disabled="@(idAvisoReintentando == avisoSeleccionadoParaVer.Id)"
+                                    @onclick="() => ReintentarAvisoAsync(avisoSeleccionadoParaVer.Id)">
+                                <Icono Nombre="repetir" Tamano="14" />
+                                <span>Reintentar Ahora</span>
+                            </button>
+                        }
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CerrarDetalleAviso">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool cargando = true;
+    private bool cargandoHistorial = false;
+    private bool guardando = false;
+    private bool probando = false;
+    private bool reintentando = false;
+    private Guid? idAvisoReintentando;
+
+    private string? mensajeError;
+    private string? mensajeExito;
+
+    private string urlWebhook = string.Empty;
+    private string claveFirma = string.Empty;
+    private bool suscripcionActiva = true;
+    private HashSet<string> eventosSeleccionados = new(StringComparer.OrdinalIgnoreCase);
+
+    private string filtroEstado = "todos";
+    private string filtroTracking = string.Empty;
+
+    private IReadOnlyList<EventoDisponibleDto> catalogoEventos = Array.Empty<EventoDisponibleDto>();
+    private IReadOnlyList<AvisoHistorialDetalleDto> historialDetallado = Array.Empty<AvisoHistorialDetalleDto>();
+    private ResultadoPruebaWebhookDto? resultadoPrueba;
+    private AvisoHistorialDetalleDto? avisoSeleccionadoParaVer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosCompletosAsync();
+    }
+
+    private async Task CargarDatosCompletosAsync()
+    {
+        cargando = true;
+        mensajeError = null;
+
+        try
+        {
+            var config = await AvisosApi.ObtenerConfiguracionAsync();
+            urlWebhook = config.UrlWebhook;
+            claveFirma = config.ClaveFirma;
+            suscripcionActiva = config.Activa;
+            eventosSeleccionados = new HashSet<string>(config.EventosSuscritos, StringComparer.OrdinalIgnoreCase);
+            catalogoEventos = config.CatalogoEventos;
+
+            await FiltrarHistorialAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No fue posible cargar la información de avisos: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task FiltrarHistorialAsync()
+    {
+        cargandoHistorial = true;
+        try
+        {
+            historialDetallado = await AvisosApi.ConsultarHistorialAvisosAsync(
+                estado: filtroEstado == "todos" ? null : filtroEstado,
+                envioId: null,
+                codigoSeguimiento: string.IsNullOrWhiteSpace(filtroTracking) ? null : filtroTracking.Trim());
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al consultar historial de avisos: {ex.Message}";
+        }
+        finally
+        {
+            cargandoHistorial = false;
+        }
+    }
+
+    private void AlternarEvento(string codigoEvento)
+    {
+        if (eventosSeleccionados.Contains(codigoEvento))
+        {
+            eventosSeleccionados.Remove(codigoEvento);
+        }
+        else
+        {
+            eventosSeleccionados.Add(codigoEvento);
+        }
+    }
+
+    private void SeleccionarTodosLosEventos()
+    {
+        eventosSeleccionados = new HashSet<string>(catalogoEventos.Select(e => e.Codigo), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void LimpiarSeleccionEventos()
+    {
+        eventosSeleccionados.Clear();
+    }
+
+    private void GenerarNuevaClaveFirma()
+    {
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        claveFirma = $"sec_live_{Convert.ToHexString(bytes).ToLowerInvariant()}";
+        mensajeExito = "Nueva clave de firma generada. Recuerde presionar 'Guardar Cambios' para persistirla.";
+    }
+
+    private async Task CopiarClaveFirmaAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(claveFirma))
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", claveFirma);
+            mensajeExito = "Clave de firma copiada al portapapeles.";
+        }
+    }
+
+    private async Task GuardarConfiguracionAsync()
+    {
+        mensajeError = null;
+        mensajeExito = null;
+
+        if (string.IsNullOrWhiteSpace(urlWebhook))
+        {
+            mensajeError = "Debe ingresar una URL de webhook para recibir avisos.";
+            return;
+        }
+
+        if (eventosSeleccionados.Count == 0)
+        {
+            mensajeError = "Debe seleccionar al menos un evento para recibir avisos automáticos.";
+            return;
+        }
+
+        guardando = true;
+
+        try
+        {
+            var dto = new GuardarConfiguracionAvisosDto
+            {
+                UrlWebhook = urlWebhook.Trim(),
+                Eventos = eventosSeleccionados.ToList(),
+                ClaveFirma = claveFirma.Trim(),
+                Activa = suscripcionActiva
+            };
+
+            var guardado = await AvisosApi.GuardarConfiguracionAsync(dto);
+            urlWebhook = guardado.UrlWebhook;
+            claveFirma = guardado.ClaveFirma;
+            suscripcionActiva = guardado.Activa;
+            eventosSeleccionados = new HashSet<string>(guardado.EventosSuscritos, StringComparer.OrdinalIgnoreCase);
+            mensajeExito = "Suscripción de avisos guardada con éxito.";
+            await FiltrarHistorialAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = ex.Message;
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task EjecutarPruebaWebhookAsync()
+    {
+        mensajeError = null;
+        probando = true;
+
+        try
+        {
+            resultadoPrueba = await AvisosApi.EnviarPruebaWebhookAsync(urlWebhook);
+            await FiltrarHistorialAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al enviar prueba de webhook: {ex.Message}";
+        }
+        finally
+        {
+            probando = false;
+        }
+    }
+
+    private void AbrirDetalleAviso(AvisoHistorialDetalleDto aviso)
+    {
+        avisoSeleccionadoParaVer = aviso;
+    }
+
+    private void CerrarDetalleAviso()
+    {
+        avisoSeleccionadoParaVer = null;
+    }
+
+    private async Task ReintentarAvisoAsync(Guid avisoId)
+    {
+        mensajeError = null;
+        mensajeExito = null;
+        idAvisoReintentando = avisoId;
+        reintentando = true;
+
+        try
+        {
+            var resultado = await AvisosApi.ReintentarAvisoAsync(avisoId);
+            mensajeExito = $"{resultado.Mensaje} (HTTP {resultado.CodigoHttp})";
+
+            if (avisoSeleccionadoParaVer is not null && avisoSeleccionadoParaVer.Id == avisoId)
+            {
+                avisoSeleccionadoParaVer = avisoSeleccionadoParaVer with
+                {
+                    Estado = resultado.Estado,
+                    CodigoRespuestaHttp = resultado.CodigoHttp,
+                    Intentos = resultado.Intentos
+                };
+            }
+
+            await FiltrarHistorialAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al reintentar aviso: {ex.Message}";
+        }
+        finally
+        {
+            idAvisoReintentando = null;
+            reintentando = false;
+        }
+    }
+}

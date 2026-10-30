@@ -402,6 +402,7 @@ app.MapOperadorConfiguracionEndpoints();
 
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
+app.MapAvisosComercioEndpoints();
 
 // Administración del operador para el Backoffice (comercios, usuarios, zonas, tarifas, reglas, motivos, identidad, flota y mensajería)
 app.MapComerciosBackofficeEndpoints();

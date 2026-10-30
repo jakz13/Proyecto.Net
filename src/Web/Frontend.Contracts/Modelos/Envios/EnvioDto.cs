@@ -22,6 +22,7 @@ public record EnvioDto
     public IReadOnlyList<string>? BultosIdentificaciones { get; init; }
 
     public string? ComercioNombre { get; init; }
+    public string? OperadorNombre { get; init; }
     public string? HojaDeRutaNumero { get; init; }
     public string? RepartidorNombre { get; init; }
     public DateTime? FechaExtravio { get; init; }

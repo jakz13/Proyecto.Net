@@ -190,4 +190,3 @@ public static class GeneradorDocumentoEtiquetas
 
     private static string Escapar(string? valor) => WebUtility.HtmlEncode(valor ?? string.Empty);
 }
-
