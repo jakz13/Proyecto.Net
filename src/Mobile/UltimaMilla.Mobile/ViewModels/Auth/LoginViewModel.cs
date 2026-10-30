@@ -64,7 +64,7 @@ public partial class LoginViewModel : ObservableObject
             {
                 await Shell.Current.DisplayAlertAsync(
                     "Bienvenido",
-                    $"Sesión iniciada como: {Usuario.Trim()}\nToken JWT almacenado de forma segura (RNF 6.3).",
+                    $"Sesión iniciada como: {Usuario.Trim()}\nCredenciales de acceso verificadas correctamente.",
                     "Continuar");
             }
         }

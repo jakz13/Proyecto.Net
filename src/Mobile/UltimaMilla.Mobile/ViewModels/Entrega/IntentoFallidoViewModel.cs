@@ -116,7 +116,7 @@ public partial class IntentoFallidoViewModel : ObservableObject
             {
                 await Shell.Current.DisplayAlertAsync(
                     "Motivo requerido",
-                    "Por favor, seleccione el motivo de no entrega del listado para cumplir con el protocolo UC-21.",
+                    "Por favor, seleccione el motivo de no entrega del listado para registrar el intento fallido.",
                     "Entendido");
             }
             return;
@@ -233,7 +233,7 @@ public partial class IntentoFallidoViewModel : ObservableObject
                     : "Guardado en SQLite cifrado local. Se resolverá la regla operativa (reprogramación / devolución) al sincronizar.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Incidencia Registrada (UC-21)",
+                    "Intento Fallido Registrado",
                     $"El intento fallido por '{MotivoSeleccionado}' fue guardado.\n\n{infoRed}",
                     "Aceptar");
 

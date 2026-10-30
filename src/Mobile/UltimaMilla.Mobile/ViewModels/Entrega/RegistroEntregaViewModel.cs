@@ -81,7 +81,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
         }
 
         var opcion = await Shell.Current.DisplayActionSheetAsync(
-            "Adjuntar Evidencia Fotográfica (POD)",
+            "Adjuntar Evidencia Fotográfica",
             "Cancelar",
             null,
             OpcionTomarFoto,
@@ -190,7 +190,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
         {
             var photo = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
             {
-                Title = "Seleccione fotografía de evidencia (POD)"
+                Title = "Seleccione fotografía de evidencia"
             });
 
             if (photo is null)
@@ -593,7 +593,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
                     : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Entrega Exitosa (UC-20)",
+                    "Confirmar Entrega",
                     $"La entrega a {NombreReceptor.Trim()} fue registrada exitosamente.\n\n{infoRed}",
                     "Finalizar");
 

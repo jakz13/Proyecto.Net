@@ -88,7 +88,7 @@ public partial class ParadaItemViewModel : ObservableObject
         _ => "Pendiente"
     };
 
-    // Helpers visuales para Geocercas (Sección 7.3 - Cero emojis)
+    // Helpers visuales para Geocercas
     public bool MostrarBadgeGeocerca => EnGeocerca;
 
     public bool MostrarDistanciaGeocerca => DistanciaActualMetros.HasValue;
@@ -156,7 +156,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private Color _indicadorConexionDotColor = Color.FromArgb("#DC2626");
 
     // =========================================================================
-    // HITO 4 & SECCIÓN 7.3: TELEMETRÍA, GEOCERCAS Y BATERÍA ADAPTATIVA
+    // TELEMETRÍA, GEOCERCAS Y BATERÍA ADAPTATIVA
     // =========================================================================
     [ObservableProperty]
     private bool _isTrackingGpsActivo = false;
@@ -568,35 +568,6 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             { "Parada", parada }
         });
-    }
-
-    [RelayCommand]
-    private async Task LlamarClienteAsync(ParadaItemViewModel? parada)
-    {
-        if (parada is null || string.IsNullOrWhiteSpace(parada.Telefono))
-            return;
-
-        try
-        {
-            if (PhoneDialer.Default.IsSupported)
-            {
-                PhoneDialer.Default.Open(parada.Telefono);
-            }
-            else
-            {
-                await Launcher.Default.OpenAsync($"tel:{parada.Telefono}");
-            }
-        }
-        catch
-        {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Llamar al Cliente",
-                    $"Marcando a {parada.Destinatario} ({parada.Telefono})...\nSimulación en entorno local.",
-                    "Cerrar");
-            }
-        }
     }
 
     [RelayCommand]

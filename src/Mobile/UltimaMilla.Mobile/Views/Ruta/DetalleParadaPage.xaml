@@ -138,18 +138,13 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <!-- Botones de Acción Ergonómicos en Calle: Llamada y Navegación GPS -->
-                        <controls:AdaptiveRow Spacing="10" Margin="0,4,0,0">
-                            <Button Text="Llamar"
-                                    Style="{StaticResource QuickCallButton}"
-                                    HeightRequest="46"
-                                    Command="{Binding LlamarClienteCommand}" />
-
-                            <Button Text="Abrir Mapa"
-                                    Style="{StaticResource QuickMapButton}"
-                                    HeightRequest="46"
-                                    Command="{Binding NavegarCommand}" />
-                        </controls:AdaptiveRow>
+                        <!-- Acción Rápida de Navegación GPS -->
+                        <Button Text="Abrir Mapa"
+                                Style="{StaticResource QuickMapButton}"
+                                HeightRequest="46"
+                                HorizontalOptions="Fill"
+                                Margin="0,4,0,0"
+                                Command="{Binding NavegarCommand}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -275,8 +270,8 @@
                         HeightRequest="46"
                         FontSize="14.5" />
 
-                <!-- 3. Acción Secundaria (UC-22): Retiro de Devolución en Calle -->
-                <Button Text="Retiro de Devolución (UC-22)"
+                <!-- 3. Acción Secundaria: Retiro de Devolución en Calle -->
+                <Button Text="Retiro de Devolución"
                         Style="{StaticResource SecondaryButton}"
                         Command="{Binding RegistrarRetiroDevolucionCommand}"
                         IsEnabled="{Binding PuedeRegistrarRetiroDevolucion}"

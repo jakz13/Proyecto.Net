@@ -17,9 +17,9 @@
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Control de Carga de Vehículo"
+                    <Label Text="Control de Carga en Vehículo"
                            Style="{StaticResource H2Label}" />
-                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada (UC-18)."
+                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada."
                            Style="{StaticResource BodyLabel}" />
 
                     <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,4" />

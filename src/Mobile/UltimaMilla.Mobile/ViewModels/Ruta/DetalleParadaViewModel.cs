@@ -83,35 +83,6 @@ public partial class DetalleParadaViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task LlamarClienteAsync()
-    {
-        if (Parada is null || string.IsNullOrWhiteSpace(Parada.Telefono))
-            return;
-
-        try
-        {
-            if (PhoneDialer.Default.IsSupported)
-            {
-                PhoneDialer.Default.Open(Parada.Telefono);
-            }
-            else
-            {
-                await Launcher.Default.OpenAsync($"tel:{Parada.Telefono}");
-            }
-        }
-        catch
-        {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Llamar al Cliente",
-                    $"Marcando a {Parada.Destinatario} ({Parada.Telefono})...\nSimulación en entorno de prueba.",
-                    "Cerrar");
-            }
-        }
-    }
-
-    [RelayCommand]
     private async Task NavegarAsync()
     {
         if (Parada is null)
@@ -179,12 +150,12 @@ public partial class DetalleParadaViewModel : ObservableObject
         if (IsBusy || Parada is null)
             return;
 
-        string observaciones = "Retiro de bulto en calle para retorno a depósito (UC-22)";
+        string observaciones = "Retiro de bulto en calle para retorno a depósito";
 
         if (Shell.Current is not null)
         {
             var input = await Shell.Current.DisplayPromptAsync(
-                "Retiro de Devolución (UC-22)",
+                "Retiro de Devolución",
                 "Indique observaciones del retiro del bulto para su retorno al depósito:",
                 "Confirmar Retiro",
                 "Cancelar",
@@ -276,7 +247,7 @@ public partial class DetalleParadaViewModel : ObservableObject
                     : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Retiro Registrado (UC-22)",
+                    "Retiro de Devolución Registrado",
                     $"El retiro de bulto(s) del envío {parada.CodigoSeguimiento} para retorno a depósito fue registrado.\n\n{infoRed}",
                     "Aceptar");
 
