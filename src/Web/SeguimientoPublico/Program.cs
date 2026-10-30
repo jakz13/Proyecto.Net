@@ -26,8 +26,8 @@ if (usarMocks)
 }
 else
 {
-    // Registra la implementación HTTP real para consultar directamente el backend (UC-33)
-    builder.Services.AddScoped<ISeguimientoApi, HttpSeguimientoApi>();
+    // Registra los clientes HTTP reales para consultar directamente el backend (UC-33 e identidad visual)
+    builder.Services.AgregarHttpClientsFrontend(urlBaseApi);
 }
 
 await builder.Build().RunAsync();

@@ -1,90 +1,436 @@
 @page "/envios"
 @inject IEnviosApi EnviosApi
-@inject NavigationManager Navegador
+@inject IJSRuntime JS
 
-<PageTitle>Portal del Comercio — Listado de Envíos (UC-28)</PageTitle>
+<PageTitle>Portal del Comercio — Listado y Seguimiento de Envíos</PageTitle>
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-        <h1 class="h4 fw-bold mb-1">Listado y Seguimiento de Envíos (UC-28)</h1>
-        <p class="text-muted small mb-0">Consulte el estado, historial y destinatarios de sus despachos.</p>
+        <h1 class="h4 fw-bold mb-1">Listado y Seguimiento de Envíos</h1>
+        <p class="text-muted small mb-0">
+            Consulte el estado y la trazabilidad de los envíos propios de su comercio, filtre por estado, fecha o destinatario y descargue etiquetas de bultos admitidos.
+        </p>
     </div>
-    <div class="d-flex align-items-center gap-2">
-        <a href="envios/importar" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
-            <Icono Nombre="subir" Tamano="14" />
-            <span>Carga Masiva (UC-25)</span>
-        </a>
-        <a href="envios/nuevo" class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
-            <Icono Nombre="plus" Tamano="14" />
-            <span>Nuevo Envío (UC-24)</span>
-        </a>
+    <div class="d-flex align-items-center flex-wrap gap-2">
+        @if (CantidadAdmitidosEnPagina > 0)
+        {
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    @onclick="AlternarSeleccionTodosAdmitidos">
+                @(TodosAdmitidosSeleccionados ? "Quitar selección" : $"Seleccionar admitidos ({CantidadAdmitidosEnPagina})")
+            </button>
+        }
+
+        <button type="button"
+                class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
+                @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: false)">
+            <Icono Nombre="imprimir" Tamano="14" />
+            <span>Ver etiquetas (@idsSeleccionados.Count)</span>
+        </button>
+
+        <button type="button"
+                class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
+                disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
+                @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: true)">
+            <Icono Nombre="descargar" Tamano="14" />
+            <span>Descargar etiquetas (@idsSeleccionados.Count)</span>
+        </button>
     </div>
 </div>
 
-<!-- Filtros de Consulta (UC-28) -->
+@if (!string.IsNullOrEmpty(mensajeErrorEtiquetas))
+{
+    <div class="alert alert-danger py-2 px-3 small rounded-3 d-flex justify-content-between align-items-center mb-3" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <Icono Nombre="alerta" Tamano="16" />
+            <span>@mensajeErrorEtiquetas</span>
+        </div>
+        <button type="button" class="btn-close btn-sm" aria-label="Cerrar" @onclick="() => mensajeErrorEtiquetas = null"></button>
+    </div>
+}
+
+<!-- Panel de Seguimiento y Trazabilidad del Envío Seleccionado -->
+@if (envioEnSeguimiento is not null)
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h2 class="h6 fw-bold mb-0 text-dark">
+                    Seguimiento del Envío <span class="font-monospace text-primary">@envioEnSeguimiento.CodigoSeguimiento</span>
+                </h2>
+                <div class="small text-secondary mt-1">
+                    Detalle operativo e historial cronológico de eventos registrados para este despacho.
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                @if (envioEnSeguimiento.Estado == EstadoEnvioDto.Admitido)
+                {
+                    <button type="button"
+                            class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                            disabled="@estaGenerandoEtiquetas"
+                            @onclick="() => GenerarEtiquetaIndividualAsync(envioEnSeguimiento.Id, descargarDirecto: true)">
+                        <Icono Nombre="descargar" Tamano="14" />
+                        <span>Descargar etiqueta</span>
+                    </button>
+                }
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        @onclick="CerrarSeguimientoEnvio">
+                    Cerrar seguimiento
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-4 bg-light">
+            <div class="row g-3 align-items-stretch">
+                <!-- Columna 1: Ficha de datos del envío -->
+                <div class="col-12 col-xl-4 d-flex">
+                    <div class="card border shadow-none rounded-3 w-100 h-100">
+                        <div class="card-header bg-white py-2 px-3 border-bottom">
+                            <span class="small fw-bold text-uppercase text-secondary">Ficha del Despacho</span>
+                        </div>
+                        <div class="card-body p-3 d-flex flex-column justify-content-between">
+                            <div class="row g-3 small">
+                                <div class="col-6">
+                                    <div class="text-secondary fw-semibold">Código de Seguimiento</div>
+                                    <div class="fw-bold font-monospace text-dark">@envioEnSeguimiento.CodigoSeguimiento</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-secondary fw-semibold">Estado Actual</div>
+                                    <div><BadgeEstadoEnvio Estado="@envioEnSeguimiento.Estado" /></div>
+                                </div>
+                                <div class="col-12 border-top pt-2">
+                                    <div class="text-secondary fw-semibold">Destinatario</div>
+                                    <div class="fw-bold text-dark">@envioEnSeguimiento.NombreDestinatario</div>
+                                    @if (!string.IsNullOrWhiteSpace(envioEnSeguimiento.TelefonoDestinatario))
+                                    {
+                                        <div class="text-muted">Tel: @envioEnSeguimiento.TelefonoDestinatario</div>
+                                    }
+                                </div>
+                                <div class="col-12 border-top pt-2">
+                                    <div class="text-secondary fw-semibold">Dirección de Entrega</div>
+                                    <div class="text-dark">@envioEnSeguimiento.DireccionDestino</div>
+                                </div>
+                                <div class="col-6 border-top pt-2">
+                                    <div class="text-secondary fw-semibold">Fecha de Alta</div>
+                                    <div class="text-dark">@envioEnSeguimiento.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                </div>
+                                <div class="col-6 border-top pt-2">
+                                    <div class="text-secondary fw-semibold">Modalidad / Peso</div>
+                                    <div class="text-dark">
+                                        @(string.IsNullOrWhiteSpace(envioEnSeguimiento.ModalidadServicio) ? "Estándar" : envioEnSeguimiento.ModalidadServicio)
+                                        @(envioEnSeguimiento.PesoKg.HasValue ? $" · {envioEnSeguimiento.PesoKg:F2} kg" : "")
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(envioEnSeguimiento.HojaDeRutaNumero) || !string.IsNullOrWhiteSpace(envioEnSeguimiento.RepartidorNombre))
+                                {
+                                    <div class="col-12 border-top pt-2">
+                                        <div class="text-secondary fw-semibold">Asignación Operativa</div>
+                                        <div class="text-dark">
+                                            @(!string.IsNullOrWhiteSpace(envioEnSeguimiento.HojaDeRutaNumero) ? $"Ruta: {envioEnSeguimiento.HojaDeRutaNumero}" : "")
+                                            @(!string.IsNullOrWhiteSpace(envioEnSeguimiento.RepartidorNombre) ? $" · Repartidor: {envioEnSeguimiento.RepartidorNombre}" : "")
+                                        </div>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(envioEnSeguimiento.Observaciones))
+                                {
+                                    <div class="col-12 border-top pt-2">
+                                        <div class="text-secondary fw-semibold">Observaciones</div>
+                                        <div class="text-muted">@envioEnSeguimiento.Observaciones</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna 2: Mapa Interactivo de Seguimiento (Leaflet) -->
+                <div class="col-12 col-xl-4 d-flex">
+                    <div class="card border shadow-none rounded-3 w-100 h-100">
+                        <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                            <span class="small fw-bold text-uppercase text-secondary">Mapa de Recorrido y Entrega</span>
+                            <span class="small text-muted">
+                                @((envioEnSeguimiento.Estado == EstadoEnvioDto.EnTransito || envioEnSeguimiento.Estado == EstadoEnvioDto.AsignadoARuta)
+                                    ? "Unidad y paradas en ruta"
+                                    : "Ubicación de parada")
+                            </span>
+                        </div>
+                        <div class="card-body p-0 d-flex flex-column justify-content-between">
+                            <div id="mapaSeguimientoPortalComercio" class="um-mapa-leaflet flex-grow-1" style="min-height: 270px;"></div>
+                            <div class="px-3 py-2 bg-white border-top d-flex flex-wrap gap-3 align-items-center justify-content-between" style="font-size: 0.72rem;">
+                                <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                    <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span>
+                                    Depósito
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                    <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #1D4ED8;"></span>
+                                    Parada de entrega
+                                </span>
+                                @if (envioEnSeguimiento.Estado == EstadoEnvioDto.EnTransito || envioEnSeguimiento.Estado == EstadoEnvioDto.AsignadoARuta)
+                                {
+                                    <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                        <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span>
+                                        Camión de reparto
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna 3: Línea de tiempo de eventos del envío -->
+                <div class="col-12 col-xl-4 d-flex">
+                    <div class="card border shadow-none rounded-3 w-100 h-100">
+                        <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                            <span class="small fw-bold text-uppercase text-secondary">Historial de Eventos de Trazabilidad</span>
+                            <span class="small text-muted">@eventosSeguimiento.Count evento(s)</span>
+                        </div>
+                        <div class="card-body p-3">
+                            @if (estaCargandoSeguimiento)
+                            {
+                                <div class="text-center py-4 text-muted small">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Consultando historial de eventos...
+                                </div>
+                            }
+                            else if (eventosSeguimiento.Count == 0)
+                            {
+                                <div class="text-center py-4 text-muted small">
+                                    No se registran eventos adicionales para este envío.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-3">
+                                    @foreach (var evento in eventosSeguimiento.OrderByDescending(e => e.FechaHora))
+                                    {
+                                        <div class="border-start border-2 border-dark ps-3 py-1">
+                                            <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2">
+                                                <div class="fw-bold small text-dark">
+                                                    <BadgeEstadoEnvio Estado="@evento.NuevoEstado" />
+                                                </div>
+                                                <div class="text-secondary font-monospace" style="font-size: 0.78rem;">
+                                                    @evento.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                </div>
+                                            </div>
+                                            <div class="small text-dark mt-1">@evento.DescripcionEvento</div>
+                                            @if (!string.IsNullOrWhiteSpace(evento.Usuario))
+                                            {
+                                                <div class="text-muted" style="font-size: 0.75rem;">
+                                                    Registrado por: @evento.Usuario
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Panel de Vista Previa y Descarga de Etiquetas Físicas -->
+@if (resultadoEtiquetas is not null)
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h2 class="h6 fw-bold mb-0 text-dark">Etiquetas Generadas para Adherir al Bulto</h2>
+                <div class="small text-secondary mt-1">
+                    Se generaron @resultadoEtiquetas.TotalEtiquetasGeneradas etiqueta(s) correspondientes a @resultadoEtiquetas.TotalEnviosSeleccionados envío(s) en estado Admitido.
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button"
+                        class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                        @onclick="ImprimirResultadoActualAsync">
+                    <Icono Nombre="imprimir" Tamano="14" />
+                    <span>Imprimir</span>
+                </button>
+                <button type="button"
+                        class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1"
+                        @onclick="DescargarResultadoActualAsync">
+                    <Icono Nombre="descargar" Tamano="14" />
+                    <span>Descargar archivo (@resultadoEtiquetas.NombreArchivoDescarga)</span>
+                </button>
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        @onclick="CerrarVistaPreviaEtiquetas">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-4 bg-light">
+            <div class="row g-3 align-items-stretch">
+                @foreach (var etiqueta in resultadoEtiquetas.Etiquetas)
+                {
+                    var barras = GeneradorDocumentoEtiquetas.CalcularPatronBarras(etiqueta.IdentificacionBulto);
+                    var anchoSvg = barras.Count > 0 ? barras[^1].PosicionX + barras[^1].Ancho + 8 : 260;
+                    var esExpress = string.Equals(etiqueta.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase);
+
+                    <div class="col-12 col-md-6 col-xl-4 d-flex">
+                        <div class="bg-white border border-2 border-dark rounded-3 p-3 w-100 h-100 d-flex flex-column justify-content-between shadow-sm">
+                            <div>
+                                <!-- Cabecera de la etiqueta física -->
+                                <div class="d-flex justify-content-between align-items-start border-bottom border-2 border-dark pb-2 mb-2">
+                                    <div>
+                                        <div class="fw-bold text-uppercase text-dark" style="font-size: 0.9rem; letter-spacing: 0.03em;">
+                                            @etiqueta.OperadorLogistico
+                                        </div>
+                                        <div class="text-secondary" style="font-size: 0.72rem;">
+                                            Admisión: @etiqueta.FechaAdmision.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                        </div>
+                                    </div>
+                                    <div class="fw-bold text-uppercase @(esExpress ? "text-danger" : "text-dark")" style="font-size: 0.85rem;">
+                                        @(esExpress ? "Express" : "Estándar")
+                                    </div>
+                                </div>
+
+                                <!-- Remitente -->
+                                <div class="border-bottom pb-2 mb-2">
+                                    <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Remitente (Comercio)</div>
+                                    <div class="fw-semibold text-dark small">@etiqueta.ComercioRemitente</div>
+                                </div>
+
+                                <!-- Destinatario y Dirección -->
+                                <div class="border-bottom pb-2 mb-2">
+                                    <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Destinatario y Dirección</div>
+                                    <div class="fw-bold text-dark" style="font-size: 1rem;">@etiqueta.NombreDestinatario</div>
+                                    <div class="fw-medium text-dark small">@etiqueta.DireccionDestino</div>
+                                    @if (!string.IsNullOrWhiteSpace(etiqueta.TelefonoDestinatario))
+                                    {
+                                        <div class="text-secondary small mt-1">Tel: @etiqueta.TelefonoDestinatario</div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(etiqueta.Observaciones))
+                                    {
+                                        <div class="text-secondary small mt-1">Ref: @etiqueta.Observaciones</div>
+                                    }
+                                </div>
+
+                                <!-- Datos de Bulto y Peso -->
+                                <div class="d-flex justify-content-between border-bottom pb-2 mb-3 small">
+                                    <div>
+                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Bulto</div>
+                                        <div class="fw-bold font-monospace text-dark">@etiqueta.NumeroBulto de @etiqueta.TotalBultos</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Peso</div>
+                                        <div class="fw-bold font-monospace text-dark">@etiqueta.PesoKg.ToString("F2") kg</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Estado</div>
+                                        <div class="fw-semibold text-dark">Admitido</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Código de Seguimiento y Código de Barras del Bulto -->
+                            <div class="text-center pt-1">
+                                <div class="font-monospace fw-bold text-dark mb-1" style="font-size: 1.05rem; letter-spacing: 0.05em;">
+                                    @etiqueta.CodigoSeguimiento
+                                </div>
+                                <svg viewBox="0 0 @anchoSvg 56" width="100%" height="56" aria-label="Código de barras @etiqueta.IdentificacionBulto">
+                                    <rect width="@anchoSvg" height="56" fill="#ffffff" />
+                                    @foreach (var barra in barras)
+                                    {
+                                        <rect x="@barra.PosicionX" y="4" width="@barra.Ancho" height="48" fill="#0f172a" />
+                                    }
+                                </svg>
+                                <div class="font-monospace fw-semibold text-secondary mt-1" style="font-size: 0.78rem;">
+                                    ID Bulto: @etiqueta.IdentificacionBulto
+                                </div>
+                                <div class="text-muted mt-2 pt-2 border-top" style="font-size: 0.7rem;">
+                                    Adherir al bulto físico antes de su entrega en depósito
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Filtros de Consulta por Destinatario, Estado y Rango de Fechas -->
 <div class="card border-0 shadow-sm rounded-3 mb-4">
     <div class="card-body p-3">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
-                <label for="filtroBusqueda" class="form-label small fw-semibold text-secondary mb-1">Búsqueda rápida</label>
+                <label for="filtroBusqueda" class="form-label small fw-semibold text-secondary mb-1">Destinatario, código o dirección</label>
                 <input id="filtroBusqueda" type="text" class="form-control form-control-sm"
-                       placeholder="Código, destinatario o dirección..."
+                       placeholder="Ej: Lucía Fernández, TRK-2026-0001 o Bvar. Artigas..."
                        @bind="terminoBusqueda" />
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <label for="filtroEstado" class="form-label small fw-semibold text-secondary mb-1">Estado del envío</label>
                 <select id="filtroEstado" class="form-select form-select-sm" @bind="estadoSeleccionado">
                     <option value="">Todos los estados</option>
                     @foreach (var estado in Enum.GetValues<EstadoEnvioDto>())
                     {
-                        <option value="@estado">@estado</option>
+                        <option value="@estado">@ObtenerEtiquetaEstado(estado)</option>
                     }
                 </select>
             </div>
             <div class="col-6 col-md-2">
-                <label for="filtroFechaDesde" class="form-label small fw-semibold text-secondary mb-1">Desde</label>
+                <label for="filtroFechaDesde" class="form-label small fw-semibold text-secondary mb-1">Fecha desde</label>
                 <input id="filtroFechaDesde" type="date" class="form-control form-control-sm" @bind="fechaDesde" />
             </div>
             <div class="col-6 col-md-2">
-                <label for="filtroFechaHasta" class="form-label small fw-semibold text-secondary mb-1">Hasta</label>
+                <label for="filtroFechaHasta" class="form-label small fw-semibold text-secondary mb-1">Fecha hasta</label>
                 <input id="filtroFechaHasta" type="date" class="form-control form-control-sm" @bind="fechaHasta" />
             </div>
-            <div class="col-6 col-md-1 d-flex gap-1">
-                <button type="button" class="btn btn-dark btn-sm w-100" @onclick="AplicarFiltros">Filtrar</button>
+            <div class="col-6 col-md-2 d-flex gap-1">
+                <button type="button" class="btn btn-dark btn-sm flex-grow-1" @onclick="AplicarFiltros">Filtrar</button>
+                @if (TieneFiltrosActivos)
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="LimpiarFiltros">Limpiar</button>
+                }
             </div>
         </div>
     </div>
 </div>
 
-<!-- Tabla de Envíos Paginada -->
+<!-- Tabla de Envíos Propios Paginada -->
 <div class="card border-0 shadow-sm rounded-3">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light small">
                 <tr>
+                    <th style="width: 42px;" class="text-center">
+                        <input type="checkbox"
+                               class="form-check-input"
+                               title="Seleccionar todos los envíos admitidos de la página"
+                               disabled="@(CantidadAdmitidosEnPagina == 0)"
+                               checked="@TodosAdmitidosSeleccionados"
+                               @onchange="AlternarSeleccionTodosAdmitidos" />
+                    </th>
                     <th>Código de Envío</th>
                     <th>Destinatario</th>
                     <th>Dirección de Destino</th>
                     <th>Fecha de Alta</th>
                     <th>Estado Actual</th>
                     <th class="text-end">Peso (kg)</th>
+                    <th class="text-end">Seguimiento y Etiqueta</th>
                 </tr>
             </thead>
             <tbody>
                 @if (estaCargando)
                 {
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="8" class="text-center py-5 text-muted">
                             <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando envíos...
+                            Cargando envíos del comercio...
                         </td>
                     </tr>
                 }
                 else if (resultadoPaginado.Elementos.Count == 0)
                 {
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
-                            No se encontraron órdenes de envío con los filtros seleccionados.
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            No se encontraron órdenes de envío propias con los filtros seleccionados.
                         </td>
                     </tr>
                 }
@@ -92,9 +438,26 @@
                 {
                     @foreach (var envio in resultadoPaginado.Elementos)
                     {
-                        <tr>
+                        var esAdmitido = envio.Estado == EstadoEnvioDto.Admitido;
+                        var estaSeleccionado = idsSeleccionados.Contains(envio.Id);
+                        var estaEnSeguimiento = envioEnSeguimiento?.Id == envio.Id;
+
+                        <tr class="@(estaSeleccionado || estaEnSeguimiento ? "table-active" : "")">
+                            <td class="text-center">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       disabled="@(!esAdmitido)"
+                                       checked="@estaSeleccionado"
+                                       title="@(esAdmitido ? "Seleccionar envío para imprimir etiqueta" : "Solo los envíos en estado Admitido permiten generar etiqueta")"
+                                       @onchange="() => AlternarSeleccionEnvio(envio)" />
+                            </td>
                             <td>
-                                <span class="fw-bold font-monospace text-primary">@envio.CodigoSeguimiento</span>
+                                <button type="button"
+                                        class="btn btn-link p-0 fw-bold font-monospace text-primary text-decoration-none"
+                                        title="Ver seguimiento y trazabilidad del envío"
+                                        @onclick="() => AbrirSeguimientoEnvioAsync(envio)">
+                                    @envio.CodigoSeguimiento
+                                </button>
                             </td>
                             <td class="fw-medium">@envio.NombreDestinatario</td>
                             <td class="text-muted small">@envio.DireccionDestino</td>
@@ -104,6 +467,34 @@
                             </td>
                             <td class="text-end small">
                                 @(envio.PesoKg.HasValue ? $"{envio.PesoKg:F2} kg" : "-")
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex align-items-center justify-content-end gap-1 flex-wrap">
+                                    <button type="button"
+                                            class="btn @(estaEnSeguimiento ? "btn-dark" : "btn-outline-secondary") btn-sm py-0 px-2 small"
+                                            title="Consultar detalle e historial de eventos del envío"
+                                            @onclick="() => AbrirSeguimientoEnvioAsync(envio)">
+                                        Seguimiento
+                                    </button>
+                                    @if (esAdmitido)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-dark btn-sm py-0 px-2 small"
+                                                title="Ver etiqueta en pantalla"
+                                                disabled="@estaGenerandoEtiquetas"
+                                                @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: false)">
+                                            Etiqueta
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm py-0 px-2 small d-inline-flex align-items-center gap-1"
+                                                title="Descargar etiqueta lista para imprimir"
+                                                disabled="@estaGenerandoEtiquetas"
+                                                @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: true)">
+                                            <Icono Nombre="descargar" Tamano="12" />
+                                            <span>Descargar</span>
+                                        </button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -117,7 +508,7 @@
     {
         <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 px-3 border-top">
             <span class="small text-muted">
-                Mostrando página @resultadoPaginado.PaginaActual de @resultadoPaginado.TotalPaginas (@resultadoPaginado.TotalRegistros registros en total)
+                Mostrando página @resultadoPaginado.PaginaActual de @resultadoPaginado.TotalPaginas (@resultadoPaginado.TotalRegistros envíos propios en total)
             </span>
             <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-secondary" disabled="@(!resultadoPaginado.TienePaginaAnterior)" @onclick="() => CambiarPagina(resultadoPaginado.PaginaActual - 1)">
@@ -142,6 +533,15 @@
 @code {
     private ResultadoPaginadoDto<EnvioDto> resultadoPaginado = new();
     private bool estaCargando = true;
+    private bool estaGenerandoEtiquetas = false;
+    private string? mensajeErrorEtiquetas;
+    private ResultadoGeneracionEtiquetasDto? resultadoEtiquetas;
+    private readonly HashSet<Guid> idsSeleccionados = new();
+
+    private EnvioDto? envioEnSeguimiento;
+    private IReadOnlyList<EventoHistorialEnvioDto> eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
+    private bool estaCargandoSeguimiento = false;
+    private bool pendienteRenderizarMapaSeguimiento = false;
 
     private string? terminoBusqueda;
     private EstadoEnvioDto? estadoSeleccionado;
@@ -149,13 +549,219 @@
     private DateTime? fechaHasta;
     private int paginaActual = 1;
 
+    private bool TieneFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(terminoBusqueda) ||
+        estadoSeleccionado.HasValue ||
+        fechaDesde.HasValue ||
+        fechaHasta.HasValue;
+
+    private List<EnvioDto> EnviosAdmitidosEnPagina =>
+        resultadoPaginado.Elementos.Where(e => e.Estado == EstadoEnvioDto.Admitido).ToList();
+
+    private int CantidadAdmitidosEnPagina => EnviosAdmitidosEnPagina.Count;
+
+    private bool TodosAdmitidosSeleccionados =>
+        CantidadAdmitidosEnPagina > 0 && EnviosAdmitidosEnPagina.All(e => idsSeleccionados.Contains(e.Id));
+
     protected override async Task OnInitializedAsync()
     {
         await CargarEnvios();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendienteRenderizarMapaSeguimiento && envioEnSeguimiento is not null)
+        {
+            pendienteRenderizarMapaSeguimiento = false;
+            try
+            {
+                await JS.InvokeVoidAsync(
+                    "MapasUltimaMilla.renderizarMapaSeguimientoEnvio",
+                    "mapaSeguimientoPortalComercio",
+                    envioEnSeguimiento);
+            }
+            catch
+            {
+                // Evita interrumpir la vista si el runtime de mapas aún está inicializando
+            }
+        }
+    }
+
+    private static string ObtenerEtiquetaEstado(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "Admitido",
+        EstadoEnvioDto.EnDeposito => "En depósito",
+        EstadoEnvioDto.AsignadoARuta => "Asignado a ruta",
+        EstadoEnvioDto.EnTransito => "En tránsito",
+        EstadoEnvioDto.Entregado => "Entregado",
+        EstadoEnvioDto.NoEntregado => "No entregado",
+        EstadoEnvioDto.Reprogramado => "Reprogramado",
+        EstadoEnvioDto.EnDevolucion => "En devolución",
+        EstadoEnvioDto.Devuelto => "Devuelto",
+        EstadoEnvioDto.Extraviado => "Extraviado",
+        _ => estado.ToString()
+    };
+
+    private async Task AbrirSeguimientoEnvioAsync(EnvioDto envio)
+    {
+        envioEnSeguimiento = envio;
+        estaCargandoSeguimiento = true;
+        pendienteRenderizarMapaSeguimiento = true;
+        eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
+
+        try
+        {
+            var detalleActualizado = await EnviosApi.ObtenerPorIdAsync(envio.Id);
+            if (detalleActualizado is not null)
+            {
+                envioEnSeguimiento = detalleActualizado with
+                {
+                    TelefonoDestinatario = detalleActualizado.TelefonoDestinatario ?? envio.TelefonoDestinatario,
+                    Observaciones = detalleActualizado.Observaciones ?? envio.Observaciones,
+                    HojaDeRutaNumero = detalleActualizado.HojaDeRutaNumero ?? envio.HojaDeRutaNumero,
+                    RepartidorNombre = detalleActualizado.RepartidorNombre ?? envio.RepartidorNombre,
+                    PesoKg = detalleActualizado.PesoKg ?? envio.PesoKg
+                };
+            }
+
+            eventosSeguimiento = await EnviosApi.ObtenerHistorialEnvioAsync(envio.Id);
+            pendienteRenderizarMapaSeguimiento = true;
+        }
+        catch (Exception ex)
+        {
+            mensajeErrorEtiquetas = $"No fue posible cargar el historial del envío: {ex.Message}";
+        }
+        finally
+        {
+            estaCargandoSeguimiento = false;
+        }
+    }
+
+    private void CerrarSeguimientoEnvio()
+    {
+        envioEnSeguimiento = null;
+        eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
+        pendienteRenderizarMapaSeguimiento = false;
+    }
+
+    private void AlternarSeleccionEnvio(EnvioDto envio)
+    {
+        if (envio.Estado != EstadoEnvioDto.Admitido)
+        {
+            return;
+        }
+
+        if (!idsSeleccionados.Add(envio.Id))
+        {
+            idsSeleccionados.Remove(envio.Id);
+        }
+    }
+
+    private void AlternarSeleccionTodosAdmitidos()
+    {
+        var admitidos = EnviosAdmitidosEnPagina;
+        if (admitidos.Count == 0)
+        {
+            return;
+        }
+
+        if (TodosAdmitidosSeleccionados)
+        {
+            foreach (var envio in admitidos)
+            {
+                idsSeleccionados.Remove(envio.Id);
+            }
+        }
+        else
+        {
+            foreach (var envio in admitidos)
+            {
+                idsSeleccionados.Add(envio.Id);
+            }
+        }
+    }
+
+    private async Task GenerarEtiquetaIndividualAsync(Guid envioId, bool descargarDirecto)
+    {
+        await EjecutarGeneracionEtiquetasAsync(new[] { envioId }, descargarDirecto);
+    }
+
+    private async Task GenerarEtiquetasSeleccionadasAsync(bool descargarDirecto)
+    {
+        if (idsSeleccionados.Count == 0)
+        {
+            return;
+        }
+
+        await EjecutarGeneracionEtiquetasAsync(idsSeleccionados.ToList(), descargarDirecto);
+    }
+
+    private async Task EjecutarGeneracionEtiquetasAsync(IReadOnlyList<Guid> ids, bool descargarDirecto)
+    {
+        estaGenerandoEtiquetas = true;
+        mensajeErrorEtiquetas = null;
+
+        try
+        {
+            resultadoEtiquetas = await EnviosApi.GenerarEtiquetasEnviosAsync(ids);
+
+            if (descargarDirecto && resultadoEtiquetas is not null)
+            {
+                await DescargarResultadoActualAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeErrorEtiquetas = ex.Message;
+        }
+        finally
+        {
+            estaGenerandoEtiquetas = false;
+        }
+    }
+
+    private async Task DescargarResultadoActualAsync()
+    {
+        if (resultadoEtiquetas is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync(
+            "descargarArchivoEtiquetas",
+            resultadoEtiquetas.NombreArchivoDescarga,
+            resultadoEtiquetas.ContenidoHtmlDescargable);
+    }
+
+    private async Task ImprimirResultadoActualAsync()
+    {
+        if (resultadoEtiquetas is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync(
+            "imprimirDocumentoEtiquetas",
+            resultadoEtiquetas.ContenidoHtmlDescargable);
+    }
+
+    private void CerrarVistaPreviaEtiquetas()
+    {
+        resultadoEtiquetas = null;
+    }
+
     private async Task AplicarFiltros()
     {
+        paginaActual = 1;
+        await CargarEnvios();
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        terminoBusqueda = null;
+        estadoSeleccionado = null;
+        fechaDesde = null;
+        fechaHasta = null;
         paginaActual = 1;
         await CargarEnvios();
     }
@@ -178,7 +784,8 @@
                 FechaDesde = fechaDesde,
                 FechaHasta = fechaHasta,
                 Pagina = paginaActual,
-                TamanoPagina = 8
+                TamanoPagina = 8,
+                SoloEnviosPropiosComercio = true
             };
 
             resultadoPaginado = await EnviosApi.ListarEnviosAsync(filtro);

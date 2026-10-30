@@ -25,6 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 // Configuración de autenticación para desarrollo y demo móvil
 builder.Services.AddAuthentication(options =>
@@ -413,6 +414,9 @@ app.MapMensajeriaEndpoints();
 app.MapReasignacionesEndpoints();
 app.MapWorkerProcesosEndpoints();
 app.MapHub<TableroHub>("/hubs/tablero");
+
+// Hub de SignalR para streaming de telemetría de operaciones y seguimiento de flota (Hito 4 / RNF 6.10)
+app.MapHub<OperacionHub>("/hubs/operacion");
 
 await app.RunAsync();
 

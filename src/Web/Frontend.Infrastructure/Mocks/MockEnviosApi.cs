@@ -15,6 +15,8 @@ namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 /// </summary>
 public class MockEnviosApi : IEnviosApi
 {
+    public const string ComercioAutenticadoPortal = "MegaStore Uruguay";
+
     private static readonly Dictionary<Guid, List<EventoHistorialEnvioDto>> HistorialPorEnvio = new();
 
     private static readonly List<EnvioDto> EnviosEnMemoria = new()
@@ -28,10 +30,12 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "099 876 543",
             FechaCreacion = DateTime.UtcNow.AddHours(-36),
             Estado = EstadoEnvioDto.Entregado,
+            ModalidadServicio = "Estandar",
+            Tarifa = 205.00m,
             Observaciones = "Entregar en portería si no responde",
             PesoKg = 1.8m,
             VolumenM3 = 0.012m,
-            ComercioNombre = "Farmashop Uruguay",
+            ComercioNombre = ComercioAutenticadoPortal,
             HojaDeRutaNumero = "HDR-2026-0078",
             RepartidorNombre = "Juan Pérez",
             SelloModificacion = "sello-envio-1"
@@ -45,10 +49,12 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "098 111 222",
             FechaCreacion = DateTime.UtcNow.AddHours(-18),
             Estado = EstadoEnvioDto.EnTransito,
+            ModalidadServicio = "Express",
+            Tarifa = 337.50m,
             Observaciones = "Timbre no funciona, llamar al celular",
             PesoKg = 3.5m,
             VolumenM3 = 0.025m,
-            ComercioNombre = "Tienda Inglesa Express",
+            ComercioNombre = ComercioAutenticadoPortal,
             HojaDeRutaNumero = "HDR-2026-0081",
             RepartidorNombre = "Juan Pérez",
             SelloModificacion = "sello-envio-2"
@@ -62,6 +68,8 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "091 444 555",
             FechaCreacion = DateTime.UtcNow.AddHours(-8),
             Estado = EstadoEnvioDto.AsignadoARuta,
+            ModalidadServicio = "Estandar",
+            Tarifa = 175.00m,
             Observaciones = null,
             PesoKg = 0.6m,
             VolumenM3 = 0.005m,
@@ -79,10 +87,12 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "094 888 999",
             FechaCreacion = DateTime.UtcNow.AddHours(-4),
             Estado = EstadoEnvioDto.EnDeposito,
+            ModalidadServicio = "Estandar",
+            Tarifa = 290.00m,
             Observaciones = "Paquete frágil",
             PesoKg = 5.2m,
             VolumenM3 = 0.040m,
-            ComercioNombre = "MercadoLibre Envíos",
+            ComercioNombre = ComercioAutenticadoPortal,
             SelloModificacion = "sello-envio-4"
         },
         new EnvioDto
@@ -94,11 +104,32 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "092 654 321",
             FechaCreacion = DateTime.UtcNow.AddMinutes(-45),
             Estado = EstadoEnvioDto.Admitido,
+            ModalidadServicio = "Estandar",
+            Tarifa = 187.50m,
+            BultosIdentificaciones = new[] { "TRK-2026-0005-B01" },
             Observaciones = "Horario de recepción comercial 9 a 18",
             PesoKg = 1.1m,
             VolumenM3 = 0.008m,
-            ComercioNombre = "Farmashop Uruguay",
+            ComercioNombre = ComercioAutenticadoPortal,
             SelloModificacion = "sello-envio-5"
+        },
+        new EnvioDto
+        {
+            Id = Guid.Parse("33445566-7788-99aa-bbcc-ddeeff001122"),
+            CodigoSeguimiento = "TRK-2026-0009",
+            NombreDestinatario = "Sebastián Morales",
+            DireccionDestino = "Bvar. España 2210 Apto 501, Pocitos, Montevideo",
+            TelefonoDestinatario = "099 456 789",
+            FechaCreacion = DateTime.UtcNow.AddMinutes(-20),
+            Estado = EstadoEnvioDto.Admitido,
+            ModalidadServicio = "Express",
+            Tarifa = 365.00m,
+            BultosIdentificaciones = new[] { "TRK-2026-0009-B01", "TRK-2026-0009-B02" },
+            Observaciones = "Entregar en recepción del edificio",
+            PesoKg = 3.2m,
+            VolumenM3 = 0.022m,
+            ComercioNombre = ComercioAutenticadoPortal,
+            SelloModificacion = "sello-envio-9"
         },
         new EnvioDto
         {
@@ -109,10 +140,12 @@ public class MockEnviosApi : IEnviosApi
             TelefonoDestinatario = "099 900 100",
             FechaCreacion = DateTime.UtcNow.AddDays(-2),
             Estado = EstadoEnvioDto.NoEntregado,
+            ModalidadServicio = "Estandar",
+            Tarifa = 210.00m,
             Observaciones = "Destinatario ausente en primer intento",
             PesoKg = 2.0m,
             VolumenM3 = 0.015m,
-            ComercioNombre = "Óptica San Roque",
+            ComercioNombre = ComercioAutenticadoPortal,
             SelloModificacion = "sello-envio-6"
         },
         new EnvioDto
@@ -156,7 +189,16 @@ public class MockEnviosApi : IEnviosApi
 
     public Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default)
     {
+        ArgumentNullException.ThrowIfNull(filtro);
+
         var consulta = EnviosEnMemoria.AsQueryable();
+
+        // Aislamiento por comercio (UC-28): el portal del comercio muestra únicamente los envíos propios
+        if (filtro.SoloEnviosPropiosComercio)
+        {
+            consulta = consulta.Where(e =>
+                string.Equals(e.ComercioNombre, ComercioAutenticadoPortal, StringComparison.OrdinalIgnoreCase));
+        }
 
         if (filtro.Estado.HasValue)
         {
@@ -217,6 +259,18 @@ public class MockEnviosApi : IEnviosApi
         var nuevoId = Guid.NewGuid();
         var codigoSeguimiento = $"TRK-2026-{Interlocked.Increment(ref _contadorSecuencial):D4}";
 
+        var totalBultos = nuevoEnvio.Bultos?.Count > 0 ? nuevoEnvio.Bultos.Count : 1;
+        var totalPeso = nuevoEnvio.PesoKg.HasValue && nuevoEnvio.PesoKg > 0 ? nuevoEnvio.PesoKg.Value : 1.0m;
+        var esExpress = nuevoEnvio.ModalidadServicio?.Equals("Express", StringComparison.OrdinalIgnoreCase) == true;
+
+        // Cálculo de tarifa según cuadro tarifario (base de modalidad + tramos de peso + recargo por bultos adicionales)
+        var baseTarifa = esExpress ? 250m : 160m;
+        var tarifaCalculada = baseTarifa + (totalPeso * 25m) + ((totalBultos - 1) * 35m);
+
+        var identificacionesBultos = Enumerable.Range(1, totalBultos)
+            .Select(i => $"{codigoSeguimiento}-B{i:D2}")
+            .ToList();
+
         var entidad = new EnvioDto
         {
             Id = nuevoId,
@@ -227,9 +281,12 @@ public class MockEnviosApi : IEnviosApi
             FechaCreacion = DateTime.UtcNow,
             Estado = EstadoEnvioDto.Admitido,
             Observaciones = nuevoEnvio.Observaciones?.Trim(),
-            PesoKg = nuevoEnvio.PesoKg,
+            PesoKg = totalPeso,
             VolumenM3 = nuevoEnvio.VolumenM3,
-            ComercioNombre = "Comercio Portal",
+            Tarifa = tarifaCalculada,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            BultosIdentificaciones = identificacionesBultos,
+            ComercioNombre = ComercioAutenticadoPortal,
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
 
@@ -242,7 +299,7 @@ public class MockEnviosApi : IEnviosApi
             EstadoAnterior = null,
             NuevoEstado = EstadoEnvioDto.Admitido,
             Usuario = "Portal Comercio",
-            DescripcionEvento = "Orden de envío creada y admitida en plataforma."
+            DescripcionEvento = $"Orden de envío creada y admitida. Tarifa calculada: ${tarifaCalculada:F2}. Disponible para recepción en depósito."
         });
 
         return Task.FromResult(entidad);
@@ -360,16 +417,66 @@ public class MockEnviosApi : IEnviosApi
                 });
             }
 
-            if (envio.Estado == EstadoEnvioDto.EnTransito || envio.Estado == EstadoEnvioDto.Entregado || envio.Estado == EstadoEnvioDto.Extraviado)
+            if (envio.Estado >= EstadoEnvioDto.AsignadoARuta)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(4),
+                    EstadoAnterior = EstadoEnvioDto.EnDeposito,
+                    NuevoEstado = EstadoEnvioDto.AsignadoARuta,
+                    Usuario = "Despachador",
+                    DescripcionEvento = $"Envío asignado a hoja de ruta {envio.HojaDeRutaNumero ?? "HDR-2026-0081"}."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.EnTransito ||
+                envio.Estado == EstadoEnvioDto.Entregado ||
+                envio.Estado == EstadoEnvioDto.NoEntregado ||
+                envio.Estado == EstadoEnvioDto.Reprogramado ||
+                envio.Estado == EstadoEnvioDto.EnDevolucion ||
+                envio.Estado == EstadoEnvioDto.Devuelto ||
+                envio.Estado == EstadoEnvioDto.Extraviado)
             {
                 lista.Add(new EventoHistorialEnvioDto
                 {
                     EnvioId = envioId,
                     FechaHora = envio.FechaCreacion.AddHours(5),
-                    EstadoAnterior = EstadoEnvioDto.EnDeposito,
+                    EstadoAnterior = EstadoEnvioDto.AsignadoARuta,
                     NuevoEstado = EstadoEnvioDto.EnTransito,
                     Usuario = "Despachador",
                     DescripcionEvento = $"Bulto cargado y despachado en hoja de ruta {envio.HojaDeRutaNumero ?? "HDR-2026-0081"}."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.Entregado)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(9),
+                    EstadoAnterior = EstadoEnvioDto.EnTransito,
+                    NuevoEstado = EstadoEnvioDto.Entregado,
+                    Usuario = envio.RepartidorNombre ?? "Repartidor",
+                    DescripcionEvento = "Entrega confirmada en domicilio del destinatario con comprobante registrado."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.NoEntregado ||
+                envio.Estado == EstadoEnvioDto.Reprogramado ||
+                envio.Estado == EstadoEnvioDto.EnDevolucion ||
+                envio.Estado == EstadoEnvioDto.Devuelto)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(8),
+                    EstadoAnterior = EstadoEnvioDto.EnTransito,
+                    NuevoEstado = EstadoEnvioDto.NoEntregado,
+                    Usuario = envio.RepartidorNombre ?? "Repartidor",
+                    DescripcionEvento = string.IsNullOrWhiteSpace(envio.Observaciones)
+                        ? "Intento de entrega fallido registrado en ruta."
+                        : $"Intento de entrega sin éxito: {envio.Observaciones}"
                 });
             }
 
@@ -534,7 +641,9 @@ public class MockEnviosApi : IEnviosApi
                 FechaCreacion = DateTime.UtcNow,
                 Estado = EstadoEnvioDto.Admitido,
                 PesoKg = peso,
-                ComercioNombre = "Portal Comercio (Importación Masiva)",
+                Tarifa = tarifaCalculada,
+                ModalidadServicio = "Estandar",
+                ComercioNombre = ComercioAutenticadoPortal,
                 Observaciones = $"Lote {loteId.ToString()[..8]} - Ref: {referencia}"
             };
 
@@ -566,5 +675,230 @@ public class MockEnviosApi : IEnviosApi
 
         LotesPorClave[clave] = resultadoFinal;
         return Task.FromResult(resultadoFinal);
+    }
+
+    private const string ClaveApiDemoSembrada = "dev-api-key-megastore-2026";
+    private static string _claveApiVigente = "um_k9Xz2Lm8Qp4Vn7Rt1Yw5Bc3Df6Gh0Jk2";
+    private static readonly Dictionary<string, RespuestaAltaEnvioApiDto> EnviosPorReferenciaApi = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Obtiene la clave de API vigente del comercio para el operador actual.
+    /// </summary>
+    public Task<string> ObtenerClaveApiActivaAsync(CancellationToken cancelacion = default)
+    {
+        return Task.FromResult(_claveApiVigente);
+    }
+
+    /// <summary>
+    /// Genera una nueva clave de API e invalida la anterior.
+    /// </summary>
+    public Task<ClaveApiComercioDto> RegenerarClaveApiAsync(CancellationToken cancelacion = default)
+    {
+        var nuevaClave = "um_" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(24))
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+
+        _claveApiVigente = nuevaClave;
+
+        var resultado = new ClaveApiComercioDto(
+            nuevaClave,
+            "Guarde esta clave ahora: no volverá a mostrarse. La clave anterior ya no es válida.",
+            DateTime.UtcNow);
+
+        return Task.FromResult(resultado);
+    }
+
+    /// <summary>
+    /// Procesa el alta de un envío invocada desde el sistema del comercio vía API con validación de credenciales, tarifa e idempotencia.
+    /// </summary>
+    public Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
+        SolicitudAltaEnvioApiDto solicitud,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(solicitud);
+
+        if (string.IsNullOrWhiteSpace(solicitud.ClaveApi) ||
+            (!string.Equals(solicitud.ClaveApi.Trim(), _claveApiVigente, StringComparison.Ordinal) &&
+             !string.Equals(solicitud.ClaveApi.Trim(), ClaveApiDemoSembrada, StringComparison.Ordinal)))
+        {
+            throw new ApiExcepcion(HttpStatusCode.Unauthorized, "Clave de API inválida.");
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.NombreDestinatario))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El nombre del destinatario es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.Calle) ||
+            string.IsNullOrWhiteSpace(solicitud.Numero) ||
+            string.IsNullOrWhiteSpace(solicitud.Ciudad))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "La dirección completa (calle, número y ciudad) es obligatoria.");
+        }
+
+        if (solicitud.Bultos is null || solicitud.Bultos.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El envío debe incluir al menos un bulto.");
+        }
+
+        if (solicitud.Bultos.Any(b => b.Peso <= 0 || b.Alto <= 0 || b.Ancho <= 0 || b.Profundo <= 0))
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "Cada bulto debe tener peso y dimensiones mayores a cero.");
+        }
+
+        var referenciaExternaLimpia = string.IsNullOrWhiteSpace(solicitud.ReferenciaExterna)
+            ? null
+            : solicitud.ReferenciaExterna.Trim();
+
+        if (referenciaExternaLimpia is not null &&
+            EnviosPorReferenciaApi.TryGetValue(referenciaExternaLimpia, out var envioPrevio))
+        {
+            return Task.FromResult(envioPrevio with { Duplicado = true });
+        }
+
+        var nuevoId = Guid.NewGuid();
+        var codigoSeguimiento = $"TRK-2026-{Interlocked.Increment(ref _contadorSecuencial):D4}";
+
+        var totalBultos = solicitud.Bultos.Count;
+        var totalPeso = solicitud.Bultos.Sum(b => b.Peso);
+        var totalVolumen = solicitud.Bultos.Sum(b => b.VolumenM3);
+        var esExpress = solicitud.ModalidadServicio.Equals("Express", StringComparison.OrdinalIgnoreCase);
+
+        var baseTarifa = esExpress ? 250m : 160m;
+        var tarifaCalculada = Math.Round(baseTarifa + (totalPeso * 25m) + ((totalBultos - 1) * 35m), 2);
+
+        var identificacionesBultos = Enumerable.Range(1, totalBultos)
+            .Select(i => $"{codigoSeguimiento}-B{i:D2}")
+            .ToList();
+
+        var direccionDestino = $"{solicitud.Calle.Trim()} {solicitud.Numero.Trim()}, {solicitud.Ciudad.Trim()}";
+
+        var entidadEnvio = new EnvioDto
+        {
+            Id = nuevoId,
+            CodigoSeguimiento = codigoSeguimiento,
+            NombreDestinatario = solicitud.NombreDestinatario.Trim(),
+            DireccionDestino = direccionDestino,
+            TelefonoDestinatario = solicitud.Telefono?.Trim(),
+            FechaCreacion = DateTime.UtcNow,
+            Estado = EstadoEnvioDto.Admitido,
+            Observaciones = solicitud.Referencia?.Trim(),
+            PesoKg = totalPeso,
+            VolumenM3 = totalVolumen,
+            Tarifa = tarifaCalculada,
+            ModalidadServicio = esExpress ? "Express" : "Estandar",
+            BultosIdentificaciones = identificacionesBultos,
+            ComercioNombre = ComercioAutenticadoPortal,
+            SelloModificacion = Guid.NewGuid().ToString("N")
+        };
+
+        lock (EnviosEnMemoria)
+        {
+            EnviosEnMemoria.Insert(0, entidadEnvio);
+        }
+
+        RegistrarEventoHistorico(nuevoId, new EventoHistorialEnvioDto
+        {
+            EnvioId = nuevoId,
+            FechaHora = DateTime.UtcNow,
+            EstadoAnterior = null,
+            NuevoEstado = EstadoEnvioDto.Admitido,
+            Usuario = "Integración API",
+            DescripcionEvento = $"Envío admitido por API del comercio{(referenciaExternaLimpia is not null ? $" (Ref: {referenciaExternaLimpia})" : "")}. Tarifa calculada: ${tarifaCalculada:F2}."
+        });
+
+        var respuesta = new RespuestaAltaEnvioApiDto(
+            nuevoId,
+            codigoSeguimiento,
+            "Admitido",
+            tarifaCalculada,
+            identificacionesBultos,
+            Duplicado: false);
+
+        if (referenciaExternaLimpia is not null)
+        {
+            EnviosPorReferenciaApi[referenciaExternaLimpia] = respuesta;
+        }
+
+        return Task.FromResult(respuesta);
+    }
+
+    /// <summary>
+    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido (UC-27).
+    /// </summary>
+    public Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
+        IReadOnlyList<Guid> envioIds,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(envioIds);
+
+        var idsUnicos = envioIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (idsUnicos.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "Debe seleccionar al menos un envío válido para generar etiquetas.");
+        }
+
+        var etiquetas = new List<EtiquetaBultoDto>();
+
+        lock (EnviosEnMemoria)
+        {
+            foreach (var envioId in idsUnicos)
+            {
+                var envio = EnviosEnMemoria.FirstOrDefault(e => e.Id == envioId);
+                if (envio is null)
+                {
+                    throw new ApiExcepcion(HttpStatusCode.NotFound, $"No se encontró el envío con identificador '{envioId}'.");
+                }
+
+                // Precondición de UC-27: el envío debe estar en estado Admitido
+                if (envio.Estado != EstadoEnvioDto.Admitido)
+                {
+                    throw new ApiExcepcion(
+                        HttpStatusCode.BadRequest,
+                        $"El envío '{envio.CodigoSeguimiento}' se encuentra en estado '{envio.Estado}'. Solo se pueden generar etiquetas para envíos en estado Admitido.");
+                }
+
+                var identificacionesBultos = (envio.BultosIdentificaciones != null && envio.BultosIdentificaciones.Count > 0)
+                    ? envio.BultosIdentificaciones
+                    : new[] { $"{envio.CodigoSeguimiento}-B01" };
+
+                var totalBultos = identificacionesBultos.Count;
+                var pesoTotal = envio.PesoKg.HasValue && envio.PesoKg.Value > 0 ? envio.PesoKg.Value : 1.0m;
+                var pesoPorBulto = Math.Round(pesoTotal / totalBultos, 2);
+
+                for (var i = 0; i < totalBultos; i++)
+                {
+                    etiquetas.Add(new EtiquetaBultoDto(
+                        envio.Id,
+                        envio.CodigoSeguimiento,
+                        identificacionesBultos[i],
+                        i + 1,
+                        totalBultos,
+                        string.IsNullOrWhiteSpace(envio.ComercioNombre) ? "MegaStore Uruguay" : envio.ComercioNombre,
+                        "Última Milla Express",
+                        envio.NombreDestinatario,
+                        envio.DireccionDestino,
+                        envio.TelefonoDestinatario,
+                        string.IsNullOrWhiteSpace(envio.ModalidadServicio) ? "Estandar" : envio.ModalidadServicio,
+                        pesoPorBulto,
+                        envio.Observaciones,
+                        envio.FechaCreacion));
+                }
+            }
+        }
+
+        var nombreArchivo = idsUnicos.Count == 1
+            ? $"etiqueta-{etiquetas[0].CodigoSeguimiento.ToLowerInvariant()}.html"
+            : $"etiquetas-envios-{DateTime.UtcNow:yyyyMMdd-HHmm}.html";
+
+        var htmlDescargable = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(etiquetas);
+
+        return Task.FromResult(new ResultadoGeneracionEtiquetasDto(
+            etiquetas,
+            idsUnicos.Count,
+            etiquetas.Count,
+            nombreArchivo,
+            htmlDescargable));
     }
 }

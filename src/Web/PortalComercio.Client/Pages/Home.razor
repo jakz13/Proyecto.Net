@@ -12,7 +12,7 @@
     <div class="d-flex gap-2">
         <button class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1" @onclick='() => Navegador.NavigateTo("envios/nuevo")'>
             <Icono Nombre="plus" Tamano="14" />
-            <span>Nuevo Envío (UC-24)</span>
+            <span>Nuevo Envío</span>
         </button>
     </div>
 </div>
@@ -119,12 +119,26 @@
         estaCargando = true;
         try
         {
-            var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto { Pagina = 1, TamanoPagina = 20 });
+            var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto
+            {
+                Pagina = 1,
+                TamanoPagina = 20,
+                SoloEnviosPropiosComercio = true
+            });
             totalEnvios = resultado.TotalRegistros;
             enTransito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnTransito);
             entregados = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.Entregado);
             enDeposito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnDeposito);
             enviosRecientes = resultado.Elementos.Take(5).ToList();
+        }
+        catch
+        {
+            // Evita bloquear la carga inicial si la API backend aún no responde en modo sin mocks
+            totalEnvios = 0;
+            enTransito = 0;
+            entregados = 0;
+            enDeposito = 0;
+            enviosRecientes = new();
         }
         finally
         {

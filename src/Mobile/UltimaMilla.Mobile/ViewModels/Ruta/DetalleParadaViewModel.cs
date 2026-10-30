@@ -1,6 +1,9 @@
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Views.Entrega;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -8,15 +11,30 @@ namespace UltimaMilla.Mobile.ViewModels.Ruta;
 [QueryProperty(nameof(Parada), "Parada")]
 public partial class DetalleParadaViewModel : ObservableObject
 {
+    private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneNotasComercio))]
     [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
     [NotifyPropertyChangedFor(nameof(PuedeAccionar))]
+    [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
     private ParadaItemViewModel? _parada;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeAccionar))]
+    [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
+    private bool _isBusy;
 
     public bool TieneNotasComercio => !string.IsNullOrWhiteSpace(Parada?.NotasComercio);
 
-    public bool PuedeAccionar => Parada?.Estado == "Pendiente";
+    public bool PuedeAccionar => Parada?.Estado == "Pendiente" && !IsBusy;
+
+    public bool PuedeRegistrarRetiroDevolucion =>
+        Parada is not null &&
+        Parada.Estado != "Entregado" &&
+        Parada.Estado != "EnDevolucion" &&
+        !IsBusy;
 
     public string ResumenBultosTexto
     {
@@ -30,8 +48,15 @@ public partial class DetalleParadaViewModel : ObservableObject
         }
     }
 
-    public DetalleParadaViewModel()
+    public DetalleParadaViewModel() : this(null, null)
     {
+    }
+
+    public DetalleParadaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null)
+    {
+        _localDatabaseService = localDatabaseService;
+        _syncService = syncService;
+
         // Mock por defecto para previsualización directa
         _parada = new ParadaItemViewModel
         {
@@ -146,6 +171,122 @@ public partial class DetalleParadaViewModel : ObservableObject
         {
             { "Parada", Parada }
         });
+    }
+
+    [RelayCommand]
+    private async Task RegistrarRetiroDevolucionAsync()
+    {
+        if (IsBusy || Parada is null)
+            return;
+
+        string observaciones = "Retiro de bulto en calle para retorno a depósito (UC-22)";
+
+        if (Shell.Current is not null)
+        {
+            var input = await Shell.Current.DisplayPromptAsync(
+                "Retiro de Devolución (UC-22)",
+                "Indique observaciones del retiro del bulto para su retorno al depósito:",
+                "Confirmar Retiro",
+                "Cancelar",
+                "Ej: Bulto retirado en domicilio para devolución",
+                initialValue: "Bulto retirado para devolución a depósito");
+
+            if (input is null)
+                return;
+
+            if (!string.IsNullOrWhiteSpace(input))
+                observaciones = input.Trim();
+        }
+
+        try
+        {
+            IsBusy = true;
+
+            var parada = Parada;
+            var hojaDeRutaId = (parada.HojaDeRutaId != Guid.Empty)
+                ? parada.HojaDeRutaId
+                : DemoDataDefaults.DefaultHojaDeRutaId;
+
+            var paradaId = (parada.Id != Guid.Empty)
+                ? parada.Id
+                : (parada.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
+                    _ => DemoDataDefaults.Parada3Id
+                });
+
+            var envioId = (parada.EnvioId != Guid.Empty)
+                ? parada.EnvioId
+                : (parada.CodigoSeguimiento switch
+                {
+                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
+                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
+                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
+                    _ => DemoDataDefaults.Envio3Id
+                });
+
+            var payload = new RetiroDevolucionOfflinePayload
+            {
+                HojaDeRutaId = hojaDeRutaId,
+                ParadaId = paradaId,
+                EnvioId = envioId,
+                IdempotencyKey = $"RET-DEV-{paradaId:N}-{DateTime.UtcNow.Ticks}",
+                Latitud = parada.Latitud != 0 ? parada.Latitud : -34.9271,
+                Longitud = parada.Longitud != 0 ? parada.Longitud : -56.1534,
+                FechaHoraDispositivoUtc = DateTime.UtcNow,
+                Observaciones = observaciones
+            };
+
+            if (_localDatabaseService is not null)
+            {
+                await _localDatabaseService.EncolarOperacionAsync(
+                    TiposOperacionOffline.RetiroDevolucion,
+                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
+
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "EnDevolucion");
+            }
+
+            parada.Estado = "EnDevolucion";
+            OnPropertyChanged(nameof(PuedeAccionar));
+            OnPropertyChanged(nameof(PuedeRegistrarRetiroDevolucion));
+
+            if (_syncService?.IsOnline == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _syncService.SincronizarOperacionesPendientesAsync();
+                    }
+                    catch
+                    {
+                        // Fallback silente en background
+                    }
+                });
+            }
+
+            await Task.Delay(200);
+
+            if (Shell.Current is not null)
+            {
+                string infoRed = (_syncService?.IsOnline == true)
+                    ? "Sincronizando retiro de devolución con la central en tiempo real."
+                    : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
+
+                await Shell.Current.DisplayAlertAsync(
+                    "Retiro Registrado (UC-22)",
+                    $"El retiro de bulto(s) del envío {parada.CodigoSeguimiento} para retorno a depósito fue registrado.\n\n{infoRed}",
+                    "Aceptar");
+
+                await Shell.Current.GoToAsync("//RutaDiaPage");
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

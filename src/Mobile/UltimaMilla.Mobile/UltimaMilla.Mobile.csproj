@@ -30,6 +30,8 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<NoWarn>$(NoWarn);MVVMTK0045;NU1603</NoWarn>
+		<!-- Incrustar DLLs dentro del APK para ejecución autónoma sin Fast Deployment -->
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -52,6 +54,7 @@
 	<ItemGroup>
 		<!-- MVVM Toolkit -->
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />
 		
 		<!-- Resilient HTTP & Polly -->
 		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0-preview.1.25080.5" Condition="'$(TargetFrameworkIdentifier)' != ''" />

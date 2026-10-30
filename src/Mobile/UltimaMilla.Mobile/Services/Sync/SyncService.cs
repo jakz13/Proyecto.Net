@@ -391,6 +391,48 @@ public class SyncService : ISyncService, IDisposable
                             break;
                         }
 
+                        case TiposOperacionOffline.RetiroDevolucion:
+                        {
+                            var payload = JsonSerializer.Deserialize<RetiroDevolucionOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada3Id;
+                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio3Id;
+                                if (string.IsNullOrWhiteSpace(payload.IdempotencyKey)) payload.IdempotencyKey = $"RET-DEV-{payload.ParadaId:N}-{DateTime.UtcNow.Ticks}";
+
+                                var req = new
+                                {
+                                    EnvioId = payload.EnvioId,
+                                    IdempotencyKey = payload.IdempotencyKey,
+                                    Latitud = payload.Latitud,
+                                    Longitud = payload.Longitud,
+                                    FechaHoraDispositivoUtc = payload.FechaHoraDispositivoUtc ?? DateTime.UtcNow,
+                                    Observaciones = payload.Observaciones
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/retiro-devolucion";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+
+                                if (response.IsSuccessStatusCode)
+                                {
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "EnDevolucion");
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                                    var detalle = $"Retiro Devolución Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): HTTP {(int)response.StatusCode} - {error}";
+                                    _logger.LogWarning("Error sincronizando RetiroDevolucion: {Detalle}", detalle);
+                                    await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
+                                    detallesErrores.Add(detalle);
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
                         default:
                             _logger.LogWarning("Tipo de operación offline no reconocido: {Tipo}", op.TipoOperacion);
                             var errorTipo = $"Op #{op.Id}: Tipo de operación '{op.TipoOperacion}' no soportado.";

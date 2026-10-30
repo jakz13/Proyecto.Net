@@ -85,7 +85,14 @@
 
     private async Task CargarIdentidadVisual()
     {
-        identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+        try
+        {
+            identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+        }
+        catch
+        {
+            identidad = new IdentidadVisualDto();
+        }
 
         // Validar que el color sea hexadecimal antes de inyectarlo y calcular el contraste según luminancia
         colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");

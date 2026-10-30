@@ -278,4 +278,181 @@ public class HttpEnviosApiTests
 
         Assert.Equal(HttpStatusCode.Conflict, ex.CodigoEstado);
     }
+
+    [Fact]
+    public async Task CrearEnvio_ConRespuestaExitosa_MapeaCamposTarifaYCodigo()
+    {
+        // Arrange
+        var nuevoId = Guid.NewGuid();
+        var jsonRespuesta = $$"""
+        {
+            "id": "{{nuevoId}}",
+            "codigoSeguimiento": "TRK-2026-0099",
+            "estado": "Admitido",
+            "tarifa": 235.50,
+            "bultos": ["TRK-2026-0099-B01", "TRK-2026-0099-B02"]
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Created, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var dto = new CrearEnvioDto
+        {
+            NombreDestinatario = "Gonzalo Méndez",
+            DireccionDestino = "Sarandí 450",
+            ModalidadServicio = "Estandar",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 1.2m, Alto = 10m, Ancho = 10m, Profundo = 10m },
+                new CrearBultoItemDto { Peso = 1.8m, Alto = 15m, Ancho = 15m, Profundo = 15m }
+            }
+        };
+
+        // Act
+        var resultado = await api.CrearEnvioAsync(dto);
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(nuevoId, resultado.Id);
+        Assert.Equal("TRK-2026-0099", resultado.CodigoSeguimiento);
+        Assert.Equal(EstadoEnvioDto.Admitido, resultado.Estado);
+        Assert.Equal(235.50m, resultado.Tarifa);
+        Assert.Equal(2, resultado.BultosIdentificaciones?.Count);
+    }
+
+    [Fact]
+    public async Task CrearEnvio_ConErrorEnServidor_LanzaApiExcepcion()
+    {
+        // Arrange
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.BadRequest, "{\"error\":\"El operador no tiene cuadro tarifario\"}");
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var dto = new CrearEnvioDto
+        {
+            NombreDestinatario = "Test Error",
+            DireccionDestino = "Dirección inválida"
+        };
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UltimaMilla.Frontend.Infrastructure.Excepciones.ApiExcepcion>(() =>
+            api.CrearEnvioAsync(dto));
+
+        Assert.Equal(HttpStatusCode.BadRequest, ex.CodigoEstado);
+    }
+
+    [Fact]
+    public async Task RegenerarClaveApi_ConRespuestaExitosa_RetornaClaveYActualizaSesion()
+    {
+        // Arrange
+        var jsonRespuesta = """
+        {
+            "claveApi": "um_nueva_credencial_segura_999",
+            "aviso": "Guarde esta clave ahora: no volverá a mostrarse."
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        // Act
+        var resultado = await api.RegenerarClaveApiAsync();
+        var claveActiva = await api.ObtenerClaveApiActivaAsync();
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal("um_nueva_credencial_segura_999", resultado.ClaveApi);
+        Assert.Equal("um_nueva_credencial_segura_999", claveActiva);
+    }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConRespuesta201_MapeaCodigoTarifaYBultos()
+    {
+        // Arrange
+        var envioId = Guid.NewGuid();
+        var jsonRespuesta = $$"""
+        {
+            "id": "{{envioId}}",
+            "codigoSeguimiento": "TRK-2026-0500",
+            "estado": "Admitido",
+            "tarifa": 210.00,
+            "bultos": ["TRK-2026-0500-B01"],
+            "duplicado": false
+        }
+        """;
+
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Created, jsonRespuesta);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = "um_test_key_123",
+            ModalidadServicio = "Estandar",
+            NombreDestinatario = "Martín Silva",
+            Calle = "Av. 18 de Julio",
+            Numero = "1450",
+            Ciudad = "Montevideo",
+            ReferenciaExterna = "ERP-500",
+            Bultos = new List<CrearBultoItemDto>
+            {
+                new CrearBultoItemDto { Peso = 2.0m, Alto = 10m, Ancho = 10m, Profundo = 10m }
+            }
+        };
+
+        // Act
+        var respuesta = await api.CrearEnvioPorApiIntegracionAsync(solicitud);
+
+        // Assert
+        Assert.NotNull(respuesta);
+        Assert.Equal(envioId, respuesta.Id);
+        Assert.Equal("TRK-2026-0500", respuesta.CodigoSeguimiento);
+        Assert.Equal("Admitido", respuesta.Estado);
+        Assert.Equal(210.00m, respuesta.Tarifa);
+        Assert.False(respuesta.Duplicado);
+        Assert.Single(respuesta.Bultos);
+    }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConClaveInvalida401_LanzaApiExcepcionUnauthorized()
+    {
+        // Arrange
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Unauthorized, "{\"error\":\"Clave de API inválida.\"}");
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        var solicitud = new SolicitudAltaEnvioApiDto
+        {
+            ClaveApi = "um_invalida",
+            NombreDestinatario = "Juan",
+            Calle = "Calle 1",
+            Numero = "100",
+            Ciudad = "Montevideo"
+        };
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<UltimaMilla.Frontend.Infrastructure.Excepciones.ApiExcepcion>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(solicitud));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.CodigoEstado);
+        Assert.Contains("Clave de API inválida", ex.Message);
+    }
+
+    [Fact]
+    public async Task CrearEnvioPorApiIntegracion_ConParametrosNulosOVacios_LanzaArgumentException()
+    {
+        // Arrange
+        var clienteHttp = new HttpClient(ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK)) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpEnviosApi(clienteHttp);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(null!));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            api.CrearEnvioPorApiIntegracionAsync(new SolicitudAltaEnvioApiDto { ClaveApi = "" }));
+    }
 }

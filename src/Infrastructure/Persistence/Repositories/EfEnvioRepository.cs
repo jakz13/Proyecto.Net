@@ -47,7 +47,8 @@ public class EfEnvioRepository : IEnvioRepository
         {
             var texto = filtro.Texto.Trim().ToLower();
             consulta = consulta.Where(e => e.NombreDestinatario.ToLower().Contains(texto)
-                                           || e.CodigoSeguimientoPublico.ToLower().Contains(texto));
+                                           || e.CodigoSeguimientoPublico.ToLower().Contains(texto)
+                                           || e.DireccionDestino.ToLower().Contains(texto));
         }
 
         var total = await consulta.CountAsync(cancellationToken);

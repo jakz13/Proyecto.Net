@@ -351,9 +351,9 @@
     </div>
 </div>
 
-<!-- Modal 2: Historial de Trazabilidad Completo (RF-11, RF-12) -->
+<!-- Modal 2: Historial de Trazabilidad Completo y Mapa de Seguimiento -->
 <div class="modal fade" id="modalHistorialTrazabilidad" tabindex="-1" aria-labelledby="tituloModalHistorial" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-3">
                 <div class="d-flex align-items-center gap-2">
@@ -362,29 +362,65 @@
                         <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
                     <div>
-                        <h5 class="modal-title fs-6 fw-bold mb-0" id="tituloModalHistorial">Línea de Vida y Trazabilidad del Envío</h5>
+                        <h5 class="modal-title fs-6 fw-bold mb-0" id="tituloModalHistorial">Línea de Vida y Mapa de Seguimiento del Envío</h5>
                         <div class="text-white-50 small font-monospace" id="lblHistorialCodigo">Cargando...</div>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <div class="modal-body p-4" style="min-height: 260px; max-height: 480px; overflow-y: auto;">
-                <div id="cargandoHistorial" class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm text-secondary" role="status">
-                        <span class="visually-hidden">Cargando historial...</span>
+            <div class="modal-body p-4">
+                <div class="row g-3 align-items-stretch">
+                    <!-- Columna izquierda: Mapa Leaflet de parada y unidad de reparto -->
+                    <div class="col-12 col-lg-6 d-flex">
+                        <div class="card border shadow-none rounded-3 w-100 h-100 d-flex flex-column">
+                            <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                                <span class="small fw-bold text-uppercase text-secondary">Mapa de Ubicación y Ruta</span>
+                                <span class="small text-muted" id="lblSubtituloMapaEnvio">Parada y recorrido</span>
+                            </div>
+                            <div class="card-body p-0 flex-grow-1">
+                                <div id="mapaHistorialEnvioLeaflet" class="um-mapa-leaflet" style="height: 320px;"></div>
+                            </div>
+                            <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap gap-3 small" style="font-size: 0.72rem;">
+                                <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                    <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span> Depósito
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                    <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #1D4ED8;"></span> Parada de entrega
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                                    <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span> Camión de reparto
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-secondary small mt-2">Consultando registros históricos de auditoría...</div>
-                </div>
 
-                <div id="contenedorHistorial" style="display: none;">
-                    <div class="position-relative ps-4" id="listaEventosTimeline" style="border-left: 2px solid #dee2e6;">
-                        <!-- Se puebla dinámicamente con JavaScript -->
+                    <!-- Columna derecha: Historial de eventos -->
+                    <div class="col-12 col-lg-6 d-flex">
+                        <div class="card border shadow-none rounded-3 w-100 h-100">
+                            <div class="card-header bg-white py-2 px-3 border-bottom">
+                                <span class="small fw-bold text-uppercase text-secondary">Eventos Históricos de Auditoría</span>
+                            </div>
+                            <div class="card-body p-3" style="max-height: 360px; overflow-y: auto;">
+                                <div id="cargandoHistorial" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                        <span class="visually-hidden">Cargando historial...</span>
+                                    </div>
+                                    <div class="text-secondary small mt-2">Consultando registros históricos de auditoría...</div>
+                                </div>
+
+                                <div id="contenedorHistorial" style="display: none;">
+                                    <div class="position-relative ps-4" id="listaEventosTimeline" style="border-left: 2px solid #dee2e6;">
+                                        <!-- Se puebla dinámicamente con JavaScript -->
+                                    </div>
+                                </div>
+
+                                <div id="errorHistorial" class="alert alert-warning small mb-0" style="display: none;">
+                                    No se pudieron cargar los eventos históricos del envío seleccionado.
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <div id="errorHistorial" class="alert alert-warning small mb-0" style="display: none;">
-                    No se pudieron cargar los eventos históricos del envío seleccionado.
                 </div>
             </div>
 
@@ -397,6 +433,7 @@
 
 @section Scripts {
     <script>
+        var catalogoEnviosVista = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EnvioLista));
         // Función para abrir y pre-cargar el modal de declaración de extravío
         function abrirModalExtravio(envioId, codigoSeguimiento, comercio, destinatario, estadoActual) {
             document.getElementById('inputExtravioEnvioId').value = envioId;
@@ -446,6 +483,18 @@
             var modalElemento = document.getElementById('modalHistorialTrazabilidad');
             var modalInstancia = bootstrap.Modal.getOrCreateInstance(modalElemento);
             modalInstancia.show();
+
+            // Renderizar mapa Leaflet con parada de entrega y camión (si está en ruta) una vez abierto el modal
+            setTimeout(function () {
+                if (window.MapasUltimaMilla && Array.isArray(catalogoEnviosVista)) {
+                    var envioSel = catalogoEnviosVista.find(function (e) {
+                        return String(e.Id || e.id).toLowerCase() === String(envioId).toLowerCase();
+                    });
+                    if (envioSel) {
+                        window.MapasUltimaMilla.renderizarMapaSeguimientoEnvio('mapaHistorialEnvioLeaflet', envioSel);
+                    }
+                }
+            }, 240);
 
             fetch('?handler=Historial&id=' + encodeURIComponent(envioId))
                 .then(function(response) {

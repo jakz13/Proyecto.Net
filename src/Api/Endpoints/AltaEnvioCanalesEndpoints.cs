@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -36,14 +36,19 @@ public static class AltaEnvioCanalesEndpoints
         // UC-26: autenticado por clave de API del comercio, no por sesión de usuario
         app.MapPost("/api/integracion/v1/envios", async (
             [FromBody] AltaEnvioApiRequest request,
+            [FromHeader(Name = CabeceraClaveApi)] string? claveApi,
             HttpRequest http,
             [FromServices] IMediator mediator,
             CancellationToken ct) =>
         {
             try
             {
+                var claveRecibida = !string.IsNullOrWhiteSpace(claveApi)
+                    ? claveApi
+                    : http.Headers[CabeceraClaveApi].FirstOrDefault();
+
                 var command = new AltaEnvioPorApiCommand(
-                    http.Headers[CabeceraClaveApi].FirstOrDefault(),
+                    claveRecibida,
                     request.ModalidadServicio ?? "Estandar",
                     new DestinatarioAltaDto(request.NombreDestinatario ?? string.Empty, request.Documento, request.Email, request.Telefono),
                     new DireccionAltaDto(
@@ -91,7 +96,7 @@ public static class AltaEnvioCanalesEndpoints
         .WithTags("Integración por API (UC-26)")
         .WithName("AltaEnvioPorApi")
         .WithSummary("Alta de un envío desde el sistema del comercio")
-        .WithDescription("Se autentica con la cabecera X-Api-Key. Si se informa referenciaExterna, reintentar con la misma referencia devuelve el envío ya admitido (200) en vez de crear otro.")
+        .WithDescription("Se autentica con la cabecera X-Api-Key (clave demo sembrada: dev-api-key-megastore-2026). Si se informa referenciaExterna, reintentar con la misma referencia devuelve el envío ya admitido (200) en vez de crear otro.")
         .Produces(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

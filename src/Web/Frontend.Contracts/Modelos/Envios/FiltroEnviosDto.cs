@@ -13,4 +13,9 @@ public record FiltroEnviosDto
     public string? TerminoBusqueda { get; init; }
     public int Pagina { get; init; } = 1;
     public int TamanoPagina { get; init; } = 10;
+
+    /// <summary>
+    /// Cuando es true (Portal del Comercio), acota estrictamente la consulta a los envíos pertenecientes al comercio autenticado.
+    /// </summary>
+    public bool SoloEnviosPropiosComercio { get; init; } = false;
 }

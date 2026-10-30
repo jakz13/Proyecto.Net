@@ -150,6 +150,45 @@ else
         </div>
     </div>
 
+    <!-- Mapa Interactivo de Recorrido, Paradas y Camión de Reparto (Leaflet) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h2 class="h6 fw-bold mb-0 text-dark">Mapa del Recorrido y Paradas Programadas</h2>
+                <span class="text-secondary small">
+                    Secuencia geográfica desde el depósito central, paradas numeradas (1..@ruta.CantidadParadas) y unidad asignada (@ruta.VehiculoMatricula)
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm py-1 px-2 text-dark"
+                        onclick="if(window.MapasUltimaMilla) window.MapasUltimaMilla.ajustarVistaGeneralMapa('mapaDetalleRutaLeaflet');">
+                    Ajustar vista completa
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="mapaDetalleRutaLeaflet" class="um-mapa-leaflet" style="height: 360px;"></div>
+        </div>
+        <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center gap-3 small" style="font-size: 0.725rem;">
+            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span> Depósito de salida
+            </span>
+            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span> Parada entregada
+            </span>
+            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #1D4ED8;"></span> Parada en tránsito / Unidad de reparto
+            </span>
+            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #475569;"></span> Parada pendiente
+            </span>
+            <span class="d-inline-flex align-items-center gap-1 text-secondary">
+                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B91C1C;"></span> Parada no entregada
+            </span>
+        </div>
+    </div>
+
     <!-- Secuencia Ordenada de Paradas -->
     <div class="card border-0 shadow-sm rounded-3 mb-4">
         <div class="card-header bg-white py-3 border-bottom">
@@ -243,32 +282,44 @@ else
                                     }
                                 </td>
                                 <td class="text-center">
-                                    @if (p.Estado != "NoEntregado")
-                                    {
-                                        <button type="button" 
-                                                class="btn btn-outline-danger btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center btn-reasignar"
-                                                data-bs-toggle="tooltip"
-                                                data-bs-placement="top"
-                                                title="Reasignar Parada"
-                                                aria-label="Reasignar Parada"
-                                                data-envio-id="@p.EnvioId"
-                                                data-codigo="@p.CodigoSeguimiento"
-                                                data-destinatario="@p.Destinatario"
-                                                data-direccion="@p.Direccion"
-                                                data-franja="@p.FranjaHoraria"
-                                                data-peso="@p.PesoKg.ToString("N1")"
-                                                data-volumen="@p.VolumenM3.ToString("N3")">
+                                    <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                title="Ubicar parada #@p.Orden en el mapa"
+                                                aria-label="Ubicar parada #@p.Orden en el mapa"
+                                                onclick="if(window.MapasUltimaMilla) window.MapasUltimaMilla.enfocarParadaEnRuta('mapaDetalleRutaLeaflet', @p.Orden);">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <polyline points="23 4 23 10 17 10"></polyline>
-                                                <polyline points="1 20 1 14 7 14"></polyline>
-                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                                <circle cx="12" cy="10" r="3"></circle>
                                             </svg>
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted small">En retorno</span>
-                                    }
+                                        @if (p.Estado != "NoEntregado")
+                                        {
+                                            <button type="button" 
+                                                    class="btn btn-outline-danger btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center btn-reasignar"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="Reasignar Parada"
+                                                    aria-label="Reasignar Parada"
+                                                    data-envio-id="@p.EnvioId"
+                                                    data-codigo="@p.CodigoSeguimiento"
+                                                    data-destinatario="@p.Destinatario"
+                                                    data-direccion="@p.Direccion"
+                                                    data-franja="@p.FranjaHoraria"
+                                                    data-peso="@p.PesoKg.ToString("N1")"
+                                                    data-volumen="@p.VolumenM3.ToString("N3")">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                                    <polyline points="1 20 1 14 7 14"></polyline>
+                                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                                </svg>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">En retorno</span>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -588,6 +639,14 @@ else
 
 @section Scripts {
     <script>
+        var datosHojaDeRuta = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ruta));
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (datosHojaDeRuta && window.MapasUltimaMilla) {
+                window.MapasUltimaMilla.renderizarMapaDetalleRuta('mapaDetalleRutaLeaflet', datosHojaDeRuta);
+            }
+        });
+
         function simularDescargaMovil() {
             var alerta = document.getElementById('alertaDescargaMovil');
             if (alerta) {

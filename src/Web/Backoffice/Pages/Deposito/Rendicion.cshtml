@@ -1,0 +1,570 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Deposito.RendicionModel
+@{
+    ViewData["Title"] = "Rendición de Repartidor - Depósito";
+}
+
+<!-- Encabezado de la Vista -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-0">Rendición de Repartidor</h1>
+        <div class="text-secondary small mt-1">
+            Contraste físico de bultos entregados, devueltos y sin intento para cierre de hoja de ruta y habilitación de repartidor.
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            <span>Actualizar</span>
+        </a>
+    </div>
+</div>
+
+<!-- Mensajes de Notificación -->
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-3 d-flex align-items-center gap-2 mb-4" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success flex-shrink-0">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <div>@Model.MensajeExito</div>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-3 d-flex align-items-center gap-2 mb-4" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div>@Model.MensajeError</div>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (Model.RutaDetalle == null)
+{
+    <!-- VISTA PRINCIPAL: LISTADO DE RUTAS PENDIENTES DE RENDICIÓN -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold text-uppercase">Rutas Esperando Rendición</div>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="h3 fw-bold text-dark mb-0">@Model.RutasPendientes.Count</span>
+                    <span class="text-secondary small">rutas activas</span>
+                </div>
+                <div class="text-secondary small mt-2">
+                    Hojas de ruta despachadas, en tránsito o finalizadas listas para contrastar.
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold text-uppercase">Bultos Estimados en Retorno</div>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="h3 fw-bold text-dark mb-0">@Model.RutasPendientes.Sum(r => r.BultosRetornoEstimados)</span>
+                    <span class="text-secondary small">bultos físicos</span>
+                </div>
+                <div class="text-secondary small mt-2">
+                    Bultos de envíos reprogramados, en devolución o sin intento de entrega.
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                <div class="text-secondary small fw-semibold text-uppercase">Entregas Confirmadas</div>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="h3 fw-bold text-dark mb-0">@Model.RutasPendientes.Sum(r => r.BultosEntregadosEstimados)</span>
+                    <span class="text-secondary small">bultos en calle</span>
+                </div>
+                <div class="text-secondary small mt-2">
+                    Bultos entregados exitosamente a sus destinatarios por el repartidor.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Hojas de Ruta Pendientes -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <h2 class="h6 fw-bold mb-0 text-dark">Hojas de Ruta Pendientes de Rendición al Regreso</h2>
+            <span class="text-secondary small font-monospace">Total: @Model.RutasPendientes.Count</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light border-top border-bottom text-secondary small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Hoja de Ruta</th>
+                        <th>Estado Operativo</th>
+                        <th>Repartidor</th>
+                        <th>Vehículo</th>
+                        <th>Paradas</th>
+                        <th>Bultos (Entregados / Retorno)</th>
+                        <th class="text-end pe-4">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.RutasPendientes.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-secondary">
+                                <div class="py-3">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-muted mb-2">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                    </svg>
+                                    <div class="fw-semibold">No hay hojas de ruta pendientes de rendición</div>
+                                    <div class="small text-muted mt-1">Todas las hojas de ruta despachadas han sido rendidas o no se registran retornos activos.</div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var ruta in Model.RutasPendientes)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-semibold text-dark font-monospace">@ruta.NumeroRuta</div>
+                                    <div class="text-secondary small">Fecha: @ruta.Fecha.ToString("dd/MM/yyyy")</div>
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-dark">@ruta.Estado</span>
+                                </td>
+                                <td>
+                                    <div class="fw-medium text-dark">@(string.IsNullOrWhiteSpace(ruta.RepartidorDocumento) ? "Sin asignar" : ruta.RepartidorDocumento)</div>
+                                </td>
+                                <td>
+                                    <div class="text-dark">@(string.IsNullOrWhiteSpace(ruta.VehiculoPatente) ? "Sin vehículo" : ruta.VehiculoPatente)</div>
+                                    <div class="text-secondary small">@(ruta.VehiculoTipo ?? "")</div>
+                                </td>
+                                <td>
+                                    <span class="text-dark">@ruta.CantidadParadas paradas</span>
+                                </td>
+                                <td>
+                                    <div>
+                                        <span class="text-success fw-medium">@ruta.BultosEntregadosEstimados entregados</span>
+                                        <span class="text-secondary">·</span>
+                                        <span class="text-warning-emphasis fw-medium">@ruta.BultosRetornoEstimados retorno</span>
+                                    </div>
+                                    <div class="text-secondary small">Total: @ruta.TotalBultos bultos</div>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a asp-page="/Deposito/Rendicion" asp-route-id="@ruta.HojaDeRutaId" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <polyline points="9 11 12 14 22 4"></polyline>
+                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                        </svg>
+                                        <span>Procesar Rendición</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else
+{
+    <!-- VISTA DE DETALLE: CONTRASTE Y PROCESAMIENTO DE RENDICIÓN -->
+    <div class="mb-3">
+        <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Volver a la lista de hojas de ruta</span>
+        </a>
+    </div>
+
+    @if (Model.RutaDetalle.Estado == "Rendida")
+    {
+        <!-- Tarjeta de Estado Ya Rendida -->
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-4 mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-success-subtle text-success p-3 rounded-circle">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="h5 fw-bold text-dark mb-1">Hoja de Ruta Rendida y Cerrada</h2>
+                    <div class="text-secondary small">
+                        La rendición de la ruta <strong>@Model.RutaDetalle.NumeroRuta</strong> ha sido completada y documentada exitosamente.
+                    </div>
+                    <div class="text-success fw-medium small mt-2">
+                        El repartidor (@(Model.RutaDetalle.RepartidorDocumento ?? "N/A")) quedó habilitado para despachar otra hoja de ruta de la jornada.
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Cabecera de la Hoja de Ruta -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h2 class="h5 fw-bold text-dark mb-0 font-monospace">@Model.RutaDetalle.NumeroRuta</h2>
+                    <span class="text-secondary small">· Estado: @Model.RutaDetalle.Estado</span>
+                </div>
+                <div class="text-secondary small mt-1">
+                    Fecha de Operación: <strong>@Model.RutaDetalle.Fecha.ToString("dd/MM/yyyy")</strong> · Total de Paradas: <strong>@Model.RutaDetalle.TotalParadas</strong>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-4 bg-light p-3 rounded-3 border">
+                <div>
+                    <div class="text-secondary small">Repartidor</div>
+                    <div class="fw-semibold text-dark">@(string.IsNullOrWhiteSpace(Model.RutaDetalle.RepartidorDocumento) ? "Sin asignar" : Model.RutaDetalle.RepartidorDocumento)</div>
+                </div>
+                <div>
+                    <div class="text-secondary small">Vehículo</div>
+                    <div class="fw-semibold text-dark">@(string.IsNullOrWhiteSpace(Model.RutaDetalle.VehiculoPatente) ? "Sin asignar" : Model.RutaDetalle.VehiculoPatente)</div>
+                    <div class="text-secondary small">@(Model.RutaDetalle.VehiculoTipo ?? "")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas de Contraste -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 text-center">
+                <span class="text-secondary small fw-semibold text-uppercase">Total Bultos en Ruta</span>
+                <span class="h3 fw-bold text-dark my-2">@Model.RutaDetalle.TotalBultos</span>
+                <span class="text-secondary small">Salieron en el vehículo</span>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 text-center">
+                <span class="text-success small fw-semibold text-uppercase">Entregados en Calle</span>
+                <span class="h3 fw-bold text-success my-2">@Model.RutaDetalle.BultosEntregadosCount</span>
+                <span class="text-secondary small">Entregas exitosas</span>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 text-center">
+                <span class="text-warning-emphasis small fw-semibold text-uppercase">Esperados de Retorno</span>
+                <span class="h3 fw-bold text-warning-emphasis my-2" id="totalEsperadosRetorno">@Model.RutaDetalle.BultosEsperadosRetornoCount</span>
+                <span class="text-secondary small">Devoluciones / No entregados</span>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 text-center">
+                <span class="text-primary small fw-semibold text-uppercase">Físicamente Verificados</span>
+                <span class="h3 fw-bold text-primary my-2" id="contadorVerificados">0</span>
+                <span class="text-secondary small">Bultos marcados para ingreso</span>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.RutaDetalle.TieneEnviosSinIntento)
+    {
+        <!-- Alerta de Envíos Sin Intento -->
+        <div class="alert alert-warning border-warning shadow-sm rounded-3 d-flex align-items-start gap-2 mb-4" role="alert">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning-emphasis flex-shrink-0 mt-1">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <div>
+                <div class="fw-bold text-dark">Atención: Hay envíos que volvieron sin intento de entrega (estado 'En Tránsito')</div>
+                <div class="text-secondary small mt-1">
+                    Se registrarán como <strong>no entregados</strong> y volverán a depósito requiriendo seleccionar un <strong>motivo interno del catálogo</strong> del operador.
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- FORMULARIO DE RENDICIÓN -->
+    <form method="post" asp-page-handler="Rendir" id="formRendicion">
+        <input type="hidden" name="Id" value="@Model.RutaDetalle.HojaDeRutaId" />
+
+        <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+            <div class="card-header bg-white border-0 py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h3 class="h6 fw-bold mb-0 text-dark">Contraste de Envíos y Bultos Físicos</h3>
+                    <div class="text-secondary small">Verifique los bultos presentados por el repartidor al regresar a depósito.</div>
+                </div>
+                @if (Model.RutaDetalle.Estado != "Rendida")
+                {
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnMarcarTodos">
+                            Marcar todos los bultos de retorno
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDesmarcarTodos">
+                            Desmarcar
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <!-- Escaneo manual rápido -->
+            @if (Model.RutaDetalle.Estado != "Rendida")
+            {
+                <div class="p-3 bg-light border-top border-bottom">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <label for="inputEscanerBulto" class="col-form-label small fw-semibold text-secondary">Escáner / Código de Bulto:</label>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <input type="text" id="inputEscanerBulto" class="form-control form-control-sm font-monospace" placeholder="Escanee o escriba código de bulto y Enter..." autocomplete="off" />
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" id="btnAgregarEscaneo" class="btn btn-secondary btn-sm">Marcar Bulto</button>
+                        </div>
+                        <div class="col-auto">
+                            <span id="mensajeEscaneo" class="small fw-semibold"></span>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light border-top border-bottom text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Envío</th>
+                            <th>Estado Operativo</th>
+                            <th>Situación al Regreso</th>
+                            <th class="pe-4">Bultos que Viajaron y Verificación Física</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var envio in Model.RutaDetalle.Envios)
+                        {
+                            var situacionTexto = envio.EstadoEnvio switch
+                            {
+                                "Entregado" => "Entregado al destinatario",
+                                "Reprogramado" => "Retorna a depósito (reprogramado)",
+                                "NoEntregado" => "Retorna a depósito (no entregado)",
+                                "EnDevolucion" => "Pendiente devolución a comercio",
+                                "EnTransito" => "Sin intento (pasa a depósito)",
+                                _ => envio.EstadoEnvio
+                            };
+
+                            <tr>
+                                <td class="ps-4" style="max-width: 260px;">
+                                    <div class="fw-semibold text-dark font-monospace">@envio.CodigoSeguimiento</div>
+                                    <div class="text-dark small">@envio.Destinatario</div>
+                                    <div class="text-secondary small text-truncate" title="@envio.Direccion">@envio.Direccion</div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark">@envio.EstadoEnvio</div>
+                                    @if (envio.EsRetornoSinIntento)
+                                    {
+                                        <div class="text-warning-emphasis small fw-medium">Sin Intento</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small fw-medium text-dark">@situacionTexto</div>
+                                    @if (envio.EsEntregado)
+                                    {
+                                        <div class="text-success small">No requiere devolución de bulto</div>
+                                    }
+                                    else if (envio.RequiereRetorno)
+                                    {
+                                        <div class="text-warning-emphasis small">Requiere presentación física</div>
+                                    }
+                                </td>
+                                <td class="pe-4">
+                                    <div class="d-flex flex-column gap-2">
+                                        @foreach (var bulto in envio.Bultos)
+                                        {
+                                            @if (envio.EsEntregado)
+                                            {
+                                                <div class="d-flex align-items-center gap-2 p-2 rounded bg-light border">
+                                                    <span class="font-monospace small fw-medium">@bulto.Identificacion</span>
+                                                    <span class="text-muted small">· @bulto.PesoKg kg</span>
+                                                    <span class="text-success small ms-auto fw-medium">Entregado</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="d-flex align-items-center gap-2 p-2 rounded bg-white border item-bulto-retorno" data-codigo="@bulto.Identificacion.ToUpperInvariant()">
+                                                    @if (Model.RutaDetalle.Estado != "Rendida")
+                                                    {
+                                                        <input class="form-check-input check-bulto-devuelto mt-0"
+                                                               type="checkbox"
+                                                               name="CodigosBultosDevueltos"
+                                                               value="@bulto.Identificacion"
+                                                               id="chk_@bulto.BultoId" />
+                                                    }
+                                                    <label class="form-check-label font-monospace small fw-semibold cursor-pointer mb-0" for="chk_@bulto.BultoId">
+                                                        @bulto.Identificacion
+                                                    </label>
+                                                    <span class="text-muted small">· @bulto.PesoKg kg</span>
+                                                    <span class="text-warning-emphasis small ms-auto fw-medium">Retorno requerido</span>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (Model.RutaDetalle.Estado != "Rendida")
+        {
+            <!-- Datos de Cierre de Rendición -->
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-4 mb-4">
+                <h3 class="h6 fw-bold mb-3 text-dark">Confirmación de Rendición de Hoja de Ruta</h3>
+
+                <div class="row g-3">
+                    @if (Model.RutaDetalle.TieneEnviosSinIntento)
+                    {
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-dark">
+                                Motivo Interno de No Entrega (Obligatorio) <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" name="MotivoInternoCodigo" required>
+                                <option value="">-- Seleccione un motivo del catálogo interno --</option>
+                                @foreach (var motivo in Model.RutaDetalle.MotivosInternosDisponibles)
+                                {
+                                    <option value="@motivo.Codigo" selected="@(Model.MotivoInternoCodigo == motivo.Codigo)">
+                                        @motivo.Codigo - @motivo.Descripcion
+                                    </option>
+                                }
+                            </select>
+                            <div class="form-text small">
+                                Se aplicará a los envíos que regresaron sin intento para documentar la causa operativa de no entrega.
+                            </div>
+                        </div>
+                    }
+
+                    <div class="col-12 col-md-@(Model.RutaDetalle.TieneEnviosSinIntento ? "6" : "12")">
+                        <label class="form-label fw-semibold text-dark">Observaciones de la Rendición</label>
+                        <textarea class="form-control" name="Observaciones" rows="2" placeholder="Detalle cualquier novedad física, daño o situación del repartidor al regreso...">@Model.Observaciones</textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end align-items-center gap-2 mt-4 pt-3 border-top">
+                    <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-dark d-inline-flex align-items-center gap-2 px-4 shadow-sm" id="btnConfirmarRendicion">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span>Confirmar y Cerrar Rendición</span>
+                    </button>
+                </div>
+            </div>
+        }
+    </form>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const checks = document.querySelectorAll('.check-bulto-devuelto');
+            const contadorVerificados = document.getElementById('contadorVerificados');
+            const btnMarcarTodos = document.getElementById('btnMarcarTodos');
+            const btnDesmarcarTodos = document.getElementById('btnDesmarcarTodos');
+            const inputEscaner = document.getElementById('inputEscanerBulto');
+            const btnAgregarEscaneo = document.getElementById('btnAgregarEscaneo');
+            const mensajeEscaneo = document.getElementById('mensajeEscaneo');
+            const formRendicion = document.getElementById('formRendicion');
+
+            function actualizarContador() {
+                if (!contadorVerificados) return;
+                let marcados = 0;
+                checks.forEach(c => { if (c.checked) marcados++; });
+                contadorVerificados.textContent = marcados;
+            }
+
+            if (checks.length > 0) {
+                checks.forEach(c => c.addEventListener('change', actualizarContador));
+                actualizarContador();
+            }
+
+            if (btnMarcarTodos) {
+                btnMarcarTodos.addEventListener('click', function () {
+                    checks.forEach(c => c.checked = true);
+                    actualizarContador();
+                });
+            }
+
+            if (btnDesmarcarTodos) {
+                btnDesmarcarTodos.addEventListener('click', function () {
+                    checks.forEach(c => c.checked = false);
+                    actualizarContador();
+                });
+            }
+
+            function procesarCodigoEscaneado() {
+                if (!inputEscaner) return;
+                const valor = inputEscaner.value.trim().toUpperCase();
+                if (!valor) return;
+
+                let encontrado = false;
+                checks.forEach(c => {
+                    if (c.value.trim().toUpperCase() === valor) {
+                        c.checked = true;
+                        encontrado = true;
+                    }
+                });
+
+                if (mensajeEscaneo) {
+                    if (encontrado) {
+                        mensajeEscaneo.textContent = `Bulto ${valor} marcado`;
+                        mensajeEscaneo.className = 'small fw-semibold text-success';
+                    } else {
+                        mensajeEscaneo.textContent = `Código ${valor} no esperado en esta ruta`;
+                        mensajeEscaneo.className = 'small fw-semibold text-warning-emphasis';
+                    }
+                }
+
+                inputEscaner.value = '';
+                actualizarContador();
+                inputEscaner.focus();
+            }
+
+            if (btnAgregarEscaneo) {
+                btnAgregarEscaneo.addEventListener('click', procesarCodigoEscaneado);
+            }
+
+            if (inputEscaner) {
+                inputEscaner.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        procesarCodigoEscaneado();
+                    }
+                });
+            }
+
+            if (formRendicion) {
+                formRendicion.addEventListener('submit', function (e) {
+                    let marcados = 0;
+                    checks.forEach(c => { if (c.checked) marcados++; });
+                    const totalEsperados = parseInt(document.getElementById('totalEsperadosRetorno')?.textContent || '0', 10);
+
+                    if (marcados < totalEsperados) {
+                        const diferencia = totalEsperados - marcados;
+                        if (!confirm(`Se registran ${diferencia} bulto(s) pendiente(s) de devolución física.\n¿Desea cerrar la rendición con estas diferencias?`)) {
+                            e.preventDefault();
+                            return;
+                        }
+                    } else {
+                        if (!confirm('¿Confirma la rendición y el cierre de la hoja de ruta? El repartidor quedará habilitado para nuevas rutas.')) {
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+}

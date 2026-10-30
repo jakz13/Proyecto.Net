@@ -11,7 +11,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en HTTP/REST de IEnviosApi para consulta y gestión de envíos desde Backoffice.
+/// Implementación basada en HTTP/REST de IEnviosApi para consulta y gestión de envíos desde Backoffice y Portal del Comercio.
 /// </summary>
 public class HttpEnviosApi : IEnviosApi
 {
@@ -29,10 +29,22 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Consulta el listado de envíos aplicando filtros de estado, búsqueda y paginación.
+    /// Consulta el listado de envíos aplicando filtros de estado, fecha, búsqueda y paginación.
+    /// Cuando <see cref="FiltroEnviosDto.SoloEnviosPropiosComercio"/> es verdadero, consulta el endpoint aislado del comercio (UC-28).
     /// </summary>
     public async Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default)
     {
+        ArgumentNullException.ThrowIfNull(filtro);
+
+        if (filtro.SoloEnviosPropiosComercio)
+        {
+            var resultadoComercio = await ListarEnviosDelComercioAsync(filtro, cancelacion);
+            if (resultadoComercio is not null)
+            {
+                return resultadoComercio;
+            }
+        }
+
         HttpResponseMessage respuesta;
         try
         {
@@ -79,6 +91,16 @@ public class HttpEnviosApi : IEnviosApi
             elementos = elementos.Where(e => e.Estado == filtro.Estado.Value);
         }
 
+        if (filtro.FechaDesde.HasValue)
+        {
+            elementos = elementos.Where(e => e.FechaCreacion.Date >= filtro.FechaDesde.Value.Date);
+        }
+
+        if (filtro.FechaHasta.HasValue)
+        {
+            elementos = elementos.Where(e => e.FechaCreacion.Date <= filtro.FechaHasta.Value.Date);
+        }
+
         var listaTotal = elementos.ToList();
         var pagina = filtro.Pagina > 0 ? filtro.Pagina : 1;
         var tamano = filtro.TamanoPagina > 0 ? filtro.TamanoPagina : 20;
@@ -94,6 +116,100 @@ public class HttpEnviosApi : IEnviosApi
             TotalRegistros = listaTotal.Count,
             PaginaActual = pagina,
             TamanoPagina = tamano
+        };
+    }
+
+    /// <summary>
+    /// Consulta los envíos propios del comercio autenticado en <c>GET /api/comercio/envios</c> (UC-28).
+    /// </summary>
+    private async Task<ResultadoPaginadoDto<EnvioDto>?> ListarEnviosDelComercioAsync(FiltroEnviosDto filtro, CancellationToken cancelacion)
+    {
+        var pagina = filtro.Pagina > 0 ? filtro.Pagina : 1;
+        var tamano = filtro.TamanoPagina > 0 ? filtro.TamanoPagina : 20;
+
+        var parametros = new List<string>
+        {
+            $"pagina={pagina}",
+            $"tamano={tamano}"
+        };
+
+        if (filtro.Estado.HasValue)
+        {
+            parametros.Add($"estado={(int)filtro.Estado.Value}");
+        }
+
+        if (filtro.FechaDesde.HasValue)
+        {
+            parametros.Add($"desde={Uri.EscapeDataString(filtro.FechaDesde.Value.Date.ToString("yyyy-MM-dd"))}");
+        }
+
+        if (filtro.FechaHasta.HasValue)
+        {
+            parametros.Add($"hasta={Uri.EscapeDataString(filtro.FechaHasta.Value.Date.ToString("yyyy-MM-dd"))}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.TerminoBusqueda))
+        {
+            parametros.Add($"texto={Uri.EscapeDataString(filtro.TerminoBusqueda.Trim())}");
+        }
+
+        var url = $"/api/comercio/envios?{string.Join("&", parametros)}";
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.GetAsync(url, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error al consultar envíos propios del comercio: {ex.Message}");
+        }
+
+        if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return null;
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+        }
+
+        var paginaApi = await respuesta.Content.ReadFromJsonAsync<PaginaEnviosComercioApiDto>(OpcionesJson, cancelacion);
+        if (paginaApi is null)
+        {
+            return new ResultadoPaginadoDto<EnvioDto>
+            {
+                Elementos = Array.Empty<EnvioDto>(),
+                TotalRegistros = 0,
+                PaginaActual = pagina,
+                TamanoPagina = tamano
+            };
+        }
+
+        var elementos = (paginaApi.Items ?? Array.Empty<EnvioComercioItemApiDto>())
+            .Select(item => new EnvioDto
+            {
+                Id = item.EnvioId,
+                CodigoSeguimiento = item.CodigoSeguimiento,
+                NombreDestinatario = item.Destinatario,
+                DireccionDestino = item.Direccion,
+                FechaCreacion = item.FechaAlta,
+                Estado = Enum.IsDefined(typeof(EstadoEnvioDto), item.Estado)
+                    ? (EstadoEnvioDto)item.Estado
+                    : MapearEstado(item.EstadoNombre ?? string.Empty),
+                ModalidadServicio = item.ModalidadServicio ?? "Estandar",
+                Tarifa = item.Tarifa
+            })
+            .ToList();
+
+        return new ResultadoPaginadoDto<EnvioDto>
+        {
+            Elementos = elementos,
+            TotalRegistros = paginaApi.Total,
+            PaginaActual = paginaApi.Pagina > 0 ? paginaApi.Pagina : pagina,
+            TamanoPagina = paginaApi.TamanoPagina > 0 ? paginaApi.TamanoPagina : tamano
         };
     }
 
@@ -139,7 +255,10 @@ public class HttpEnviosApi : IEnviosApi
             DireccionDestino = detalleApi.DireccionDestino,
             FechaCreacion = detalleApi.FechaAlta,
             Estado = (EstadoEnvioDto)(int)detalleApi.EstadoActual,
+            ModalidadServicio = detalleApi.ModalidadServicio ?? "Estandar",
+            Tarifa = detalleApi.Tarifa,
             HojaDeRutaNumero = detalleApi.HojaDeRutaId?.ToString(),
+            BultosIdentificaciones = detalleApi.Bultos?.Select(b => b.Identificacion).ToList(),
             PesoKg = detalleApi.Bultos?.Sum(b => b.PesoKg) ?? 0
         };
     }
@@ -151,22 +270,34 @@ public class HttpEnviosApi : IEnviosApi
     {
         ArgumentNullException.ThrowIfNull(nuevoEnvio);
 
-        var partesDireccion = nuevoEnvio.DireccionDestino.Split(' ', 2);
-        var calle = partesDireccion.Length > 0 ? partesDireccion[0] : "Calle Principal";
-        var numero = partesDireccion.Length > 1 ? partesDireccion[1] : "1000";
+        string calle = nuevoEnvio.Calle ?? "";
+        string numero = nuevoEnvio.Numero ?? "";
+        if (string.IsNullOrWhiteSpace(calle))
+        {
+            var partesDireccion = nuevoEnvio.DireccionDestino.Split(' ', 2);
+            calle = partesDireccion.Length > 0 ? partesDireccion[0] : "Calle Principal";
+            numero = partesDireccion.Length > 1 ? partesDireccion[1] : "1000";
+        }
+
+        var bultosPayload = (nuevoEnvio.Bultos != null && nuevoEnvio.Bultos.Count > 0)
+            ? nuevoEnvio.Bultos.Select(b => new { Peso = b.Peso, Alto = b.Alto, Ancho = b.Ancho, Profundo = b.Profundo }).ToArray()
+            : new[] { new { Peso = nuevoEnvio.PesoKg ?? 1m, Alto = 10m, Ancho = 10m, Profundo = 10m } };
+
+        var direccionCompleta = !string.IsNullOrWhiteSpace(nuevoEnvio.DireccionDestino)
+            ? nuevoEnvio.DireccionDestino
+            : $"{calle} {numero}, {nuevoEnvio.Ciudad}".Trim();
 
         var payload = new
         {
             NombreDestinatario = nuevoEnvio.NombreDestinatario,
             Calle = calle,
-            Numero = numero,
-            Ciudad = "Montevideo",
+            Numero = string.IsNullOrWhiteSpace(numero) ? "S/N" : numero,
+            Ciudad = string.IsNullOrWhiteSpace(nuevoEnvio.Ciudad) ? "Montevideo" : nuevoEnvio.Ciudad,
             Telefono = nuevoEnvio.TelefonoDestinatario,
             Email = nuevoEnvio.EmailDestinatario,
-            Bultos = new[]
-            {
-                new { Peso = nuevoEnvio.PesoKg ?? 1m, Alto = 10m, Ancho = 10m, Profundo = 10m }
-            }
+            Documento = nuevoEnvio.DocumentoDestinatario,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            Bultos = bultosPayload
         };
 
         var respuesta = await _clienteHttp.PostAsJsonAsync("/api/envios", payload, OpcionesJson, cancelacion);
@@ -187,9 +318,14 @@ public class HttpEnviosApi : IEnviosApi
             Id = creado.Id,
             CodigoSeguimiento = creado.CodigoSeguimiento,
             NombreDestinatario = nuevoEnvio.NombreDestinatario,
-            DireccionDestino = nuevoEnvio.DireccionDestino,
+            DireccionDestino = direccionCompleta,
             FechaCreacion = DateTime.UtcNow,
-            Estado = EstadoEnvioDto.Admitido
+            Estado = EstadoEnvioDto.Admitido,
+            Tarifa = creado.Tarifa,
+            ModalidadServicio = nuevoEnvio.ModalidadServicio,
+            BultosIdentificaciones = creado.Bultos,
+            PesoKg = nuevoEnvio.PesoKg,
+            VolumenM3 = nuevoEnvio.VolumenM3
         };
     }
 
@@ -302,7 +438,6 @@ public class HttpEnviosApi : IEnviosApi
         if (!respuesta.IsSuccessStatusCode)
         {
             var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
-            // Intentar extraer mensaje si viene formateado en json { error: "..." }
             try
             {
                 using var documento = JsonDocument.Parse(detalleError);
@@ -339,6 +474,246 @@ public class HttpEnviosApi : IEnviosApi
             resultadoApi.ConError,
             filas);
     }
+
+    private string _claveApiSesion = string.Empty;
+
+    /// <summary>
+    /// Devuelve la última clave de API obtenida en la sesión actual.
+    /// </summary>
+    public Task<string> ObtenerClaveApiActivaAsync(CancellationToken cancelacion = default)
+    {
+        return Task.FromResult(_claveApiSesion);
+    }
+
+    /// <summary>
+    /// Solicita la generación y rotación de la clave de API del comercio autenticado.
+    /// </summary>
+    public async Task<ClaveApiComercioDto> RegenerarClaveApiAsync(CancellationToken cancelacion = default)
+    {
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsync("/api/comercio/clave-api", null, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al generar clave de API: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al generar clave de API." : detalleError);
+        }
+
+        var resultadoApi = await respuesta.Content.ReadFromJsonAsync<ClaveApiGeneradaRespuestaDto>(OpcionesJson, cancelacion);
+        if (resultadoApi is null || string.IsNullOrWhiteSpace(resultadoApi.ClaveApi))
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible procesar la nueva clave de API generada.");
+        }
+
+        _claveApiSesion = resultadoApi.ClaveApi;
+        return new ClaveApiComercioDto(
+            resultadoApi.ClaveApi,
+            resultadoApi.Aviso ?? "Guarde esta clave ahora: no volverá a mostrarse. La clave anterior ya no es válida.",
+            DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Invoca el endpoint de integración de envíos autenticado con la cabecera X-Api-Key.
+    /// </summary>
+    public async Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
+        SolicitudAltaEnvioApiDto solicitud,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(solicitud);
+
+        if (string.IsNullOrWhiteSpace(solicitud.ClaveApi))
+        {
+            throw new ArgumentException("Debe proporcionar una clave de API para autenticar la solicitud.", nameof(solicitud));
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.NombreDestinatario))
+        {
+            throw new ArgumentException("El nombre del destinatario es obligatorio.", nameof(solicitud));
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.Calle) || string.IsNullOrWhiteSpace(solicitud.Numero))
+        {
+            throw new ArgumentException("La calle y el número de puerta son obligatorios.", nameof(solicitud));
+        }
+
+        if (solicitud.Bultos is null || solicitud.Bultos.Count == 0)
+        {
+            throw new ArgumentException("El envío debe incluir al menos un bulto.", nameof(solicitud));
+        }
+
+        var cuerpoSolicitud = new
+        {
+            ModalidadServicio = string.IsNullOrWhiteSpace(solicitud.ModalidadServicio) ? "Estandar" : solicitud.ModalidadServicio.Trim(),
+            NombreDestinatario = solicitud.NombreDestinatario.Trim(),
+            Documento = string.IsNullOrWhiteSpace(solicitud.Documento) ? null : solicitud.Documento.Trim(),
+            Email = string.IsNullOrWhiteSpace(solicitud.Email) ? null : solicitud.Email.Trim(),
+            Telefono = string.IsNullOrWhiteSpace(solicitud.Telefono) ? null : solicitud.Telefono.Trim(),
+            Calle = solicitud.Calle.Trim(),
+            Numero = solicitud.Numero.Trim(),
+            Ciudad = string.IsNullOrWhiteSpace(solicitud.Ciudad) ? "Montevideo" : solicitud.Ciudad.Trim(),
+            Referencia = string.IsNullOrWhiteSpace(solicitud.Referencia) ? null : solicitud.Referencia.Trim(),
+            ReferenciaExterna = string.IsNullOrWhiteSpace(solicitud.ReferenciaExterna) ? null : solicitud.ReferenciaExterna.Trim(),
+            Bultos = solicitud.Bultos.Select(b => new
+            {
+                Peso = b.Peso,
+                Alto = b.Alto,
+                Ancho = b.Ancho,
+                Profundo = b.Profundo
+            }).ToList()
+        };
+
+        using var peticion = new HttpRequestMessage(HttpMethod.Post, "/api/integracion/v1/envios")
+        {
+            Content = JsonContent.Create(cuerpoSolicitud, options: OpcionesJson)
+        };
+        peticion.Headers.TryAddWithoutValidation("X-Api-Key", solicitud.ClaveApi.Trim());
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.SendAsync(peticion, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al invocar API de integración: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al registrar envío por API." : detalleError);
+        }
+
+        var creado = await respuesta.Content.ReadFromJsonAsync<AltaEnvioIntegracionRespuestaDto>(OpcionesJson, cancelacion);
+        if (creado is null)
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible interpretar la respuesta del servidor en el alta por API.");
+        }
+
+        return new RespuestaAltaEnvioApiDto(
+            creado.Id,
+            creado.CodigoSeguimiento,
+            string.IsNullOrWhiteSpace(creado.Estado) ? "Admitido" : creado.Estado,
+            creado.Tarifa,
+            creado.Bultos ?? Array.Empty<string>(),
+            creado.Duplicado);
+    }
+
+    /// <summary>
+    /// Solicita al backend la generación de etiquetas para los envíos admitidos seleccionados y arma el documento descargable (UC-27).
+    /// </summary>
+    public async Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
+        IReadOnlyList<Guid> envioIds,
+        CancellationToken cancelacion = default)
+    {
+        ArgumentNullException.ThrowIfNull(envioIds);
+
+        var idsUnicos = envioIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (idsUnicos.Count == 0)
+        {
+            throw new ArgumentException("Debe seleccionar al menos un envío válido para generar etiquetas.", nameof(envioIds));
+        }
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsJsonAsync(
+                "/api/comercio/envios/etiquetas",
+                new { EnvioIds = idsUnicos },
+                OpcionesJson,
+                cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al generar etiquetas de envío: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await ExtraerMensajeErrorAsync(respuesta, cancelacion);
+            throw new ApiExcepcion(
+                respuesta.StatusCode,
+                string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode} al generar etiquetas." : detalleError);
+        }
+
+        var resultadoApi = await respuesta.Content.ReadFromJsonAsync<EtiquetasGeneradasApiDto>(OpcionesJson, cancelacion);
+        if (resultadoApi?.Etiquetas is null || resultadoApi.Etiquetas.Count == 0)
+        {
+            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible obtener las etiquetas de los envíos seleccionados.");
+        }
+
+        var nombreArchivo = idsUnicos.Count == 1
+            ? $"etiqueta-{resultadoApi.Etiquetas[0].CodigoSeguimiento.ToLowerInvariant()}.html"
+            : $"etiquetas-envios-{DateTime.UtcNow:yyyyMMdd-HHmm}.html";
+
+        var htmlDescargable = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(resultadoApi.Etiquetas);
+
+        return new ResultadoGeneracionEtiquetasDto(
+            resultadoApi.Etiquetas,
+            resultadoApi.TotalEnviosSeleccionados,
+            resultadoApi.TotalEtiquetasGeneradas,
+            nombreArchivo,
+            htmlDescargable);
+    }
+
+    private record PaginaEnviosComercioApiDto(
+        IReadOnlyList<EnvioComercioItemApiDto>? Items,
+        int Total,
+        int Pagina,
+        int TamanoPagina,
+        int TotalPaginas);
+
+    private record EnvioComercioItemApiDto(
+        Guid EnvioId,
+        string CodigoSeguimiento,
+        int Estado,
+        string? EstadoNombre,
+        string Destinatario,
+        string Direccion,
+        string? ModalidadServicio,
+        decimal Tarifa,
+        DateTime FechaAlta);
+
+    private record EtiquetasGeneradasApiDto(
+        IReadOnlyList<EtiquetaBultoDto> Etiquetas,
+        int TotalEnviosSeleccionados,
+        int TotalEtiquetasGeneradas);
+
+    private static async Task<string> ExtraerMensajeErrorAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
+    {
+        var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+        try
+        {
+            using var documento = JsonDocument.Parse(detalleError);
+            if (documento.RootElement.TryGetProperty("error", out var propiedadError))
+            {
+                return propiedadError.GetString() ?? detalleError;
+            }
+        }
+        catch
+        {
+            // Se conserva el texto plano si no es JSON válido
+        }
+
+        return detalleError;
+    }
+
+    private record ClaveApiGeneradaRespuestaDto(string ClaveApi, string? Aviso);
+
+    private record AltaEnvioIntegracionRespuestaDto(
+        Guid Id,
+        string CodigoSeguimiento,
+        string Estado,
+        decimal Tarifa,
+        IReadOnlyList<string>? Bultos = null,
+        bool Duplicado = false);
 
     private record ResultadoImportacionApiDto(
         Guid LoteId,
@@ -397,5 +772,5 @@ public class HttpEnviosApi : IEnviosApi
 
     private record EventoDetalleApiDto(DateTime Fecha, string TipoEvento, int EstadoNuevo, string Origen, string? Detalle);
 
-    private record EnvioCreadoApiDto(Guid Id, string CodigoSeguimiento, string Estado, decimal Tarifa);
+    private record EnvioCreadoApiDto(Guid Id, string CodigoSeguimiento, string Estado, decimal Tarifa, List<string>? Bultos = null);
 }

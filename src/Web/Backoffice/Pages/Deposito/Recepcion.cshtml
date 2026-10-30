@@ -1,0 +1,546 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Deposito.RecepcionModel
+@{
+    ViewData["Title"] = "Recepción de Bultos en Depósito";
+    var envio = Model.Envio;
+    var resultado = Model.Resultado;
+}
+
+@if (envio == null)
+{
+    <div class="alert alert-warning shadow-sm rounded-3">
+        No se ha seleccionado ningún envío admitido para recepción. <a asp-page="/Deposito/Index">Volver al muelle de arribos</a>.
+    </div>
+}
+else if (resultado != null && resultado.Recepcionado)
+{
+    <!-- =========================================================================
+         Pantalla de Confirmación de Recepción Exitosa (UC-14 Postcondición)
+         ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-3 p-4 bg-white mb-4">
+        <div class="text-center py-3">
+            <div class="rounded-circle d-inline-flex p-3 bg-success-subtle text-success mb-3">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-1">¡Recepción en Depósito Confirmada!</h1>
+            <p class="text-secondary mb-3">
+                El envío ha cambiado formalmente a estado <strong>En Depósito</strong> y se encuentra registrado en el sistema.
+            </p>
+
+            <div class="d-flex justify-content-center align-items-baseline gap-3 flex-wrap mb-4 font-monospace">
+                <span class="fs-5 fw-bold text-dark">@resultado.CodigoSeguimiento</span>
+                <span class="text-secondary">· Estado: @resultado.Estado</span>
+                <span class="@(resultado.TieneDiscrepancias ? "text-warning-emphasis fw-semibold" : "text-success fw-semibold")">
+                    · @(resultado.TieneDiscrepancias ? "Con Discrepancias Documentadas" : "Sin Discrepancias")
+                </span>
+            </div>
+
+            <!-- Detalle de bultos recepcionados -->
+            <div class="row justify-content-center text-start mb-4">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card bg-light border-0 rounded-3 p-3">
+                        <div class="fw-bold text-dark small text-uppercase mb-2">Resumen Físico Registrado:</div>
+                        <ul class="list-unstyled mb-0 small">
+                            <li class="d-flex justify-content-between py-1 border-bottom">
+                                <span>Bultos correctos recibidos:</span>
+                                <strong class="text-success font-monospace">@resultado.Correctos.Count (@string.Join(", ", resultado.Correctos))</strong>
+                            </li>
+                            <li class="d-flex justify-content-between py-1 border-bottom">
+                                <span>Bultos dañados documentados:</span>
+                                <strong class="@(resultado.Danados.Count > 0 ? "text-danger" : "text-secondary") font-monospace">
+                                    @(resultado.Danados.Count > 0 ? string.Join(", ", resultado.Danados) : "Ninguno")
+                                </strong>
+                            </li>
+                            <li class="d-flex justify-content-between py-1 border-bottom">
+                                <span>Bultos faltantes no arribados:</span>
+                                <strong class="@(resultado.Faltantes.Count > 0 ? "text-warning" : "text-secondary") font-monospace">
+                                    @(resultado.Faltantes.Count > 0 ? string.Join(", ", resultado.Faltantes) : "Ninguno")
+                                </strong>
+                            </li>
+                            <li class="d-flex justify-content-between py-1">
+                                <span>Bultos sobrantes no declarados:</span>
+                                <strong class="@(resultado.Sobrantes.Count > 0 ? "text-info" : "text-secondary") font-monospace">
+                                    @(resultado.Sobrantes.Count > 0 ? string.Join(", ", resultado.Sobrantes) : "Ninguno")
+                                </strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones siguientes -->
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <a asp-page="/Deposito/Index" class="btn btn-dark px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Recepcionar Siguiente Envío</span>
+                </a>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- =========================================================================
+         Estación de Escaneo y Recepción Activa (UC-14 Flujo Principal)
+         ========================================================================= -->
+    <!-- Encabezado del Envío -->
+    <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                <h1 class="h4 fw-bold text-dark mb-0 font-monospace">@envio.CodigoSeguimiento</h1>
+                <span class="text-secondary small">· Estado actual: Admitido · @envio.ModalidadServicio</span>
+            </div>
+            <div class="text-secondary small mt-1">
+                Destinatario: <strong>@envio.NombreDestinatario</strong> · Destino: @envio.DireccionDestino · Peso total: @envio.PesoTotal.ToString("N1") kg
+            </div>
+        </div>
+        <a asp-page="/Deposito/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Volver a Muelle de Arribos</span>
+        </a>
+    </div>
+
+    <!-- Mensajes de Error de Validación -->
+    @if (Model.ErroresValidacion.Count > 0)
+    {
+        <div class="alert alert-danger border-danger shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h2 class="h6 fw-bold mb-0 text-danger">Impedimento para Confirmar Recepción</h2>
+            </div>
+            <ul class="small mb-0 ps-3">
+                @foreach (var err in Model.ErroresValidacion)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <!-- Formulario Principal -->
+    <form method="post" id="formRecepcionDeposito">
+        <input type="hidden" asp-for="Formulario.EnvioId" />
+        <input type="hidden" asp-for="Formulario.CodigosEscaneadosCsv" id="hiddenCodigosEscaneados" />
+        <input type="hidden" asp-for="Formulario.CodigosDanadosCsv" id="hiddenCodigosDanados" />
+
+        <div class="row g-4">
+            <!-- =========================================================================
+                 Columna Izquierda: Escaneo y Lista de Bultos Físicos
+                 ========================================================================= -->
+            <div class="col-lg-8">
+                <!-- Panel de Entrada de Escaneo / Código de Barras -->
+                <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-4">
+                    <label class="form-label small fw-bold text-dark text-uppercase mb-2 d-flex align-items-center gap-2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+                            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                            <path d="M7 8v8"></path>
+                            <path d="M12 8v8"></path>
+                            <path d="M17 8v8"></path>
+                        </svg>
+                        <span>Escanear Código de Bulto con Lector de Barras</span>
+                    </label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="inputCodigoBulto"
+                               class="form-control form-control-lg font-monospace"
+                               placeholder="Escanee la etiqueta o ingrese código (ej: @(envio.Bultos.FirstOrDefault()?.Identificacion ?? "BLT-01"))..."
+                               autocomplete="off" autofocus />
+                        <button type="button" class="btn btn-primary px-4 fw-semibold" id="btnAgregarEscaneo" onclick="procesarEscaneoManual()">
+                            <span>Escanear</span>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 text-muted small">
+                        <span>Presione <kbd>Enter</kbd> tras cada escaneo de bulto.</span>
+                        <!-- Botones de Acción Rápida para Pruebas / Demo Oral -->
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Simulaciones demo">
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="simularEscanearTodo()" title="Escanear todos los bultos declarados sin discrepancias">
+                                Escanear Todos
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="simularDanado()" title="Simular bulto dañado">
+                                Simular Dañado
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="simularSobrante()" title="Simular bulto no declarado">
+                                Simular Sobrante
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="reiniciarEscaneos()" title="Limpiar escaneos">
+                                Reiniciar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Bultos Declarados por el Comercio -->
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden mb-4">
+                    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+                        <h2 class="h6 fw-bold mb-0 text-dark">
+                            Bultos Declarados por el Comercio (@envio.Bultos.Count)
+                        </h2>
+                        <span class="text-secondary small font-monospace" id="badgeProgresoEscaneo">0 / @envio.Bultos.Count escaneados</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th class="ps-3">Identificador</th>
+                                    <th>Peso & Dimensiones</th>
+                                    <th>Estado de Recepción</th>
+                                    <th class="text-end pe-3">Condición Física</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaBultosDeclarados">
+                                @foreach (var bulto in envio.Bultos)
+                                {
+                                    <tr id="fila-bulto-@bulto.Identificacion" class="fila-declarada" data-codigo="@bulto.Identificacion">
+                                        <td class="ps-3 font-monospace fw-bold text-dark">
+                                            @bulto.Identificacion
+                                        </td>
+                                        <td class="small text-secondary font-monospace">
+                                            @bulto.Peso.ToString("N1") kg
+                                            @if (bulto.Alto > 0)
+                                            {
+                                                <span class="text-muted">(@bulto.Alto x @bulto.Ancho x @bulto.Profundo cm)</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="text-secondary small" id="badge-estado-@bulto.Identificacion">
+                                                Pendiente de escaneo
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-3">
+                                            <div class="form-check form-switch d-inline-block mb-0">
+                                                <input class="form-check-input chk-danado" type="checkbox"
+                                                       id="chk-danado-@bulto.Identificacion"
+                                                       onchange="alternarDanado('@bulto.Identificacion')"
+                                                       disabled title="Debe escanear el bulto primero para marcarlo dañado">
+                                                <label class="form-check-label small text-danger fw-semibold" for="chk-danado-@bulto.Identificacion" style="font-size: 0.75rem;">
+                                                    Dañado / Averiado
+                                                </label>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Panel de Bultos Sobrantes Detectados -->
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden mb-4" id="cardSobrantes" style="display: none;">
+                    <div class="card-header bg-danger-subtle border-bottom border-danger-subtle py-2 d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-danger small">Bultos Sobrantes (Escaneados y no declarados en este envío)</span>
+                        <span class="fw-bold text-danger font-monospace" id="conteoBultosSobrantes">0</span>
+                    </div>
+                    <div class="card-body p-3 bg-white">
+                        <p class="small text-secondary mb-2">
+                            Los siguientes códigos fueron escaneados pero no corresponden a las identificaciones declaradas por el comercio. Serán registrados como discrepancia de tipo <strong>Sobrante</strong>.
+                        </p>
+                        <div id="listaBultosSobrantes" class="d-flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================================
+                 Columna Derecha: Resumen de Contraste y Confirmación
+                 ========================================================================= -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 sticky-top" style="top: 20px;">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center justify-content-between">
+                            <span>Balance de Recepción</span>
+                            <span class="text-secondary small font-monospace" id="lblBalanceGeneral">0 / @envio.Bultos.Count</span>
+                        </h2>
+                    </div>
+
+                    <div class="card-body p-3">
+                        <!-- Conteo Detallado de Bultos -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-semibold text-dark">Bultos Correctos:</span>
+                                <span class="font-monospace fw-bold text-success" id="txtConteoCorrectos">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-semibold text-dark">Bultos Faltantes:</span>
+                                <span class="font-monospace fw-bold text-secondary" id="txtConteoFaltantes">@envio.Bultos.Count</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-semibold text-dark">Bultos Dañados:</span>
+                                <span class="font-monospace fw-bold text-danger" id="txtConteoDanados">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-semibold text-dark">Bultos Sobrantes:</span>
+                                <span class="font-monospace fw-bold text-info" id="txtConteoSobrantes">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Indicador de Estado del Contraste (Regla UC-14) -->
+                        <div class="alert alert-info py-2 px-3 small rounded-3 mb-3" id="panelEstadoContraste">
+                            <div class="fw-bold mb-1" id="tituloEstadoContraste">Inicie el escaneo de bultos</div>
+                            <div id="mensajeEstadoContraste" style="font-size: 0.78rem;">
+                                Escanee los bultos que llegaron físicamente para contrastarlos contra los declarados.
+                            </div>
+                        </div>
+
+                        <!-- Campo de Observaciones (Requerido cuando hay discrepancias según UC-14) -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-dark d-flex align-items-center justify-content-between">
+                                <span>Observaciones de la Recepción:</span>
+                                <span class="text-danger small fw-semibold" id="badgeObligatorio" style="display: none;">(Requerido por Discrepancia)</span>
+                            </label>
+                            <textarea asp-for="Formulario.Observaciones" id="txtObservaciones"
+                                      class="form-control form-control-sm" rows="3"
+                                      placeholder="Si existen bultos faltantes, dañados o sobrantes, detalle obligatoriamente el motivo para documentar la discrepancia..."></textarea>
+                            <div class="text-muted small mt-1" style="font-size: 0.72rem;">
+                                El envío solo avanza a "En Depósito" si no hay discrepancias, o si el operario las resuelve documentándolas aquí.
+                            </div>
+                        </div>
+
+                        <!-- Botón de Confirmación -->
+                        <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2" id="btnConfirmarRecepcion">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Confirmar Recepción en Depósito</span>
+                        </button>
+
+                        <div class="text-center mt-2">
+                            <span class="text-muted" style="font-size: 0.72rem;">
+                                Pasa a "En Depósito" con o sin discrepancias documentadas.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Códigos declarados desde el modelo
+        var bultosDeclarados = [
+            @if (envio != null)
+            {
+                @Html.Raw(string.Join(", ", envio.Bultos.Select(b => $"'{b.Identificacion.Trim().ToUpperInvariant()}'")))
+            }
+        ];
+
+        // Conjuntos en memoria del navegador
+        var bultosEscaneados = new Set();
+        var bultosDanados = new Set();
+        var bultosSobrantes = new Set();
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var inputCodigo = document.getElementById('inputCodigoBulto');
+            if (inputCodigo) {
+                inputCodigo.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        procesarEscaneoManual();
+                    }
+                });
+            }
+            actualizarInterfaz();
+        });
+
+        function procesarEscaneoManual() {
+            var input = document.getElementById('inputCodigoBulto');
+            if (!input) return;
+
+            var codigo = (input.value || '').trim().toUpperCase();
+            if (!codigo) return;
+
+            input.value = '';
+            registrarEscaneo(codigo);
+            input.focus();
+        }
+
+        function registrarEscaneo(codigo) {
+            bultosEscaneados.add(codigo);
+
+            if (bultosDeclarados.includes(codigo)) {
+                // Es un bulto declarado correcto
+            } else {
+                // Es un sobrante no declarado
+                bultosSobrantes.add(codigo);
+            }
+
+            actualizarInterfaz();
+        }
+
+        function alternarDanado(codigo) {
+            var chk = document.getElementById('chk-danado-' + codigo);
+            if (!chk) return;
+
+            if (chk.checked) {
+                bultosDanados.add(codigo);
+            } else {
+                bultosDanados.delete(codigo);
+            }
+
+            actualizarInterfaz();
+        }
+
+        function simularEscanearTodo() {
+            bultosDeclarados.forEach(function (c) {
+                bultosEscaneados.add(c);
+            });
+            actualizarInterfaz();
+        }
+
+        function simularDanado() {
+            if (bultosDeclarados.length > 0) {
+                var primerBulto = bultosDeclarados[0];
+                bultosEscaneados.add(primerBulto);
+                bultosDanados.add(primerBulto);
+                var chk = document.getElementById('chk-danado-' + primerBulto);
+                if (chk) chk.checked = true;
+            }
+            actualizarInterfaz();
+        }
+
+        function simularSobrante() {
+            var codigoSobrante = 'BLT-EXTRA-' + Math.floor(1000 + Math.random() * 9000);
+            registrarEscaneo(codigoSobrante);
+        }
+
+        function reiniciarEscaneos() {
+            bultosEscaneados.clear();
+            bultosDanados.clear();
+            bultosSobrantes.clear();
+            document.querySelectorAll('.chk-danado').forEach(function (c) {
+                c.checked = false;
+            });
+            actualizarInterfaz();
+        }
+
+        function actualizarInterfaz() {
+            var totalDeclarados = bultosDeclarados.length;
+            var correctos = 0;
+            var faltantes = 0;
+            var danados = 0;
+            var sobrantes = bultosSobrantes.size;
+
+            bultosDeclarados.forEach(function (codigo) {
+                var estaEscaneado = bultosEscaneados.has(codigo);
+                var estaDanado = bultosDanados.has(codigo);
+                var fila = document.getElementById('fila-bulto-' + codigo);
+                var badge = document.getElementById('badge-estado-' + codigo);
+                var chkDanado = document.getElementById('chk-danado-' + codigo);
+
+                if (chkDanado) {
+                    chkDanado.disabled = !estaEscaneado;
+                }
+
+                if (!estaEscaneado) {
+                    faltantes++;
+                    if (badge) {
+                        badge.className = 'text-secondary small';
+                        badge.textContent = 'Pendiente de escaneo';
+                    }
+                    if (fila) fila.className = 'fila-declarada';
+                } else if (estaDanado) {
+                    danados++;
+                    if (badge) {
+                        badge.className = 'text-danger small fw-semibold';
+                        badge.textContent = 'Escaneado con daños';
+                    }
+                    if (fila) fila.className = 'fila-declarada table-danger';
+                } else {
+                    correctos++;
+                    if (badge) {
+                        badge.className = 'text-success small fw-semibold';
+                        badge.textContent = 'Escaneado correcto';
+                    }
+                    if (fila) fila.className = 'fila-declarada table-success';
+                }
+            });
+
+            // Bultos sobrantes
+            var cardSobrantes = document.getElementById('cardSobrantes');
+            var contenedorSobrantes = document.getElementById('listaBultosSobrantes');
+            var badgeConteoSobrantes = document.getElementById('conteoBultosSobrantes');
+
+            if (cardSobrantes && contenedorSobrantes) {
+                if (sobrantes > 0) {
+                    cardSobrantes.style.display = 'block';
+                    badgeConteoSobrantes.textContent = sobrantes;
+                    contenedorSobrantes.innerHTML = Array.from(bultosSobrantes).map(function (c) {
+                        return '<span class="font-monospace text-danger small p-1 border border-danger-subtle rounded bg-danger-subtle">' + c + ' (No declarado)</span>';
+                    }).join('');
+                } else {
+                    cardSobrantes.style.display = 'none';
+                    contenedorSobrantes.innerHTML = '';
+                }
+            }
+
+            // Actualizar contadores del panel lateral
+            var lblBalance = document.getElementById('lblBalanceGeneral');
+            if (lblBalance) lblBalance.textContent = bultosEscaneados.size + ' / ' + totalDeclarados;
+
+            var txtCorrectos = document.getElementById('txtConteoCorrectos');
+            if (txtCorrectos) txtCorrectos.textContent = correctos;
+
+            var txtFaltantes = document.getElementById('txtConteoFaltantes');
+            if (txtFaltantes) txtFaltantes.textContent = faltantes;
+
+            var txtDanados = document.getElementById('txtConteoDanados');
+            if (txtDanados) txtDanados.textContent = danados;
+
+            var txtSobrantes = document.getElementById('txtConteoSobrantes');
+            if (txtSobrantes) txtSobrantes.textContent = sobrantes;
+
+            var badgeProgreso = document.getElementById('badgeProgresoEscaneo');
+            if (badgeProgreso) badgeProgreso.textContent = bultosEscaneados.size + ' / ' + totalDeclarados + ' escaneados';
+
+            // Evaluación de discrepancias
+            var hayDiscrepancias = (faltantes > 0 || sobrantes > 0 || danados > 0);
+            var panelEstado = document.getElementById('panelEstadoContraste');
+            var tituloEstado = document.getElementById('tituloEstadoContraste');
+            var mensajeEstado = document.getElementById('mensajeEstadoContraste');
+            var badgeObligatorio = document.getElementById('badgeObligatorio');
+            var txtObs = document.getElementById('txtObservaciones');
+
+            if (bultosEscaneados.size === 0) {
+                if (panelEstado) panelEstado.className = 'alert alert-info py-2 px-3 small rounded-3 mb-3';
+                if (tituloEstado) tituloEstado.textContent = 'Inicie el escaneo de bultos';
+                if (mensajeEstado) mensajeEstado.textContent = 'Escanee los bultos arribados para contrastar contra los declarados.';
+                if (badgeObligatorio) badgeObligatorio.style.display = 'none';
+            } else if (!hayDiscrepancias && correctos === totalDeclarados) {
+                if (panelEstado) panelEstado.className = 'alert alert-success py-2 px-3 small rounded-3 mb-3';
+                if (tituloEstado) tituloEstado.textContent = 'Coincidencia Exacta';
+                if (mensajeEstado) mensajeEstado.textContent = 'Todos los bultos coinciden con lo declarado sin daños. Listo para pasar a En Depósito.';
+                if (badgeObligatorio) badgeObligatorio.style.display = 'none';
+            } else {
+                if (panelEstado) panelEstado.className = 'alert alert-warning py-2 px-3 small rounded-3 mb-3';
+                if (tituloEstado) tituloEstado.textContent = 'Discrepancia Detectada';
+                var detalles = [];
+                if (faltantes > 0) detalles.push(faltantes + ' faltante(s)');
+                if (sobrantes > 0) detalles.push(sobrantes + ' sobrante(s)');
+                if (danados > 0) detalles.push(danados + ' dañado(s)');
+                if (mensajeEstado) mensajeEstado.textContent = 'Se detectaron diferencias: ' + detalles.join(', ') + '. Ingrese obligatoriamente las observaciones para documentarlas.';
+                if (badgeObligatorio) badgeObligatorio.style.display = 'inline-block';
+            }
+
+            // Sincronizar con inputs ocultos para el submit
+            var hiddenEscaneados = document.getElementById('hiddenCodigosEscaneados');
+            if (hiddenEscaneados) hiddenEscaneados.value = Array.from(bultosEscaneados).join(',');
+
+            var hiddenDanados = document.getElementById('hiddenCodigosDanados');
+            if (hiddenDanados) hiddenDanados.value = Array.from(bultosDanados).join(',');
+        }
+    </script>
+}

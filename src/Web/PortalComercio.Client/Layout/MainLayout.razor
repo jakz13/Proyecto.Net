@@ -14,7 +14,7 @@
     }
 </style>
 
-<div class="d-flex flex-column min-vh-100">
+<div class="page d-flex flex-column min-vh-100">
     <SelectorOperadorDemo AlCambiar="CargarIdentidadVisual" />
 
     <!-- Barra de Navegación Superior -->
@@ -89,7 +89,15 @@
 
     private async Task CargarIdentidadVisual()
     {
-        identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+        try
+        {
+            identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+        }
+        catch
+        {
+            // En caso de fallo de red o backend no disponible en modo sin mocks, mantiene identidad por defecto
+            identidad = new IdentidadVisualDto();
+        }
 
         colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
         colorSecundarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorSecundario, "#F97316");

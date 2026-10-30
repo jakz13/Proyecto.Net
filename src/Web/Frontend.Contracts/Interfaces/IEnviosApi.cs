@@ -44,5 +44,27 @@ public interface IEnviosApi
         string? claveIdempotencia = null,
         CancellationToken cancelacion = default);
 
-    // TODO: Definir contrato para generación y descarga de etiquetas en PDF/ZPL (UC-26).
+    /// <summary>
+    /// Obtiene la clave de API vigente en la sesión actual del comercio para invocar el canal de integración.
+    /// </summary>
+    Task<string> ObtenerClaveApiActivaAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Genera una nueva clave de API para el comercio, invalidando la credencial anterior.
+    /// </summary>
+    Task<ClaveApiComercioDto> RegenerarClaveApiAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Registra un envío invocando el endpoint de integración externa autenticado mediante X-Api-Key.
+    /// </summary>
+    Task<RespuestaAltaEnvioApiDto> CrearEnvioPorApiIntegracionAsync(
+        SolicitudAltaEnvioApiDto solicitud,
+        CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido (UC-27).
+    /// </summary>
+    Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
+        IReadOnlyList<Guid> envioIds,
+        CancellationToken cancelacion = default);
 }

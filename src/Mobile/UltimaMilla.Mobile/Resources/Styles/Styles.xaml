@@ -5,6 +5,28 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <!-- ================================================================= -->
+    <!-- TOKENS RESPONSIVE (valores por defecto = pantallas normales)      -->
+    <!-- En pantallas < 380 dp, Responsive/TokensResponsive.cs los         -->
+    <!-- sobrescribe en tiempo de ejecución. Usar con DynamicResource.    -->
+    <!-- ================================================================= -->
+    <x:Double x:Key="FontSizeH1">24</x:Double>
+    <x:Double x:Key="FontSizeH2">18</x:Double>
+    <x:Double x:Key="FontSizeH3">16</x:Double>
+    <x:Double x:Key="FontSizeLoginTitulo">32</x:Double>
+    <x:Double x:Key="FontSizeBotonChico">13</x:Double>
+    <x:Double x:Key="EspaciadoSecciones">16</x:Double>
+    <Thickness x:Key="PaddingTarjeta">16</Thickness>
+    <Thickness x:Key="PaddingPagina">20</Thickness>
+    <Thickness x:Key="PaddingPaginaDetalle">16,12,16,16</Thickness>
+    <Thickness x:Key="PaddingFormulario">16,16,16,24</Thickness>
+    <Thickness x:Key="PaddingLogin">30</Thickness>
+    <Thickness x:Key="PaddingTarjetaLogin">24</Thickness>
+    <Thickness x:Key="PaddingCabeceraRuta">20,16</Thickness>
+    <Thickness x:Key="MargenListaParadas">16,12,16,16</Thickness>
+    <Thickness x:Key="PaddingBarraAcciones">16,10,16,12</Thickness>
+    <Thickness x:Key="PaddingBotonChico">12,6</Thickness>
+
+    <!-- ================================================================= -->
     <!-- ESTILOS GLOBALES: TIPOGRAFÍA (Equivalente a h1, h2, p en CSS)     -->
     <!-- ================================================================= -->
 
@@ -16,7 +38,7 @@
 
     <!-- H1: Títulos de páginas principales -->
     <Style x:Key="H1Label" TargetType="Label">
-        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeH1}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="LineHeight" Value="1.2" />
@@ -24,14 +46,14 @@
 
     <!-- H2: Subtítulos de sección / cabeceras -->
     <Style x:Key="H2Label" TargetType="Label">
-        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeH2}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
     </Style>
 
     <!-- H3: Títulos de tarjetas / elementos -->
     <Style x:Key="H3Label" TargetType="Label">
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeH3}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
     </Style>
@@ -143,11 +165,11 @@
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
         <Setter Property="BackgroundColor" Value="{StaticResource Success}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="14.5" />
         <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="18,12" />
-        <Setter Property="HeightRequest" Value="52" />
-        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Padding" Value="10,2" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -156,6 +178,7 @@
                         <VisualState.Setters>
                             <Setter Property="Scale" Value="1.0" />
                             <Setter Property="Opacity" Value="1.0" />
+                            <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
@@ -181,11 +204,11 @@
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
         <Setter Property="BackgroundColor" Value="{StaticResource Danger}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="14.5" />
         <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="18,12" />
-        <Setter Property="HeightRequest" Value="52" />
-        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Padding" Value="10,2" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -194,6 +217,7 @@
                         <VisualState.Setters>
                             <Setter Property="Scale" Value="1.0" />
                             <Setter Property="Opacity" Value="1.0" />
+                            <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
@@ -223,9 +247,9 @@
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="16,10" />
-        <Setter Property="HeightRequest" Value="50" />
-        <Setter Property="MinimumHeightRequest" Value="50" />
+        <Setter Property="Padding" Value="10,2" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Shadow" Value="{x:Null}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -234,6 +258,7 @@
                         <VisualState.Setters>
                             <Setter Property="Scale" Value="1.0" />
                             <Setter Property="Opacity" Value="1.0" />
+                            <Setter Property="TextColor" Value="{StaticResource Danger}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
@@ -241,6 +266,13 @@
                             <Setter Property="BackgroundColor" Value="#FECACA" />
                             <Setter Property="Scale" Value="0.97" />
                             <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="TextColor" Value="#F8FAFC" />
+                            <Setter Property="Opacity" Value="0.5" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -293,9 +325,9 @@
         <Setter Property="BorderColor" Value="{StaticResource PhoneActionBorder}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBotonChico}" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Padding" Value="{DynamicResource PaddingBotonChico}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Shadow" Value="{x:Null}" />
@@ -326,9 +358,9 @@
         <Setter Property="BorderColor" Value="{StaticResource MapActionBorder}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBotonChico}" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Padding" Value="{DynamicResource PaddingBotonChico}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Shadow" Value="{x:Null}" />
@@ -357,9 +389,9 @@
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
         <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBotonChico}" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="Padding" Value="{DynamicResource PaddingBotonChico}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Shadow" Value="{x:Null}" />
@@ -441,7 +473,7 @@
         <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
-        <Setter Property="Padding" Value="16" />
+        <Setter Property="Padding" Value="{DynamicResource PaddingTarjeta}" />
         <Setter Property="Shadow">
             <Shadow Brush="#000000"
                     Offset="0,2"
