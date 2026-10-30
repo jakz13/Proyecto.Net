@@ -488,3 +488,4 @@ public class GestionComerciosHandlerTests
             handler.Handle(new ObtenerComercioPorIdQuery(comercio.Id), CancellationToken.None));
     }
 }
+

@@ -459,3 +459,4 @@ public class GestionUsuariosHandlerTests
         Assert.Contains(resultado, p => p.Nombre == "Operador");
     }
 }
+

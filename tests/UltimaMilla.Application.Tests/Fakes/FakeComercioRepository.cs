@@ -49,3 +49,4 @@ public class FakeComercioRepository : IComercioRepository
         return Task.CompletedTask;
     }
 }
+
