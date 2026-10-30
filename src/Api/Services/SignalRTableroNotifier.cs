@@ -14,6 +14,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     public const string EventoCambioRuta = "CambioRuta";
     public const string EventoHitoParada = "HitoParada";
     public const string EventoPosicionVehiculo = "PosicionVehiculo";
+    public const string EventoEnvioCambioEstado = "EnvioCambioEstado";
 
     private readonly IHubContext<TableroHub> _hubContext;
     private readonly ILogger<SignalRTableroNotifier> _logger;
@@ -121,6 +122,34 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del vehículo {VehiculoId} (operador {OperadorId}).", EventoPosicionVehiculo, vehiculoId, operadorId);
+        }
+    }
+
+    public async Task NotificarEnvioCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid envioId, string codigoSeguimiento, string estado, CancellationToken ct = default)
+    {
+        if (operadorId == Guid.Empty || envioId == Guid.Empty || string.IsNullOrWhiteSpace(estado))
+            return;
+
+        try
+        {
+            var mensaje = new
+            {
+                envioId,
+                codigoSeguimiento,
+                estado = estado.Trim(),
+                timestamp = DateTime.UtcNow
+            };
+
+            // Operador (backoffice) y comercio dueño del envío: ningún otro grupo lo recibe
+            var destinos = new List<string> { TableroHub.GrupoOperador(operadorId) };
+            if (comercioOperadorId != Guid.Empty)
+                destinos.Add(TableroHub.GrupoComercio(comercioOperadorId));
+
+            await _hubContext.Clients.Groups(destinos).SendAsync(EventoEnvioCambioEstado, mensaje, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del envío {EnvioId} (operador {OperadorId}).", EventoEnvioCambioEstado, envioId, operadorId);
         }
     }
 }

@@ -207,6 +207,97 @@ public class TableroSignalRApiTests
         wsOp2.Dispose();
     }
 
+    private async Task<ClientWebSocketPrueba> ConectarTableroAsync(string email, string password, CancellationToken ct)
+    {
+        var http = _factory.CreateClient();
+        var login = await http.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest(email, password), ct);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var token = (await login.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>(ct))!.Token;
+
+        var ws = await _factory.Server.CreateWebSocketClient().ConnectAsync(
+            new Uri($"ws://localhost/hubs/tablero?access_token={Uri.EscapeDataString(token)}"), ct);
+        await EnviarHandshakeSignalRAsync(ws, ct);
+        var bienvenida = await LeerTramasHastaContenerAsync(ws, "ConectadoTablero", TimeSpan.FromSeconds(3));
+        var payloadToken = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
+        payloadToken = payloadToken.PadRight(payloadToken.Length + (4 - payloadToken.Length % 4) % 4, '=');
+        Assert.True(
+            bienvenida.Any(t => t.Contains("ConectadoTablero", StringComparison.Ordinal)),
+            $"El hub cerró la conexión de {email}. Claims: {Encoding.UTF8.GetString(Convert.FromBase64String(payloadToken))}");
+        return new ClientWebSocketPrueba(ws);
+    }
+
+    private sealed class ClientWebSocketPrueba : IDisposable
+    {
+        public ClientWebSocketPrueba(WebSocket ws) => Socket = ws;
+        public WebSocket Socket { get; }
+        public void Dispose() => Socket.Dispose();
+    }
+
+    [FactPostgres]
+    public async Task EnvioCambioEstado_ElCambioRealEnLaBaseLlegaAlOperadorYComercioDuenos_YNoAOtros()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        using var operador1 = await ConectarTableroAsync("admin@gmail.com", "Admin.2026!", cts.Token);
+        using var operador2 = await ConectarTableroAsync("admin2@gmail.com", "Admin.2026!", cts.Token);
+        using var comercioDueno = await ConectarTableroAsync("comercio@gmail.com", "Comercio.2026!", cts.Token);
+
+        // Cambio real de estado de un envío del operador 1 / comercio 3333…, dentro de una transacción que luego se descarta
+        // para no alterar los datos que usan las demás pruebas
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var alcance = db.HabilitarEscrituraAdministrativa();
+            await using var transaccion = await db.Database.BeginTransactionAsync(cts.Token);
+
+            var envio = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(db.Envios),
+                e => e.Id == DatabaseSeeder.Envio5Id, cts.Token);
+            db.Entry(envio).Property(e => e.EstadoActual).CurrentValue = UltimaMilla.Domain.Enums.EstadoEnvio.Extraviado;
+            await db.SaveChangesAsync(cts.Token);
+
+            await transaccion.RollbackAsync(cts.Token);
+        }
+
+        var tramasOp1 = string.Concat(await LeerTramasHastaContenerAsync(operador1.Socket, "EnvioCambioEstado", TimeSpan.FromSeconds(4)));
+        var tramasComercio = string.Concat(await LeerTramasHastaContenerAsync(comercioDueno.Socket, "EnvioCambioEstado", TimeSpan.FromSeconds(4)));
+        var tramasOp2 = string.Concat(await LeerTramasHastaContenerAsync(operador2.Socket, "EnvioCambioEstado", TimeSpan.FromSeconds(2)));
+
+        Assert.Contains("EnvioCambioEstado", tramasOp1);
+        Assert.Contains(DatabaseSeeder.Envio5Id.ToString(), tramasOp1);
+        Assert.Contains("Extraviado", tramasOp1);
+
+        Assert.Contains("EnvioCambioEstado", tramasComercio);
+        Assert.Contains(DatabaseSeeder.Envio5Id.ToString(), tramasComercio);
+
+        Assert.DoesNotContain("EnvioCambioEstado", tramasOp2);
+    }
+
+    [FactPostgres]
+    public async Task EnvioCambioEstado_UnComercioNoRecibeLosEnviosDeOtroComercio()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        using var operador1 = await ConectarTableroAsync("admin@gmail.com", "Admin.2026!", cts.Token);
+        using var comercioDueno = await ConectarTableroAsync("comercio@gmail.com", "Comercio.2026!", cts.Token);
+
+        var envioDeOtroComercio = Guid.NewGuid();
+        var otroComercioOperador = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var notifier = scope.ServiceProvider.GetRequiredService<ITableroRealtimeNotifier>();
+            await notifier.NotificarEnvioCambioEstadoAsync(
+                DatabaseSeeder.DefaultOperadorId, otroComercioOperador, envioDeOtroComercio, "ENV-AJENO", "Entregado", cts.Token);
+        }
+
+        // El operador ve todos sus envíos; el comercio solo los suyos
+        var tramasOp1 = string.Concat(await LeerTramasHastaContenerAsync(operador1.Socket, envioDeOtroComercio.ToString(), TimeSpan.FromSeconds(4)));
+        var tramasComercio = string.Concat(await LeerTramasHastaContenerAsync(comercioDueno.Socket, envioDeOtroComercio.ToString(), TimeSpan.FromSeconds(2)));
+
+        Assert.Contains(envioDeOtroComercio.ToString(), tramasOp1);
+        Assert.DoesNotContain(envioDeOtroComercio.ToString(), tramasComercio);
+    }
+
     [FactPostgres]
     public async Task Notifier_ConParametrosVaciosOInvalidos_NoLanzaExcepcion()
     {

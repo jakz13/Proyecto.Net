@@ -2,6 +2,7 @@
 @model UltimaMilla.Backoffice.Pages.Rutas.DetalleModel
 @{
     ViewData["Title"] = "Detalle de Hoja de Ruta";
+    ViewData["TiempoRealEnvios"] = true;
     var ruta = Model.HojaDeRuta;
     var estaDespachada = ruta != null && (ruta.Estado == "Despachada" || ruta.Estado == "EnTransito");
 }

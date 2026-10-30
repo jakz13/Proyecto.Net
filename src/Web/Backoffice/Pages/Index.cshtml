@@ -2,6 +2,7 @@
 @model UltimaMilla.Backoffice.Pages.IndexModel
 @{
     ViewData["Title"] = "Panel de Control";
+    ViewData["TiempoRealEnvios"] = true;
     var rol = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Sin perfil";
 }
 

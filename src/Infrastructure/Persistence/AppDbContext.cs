@@ -17,10 +17,15 @@ namespace UltimaMilla.Infrastructure.Persistence;
 public class AppDbContext : DbContext
 {
     private readonly ICurrentTenant? _currentTenant;
+    private readonly ITableroRealtimeNotifier? _tiempoReal;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant? currentTenant = null) : base(options)
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        ICurrentTenant? currentTenant = null,
+        ITableroRealtimeNotifier? tiempoReal = null) : base(options)
     {
         _currentTenant = currentTenant;
+        _tiempoReal = tiempoReal;
     }
 
     /// <summary>
@@ -636,7 +641,54 @@ public class AppDbContext : DbContext
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         await ValidarAislamientoDeEscrituraAsync(cancellationToken);
-        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var cambiosDeEstado = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeEnvios();
+        var guardados = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (_tiempoReal is not null && cambiosDeEstado is { Count: > 0 })
+            await NotificarCambiosDeEstadoAsync(cambiosDeEstado);
+
+        return guardados;
+    }
+
+    private sealed record CambioEstadoEnvio(Guid OperadorId, Guid ComercioOperadorId, Guid EnvioId, string Codigo, string Estado);
+
+    /// <summary>
+    /// Punto único para el tiempo real de los envíos: cualquier comando que altere el estado de un envío (depósito, ruta, app móvil,
+    /// incidencias) queda cubierto sin que cada caso de uso tenga que acordarse de avisar. Se captura antes de guardar porque después
+    /// el seguimiento de cambios ya no distingue lo modificado.
+    /// </summary>
+    private List<CambioEstadoEnvio> CapturarCambiosDeEstadoDeEnvios()
+    {
+        var cambios = new List<CambioEstadoEnvio>();
+        foreach (var entrada in ChangeTracker.Entries<Envio>())
+        {
+            var huboCambio = entrada.State == EntityState.Added
+                || (entrada.State == EntityState.Modified
+                    && !Equals(entrada.Property(e => e.EstadoActual).OriginalValue, entrada.Property(e => e.EstadoActual).CurrentValue));
+            if (!huboCambio)
+                continue;
+
+            var envio = entrada.Entity;
+            cambios.Add(new CambioEstadoEnvio(envio.OperadorId, envio.ComercioOperadorId, envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString()));
+        }
+
+        return cambios;
+    }
+
+    /// <summary>El aviso es posterior al guardado y no condiciona su resultado: un fallo de transporte nunca revierte ni oculta el cambio.</summary>
+    private async Task NotificarCambiosDeEstadoAsync(List<CambioEstadoEnvio> cambios)
+    {
+        foreach (var cambio in cambios)
+        {
+            try
+            {
+                await _tiempoReal!.NotificarEnvioCambioEstadoAsync(
+                    cambio.OperadorId, cambio.ComercioOperadorId, cambio.EnvioId, cambio.Codigo, cambio.Estado);
+            }
+            catch
+            {
+                // Best effort: la vista se pondrá al día en el próximo refresco
+            }
+        }
     }
 
     /// <summary>

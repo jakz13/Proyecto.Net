@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using UltimaMilla.Frontend.Infrastructure;
 using UltimaMilla.PortalComercio.Client.Auth;
+using UltimaMilla.PortalComercio.Client.Servicios;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -36,5 +37,11 @@ else
     // Registra clientes HTTP reales conectados al backend
     builder.Services.AgregarHttpClientsFrontend(urlBaseApi);
 }
+
+// Estado de los envíos en vivo: una conexión por sesión, compartida por las páginas (en modo mock no hay hub)
+builder.Services.AddScoped(sp => new TiempoRealEnviosServicio(
+    sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>(),
+    sp.GetRequiredService<ITokenStore>(),
+    urlBaseApi));
 
 await builder.Build().RunAsync();

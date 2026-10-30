@@ -126,26 +126,7 @@ public class IndexModel : PageModel
     /// </summary>
     public IActionResult OnGetTokenTiempoReal()
     {
-        var operadorId = ResolverOperadorDeSesion();
-        var usuarioIdTexto = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var usuarioId = Guid.TryParse(usuarioIdTexto, out var uid) && uid != Guid.Empty ? uid : Guid.NewGuid();
-        var nombre = User.Identity?.Name ?? "Despachador Backoffice";
-        var rol = User.FindFirst(ClaimTypes.Role)?.Value ?? "Despachador";
-        var perfilId = string.Equals(rol, "Administrador", StringComparison.OrdinalIgnoreCase)
-            ? DatabaseSeeder.DefaultPerfilAdminId
-            : DatabaseSeeder.DefaultPerfilDespachadorId;
-
-        var usuario = new Usuario(usuarioId, nombre, "tablero@ultimamilla.com.uy", "sesion-backoffice", perfilId, operadorId: operadorId);
-        var perfil = new Perfil(perfilId, rol, "Sesión autenticada de Backoffice");
-        var servicioJwt = new TokenJwtService(_configuracion ?? new ConfigurationBuilder().Build());
-        var token = servicioJwt.GenerarToken(usuario, perfil, new[] { "RUTAS_DESPACHO" }, TimeSpan.FromMinutes(15));
-
-        return new JsonResult(new
-        {
-            accessToken = token.Token,
-            expiraEnUtc = token.ExpiraUtc,
-            hubUrl = ObtenerUrlHub()
-        });
+        return new JsonResult(UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.Emitir(User, _configuracion, _contextoOperador, "/hubs/tablero"));
     }
 
     private string ObtenerUrlHub()

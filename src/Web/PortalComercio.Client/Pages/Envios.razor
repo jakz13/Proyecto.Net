@@ -2,6 +2,8 @@
 @inject IEnviosApi EnviosApi
 @inject IAvisosComercioApi AvisosApi
 @inject IJSRuntime JS
+@inject TiempoRealEnviosServicio TiempoReal
+@implements IDisposable
 
 <PageTitle>Portal del Comercio — Listado y Seguimiento de Envíos</PageTitle>
 
@@ -753,8 +755,16 @@
         await CargarEnvios();
     }
 
+    private CancellationTokenSource? _refrescoPendiente;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            TiempoReal.EnvioCambioEstado += AlCambiarEstadoEnvio;
+            await TiempoReal.IniciarAsync();
+        }
+
         if (pendienteRenderizarMapaSeguimiento && envioEnSeguimiento is not null)
         {
             pendienteRenderizarMapaSeguimiento = false;
@@ -1031,9 +1041,64 @@
         await CargarEnvios();
     }
 
-    private async Task CargarEnvios()
+    // Estado de los envíos en vivo: varios cambios seguidos se juntan en un único refresco, sin spinner ni perder la página/filtros actuales
+    private async Task AlCambiarEstadoEnvio(string codigoSeguimiento, string estado)
     {
-        estaCargando = true;
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(800, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await CargarEnvios(silencioso: true);
+
+            // Si el envío abierto en el panel de seguimiento cambió, el panel muestra el estado nuevo
+            if (envioEnSeguimiento is not null)
+            {
+                var actualizado = resultadoPaginado?.Elementos.FirstOrDefault(e => e.Id == envioEnSeguimiento.Id);
+                if (actualizado is not null && actualizado.Estado != envioEnSeguimiento.Estado)
+                    envioEnSeguimiento = envioEnSeguimiento with { Estado = actualizado.Estado };
+            }
+
+            if (!string.IsNullOrWhiteSpace(codigoSeguimiento))
+            {
+                try
+                {
+                    await JS.InvokeVoidAsync("SistemaNotificaciones.mostrar", new
+                    {
+                        tipo = "info",
+                        titulo = "Envío actualizado",
+                        mensajeBreve = $"{codigoSeguimiento} pasó a: {estado}",
+                        duracionMs = 4000
+                    });
+                }
+                catch
+                {
+                    // El aviso visual es opcional
+                }
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TiempoReal.EnvioCambioEstado -= AlCambiarEstadoEnvio;
+        _refrescoPendiente?.Cancel();
+    }
+
+    private async Task CargarEnvios(bool silencioso = false)
+    {
+        if (!silencioso)
+            estaCargando = true;
         try
         {
             var filtro = new FiltroEnviosDto

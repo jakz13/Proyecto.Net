@@ -515,6 +515,11 @@
             programarActualizacionPorPosicion();
         });
 
+        // Un envío que cambia de estado altera las métricas (en tránsito, entregados) y las paradas del tablero
+        conexion.on('EnvioCambioEstado', function () {
+            programarActualizacionPorPosicion();
+        });
+
         if (typeof conexion.onreconnecting === 'function') {
             conexion.onreconnecting(function () {
                 actualizarEstadoBadge('reconectando', 'Reconectando...');

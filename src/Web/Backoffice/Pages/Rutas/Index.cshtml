@@ -2,6 +2,7 @@
 @model UltimaMilla.Backoffice.Pages.Rutas.IndexModel
 @{
     ViewData["Title"] = "Hojas de Ruta y Despacho";
+    ViewData["TiempoRealEnvios"] = true;
     var fechaSeleccionada = !string.IsNullOrEmpty(Model.FechaFiltro) ? Model.FechaFiltro : DateTime.UtcNow.ToString("yyyy-MM-dd");
 }
 

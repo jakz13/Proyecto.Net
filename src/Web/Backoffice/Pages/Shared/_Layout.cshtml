@@ -27,7 +27,7 @@
         }
     </script>
 </head>
-<body>
+<body data-tiempo-real-envios="@(ViewData["TiempoRealEnvios"] is true ? "true" : "false")">
     <!-- Componente de Barra Lateral Anclada y Colapsable -->
     <partial name="_Sidebar" />
 
@@ -59,6 +59,8 @@
     <script src="~/js/mapas-leaflet.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/notificaciones.js" asp-append-version="true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/tiempo-real-envios.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -14,6 +14,13 @@ public interface ITableroRealtimeNotifier
     /// Avisa al tablero que un vehículo informó una posición nueva (RF-23, RF-29), para que el mapa se actualice sin recargar la página.
     /// Por defecto no hace nada: los adaptadores sin tiempo real no están obligados a implementarlo.
     /// </summary>
+    /// <summary>
+    /// Avisa que cambió el estado de un envío (o que se dio de alta) para que las vistas que lo muestran se actualicen sin recargar (RF-12, RF-29).
+    /// Se emite al operador dueño y al comercio dueño del envío, nunca a otros.
+    /// </summary>
+    Task NotificarEnvioCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid envioId, string codigoSeguimiento, string estado, CancellationToken ct = default)
+        => Task.CompletedTask;
+
     Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
         => Task.CompletedTask;
 }

@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Api.Hubs;
 
@@ -11,6 +13,13 @@ namespace UltimaMilla.Api.Hubs;
 [Authorize]
 public class TableroHub : Hub
 {
+    private readonly AppDbContext _db;
+
+    public TableroHub(AppDbContext db)
+    {
+        _db = db;
+    }
+
     private static readonly string[] ClaimsOperador =
     {
         "operador_id",
@@ -19,7 +28,13 @@ public class TableroHub : Hub
         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/tenantid"
     };
 
+    private const string ClaimRelacionComercio = "comercio_operador_id";
+    private const string ClaimComercio = "comercio_id";
+
     public static string GrupoOperador(Guid operadorId) => $"operador_{operadorId}";
+
+    /// <summary>Grupo de un comercio dentro de su operador: recibe solo los eventos de sus propios envíos.</summary>
+    public static string GrupoComercio(Guid comercioOperadorId) => $"comercio_{comercioOperadorId}";
 
     public override async Task OnConnectedAsync()
     {
@@ -29,10 +44,54 @@ public class TableroHub : Hub
             return;
         }
 
-        var grupo = GrupoOperador(operadorId);
+        // Un usuario de comercio solo ve lo suyo: se une a su grupo y NO al del operador (que incluye a los demás comercios)
+        string grupo;
+        if (EsUsuarioDeComercio(Context.User))
+        {
+            var relacion = await ResolverRelacionComercioAsync(Context.User, operadorId);
+            if (relacion is null)
+            {
+                // Sesión de comercio sin relación vigente con el operador del token: no se le entrega nada
+                Context.Abort();
+                return;
+            }
+
+            grupo = GrupoComercio(relacion.Value);
+        }
+        else
+        {
+            grupo = GrupoOperador(operadorId);
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, grupo);
         await Clients.Caller.SendAsync("ConectadoTablero", new { OperadorId = operadorId, Grupo = grupo });
         await base.OnConnectedAsync();
+    }
+
+    internal static bool EsUsuarioDeComercio(ClaimsPrincipal? usuario) =>
+        usuario?.Identity?.IsAuthenticated == true
+        && (usuario.FindFirst(ClaimRelacionComercio) is not null || usuario.FindFirst(ClaimComercio) is not null);
+
+    /// <summary>
+    /// El grupo de un comercio se identifica por su relación con el operador (la que lleva cada envío). Según cómo se haya emitido el token,
+    /// los claims de comercio traen esa relación o el id del comercio; en ambos casos se resuelve en la base acotada al operador del token,
+    /// nunca a partir de lo que envíe el navegador.
+    /// </summary>
+    private async Task<Guid?> ResolverRelacionComercioAsync(ClaimsPrincipal? usuario, Guid operadorId)
+    {
+        var candidatos = new List<Guid>();
+        foreach (var tipo in new[] { ClaimRelacionComercio, ClaimComercio })
+        {
+            if (Guid.TryParse(usuario?.FindFirst(tipo)?.Value, out var id) && id != Guid.Empty && !candidatos.Contains(id))
+                candidatos.Add(id);
+        }
+
+        if (candidatos.Count == 0)
+            return null;
+
+        var vinculo = await _db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(c => c.OperadorId == operadorId && (candidatos.Contains(c.Id) || candidatos.Contains(c.ComercioId)), Context.ConnectionAborted);
+        return vinculo?.Id;
     }
 
     internal static bool IntentarExtraerOperadorId(ClaimsPrincipal? usuario, out Guid operadorId)

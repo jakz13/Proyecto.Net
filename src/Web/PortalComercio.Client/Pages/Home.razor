@@ -1,6 +1,8 @@
 @page "/"
 @inject IEnviosApi EnviosApi
 @inject NavigationManager Navegador
+@inject TiempoRealEnviosServicio TiempoReal
+@implements IDisposable
 
 <PageTitle>Portal del Comercio — Tablero</PageTitle>
 
@@ -109,14 +111,53 @@
     private int enDeposito = 0;
     private List<EnvioDto> enviosRecientes = new();
 
+    private CancellationTokenSource? _refrescoPendiente;
+
     protected override async Task OnInitializedAsync()
     {
         await CargarMetricas();
     }
 
-    private async Task CargarMetricas()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        estaCargando = true;
+        if (!firstRender)
+            return;
+
+        TiempoReal.EnvioCambioEstado += AlCambiarEstadoEnvio;
+        await TiempoReal.IniciarAsync();
+    }
+
+    // Varios cambios seguidos se juntan en un único refresco de las métricas
+    private async Task AlCambiarEstadoEnvio(string codigoSeguimiento, string estado)
+    {
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(800, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await CargarMetricas(silencioso: true);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TiempoReal.EnvioCambioEstado -= AlCambiarEstadoEnvio;
+        _refrescoPendiente?.Cancel();
+    }
+
+    private async Task CargarMetricas(bool silencioso = false)
+    {
+        if (!silencioso)
+            estaCargando = true;
         try
         {
             var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto
