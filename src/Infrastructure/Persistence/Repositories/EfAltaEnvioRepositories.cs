@@ -88,6 +88,81 @@ public class EfComercioOperadorRepository : IComercioOperadorRepository
     {
         return await _dbContext.ComerciosOperadores.AsNoTracking().FirstOrDefaultAsync(c => c.ClaveApi == huella, cancellationToken);
     }
+
+    public async Task<ComercioOperador?> ObtenerPorComercioYOperadorAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        if (comercioId == Guid.Empty || operadorId == Guid.Empty)
+            return null;
+
+        return await _dbContext.ComerciosOperadores
+            .FirstOrDefaultAsync(co => co.ComercioId == comercioId && co.OperadorId == operadorId, cancellationToken);
+    }
+
+    public async Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        if (comercioId == Guid.Empty || operadorId == Guid.Empty)
+            return false;
+
+        return await _dbContext.ComerciosOperadores
+            .AsNoTracking()
+            .AnyAsync(co => co.ComercioId == comercioId && co.OperadorId == operadorId, cancellationToken);
+    }
+
+    public async Task AgregarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(relacion);
+        await _dbContext.ComerciosOperadores.AddAsync(relacion, cancellationToken);
+    }
+
+    public Task ActualizarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(relacion);
+        _dbContext.ComerciosOperadores.Update(relacion);
+        return Task.CompletedTask;
+    }
+
+    public async Task<(IReadOnlyList<ComercioConRelacionOperador> Elementos, int Total)> ListarComerciosDelOperadorAsync(
+        Guid operadorId,
+        string? busqueda,
+        bool? soloActivos,
+        int pagina,
+        int tamanoPagina,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = from relacion in _dbContext.ComerciosOperadores.AsNoTracking()
+                       join comercio in _dbContext.Comercios.AsNoTracking() on relacion.ComercioId equals comercio.Id
+                       where relacion.OperadorId == operadorId
+                       select new { Comercio = comercio, Relacion = relacion };
+
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            var textoBusqueda = busqueda.Trim();
+            var patron = "%" + textoBusqueda.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            consulta = consulta.Where(x =>
+                EF.Functions.ILike(x.Comercio.RazonSocial, patron, "\\") ||
+                EF.Functions.ILike(x.Comercio.NombreFantasia, patron, "\\") ||
+                EF.Functions.ILike(x.Comercio.Documento, patron, "\\") ||
+                EF.Functions.ILike(x.Comercio.Email, patron, "\\"));
+        }
+
+        if (soloActivos.HasValue)
+        {
+            consulta = soloActivos.Value
+                ? consulta.Where(x => x.Relacion.Estado == "Activo")
+                : consulta.Where(x => x.Relacion.Estado != "Activo");
+        }
+
+        var total = await consulta.CountAsync(cancellationToken);
+        var elementos = await consulta
+            .OrderBy(x => x.Comercio.RazonSocial)
+            .ThenBy(x => x.Comercio.Id)
+            .Skip((pagina - 1) * tamanoPagina)
+            .Take(tamanoPagina)
+            .Select(x => new ComercioConRelacionOperador(x.Comercio, x.Relacion))
+            .ToListAsync(cancellationToken);
+
+        return (elementos, total);
+    }
 }
 
 public class EfLoteImportacionRepository : ILoteImportacionRepository

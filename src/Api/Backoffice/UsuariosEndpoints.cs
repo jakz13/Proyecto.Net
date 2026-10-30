@@ -1,14 +1,16 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using UltimaMilla.Application.Ports;
-using UltimaMilla.Domain.Entities.Identidad;
+using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
+using UltimaMilla.Application.DTOs.Operador;
+using UltimaMilla.Application.Queries.Operador.GestionUsuarios;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
-using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Api.Backoffice;
 
-/// <summary>Gestión de usuarios y asignación de perfiles (UC-01, RF-31).</summary>
+/// <summary>
+/// Endpoints para el caso de uso UC-01: Gestión de usuarios y asignación de perfiles (RF-01, RF-31).
+/// </summary>
 public static class UsuariosEndpoints
 {
     public static IEndpointRouteBuilder MapUsuariosBackofficeEndpoints(this IEndpointRouteBuilder app)
@@ -23,183 +25,142 @@ public static class UsuariosEndpoints
             [FromQuery] string? q,
             [FromQuery] Guid? perfilId,
             [FromQuery] bool? soloActivos,
-            AppDbContext db,
-            ICurrentTenant tenant,
+            [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var (paginaActual, tamano) = RespuestasBackoffice.NormalizarPagina(pagina, tamanoPagina);
-            var consulta = db.Usuarios.AsNoTracking().Where(u => u.OperadorId == tenant.OperadorId);
-
-            if (!string.IsNullOrWhiteSpace(q))
-            {
-                var patron = RespuestasBackoffice.PatronContiene(q);
-                consulta = consulta.Where(u => EF.Functions.ILike(u.Nombre, patron, "\\") || EF.Functions.ILike(u.Email, patron, "\\"));
-            }
-
-            if (perfilId.HasValue && perfilId.Value != Guid.Empty)
-                consulta = consulta.Where(u => u.PerfilId == perfilId.Value);
-
-            if (soloActivos == true)
-                consulta = consulta.Where(u => u.Activo);
-
-            var pagina1 = await RespuestasBackoffice.PaginarAsync(consulta.OrderBy(u => u.Nombre).ThenBy(u => u.Id), paginaActual, tamano, ct);
-            var elementos = await MapearAsync(db, pagina1.Elementos, ct);
+            var resultado = await mediator.Send(new ListarUsuariosQuery(q, perfilId, soloActivos, paginaActual, tamano), ct);
 
             return Results.Ok(new ResultadoPaginadoDto<UsuarioDto>
             {
-                Elementos = elementos,
-                TotalRegistros = pagina1.TotalRegistros,
-                PaginaActual = pagina1.PaginaActual,
-                TamanoPagina = pagina1.TamanoPagina
+                Elementos = resultado.Elementos.Select(Mapear).ToList(),
+                TotalRegistros = resultado.TotalRegistros,
+                PaginaActual = resultado.PaginaActual,
+                TamanoPagina = resultado.TamanoPagina
             });
         }))
         .WithName("ListarUsuarios")
-        .WithSummary("Listar usuarios del operador con filtros y paginación");
+        .WithSummary("Listar usuarios del operador con filtros y paginación")
+        .Produces<ResultadoPaginadoDto<UsuarioDto>>();
 
-        grupo.MapGet("/{id:guid}", (Guid id, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>
-            RespuestasBackoffice.Ejecutar(async () =>
-            {
-                var usuario = await db.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id && u.OperadorId == tenant.OperadorId, ct);
-                if (usuario is null)
-                    return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario solicitado.");
-
-                return Results.Ok((await MapearAsync(db, new[] { usuario }, ct)).Single());
-            }))
+        grupo.MapGet("/{id:guid}", (
+            Guid id,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        {
+            var detalle = await mediator.Send(new ObtenerUsuarioPorIdQuery(id), ct);
+            return Results.Ok(Mapear(detalle));
+        }))
         .WithName("ObtenerUsuario")
-        .WithSummary("Detalle de un usuario");
+        .WithSummary("Detalle de un usuario")
+        .Produces<UsuarioDto>()
+        .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPost("/", (
             [FromBody] CrearUsuarioDto dto,
-            AppDbContext db,
-            ICurrentTenant tenant,
-            IPasswordHasherService hasher,
+            [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
+            var comando = new CrearUsuarioCommand(
+                dto.Nombre,
+                dto.Email,
+                dto.Password,
+                dto.PerfilId,
+                dto.ComercioId
+            );
 
-            if (await db.Usuarios.AnyAsync(u => u.Email == email, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe un usuario registrado con ese correo electrónico.");
-
-            if (!await db.Perfiles.AnyAsync(p => p.Id == dto.PerfilId, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El perfil seleccionado no existe.");
-
-            if (dto.ComercioId.HasValue && !await db.ComerciosOperadores.AnyAsync(
-                    co => co.ComercioId == dto.ComercioId.Value && co.OperadorId == tenant.OperadorId, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El comercio seleccionado no pertenece al operador.");
-
-            var usuario = new Usuario(Guid.NewGuid(), dto.Nombre, email, hasher.HashearPassword(dto.Password),
-                dto.PerfilId, tenant.OperadorId, dto.ComercioId);
-            await db.Usuarios.AddAsync(usuario, ct);
-            await db.SaveChangesAsync(ct);
-
-            return Results.Created($"/api/usuarios/{usuario.Id}", (await MapearAsync(db, new[] { usuario }, ct)).Single());
+            var creado = await mediator.Send(comando, ct);
+            return Results.Created($"/api/usuarios/{creado.Id}", Mapear(creado));
         }))
         .WithName("CrearUsuario")
-        .WithSummary("Registrar un usuario");
+        .WithSummary("Registrar un usuario")
+        .Produces<UsuarioDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest);
 
         grupo.MapPut("/{id:guid}", (
             Guid id,
             [FromBody] ActualizarUsuarioDto dto,
-            AppDbContext db,
-            ICurrentTenant tenant,
+            [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OperadorId == tenant.OperadorId, ct);
-            if (usuario is null)
-                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario solicitado.");
+            var comando = new ActualizarUsuarioCommand(
+                id,
+                dto.Nombre,
+                dto.Email,
+                dto.PerfilId,
+                dto.Activo
+            );
 
-            var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
-            if (await db.Usuarios.AnyAsync(u => u.Email == email && u.Id != id, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe otro usuario con ese correo electrónico.");
-
-            if (!await db.Perfiles.AnyAsync(p => p.Id == dto.PerfilId, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El perfil seleccionado no existe.");
-
-            usuario.ActualizarDatos(dto.Nombre, email);
-            usuario.AsignarPerfil(dto.PerfilId);
-            if (dto.Activo) usuario.Activar(); else usuario.Desactivar();
-            await db.SaveChangesAsync(ct);
-
-            return Results.Ok((await MapearAsync(db, new[] { usuario }, ct)).Single());
+            var actualizado = await mediator.Send(comando, ct);
+            return Results.Ok(Mapear(actualizado));
         }))
         .WithName("ActualizarUsuario")
-        .WithSummary("Modificar los datos de un usuario");
+        .WithSummary("Modificar los datos de un usuario")
+        .Produces<UsuarioDto>()
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPatch("/{id:guid}/estado", (
             Guid id,
             [FromBody] CambioEstadoActivoRequest cuerpo,
-            AppDbContext db,
-            ICurrentTenant tenant,
+            [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OperadorId == tenant.OperadorId, ct);
-            if (usuario is null)
-                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario solicitado.");
-
-            if (cuerpo.Activo) usuario.Activar(); else usuario.Desactivar();
-            await db.SaveChangesAsync(ct);
+            await mediator.Send(new CambiarEstadoUsuarioCommand(id, cuerpo.Activo), ct);
             return Results.NoContent();
         }))
         .WithName("CambiarEstadoUsuario")
-        .WithSummary("Dar de alta o baja lógica a un usuario");
+        .WithSummary("Dar de alta o baja lógica a un usuario")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound);
 
         grupo.MapPut("/{id:guid}/perfil", (
             Guid id,
             [FromBody] AsignarPerfilDto cuerpo,
-            AppDbContext db,
-            ICurrentTenant tenant,
+            [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OperadorId == tenant.OperadorId, ct);
-            if (usuario is null)
-                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario solicitado.");
-
-            if (!await db.Perfiles.AnyAsync(p => p.Id == cuerpo.PerfilId, ct))
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El perfil seleccionado no existe.");
-
-            usuario.AsignarPerfil(cuerpo.PerfilId);
-            await db.SaveChangesAsync(ct);
+            await mediator.Send(new AsignarPerfilUsuarioCommand(id, cuerpo.PerfilId), ct);
             return Results.NoContent();
         }))
         .WithName("AsignarPerfilUsuario")
-        .WithSummary("Asignar o cambiar el perfil de un usuario");
+        .WithSummary("Asignar o cambiar el perfil de un usuario")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
 
-        app.MapGet("/api/perfiles", (AppDbContext db, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        app.MapGet("/api/perfiles", (
+            [FromServices] IMediator mediator,
+            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var perfiles = await db.Perfiles.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync(ct);
-            return Results.Ok(perfiles.Select(p => new PerfilDto { Id = p.Id, Nombre = p.Nombre, Descripcion = p.Descripcion }).ToList());
+            var perfiles = await mediator.Send(new ListarPerfilesQuery(), ct);
+            return Results.Ok(perfiles.Select(p => new PerfilDto
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion
+            }).ToList());
         }))
         .RequireAuthorization()
         .WithTags("Backoffice · Usuarios (UC-01)")
         .WithName("ListarPerfiles")
-        .WithSummary("Perfiles disponibles para asignar a los usuarios");
+        .WithSummary("Perfiles disponibles para asignar a los usuarios")
+        .Produces<IReadOnlyList<PerfilDto>>();
 
         return app;
     }
 
-    /// <summary>Resuelve el nombre del perfil y del comercio de cada usuario con dos consultas en lote.</summary>
-    private static async Task<List<UsuarioDto>> MapearAsync(AppDbContext db, IEnumerable<Usuario> usuarios, CancellationToken ct)
+    private static UsuarioDto Mapear(UsuarioDetalleDto detalle) => new()
     {
-        var lista = usuarios.ToList();
-        var perfilIds = lista.Select(u => u.PerfilId).Distinct().ToList();
-        var comercioIds = lista.Where(u => u.ComercioId.HasValue).Select(u => u.ComercioId!.Value).Distinct().ToList();
-
-        var perfiles = await db.Perfiles.AsNoTracking().Where(p => perfilIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Nombre, ct);
-        var comercios = await db.Comercios.AsNoTracking().Where(c => comercioIds.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => string.IsNullOrWhiteSpace(c.NombreFantasia) ? c.RazonSocial : c.NombreFantasia, ct);
-
-        return lista.Select(u => new UsuarioDto
-        {
-            Id = u.Id,
-            Nombre = u.Nombre,
-            Email = u.Email,
-            PerfilId = u.PerfilId,
-            NombrePerfil = perfiles.GetValueOrDefault(u.PerfilId, string.Empty),
-            OperadorId = u.OperadorId,
-            ComercioId = u.ComercioId,
-            NombreComercio = u.ComercioId.HasValue ? comercios.GetValueOrDefault(u.ComercioId.Value) : null,
-            Activo = u.Activo,
-            FechaAlta = u.FechaAlta
-        }).ToList();
-    }
+        Id = detalle.Id,
+        Nombre = detalle.Nombre,
+        Email = detalle.Email,
+        PerfilId = detalle.PerfilId,
+        NombrePerfil = detalle.NombrePerfil,
+        OperadorId = detalle.OperadorId,
+        ComercioId = detalle.ComercioId,
+        NombreComercio = detalle.NombreComercio,
+        Activo = detalle.Activo,
+        FechaAlta = detalle.FechaAlta
+    };
 }
