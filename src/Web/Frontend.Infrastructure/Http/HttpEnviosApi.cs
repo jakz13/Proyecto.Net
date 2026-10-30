@@ -663,6 +663,34 @@ public class HttpEnviosApi : IEnviosApi
             htmlDescargable);
     }
 
+    /// <summary>
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// </summary>
+    public async Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(Guid envioId, CancellationToken cancelacion = default)
+    {
+        if (envioId == Guid.Empty)
+            throw new ArgumentException("El identificador del envío es inválido.", nameof(envioId));
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsync($"/api/comercio/devoluciones/{envioId}/confirmacion", null, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al confirmar la devolución: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+        }
+
+        var resultado = await respuesta.Content.ReadFromJsonAsync<ConfirmarDevolucionResultDto>(OpcionesJson, cancelacion);
+        return resultado ?? throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No se pudo interpretar la respuesta del servidor.");
+    }
+
     private record PaginaEnviosComercioApiDto(
         IReadOnlyList<EnvioComercioItemApiDto>? Items,
         int Total,

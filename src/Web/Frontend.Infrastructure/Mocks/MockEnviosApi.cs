@@ -195,8 +195,44 @@ public class MockEnviosApi : IEnviosApi
             MotivoExtravio = "No aparece en rendición de la hoja de ruta HDR-2026-0075",
             IncidenciaAsociadaNumero = "INC-2026-0038",
             SelloModificacion = "sello-envio-8"
+        },
+        new EnvioDto
+        {
+            Id = Guid.Parse("77889900-aabb-ccdd-eeff-112233445566"),
+            CodigoSeguimiento = "TRK-2026-0010",
+            NombreDestinatario = "Gonzalo Silva",
+            DireccionDestino = "21 de Setiembre 2840 Apto 601, Pocitos, Montevideo",
+            TelefonoDestinatario = "099 321 654",
+            FechaCreacion = DateTime.UtcNow.AddDays(-2),
+            Estado = EstadoEnvioDto.EnDevolucion,
+            ModalidadServicio = "Estandar",
+            Tarifa = 215.00m,
+            Observaciones = "Destinatario rechazó el producto por embalaje golpeado. Retornado a depósito y en camino de retorno al comercio.",
+            PesoKg = 1.4m,
+            VolumenM3 = 0.010m,
+            ComercioNombre = ComercioAutenticadoPortal,
+            OperadorNombre = "TransLogística Express",
+            HojaDeRutaNumero = "HDR-2026-0080",
+            RepartidorNombre = "Juan Pérez",
+            SelloModificacion = "sello-envio-10"
         }
     };
+
+    /// <summary>
+    /// Configura o reestablece un envío en la colección en memoria para pruebas unitarias.
+    /// </summary>
+    public static void ConfigurarEnvioEnMemoriaParaPruebas(EnvioDto envio)
+    {
+        var indice = EnviosEnMemoria.FindIndex(e => e.Id == envio.Id);
+        if (indice >= 0)
+        {
+            EnviosEnMemoria[indice] = envio;
+        }
+        else
+        {
+            EnviosEnMemoria.Add(envio);
+        }
+    }
 
     private static int _contadorSecuencial = 8;
 
@@ -507,6 +543,32 @@ public class MockEnviosApi : IEnviosApi
                     MotivoDetalle = envio.MotivoExtravio,
                     NumeroIncidenciaAsociada = envio.IncidenciaAsociadaNumero,
                     NotificacionEnviada = true
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.EnDevolucion || envio.Estado == EstadoEnvioDto.Devuelto)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(14),
+                    EstadoAnterior = EstadoEnvioDto.NoEntregado,
+                    NuevoEstado = EstadoEnvioDto.EnDevolucion,
+                    Usuario = "Operador Depósito",
+                    DescripcionEvento = "Bulto devuelto al centro de distribución para su retorno hacia el comercio remitente."
+                });
+            }
+
+            if (envio.Estado == EstadoEnvioDto.Devuelto)
+            {
+                lista.Add(new EventoHistorialEnvioDto
+                {
+                    EnvioId = envioId,
+                    FechaHora = envio.FechaCreacion.AddHours(24),
+                    EstadoAnterior = EstadoEnvioDto.EnDevolucion,
+                    NuevoEstado = EstadoEnvioDto.Devuelto,
+                    Usuario = "Portal Comercio",
+                    DescripcionEvento = "Devolución recibida y confirmada por el comercio. Bulto reintegrado al stock."
                 });
             }
         }
@@ -922,5 +984,61 @@ public class MockEnviosApi : IEnviosApi
             etiquetas.Count,
             nombreArchivo,
             htmlDescargable));
+    }
+
+    /// <summary>
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// </summary>
+    public Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(Guid envioId, CancellationToken cancelacion = default)
+    {
+        if (envioId == Guid.Empty)
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El identificador del envío es inválido.");
+
+        var envio = EnviosEnMemoria.FirstOrDefault(e => e.Id == envioId);
+        if (envio is null)
+            throw new ApiExcepcion(HttpStatusCode.NotFound, $"Envío '{envioId}' no encontrado.");
+
+        // Idempotencia: si ya está devuelto, confirma sin duplicar
+        if (envio.Estado == EstadoEnvioDto.Devuelto)
+        {
+            return Task.FromResult(new ConfirmarDevolucionResultDto(
+                EnvioId: envio.Id,
+                CodigoSeguimiento: envio.CodigoSeguimiento,
+                EstadoEnvio: "Devuelto",
+                EstadoDevolucion: "Rendida",
+                Idempotente: true,
+                Mensaje: "La devolución ya había sido confirmada previamente (operación idempotente)."));
+        }
+
+        if (envio.Estado != EstadoEnvioDto.EnDevolucion)
+        {
+            throw new ApiExcepcion(HttpStatusCode.BadRequest, "El envío no se encuentra en estado 'en devolución'.");
+        }
+
+        var indice = EnviosEnMemoria.FindIndex(e => e.Id == envioId);
+        var envioActualizado = envio with
+        {
+            Estado = EstadoEnvioDto.Devuelto,
+            SelloModificacion = Guid.NewGuid().ToString()
+        };
+        EnviosEnMemoria[indice] = envioActualizado;
+
+        RegistrarEventoHistorico(envioId, new EventoHistorialEnvioDto
+        {
+            EnvioId = envioId,
+            FechaHora = DateTime.UtcNow,
+            EstadoAnterior = EstadoEnvioDto.EnDevolucion,
+            NuevoEstado = EstadoEnvioDto.Devuelto,
+            Usuario = "Portal Comercio",
+            DescripcionEvento = "Recepción del bulto devuelto confirmada por el comercio. La devolución quedó cerrada exitosamente."
+        });
+
+        return Task.FromResult(new ConfirmarDevolucionResultDto(
+            EnvioId: envio.Id,
+            CodigoSeguimiento: envio.CodigoSeguimiento,
+            EstadoEnvio: "Devuelto",
+            EstadoDevolucion: "Rendida",
+            Idempotente: false,
+            Mensaje: "Recepción confirmada: la devolución quedó cerrada exitosamente."));
     }
 }
