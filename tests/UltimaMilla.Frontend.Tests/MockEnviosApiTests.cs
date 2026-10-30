@@ -358,6 +358,36 @@ public class MockEnviosApiTests
     }
 
     [Fact]
+    public async Task GenerarEtiquetasEnviosAsync_DebeAsignarNombreDelOperadorCorrespondiente_YReflejarCambioDeContextoOperador()
+    {
+        // Arrange: simulamos contexto con operador inicial (TransLogística Express) y luego cambio a Veloz Cargo
+        var contexto = new MockContextoOperador();
+        var api = new MockEnviosApi(contexto);
+        var idEnvio = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"); // Florencia Silva
+
+        // Act 1: operador por defecto
+        var resultado1 = await api.GenerarEtiquetasEnviosAsync(new[] { idEnvio });
+
+        // Assert 1: el operador debe ser TransLogística Express y no Última Milla Express
+        Assert.NotNull(resultado1);
+        Assert.NotEmpty(resultado1.Etiquetas);
+        Assert.Equal("TransLogística Express", resultado1.Etiquetas[0].OperadorLogistico);
+        Assert.Contains("TransLogística Express", System.Net.WebUtility.HtmlDecode(resultado1.ContenidoHtmlDescargable));
+        Assert.DoesNotContain("Última Milla Express", resultado1.ContenidoHtmlDescargable);
+
+        // Act 2: cambio dinámico de operador en contexto a OP-02 (Veloz Cargo)
+        contexto.SeleccionarOperador("OP-02");
+        var resultado2 = await api.GenerarEtiquetasEnviosAsync(new[] { idEnvio });
+
+        // Assert 2: el operador en la nueva etiqueta generada debe reflejar Veloz Cargo
+        Assert.NotNull(resultado2);
+        Assert.NotEmpty(resultado2.Etiquetas);
+        Assert.Equal("Veloz Cargo", resultado2.Etiquetas[0].OperadorLogistico);
+        Assert.Contains("Veloz Cargo", resultado2.ContenidoHtmlDescargable);
+        Assert.DoesNotContain("Última Milla Express", resultado2.ContenidoHtmlDescargable);
+    }
+
+    [Fact]
     public async Task GenerarEtiquetasEnviosAsync_ConEnvioNoAdmitido_RechazaPorPrecondicionViolada()
     {
         // Arrange: envío en estado Entregado (aaaaaaaa-...) y otro en estado EnTransito (bbbbbbbb-...)

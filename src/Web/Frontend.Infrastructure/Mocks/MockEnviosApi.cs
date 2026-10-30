@@ -17,6 +17,17 @@ public class MockEnviosApi : IEnviosApi
 {
     public const string ComercioAutenticadoPortal = "MegaStore Uruguay";
 
+    private readonly MockContextoOperador? _contextoOperador;
+
+    public MockEnviosApi() : this(null)
+    {
+    }
+
+    public MockEnviosApi(MockContextoOperador? contextoOperador)
+    {
+        _contextoOperador = contextoOperador;
+    }
+
     private static readonly Dictionary<Guid, List<EventoHistorialEnvioDto>> HistorialPorEnvio = new();
 
     private static readonly List<EnvioDto> EnviosEnMemoria = new()
@@ -111,6 +122,7 @@ public class MockEnviosApi : IEnviosApi
             PesoKg = 1.1m,
             VolumenM3 = 0.008m,
             ComercioNombre = ComercioAutenticadoPortal,
+            OperadorNombre = "TransLogística Express",
             SelloModificacion = "sello-envio-5"
         },
         new EnvioDto
@@ -129,6 +141,7 @@ public class MockEnviosApi : IEnviosApi
             PesoKg = 3.2m,
             VolumenM3 = 0.022m,
             ComercioNombre = ComercioAutenticadoPortal,
+            OperadorNombre = "TransLogística Express",
             SelloModificacion = "sello-envio-9"
         },
         new EnvioDto
@@ -287,6 +300,7 @@ public class MockEnviosApi : IEnviosApi
             ModalidadServicio = nuevoEnvio.ModalidadServicio,
             BultosIdentificaciones = identificacionesBultos,
             ComercioNombre = ComercioAutenticadoPortal,
+            OperadorNombre = _contextoOperador?.OperadorActivo?.NombreComercial ?? "TransLogística Express",
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
 
@@ -644,6 +658,7 @@ public class MockEnviosApi : IEnviosApi
                 Tarifa = tarifaCalculada,
                 ModalidadServicio = "Estandar",
                 ComercioNombre = ComercioAutenticadoPortal,
+                OperadorNombre = _contextoOperador?.OperadorActivo?.NombreComercial ?? "TransLogística Express",
                 Observaciones = $"Lote {loteId.ToString()[..8]} - Ref: {referencia}"
             };
 
@@ -790,6 +805,7 @@ public class MockEnviosApi : IEnviosApi
             ModalidadServicio = esExpress ? "Express" : "Estandar",
             BultosIdentificaciones = identificacionesBultos,
             ComercioNombre = ComercioAutenticadoPortal,
+            OperadorNombre = _contextoOperador?.OperadorActivo?.NombreComercial ?? "TransLogística Express",
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
 
@@ -867,6 +883,12 @@ public class MockEnviosApi : IEnviosApi
                 var pesoTotal = envio.PesoKg.HasValue && envio.PesoKg.Value > 0 ? envio.PesoKg.Value : 1.0m;
                 var pesoPorBulto = Math.Round(pesoTotal / totalBultos, 2);
 
+                var operadorNombre = !string.IsNullOrWhiteSpace(_contextoOperador?.OperadorActivo?.NombreComercial)
+                    ? _contextoOperador.OperadorActivo.NombreComercial
+                    : (!string.IsNullOrWhiteSpace(envio.OperadorNombre)
+                        ? envio.OperadorNombre
+                        : "TransLogística Express");
+
                 for (var i = 0; i < totalBultos; i++)
                 {
                     etiquetas.Add(new EtiquetaBultoDto(
@@ -876,7 +898,7 @@ public class MockEnviosApi : IEnviosApi
                         i + 1,
                         totalBultos,
                         string.IsNullOrWhiteSpace(envio.ComercioNombre) ? "MegaStore Uruguay" : envio.ComercioNombre,
-                        "Última Milla Express",
+                        operadorNombre,
                         envio.NombreDestinatario,
                         envio.DireccionDestino,
                         envio.TelefonoDestinatario,

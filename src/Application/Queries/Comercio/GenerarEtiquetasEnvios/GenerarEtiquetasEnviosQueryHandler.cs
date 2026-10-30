@@ -12,11 +12,16 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
 
     private readonly IEnvioRepository _envioRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IOperadorRepository? _operadorRepository;
 
-    public GenerarEtiquetasEnviosQueryHandler(IEnvioRepository envioRepository, ICurrentTenant currentTenant)
+    public GenerarEtiquetasEnviosQueryHandler(
+        IEnvioRepository envioRepository,
+        ICurrentTenant currentTenant,
+        IOperadorRepository? operadorRepository = null)
     {
         _envioRepository = envioRepository;
         _currentTenant = currentTenant;
+        _operadorRepository = operadorRepository;
     }
 
     public async Task<EtiquetasGeneradasResultDto> Handle(GenerarEtiquetasEnviosQuery request, CancellationToken cancellationToken)
@@ -40,6 +45,21 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
         var comercioActualId = _currentTenant.ComercioOperadorId;
         var operadorActualId = _currentTenant.OperadorId;
 
+        // Resuelve los nombres comerciales de los operadores involucrados para reflejarlos en las etiquetas
+        var operadoresMap = new Dictionary<Guid, string>();
+        if (_operadorRepository != null)
+        {
+            var operadorIds = envios.Select(e => e.OperadorId).Where(id => id != Guid.Empty).Distinct();
+            foreach (var opId in operadorIds)
+            {
+                var op = await _operadorRepository.GetByIdAsync(opId, cancellationToken);
+                if (op != null && !string.IsNullOrWhiteSpace(op.NombreComercial))
+                {
+                    operadoresMap[opId] = op.NombreComercial;
+                }
+            }
+        }
+
         var etiquetas = new List<EtiquetaBultoItemDto>();
 
         foreach (var idSolicitado in idsUnicos)
@@ -58,6 +78,10 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
                 throw new DomainValidationException(
                     $"El envío '{envio.CodigoSeguimientoPublico}' se encuentra en estado '{envio.EstadoActual}'. Solo se pueden generar etiquetas para envíos en estado Admitido.");
 
+            var nombreOperador = operadoresMap.TryGetValue(envio.OperadorId, out var nom) && !string.IsNullOrWhiteSpace(nom)
+                ? nom
+                : "TransLogística Express";
+
             var bultos = envio.Bultos.ToList();
             if (bultos.Count == 0)
             {
@@ -68,7 +92,7 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
                     1,
                     1,
                     "Comercio Remitente",
-                    "Última Milla Express",
+                    nombreOperador,
                     envio.NombreDestinatario,
                     envio.DireccionDestino,
                     null,
@@ -89,7 +113,7 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
                         i + 1,
                         bultos.Count,
                         "Comercio Remitente",
-                        "Última Milla Express",
+                        nombreOperador,
                         envio.NombreDestinatario,
                         envio.DireccionDestino,
                         null,
@@ -107,4 +131,3 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
             etiquetas.Count);
     }
 }
-

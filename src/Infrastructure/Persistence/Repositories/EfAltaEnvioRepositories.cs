@@ -135,3 +135,18 @@ public class EfSolicitudReprogramacionRepository : ISolicitudReprogramacionRepos
         return await _dbContext.SolicitudesReprogramacion.CountAsync(s => s.EnvioId == envioId && s.Estado == "Aprobada", cancellationToken);
     }
 }
+
+public class EfOperadorRepository : IOperadorRepository
+{
+    private readonly AppDbContext _dbContext;
+
+    public EfOperadorRepository(AppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<Operador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Operadores.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+    }
+}

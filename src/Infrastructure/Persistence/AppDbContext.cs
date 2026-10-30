@@ -4,7 +4,6 @@ using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Envios;
-using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
@@ -54,6 +53,8 @@ public class AppDbContext : DbContext
     public DbSet<Perfil> Perfiles => Set<Perfil>();
     public DbSet<Permiso> Permisos => Set<Permiso>();
     public DbSet<PerfilPermiso> PerfilPermisos => Set<PerfilPermiso>();
+    public DbSet<SuscripcionAviso> SuscripcionesAvisos => Set<SuscripcionAviso>();
+    public DbSet<AvisoComercio> AvisosComercios => Set<AvisoComercio>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -425,6 +426,30 @@ public class AppDbContext : DbContext
             builder.Property(m => m.TipoMensaje).IsRequired().HasMaxLength(100);
             builder.Property(m => m.ColaOrigen).IsRequired().HasMaxLength(100);
             builder.Property(m => m.Estado).IsRequired().HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<SuscripcionAviso>(builder =>
+        {
+            builder.ToTable("SuscripcionesAvisos");
+            builder.HasKey(s => s.Id);
+            builder.HasIndex(s => s.ComercioOperadorId);
+            builder.Property(s => s.TipoEvento).IsRequired().HasMaxLength(100);
+            builder.Property(s => s.UrlWebhook).IsRequired().HasMaxLength(500);
+            builder.Property(s => s.ClaveFirma).IsRequired().HasMaxLength(200);
+            builder.Property(s => s.Activa).IsRequired();
+        });
+
+        modelBuilder.Entity<AvisoComercio>(builder =>
+        {
+            builder.ToTable("AvisosComercios");
+            builder.HasKey(a => a.Id);
+            builder.HasIndex(a => a.SuscripcionAvisoId);
+            builder.HasIndex(a => a.EnvioId);
+            builder.Property(a => a.Payload).IsRequired();
+            builder.Property(a => a.FirmaEnviada).IsRequired().HasMaxLength(200);
+            builder.Property(a => a.Estado).IsRequired().HasMaxLength(50);
+            builder.Property(a => a.UltimaRespuestaHttp).HasMaxLength(500);
+            builder.Property(a => a.Timestamp).IsRequired();
         });
 
         // Los identificadores se generan en el dominio: EF no debe interpretarlos como valores generados por la base

@@ -624,3 +624,84 @@ html, body {
     color: #B91C1C;
     margin-top: 3px;
 }
+
+/* ==========================================================================
+   Selector de Operadores Multitenant e Identidad Visual Dinámica
+   ========================================================================== */
+.transicion-suave,
+.bg-marca-primario,
+.btn-marca,
+.border-marca,
+header.navbar,
+.list-group-item.active {
+    transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.boton-selector-operador {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 4px 8px !important;
+    transition: background-color 0.2s ease;
+}
+
+.boton-selector-operador:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.flecha-desplegable {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flecha-rotada {
+    transform: rotate(180deg);
+}
+
+.dropdown-backdrop-transparente {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1040;
+    background: transparent;
+}
+
+.menu-operadores-flotante {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1050;
+    min-width: 240px;
+    animation: animFadeMenuOperador 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes animFadeMenuOperador {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.punto-color-operador {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Enlace activo del menú lateral con color de marca dinámico */
+.list-group-item.active {
+    background-color: var(--color-primario) !important;
+    border-color: var(--color-primario) !important;
+    color: var(--color-texto-primario) !important;
+}
+

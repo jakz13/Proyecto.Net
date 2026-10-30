@@ -3,6 +3,9 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Seguimiento;
 
+/// <summary>
+/// Representa el intento o registro de entrega de un aviso/webhook hacia los sistemas del comercio (UC-29, UC-30, RF-28).
+/// </summary>
 public class AvisoComercio : Entity
 {
     public Guid SuscripcionAvisoId { get; private set; }
@@ -57,11 +60,36 @@ public class AvisoComercio : Entity
         Estado = "Reintentando";
     }
 
+    public void MarcarFallido(string respuestaHttp)
+    {
+        Intentos++;
+        UltimaRespuestaHttp = respuestaHttp;
+        ProximoReintento = null;
+        Estado = "Fallido";
+    }
+
+    public void MarcarAgotado(string respuestaHttp)
+    {
+        Intentos++;
+        UltimaRespuestaHttp = respuestaHttp;
+        ProximoReintento = null;
+        Estado = "Agotado";
+    }
+
     public void MarcarEntregado(string? respuestaHttp = null)
     {
         Intentos++;
         UltimaRespuestaHttp = respuestaHttp;
         ProximoReintento = null;
         Estado = "Entregado";
+    }
+
+    public void SolicitarReenvioManual()
+    {
+        if (Estado == "Entregado")
+            throw new DomainValidationException("El aviso ya fue entregado exitosamente y no requiere reenvío manual.");
+
+        Estado = "Reintentando";
+        ProximoReintento = DateTime.UtcNow;
     }
 }

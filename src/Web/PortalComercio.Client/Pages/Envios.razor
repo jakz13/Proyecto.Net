@@ -1,5 +1,6 @@
 @page "/envios"
 @inject IEnviosApi EnviosApi
+@inject IAvisosComercioApi AvisosApi
 @inject IJSRuntime JS
 
 <PageTitle>Portal del Comercio — Listado y Seguimiento de Envíos</PageTitle>
@@ -226,6 +227,103 @@
                             }
                         </div>
                     </div>
+                </div>
+
+                <!-- Avisos Webhook y Notificaciones Automáticas del Envío (UC-30) -->
+                <div class="col-12 mt-2 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-bold text-uppercase text-secondary d-flex align-items-center gap-1">
+                            <Icono Nombre="webhook" Tamano="14" />
+                            <span>Historial de Avisos Webhook Emitidos para este Envío (UC-30)</span>
+                        </span>
+                        <a href="avisos" class="small text-decoration-none text-primary fw-semibold" style="font-size: 0.75rem;">
+                            Configuración y auditoría general de webhooks →
+                        </a>
+                    </div>
+
+                    @if (estaCargandoAvisosEnvio)
+                    {
+                        <div class="text-muted small py-2">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            Consultando avisos emitidos para este envío...
+                        </div>
+                    }
+                    else if (avisosDelEnvio.Count == 0)
+                    {
+                        <div class="bg-white p-2 rounded-2 border text-muted small" style="font-size: 0.78rem;">
+                            No se registran avisos webhooks emitidos aún para este paquete.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive bg-white rounded-2 border">
+                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.76rem;">
+                                <thead class="table-light text-secondary text-uppercase" style="font-size: 0.7rem;">
+                                    <tr>
+                                        <th class="ps-2 py-1">Evento</th>
+                                        <th class="py-1">Fecha</th>
+                                        <th class="py-1">Respuesta HTTP</th>
+                                        <th class="py-1">Intentos</th>
+                                        <th class="py-1">Estado</th>
+                                        <th class="pe-2 py-1 text-end">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var aviso in avisosDelEnvio)
+                                    {
+                                        <tr>
+                                            <td class="ps-2 fw-semibold text-dark">@aviso.TipoEvento</td>
+                                            <td class="text-secondary">@aviso.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                            <td>
+                                                <span class="badge @(aviso.CodigoRespuestaHttp == 200 ? "bg-success" : "bg-danger")">
+                                                    HTTP @aviso.CodigoRespuestaHttp
+                                                </span>
+                                            </td>
+                                            <td class="text-secondary">@aviso.Intentos</td>
+                                            <td>
+                                                @if (aviso.Estado == "Entregado")
+                                                {
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                        Entregado
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                                        @aviso.Estado
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td class="pe-2 text-end">
+                                                @if (aviso.Estado != "Entregado")
+                                                {
+                                                    <button type="button"
+                                                            class="btn btn-outline-primary btn-sm py-0 px-2 d-inline-flex align-items-center gap-1"
+                                                            style="font-size: 0.72rem;"
+                                                            disabled="@(idAvisoReintentandoEnvio == aviso.Id)"
+                                                            @onclick="() => ReintentarAvisoEnvioAsync(aviso.Id)">
+                                                        @if (idAvisoReintentandoEnvio == aviso.Id)
+                                                        {
+                                                            <span class="spinner-border spinner-border-sm" role="status" style="width: 10px; height: 10px;"></span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <Icono Nombre="repetir" Tamano="12" />
+                                                        }
+                                                        <span>Reintentar</span>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-success small fw-semibold" style="font-size: 0.72rem;">OK</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -540,8 +638,11 @@
 
     private EnvioDto? envioEnSeguimiento;
     private IReadOnlyList<EventoHistorialEnvioDto> eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
+    private IReadOnlyList<AvisoHistorialDetalleDto> avisosDelEnvio = Array.Empty<AvisoHistorialDetalleDto>();
     private bool estaCargandoSeguimiento = false;
+    private bool estaCargandoAvisosEnvio = false;
     private bool pendienteRenderizarMapaSeguimiento = false;
+    private Guid? idAvisoReintentandoEnvio;
 
     private string? terminoBusqueda;
     private EstadoEnvioDto? estadoSeleccionado;
@@ -626,6 +727,7 @@
 
             eventosSeguimiento = await EnviosApi.ObtenerHistorialEnvioAsync(envio.Id);
             pendienteRenderizarMapaSeguimiento = true;
+            await CargarAvisosDelEnvioAsync(envio.Id);
         }
         catch (Exception ex)
         {
@@ -641,7 +743,46 @@
     {
         envioEnSeguimiento = null;
         eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
+        avisosDelEnvio = Array.Empty<AvisoHistorialDetalleDto>();
         pendienteRenderizarMapaSeguimiento = false;
+    }
+
+    private async Task CargarAvisosDelEnvioAsync(Guid envioId)
+    {
+        estaCargandoAvisosEnvio = true;
+        try
+        {
+            avisosDelEnvio = await AvisosApi.ConsultarHistorialAvisosAsync(envioId: envioId);
+        }
+        catch
+        {
+            avisosDelEnvio = Array.Empty<AvisoHistorialDetalleDto>();
+        }
+        finally
+        {
+            estaCargandoAvisosEnvio = false;
+        }
+    }
+
+    private async Task ReintentarAvisoEnvioAsync(Guid avisoId)
+    {
+        idAvisoReintentandoEnvio = avisoId;
+        try
+        {
+            var resultado = await AvisosApi.ReintentarAvisoAsync(avisoId);
+            if (envioEnSeguimiento is not null)
+            {
+                await CargarAvisosDelEnvioAsync(envioEnSeguimiento.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeErrorEtiquetas = $"Error al reintentar aviso: {ex.Message}";
+        }
+        finally
+        {
+            idAvisoReintentandoEnvio = null;
+        }
     }
 
     private void AlternarSeleccionEnvio(EnvioDto envio)
