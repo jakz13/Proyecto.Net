@@ -416,6 +416,9 @@ app.MapReasignacionesEndpoints();
 app.MapWorkerProcesosEndpoints();
 app.MapHub<TableroHub>("/hubs/tablero");
 
+// Tiempo real del seguimiento público (anónimo): comparte el límite de tasa por IP de la consulta pública
+app.MapHub<SeguimientoHub>("/hubs/seguimiento").RequireRateLimiting(ConsultasEnvioEndpoints.PoliticaLimiteSeguimiento);
+
 // Hub de SignalR para streaming de telemetría de operaciones y seguimiento de flota (Hito 4 / RNF 6.10)
 app.MapHub<OperacionHub>("/hubs/operacion");
 

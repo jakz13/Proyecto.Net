@@ -433,8 +433,11 @@
 </div>
 
 @section Scripts {
-    <script>
+    @* Los datos van en un bloque propio: el tiempo real los vuelve a evaluar sin recargar la página *@
+    <script data-tiempo-real-datos>
         var catalogoEnviosVista = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EnvioLista));
+    </script>
+    <script>
         // Función para abrir y pre-cargar el modal de declaración de extravío
         function abrirModalExtravio(envioId, codigoSeguimiento, comercio, destinatario, estadoActual) {
             document.getElementById('inputExtravioEnvioId').value = envioId;

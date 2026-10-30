@@ -2,6 +2,8 @@
 @page "/seguimiento/{CodigoUrl?}"
 @inject ISeguimientoApi SeguimientoApi
 @inject NavigationManager Navegador
+@inject TiempoRealSeguimientoServicio TiempoReal
+@implements IDisposable
 
 <PageTitle>LittleBox Envíos — Seguimiento de Envíos</PageTitle>
 
@@ -94,6 +96,7 @@
             if (resultado != null)
             {
                 seguimiento = resultado;
+                await SeguirEnVivoAsync(codigoBuscado);
             }
             else
             {
@@ -115,6 +118,65 @@
         {
             estaCargando = false;
         }
+    }
+
+    private string? codigoEnVivo;
+    private bool suscritoAlAviso;
+    private CancellationTokenSource? _refrescoPendiente;
+
+    // El destinatario ve el cambio de estado sin recargar: la señal llega por SignalR y la página consulta de nuevo en silencio
+    private async Task SeguirEnVivoAsync(string codigo)
+    {
+        if (!suscritoAlAviso)
+        {
+            TiempoReal.Actualizado += AlActualizarEnVivo;
+            suscritoAlAviso = true;
+        }
+
+        codigoEnVivo = codigo;
+        await TiempoReal.SeguirAsync(codigo);
+    }
+
+    private async Task AlActualizarEnVivo()
+    {
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(600, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(codigoEnVivo))
+            return;
+
+        await InvokeAsync(async () =>
+        {
+            try
+            {
+                // Consulta silenciosa: no se limpia la pantalla ni se muestra el indicador de carga
+                var actualizado = await SeguimientoApi.ConsultarSeguimientoAsync(codigoEnVivo);
+                if (actualizado != null)
+                    seguimiento = actualizado;
+            }
+            catch
+            {
+                // Límite de tasa o red caída: se conserva lo que ya se muestra
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        if (suscritoAlAviso)
+            TiempoReal.Actualizado -= AlActualizarEnVivo;
+
+        _refrescoPendiente?.Cancel();
     }
 
     private async Task RefrescarEnvio()

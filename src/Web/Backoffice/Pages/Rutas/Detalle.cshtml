@@ -639,10 +639,19 @@ else
 }
 
 @section Scripts {
-    <script>
+    @* Los datos van en un bloque propio: el tiempo real los vuelve a evaluar sin recargar la página *@
+    <script data-tiempo-real-datos>
         var datosHojaDeRuta = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ruta));
-
+    </script>
+    <script>
         document.addEventListener('DOMContentLoaded', function () {
+            if (datosHojaDeRuta && window.MapasUltimaMilla) {
+                window.MapasUltimaMilla.renderizarMapaDetalleRuta('mapaDetalleRutaLeaflet', datosHojaDeRuta);
+            }
+        });
+
+        // Un envío de la ruta cambió de estado: las paradas del mapa se redibujan con los datos nuevos
+        document.addEventListener('tiempo-real:actualizado', function () {
             if (datosHojaDeRuta && window.MapasUltimaMilla) {
                 window.MapasUltimaMilla.renderizarMapaDetalleRuta('mapaDetalleRutaLeaflet', datosHojaDeRuta);
             }

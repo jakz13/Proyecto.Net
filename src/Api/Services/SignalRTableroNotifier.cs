@@ -15,15 +15,18 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     public const string EventoHitoParada = "HitoParada";
     public const string EventoPosicionVehiculo = "PosicionVehiculo";
     public const string EventoEnvioCambioEstado = "EnvioCambioEstado";
+    public const string EventoSeguimientoActualizado = "EnvioActualizado";
 
     private readonly IHubContext<TableroHub> _hubContext;
+    private readonly IHubContext<SeguimientoHub> _seguimientoHub;
     private readonly ILogger<SignalRTableroNotifier> _logger;
 
-    public SignalRTableroNotifier(IHubContext<TableroHub> hubContext, ILogger<SignalRTableroNotifier> logger)
+    public SignalRTableroNotifier(IHubContext<TableroHub> hubContext, IHubContext<SeguimientoHub> seguimientoHub, ILogger<SignalRTableroNotifier> logger)
     {
         ArgumentNullException.ThrowIfNull(hubContext);
         ArgumentNullException.ThrowIfNull(logger);
         _hubContext = hubContext;
+        _seguimientoHub = seguimientoHub;
         _logger = logger;
     }
 
@@ -150,6 +153,28 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del envío {EnvioId} (operador {OperadorId}).", EventoEnvioCambioEstado, envioId, operadorId);
+        }
+
+        await NotificarSeguimientoPublicoAsync(codigoSeguimiento, envioId, ct);
+    }
+
+    /// <summary>
+    /// Señal para quien sigue el envío desde el enlace público. No lleva datos del envío: la página vuelve a consultar el endpoint público,
+    /// que aplica las reglas de privacidad.
+    /// </summary>
+    private async Task NotificarSeguimientoPublicoAsync(string codigoSeguimiento, Guid envioId, CancellationToken ct)
+    {
+        var codigo = SeguimientoHub.Normalizar(codigoSeguimiento);
+        if (codigo is null)
+            return;
+
+        try
+        {
+            await _seguimientoHub.Clients.Group(SeguimientoHub.Grupo(codigo)).SendAsync(EventoSeguimientoActualizado, new { timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del envío {EnvioId} al seguimiento público.", EventoSeguimientoActualizado, envioId);
         }
     }
 }

@@ -179,6 +179,7 @@ public class RegistrarEventoGeocercaCommandHandlerTests
         public FakeRutaRepository(HojaDeRuta ruta) => _ruta = ruta;
         public Task<HojaDeRuta?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(id == _ruta.Id ? _ruta : null);
         public Task<List<HojaDeRuta>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default) => Task.FromResult(new List<HojaDeRuta>());
+        public Task<List<HojaDeRuta>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid operadorId, CancellationToken ct = default) => Task.FromResult(new List<HojaDeRuta>());
         public Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken ct = default) => Task.FromResult(id == _ruta.Id ? _ruta : null);
         public Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken ct = default) => Task.FromResult(false);
         public Task<List<HojaDeRuta>> GetByRepartidorYFechaAsync(Guid repartidorId, DateOnly fecha, IReadOnlyCollection<string> estados, CancellationToken ct = default) => Task.FromResult(new List<HojaDeRuta>());

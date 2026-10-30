@@ -298,6 +298,91 @@ public class TableroSignalRApiTests
         Assert.DoesNotContain(envioDeOtroComercio.ToString(), tramasComercio);
     }
 
+    private async Task<WebSocket> ConectarSeguimientoPublicoAsync(CancellationToken ct)
+    {
+        _ = _factory.CreateClient();
+        // Sin token: el seguimiento público no requiere sesión
+        var ws = await _factory.Server.CreateWebSocketClient().ConnectAsync(new Uri("ws://localhost/hubs/seguimiento"), ct);
+        await EnviarHandshakeSignalRAsync(ws, ct);
+        await LeerTramasHastaContenerAsync(ws, "{}", TimeSpan.FromSeconds(2));
+        return ws;
+    }
+
+    /// <summary>Invoca un método del hub (protocolo JSON de SignalR) y devuelve el resultado booleano de la finalización.</summary>
+    private static async Task<bool?> InvocarSeguirAsync(WebSocket ws, string metodo, string codigo, CancellationToken ct)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var mensaje = $"{{\"type\":1,\"invocationId\":\"{id}\",\"target\":\"{metodo}\",\"arguments\":[\"{codigo}\"]}}\u001e";
+        await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(mensaje)), WebSocketMessageType.Text, true, ct);
+
+        var tramas = string.Concat(await LeerTramasHastaContenerAsync(ws, id, TimeSpan.FromSeconds(3)));
+        if (tramas.Contains("\"result\":true", StringComparison.Ordinal)) return true;
+        if (tramas.Contains("\"result\":false", StringComparison.Ordinal)) return false;
+        return null;
+    }
+
+    [FactPostgres]
+    public async Task SeguimientoPublico_SoloRecibeLaSenalQuienSigueEseCodigo_SinSesionYSinDatosDelEnvio()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var quienSigue = await ConectarSeguimientoPublicoAsync(cts.Token);
+        using var otroDestinatario = await ConectarSeguimientoPublicoAsync(cts.Token);
+
+        const string codigoSeguido = "ENV-2026-00112";
+        Assert.True(await InvocarSeguirAsync(quienSigue, "Seguir", codigoSeguido, cts.Token));
+        Assert.True(await InvocarSeguirAsync(otroDestinatario, "Seguir", "ENV-2026-00111", cts.Token));
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var alcance = db.HabilitarEscrituraAdministrativa();
+            await using var transaccion = await db.Database.BeginTransactionAsync(cts.Token);
+
+            var envio = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(db.Envios),
+                e => e.Id == DatabaseSeeder.Envio5Id, cts.Token);
+            db.Entry(envio).Property(e => e.EstadoActual).CurrentValue = UltimaMilla.Domain.Enums.EstadoEnvio.Extraviado;
+            await db.SaveChangesAsync(cts.Token);
+
+            await transaccion.RollbackAsync(cts.Token);
+        }
+
+        var recibido = string.Concat(await LeerTramasHastaContenerAsync(quienSigue, "EnvioActualizado", TimeSpan.FromSeconds(4)));
+        var ajeno = string.Concat(await LeerTramasHastaContenerAsync(otroDestinatario, "EnvioActualizado", TimeSpan.FromSeconds(2)));
+
+        Assert.Contains("EnvioActualizado", recibido);
+        // La señal no lleva datos del envío: ni estado, ni identificadores internos, ni datos personales
+        Assert.DoesNotContain("Extraviado", recibido);
+        Assert.DoesNotContain(DatabaseSeeder.Envio5Id.ToString(), recibido);
+        Assert.DoesNotContain(codigoSeguido, recibido);
+        Assert.DoesNotContain("EnvioActualizado", ajeno);
+    }
+
+    [FactPostgres]
+    public async Task SeguimientoPublico_NoPermiteSondearCodigos_FormatoInvalidoYLimitePorConexion()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var ws = await ConectarSeguimientoPublicoAsync(cts.Token);
+
+        // Un código inexistente con formato válido responde igual que uno real: no revela si el envío existe
+        var inexistente = await InvocarSeguirAsync(ws, "Seguir", "ENV-9999-99999", cts.Token);
+        var real = await InvocarSeguirAsync(ws, "Seguir", "ENV-2026-00111", cts.Token);
+        Assert.Equal(real, inexistente);
+        Assert.True(inexistente);
+
+        // Formato inválido: se rechaza
+        Assert.False(await InvocarSeguirAsync(ws, "Seguir", "x", cts.Token));
+        Assert.False(await InvocarSeguirAsync(ws, "Seguir", "no valido!", cts.Token));
+
+        // Hay un tope de códigos por conexión (ya van 2): el tercero entra y el cuarto se rechaza
+        Assert.True(await InvocarSeguirAsync(ws, "Seguir", "ENV-2026-00112", cts.Token));
+        Assert.False(await InvocarSeguirAsync(ws, "Seguir", "ENV-2026-00113", cts.Token));
+
+        // Soltar uno libera cupo
+        await InvocarSeguirAsync(ws, "Dejar", "ENV-9999-99999", cts.Token);
+        Assert.True(await InvocarSeguirAsync(ws, "Seguir", "ENV-2026-00113", cts.Token));
+    }
+
     [FactPostgres]
     public async Task Notifier_ConParametrosVaciosOInvalidos_NoLanzaExcepcion()
     {
