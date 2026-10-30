@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text.Json;
+using UltimaMilla.Mobile.Models.Sync;
 using Microsoft.Maui.Storage;
 using SQLite;
 using UltimaMilla.Mobile.Models.DTOs;
@@ -32,6 +34,9 @@ public interface ILocalDatabaseService
     Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
     Task SeedRutaDemoSiEstaVaciaAsync();
     Task ReiniciarDatosDemoLocalAsync();
+    Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento);
+    Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50);
+    Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
 }
 
 public class LocalDatabaseService : ILocalDatabaseService
@@ -126,6 +131,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 await _database.CreateTableAsync<BultoLocal>();
                 await _database.CreateTableAsync<MotivoNoEntregaLocal>();
                 await _database.CreateTableAsync<OperacionOfflineLocal>();
+                await _database.CreateTableAsync<EventoGeocercaLocal>();
             }
             catch (SQLiteException)
             {
@@ -145,6 +151,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     await _database.CreateTableAsync<BultoLocal>();
                     await _database.CreateTableAsync<MotivoNoEntregaLocal>();
                     await _database.CreateTableAsync<OperacionOfflineLocal>();
+                await _database.CreateTableAsync<EventoGeocercaLocal>();
                 }
                 catch
                 {
@@ -280,8 +287,9 @@ public class LocalDatabaseService : ILocalDatabaseService
                 paradaLocal.DestinatarioTelefono = p.Destinatario?.Telefono ?? "+598 99 123 456";
                 paradaLocal.DestinatarioEmail = p.Destinatario?.Email;
                 paradaLocal.NotasComercio = p.Destinatario?.ReferenciaEntrega ?? string.Empty;
-                paradaLocal.Latitud = p.Latitud ?? -34.9056;
-                paradaLocal.Longitud = p.Longitud ?? -56.1852;
+                var (latDef, lonDef) = DemoDataDefaults.ObtenerCoordenadasPorParada(paradaLocal.CodigoSeguimiento, p.Orden);
+                paradaLocal.Latitud = p.Latitud ?? latDef;
+                paradaLocal.Longitud = p.Longitud ?? lonDef;
                 paradaLocal.VentanaHoraria = p.VentanaHoraria ?? "09:00 - 13:00";
                 paradaLocal.HoraEstimada = $"{8 + p.Orden:D2}:30";
                 paradaLocal.CantidadBultos = p.ResumenBultos?.CantidadBultos ?? 1;
@@ -457,8 +465,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
                 CodigoSeguimiento = codigoSeguimientoReal,
                 NotasComercio = p.NotasComercio ?? string.Empty,
-                Latitud = p.Latitud,
-                Longitud = p.Longitud,
+                Latitud = DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Latitud,
+                Longitud = DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Longitud,
                 Bultos = bultoItems
             };
 
@@ -522,8 +530,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Entregado",
                 CodigoSeguimiento: "ENV-2026-00108",
                 DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
-                Latitud: -34.9056,
-                Longitud: -56.1852,
+                Latitud: DemoDataDefaults.Parada1Latitud,
+                Longitud: DemoDataDefaults.Parada1Longitud,
                 VentanaHoraria: "09:00 - 10:00",
                 Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
                 ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
@@ -536,8 +544,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00109",
                 DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
-                Latitud: -34.9124,
-                Longitud: -56.1589,
+                Latitud: DemoDataDefaults.Parada2Latitud,
+                Longitud: DemoDataDefaults.Parada2Longitud,
                 VentanaHoraria: "10:00 - 11:00",
                 Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
                 ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
@@ -550,8 +558,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00110",
                 DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
-                Latitud: -34.9271,
-                Longitud: -56.1534,
+                Latitud: DemoDataDefaults.Parada3Latitud,
+                Longitud: DemoDataDefaults.Parada3Longitud,
                 VentanaHoraria: "11:00 - 12:00",
                 Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
                 ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),
@@ -585,12 +593,59 @@ public class LocalDatabaseService : ILocalDatabaseService
         return "Montevideo";
     }
 
+    public async Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento)
+    {
+        await InitAsync();
+        evento.Sincronizado = false;
+        await Db.InsertAsync(evento);
+
+        var payload = new EventoGeocercaOfflinePayload
+        {
+            EventoLocalId = evento.Id,
+            HojaDeRutaId = evento.HojaDeRutaId != Guid.Empty ? evento.HojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId,
+            ParadaId = evento.ParadaId,
+            EnvioId = evento.EnvioId,
+            CodigoSeguimiento = evento.CodigoSeguimiento,
+            TipoEvento = evento.TipoEvento,
+            Latitud = evento.Latitud,
+            Longitud = evento.Longitud,
+            DistanciaMetros = evento.DistanciaMetros,
+            TiempoPermanenciaSegundos = evento.TiempoPermanenciaSegundos,
+            TimestampUtc = evento.TimestampUtc,
+            IdempotencyKey = $"GEO-{evento.TipoEvento}-{evento.ParadaId:N}-{evento.TimestampUtc.Ticks}"
+        };
+
+        await EncolarOperacionAsync(TiposOperacionOffline.EventoGeocerca, JsonSerializer.Serialize(payload));
+        return evento;
+    }
+
+    public async Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50)
+    {
+        await InitAsync();
+        return await Db.Table<EventoGeocercaLocal>()
+            .OrderByDescending(e => e.TimestampUtc)
+            .Take(limite)
+            .ToListAsync();
+    }
+
+    public async Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId)
+    {
+        await InitAsync();
+        var item = await Db.FindAsync<EventoGeocercaLocal>(eventoLocalId);
+        if (item != null)
+        {
+            item.Sincronizado = true;
+            await Db.UpdateAsync(item);
+        }
+    }
+
     public async Task ReiniciarDatosDemoLocalAsync()
     {
         await InitAsync();
 
         await Db.RunInTransactionAsync(conn =>
         {
+            conn.DeleteAll<EventoGeocercaLocal>();
             conn.DeleteAll<OperacionOfflineLocal>();
             conn.DeleteAll<BultoLocal>();
             conn.DeleteAll<EnvioLocal>();
@@ -608,8 +663,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00108",
                 DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
-                Latitud: -34.9056,
-                Longitud: -56.1852,
+                Latitud: DemoDataDefaults.Parada1Latitud,
+                Longitud: DemoDataDefaults.Parada1Longitud,
                 VentanaHoraria: "09:00 - 10:00",
                 Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
                 ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
@@ -622,8 +677,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00109",
                 DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
-                Latitud: -34.9124,
-                Longitud: -56.1589,
+                Latitud: DemoDataDefaults.Parada2Latitud,
+                Longitud: DemoDataDefaults.Parada2Longitud,
                 VentanaHoraria: "10:00 - 11:00",
                 Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
                 ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
@@ -636,8 +691,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00110",
                 DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
-                Latitud: -34.9271,
-                Longitud: -56.1534,
+                Latitud: DemoDataDefaults.Parada3Latitud,
+                Longitud: DemoDataDefaults.Parada3Longitud,
                 VentanaHoraria: "11:00 - 12:00",
                 Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
                 ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),

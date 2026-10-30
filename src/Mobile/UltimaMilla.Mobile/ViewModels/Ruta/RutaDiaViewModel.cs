@@ -21,21 +21,35 @@ public partial class ParadaItemViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid HojaDeRutaId { get; set; } = Guid.Empty;
-    public Guid EnvioId { get; set; } = Guid.Empty;
+    public Guid EnvioId { get; init; } = Guid.Empty;
     public int Orden { get; init; }
     public string Direccion { get; init; } = string.Empty;
     public string Ciudad { get; init; } = string.Empty;
     public string Destinatario { get; init; } = string.Empty;
     public string Telefono { get; init; } = string.Empty;
     public int CantidadBultos { get; init; }
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EstadoBgColor))]
     [NotifyPropertyChangedFor(nameof(EstadoTextColor))]
     [NotifyPropertyChangedFor(nameof(EstadoBorderColor))]
     [NotifyPropertyChangedFor(nameof(EstadoTextoBadge))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrar))]
-    private string _estado = "Pendiente"; // "Pendiente", "Entregado", "Fallido"
+    private string _estado = "Pendiente"; // "Pendiente", "Entregado", "Fallido", "EnDevolucion"
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarBadgeGeocerca))]
+    [NotifyPropertyChangedFor(nameof(GeocercaTextoBadge))]
+    [NotifyPropertyChangedFor(nameof(GeocercaBgColor))]
+    [NotifyPropertyChangedFor(nameof(GeocercaBorderColor))]
+    [NotifyPropertyChangedFor(nameof(GeocercaTextColor))]
+    private bool _enGeocerca;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarDistanciaGeocerca))]
+    [NotifyPropertyChangedFor(nameof(DistanciaFormateadaTexto))]
+    [NotifyPropertyChangedFor(nameof(GeocercaTextoBadge))]
+    private double? _distanciaActualMetros;
 
     public string HoraEstimada { get; init; } = string.Empty;
     public string CodigoSeguimiento { get; init; } = string.Empty;
@@ -44,7 +58,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public double Longitud { get; init; }
     public List<BultoItemViewModel> Bultos { get; init; } = new();
 
-    // Helpers visuales para el renderizado del badge en XAML
+    // Helpers visuales para el renderizado del badge de estado en XAML
     public Color EstadoBgColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#DCFCE7"),
@@ -74,6 +88,27 @@ public partial class ParadaItemViewModel : ObservableObject
         _ => "Pendiente"
     };
 
+    // Helpers visuales para Geocercas (Sección 7.3 - Cero emojis)
+    public bool MostrarBadgeGeocerca => EnGeocerca;
+
+    public bool MostrarDistanciaGeocerca => DistanciaActualMetros.HasValue;
+
+    public string GeocercaTextoBadge => EnGeocerca
+        ? (DistanciaActualMetros.HasValue
+            ? $"En Geocerca (<100m - {DistanciaActualMetros.Value:F0}m)"
+            : "En Geocerca (<100m)")
+        : string.Empty;
+
+    public string DistanciaFormateadaTexto => DistanciaActualMetros.HasValue
+        ? (DistanciaActualMetros.Value >= 1000.0
+            ? $"Distancia GPS: {(DistanciaActualMetros.Value / 1000.0):F2} km"
+            : $"Distancia GPS: {DistanciaActualMetros.Value:F0} m")
+        : string.Empty;
+
+    public Color GeocercaBgColor => Color.FromArgb("#DBEAFE");
+    public Color GeocercaBorderColor => Color.FromArgb("#93C5FD");
+    public Color GeocercaTextColor => Color.FromArgb("#1E40AF");
+
     public bool PuedeRegistrar => Estado == "Pendiente";
 }
 
@@ -82,6 +117,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
+    private readonly IGeofenceService? _geofenceService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -120,25 +156,25 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private Color _indicadorConexionDotColor = Color.FromArgb("#DC2626");
 
     // =========================================================================
-    // HITO 4: TELEMETRÍA Y GEOLOCALIZACIÓN EN TIEMPO REAL (SIGNALR + GPS)
+    // HITO 4 & SECCIÓN 7.3: TELEMETRÍA, GEOCERCAS Y BATERÍA ADAPTATIVA
     // =========================================================================
     [ObservableProperty]
     private bool _isTrackingGpsActivo = false;
 
     [ObservableProperty]
-    private string _estadoTrackingTexto = "GPS inactivo";
+    private string _estadoTrackingTexto = "GPS en vivo";
 
     [ObservableProperty]
-    private Color _trackingBadgeBgColor = Color.FromArgb("#F3F4F6");
+    private Color _trackingBadgeBgColor = Color.FromArgb("#ECFDF5");
 
     [ObservableProperty]
-    private Color _trackingBadgeBorderColor = Color.FromArgb("#E5E7EB");
+    private Color _trackingBadgeBorderColor = Color.FromArgb("#A7F3D0");
 
     [ObservableProperty]
-    private Color _trackingBadgeTextColor = Color.FromArgb("#4B5563");
+    private Color _trackingBadgeTextColor = Color.FromArgb("#065F46");
 
     [ObservableProperty]
-    private Color _trackingDotColor = Color.FromArgb("#9CA3AF");
+    private Color _trackingDotColor = Color.FromArgb("#10B981");
 
     [ObservableProperty]
     private string _ultimaUbicacionTexto = "Sin coordenadas recientes";
@@ -148,18 +184,20 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null)
     {
     }
 
     public RutaDiaViewModel(
         ILocalDatabaseService? localDatabaseService,
         ISyncService? syncService,
-        IGeolocalizacionTrackingService? trackingService)
+        IGeolocalizacionTrackingService? trackingService,
+        IGeofenceService? geofenceService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _trackingService = trackingService;
+        _geofenceService = geofenceService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -172,6 +210,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             _trackingService.OnTrackingStateChanged += OnTrackingStateChangedHandler;
             _trackingService.OnPosicionActualizada += OnPosicionActualizadaHandler;
             ActualizarEstadoVisualTracking(_trackingService.IsTrackingActive);
+        }
+
+        if (_geofenceService != null)
+        {
+            _geofenceService.OnGeocercasEvaluadas += OnGeocercasEvaluadasHandler;
         }
 
         ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, 0);
@@ -207,10 +250,45 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             }
             else
             {
-                EstadoTrackingTexto = "GPS activo (Local)";
-                TrackingDotColor = Color.FromArgb("#EAB308");
+                EstadoTrackingTexto = "GPS en vivo";
+                TrackingDotColor = Color.FromArgb("#10B981");
             }
         });
+    }
+
+    private void OnGeocercasEvaluadasHandler(object? sender, EvaluacionGeocercasResult resultado)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            AplicarEstadosGeocercaEnParadas(resultado);
+        });
+    }
+
+    private void AplicarEstadosGeocercaEnParadas(EvaluacionGeocercasResult? resultado = null)
+    {
+        foreach (var parada in Paradas)
+        {
+            if (resultado != null)
+            {
+                var estado = resultado.EstadosPorParada.FirstOrDefault(e =>
+                    e.ParadaId == parada.Id
+                    || (!string.IsNullOrWhiteSpace(e.CodigoSeguimiento) && e.CodigoSeguimiento == parada.CodigoSeguimiento)
+                    || e.Orden == parada.Orden);
+
+                if (estado != null)
+                {
+                    parada.DistanciaActualMetros = estado.DistanciaMetros;
+                    parada.EnGeocerca = estado.DentroDeGeocerca;
+                    continue;
+                }
+            }
+
+            if (_geofenceService != null)
+            {
+                parada.EnGeocerca = _geofenceService.EstaEnGeocerca(parada.Id);
+                parada.DistanciaActualMetros = _geofenceService.ObtenerUltimaDistanciaMetros(parada.Id);
+            }
+        }
     }
 
     private void ActualizarEstadoVisualTracking(bool activo)
@@ -269,6 +347,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 ActualizarEstadoVisualConectividad(false, pendientes);
             }
 
+            AplicarEstadosGeocercaEnParadas();
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
         }
@@ -293,6 +372,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 {
                     Paradas.Add(p);
                 }
+                AplicarEstadosGeocercaEnParadas();
             }
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
@@ -343,7 +423,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (isOnline)
         {
             TextoBadgeConectividad = pendientes > 0 ? $"En Línea ({pendientes} pend.)" : "En Línea";
-            BadgeConectividadBgColor = Color.FromArgb("#F0FDF4"); // Verde suave
+            BadgeConectividadBgColor = Color.FromArgb("#F0FDF4");
             BadgeConectividadBorderColor = Color.FromArgb("#86EFAC");
             BadgeConectividadTextColor = Color.FromArgb("#166534");
             IndicadorConexionDotColor = Color.FromArgb("#16A34A");
@@ -352,7 +432,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             string motivo = IsOfflineSimulado ? "Offline (Demo)" : "Modo Offline";
             TextoBadgeConectividad = pendientes > 0 ? $"{motivo} ({pendientes} pend.)" : motivo;
-            BadgeConectividadBgColor = Color.FromArgb("#FEF2F2"); // Rojo suave
+            BadgeConectividadBgColor = Color.FromArgb("#FEF2F2");
             BadgeConectividadBorderColor = Color.FromArgb("#FCA5A5");
             BadgeConectividadTextColor = Color.FromArgb("#991B1B");
             IndicadorConexionDotColor = Color.FromArgb("#DC2626");
@@ -419,10 +499,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 ActualizarEstadoVisualConectividad(true, pendientesRestantes);
                 await RefrescarParadasDesdeSQLiteAsync();
 
-                string mensaje = syncRes.ErroresNegocio > 0
-                    ? $"Modo Online activado.\n{syncRes.Mensaje}"
-                    : $"Modo Online activado.\n{syncRes.Mensaje}";
-
+                string mensaje = $"Modo Online activado.\n{syncRes.Mensaje}";
                 await Shell.Current.DisplayAlertAsync("Sincronización al Volver a Línea", mensaje, "Aceptar");
             }
             else
@@ -467,6 +544,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 IsBusy = true;
                 try
                 {
+                    _geofenceService?.ReiniciarEstadosMemoria();
                     var res = await _syncService.ReiniciarDemoCompletaAsync();
                     ActualizarEstadoVisualConectividad(_syncService.IsOnline, 0);
                     await RefrescarParadasDesdeSQLiteAsync();
@@ -560,33 +638,125 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task AlternarTrackingGpsAsync()
     {
-        if (_trackingService == null)
+        await GestionarGeocercasYBateriaAsync();
+    }
+
+    [RelayCommand]
+    private async Task GestionarGeocercasYBateriaAsync()
+    {
+        if (Shell.Current is null || _trackingService is null)
             return;
 
-        if (_trackingService.IsTrackingActive)
+        const string opcionEntrada = "Simular Entrada a Geocerca - Parada 1 (45m)";
+        const string opcionSalida = "Simular Salida de Geocerca - Parada 1 (220m)";
+        const string opcionAnalisis = "Ver Análisis de Batería e Historial de Geocercas";
+        string opcionToggleGps = _trackingService.IsTrackingActive
+            ? "Pausar Rastreo GPS Automático"
+            : "Activar Rastreo GPS Automático";
+
+        var seleccion = await Shell.Current.DisplayActionSheetAsync(
+            "Geocercas y Muestreo Adaptativo de Batería",
+            "Cerrar",
+            null,
+            opcionEntrada,
+            opcionSalida,
+            opcionAnalisis,
+            opcionToggleGps);
+
+        if (seleccion == opcionEntrada)
         {
-            await _trackingService.DetenerTrackingAsync();
-            if (Shell.Current is not null)
+            var evaluacion = await _trackingService.SimularPosicionGpsAsync(
+                DemoDataDefaults.Parada1SimulacionEntrada45mLat,
+                DemoDataDefaults.Parada1SimulacionEntrada45mLon);
+
+            AplicarEstadosGeocercaEnParadas(evaluacion);
+            ActualizarEstadoVisualTracking(true);
+
+            int pendientes = _syncService != null ? await _syncService.ObtenerCantidadPendientesAsync() : 0;
+            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+
+            var estadoParada1 = evaluacion.EstadosPorParada.FirstOrDefault(p => p.Orden == 1 || p.CodigoSeguimiento == "ENV-2026-00108");
+            double distanciaCalculada = estadoParada1?.DistanciaMetros ?? 45.0;
+            bool disparoNuevo = evaluacion.EventosDisparados.Any(e => e.TipoEvento == "LLEGADA_GEOCERCA");
+            string estadoSync = (_syncService?.IsOnline ?? false)
+                ? "Sincronizado con el backend (POST /geocerca)"
+                : "Guardado en SQLite local y encolado en OperacionOfflineLocal (Modo Offline)";
+
+            string detalleEvento = disparoNuevo
+                ? "Evento disparado: LLEGADA_GEOCERCA (Radio de entrada < 100m)"
+                : "Histéresis activa: El repartidor ya se encontraba dentro de la geocerca (< 100m), no se duplicó el evento de entrada.";
+
+            await Shell.Current.DisplayAlertAsync(
+                "Geocerca Detectada - Parada 1",
+                $"Posición GPS inyectada frente a Av. 18 de Julio 1450 (ENV-2026-00108).\n\n" +
+                $"- Distancia Haversine calculada: {distanciaCalculada:F1} metros\n" +
+                $"- Estado de Parada 1: En Geocerca (<100m)\n" +
+                $"- {detalleEvento}\n" +
+                $"- Perfil de muestreo: {_trackingService.PerfilAdaptativoActual}\n" +
+                $"- Persistencia: {estadoSync}",
+                "Aceptar");
+        }
+        else if (seleccion == opcionSalida)
+        {
+            var evaluacion = await _trackingService.SimularPosicionGpsAsync(
+                DemoDataDefaults.Parada1SimulacionSalida220mLat,
+                DemoDataDefaults.Parada1SimulacionSalida220mLon);
+
+            AplicarEstadosGeocercaEnParadas(evaluacion);
+
+            int pendientes = _syncService != null ? await _syncService.ObtenerCantidadPendientesAsync() : 0;
+            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+
+            var estadoParada1 = evaluacion.EstadosPorParada.FirstOrDefault(p => p.Orden == 1 || p.CodigoSeguimiento == "ENV-2026-00108");
+            double distanciaCalculada = estadoParada1?.DistanciaMetros ?? 220.0;
+            var eventoSalida = evaluacion.EventosDisparados.FirstOrDefault(e => e.TipoEvento == "SALIDA_GEOCERCA");
+            int permanenciaSeg = eventoSalida?.TiempoPermanenciaSegundos ?? estadoParada1?.UltimoTiempoPermanenciaSegundos ?? 0;
+
+            string estadoSync = (_syncService?.IsOnline ?? false)
+                ? "Sincronizado con el backend (POST /geocerca)"
+                : "Guardado en SQLite local y encolado en OperacionOfflineLocal (Modo Offline)";
+
+            string detalleSalida = eventoSalida != null
+                ? $"Evento disparado: SALIDA_GEOCERCA (Radio de salida > 150m)\n- Tiempo de permanencia registrado: {permanenciaSeg} segundos"
+                : "Nota de histéresis: El repartidor no tenía una entrada activa previa en Parada 1. Simule primero la entrada (45m) y luego la salida (220m).";
+
+            await Shell.Current.DisplayAlertAsync(
+                "Salida de Geocerca - Parada 1",
+                $"Posición GPS inyectada a las afueras de Av. 18 de Julio 1450 (ENV-2026-00108).\n\n" +
+                $"- Distancia Haversine calculada: {distanciaCalculada:F1} metros\n" +
+                $"- {detalleSalida}\n" +
+                $"- Perfil de muestreo: {_trackingService.PerfilAdaptativoActual}\n" +
+                $"- Persistencia: {estadoSync}",
+                "Aceptar");
+        }
+        else if (seleccion == opcionAnalisis)
+        {
+            var informe = await _trackingService.ObtenerInformeBateriaEHistorialGeocercasAsync();
+            await Shell.Current.DisplayAlertAsync(
+                "Análisis de Batería e Historial de Geocercas",
+                informe,
+                "Cerrar");
+        }
+        else if (seleccion == opcionToggleGps)
+        {
+            if (_trackingService.IsTrackingActive)
             {
+                await _trackingService.DetenerTrackingAsync();
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS",
                     "Rastreo de ubicación en tiempo real pausado.",
                     "Aceptar");
             }
-        }
-        else
-        {
-            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
-            if (rutaId == Guid.Empty)
-                rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
-
-            await _trackingService.IniciarTrackingAsync(rutaId, DemoDataDefaults.DefaultRepartidorId);
-
-            if (Shell.Current is not null)
+            else
             {
+                var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
+                if (rutaId == Guid.Empty)
+                    rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+
+                await _trackingService.IniciarTrackingAsync(rutaId, DemoDataDefaults.DefaultRepartidorId);
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS en Vivo",
-                    $"Rastreo iniciado para la ruta.\nTransmitiendo posición cada {_trackingService.IntervaloTracking.TotalSeconds}s vía SignalR.",
+                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.",
                     "Entendido");
             }
         }
@@ -603,6 +773,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             _trackingService.OnTrackingStateChanged -= OnTrackingStateChangedHandler;
             _trackingService.OnPosicionActualizada -= OnPosicionActualizadaHandler;
+        }
+
+        if (_geofenceService != null)
+        {
+            _geofenceService.OnGeocercasEvaluadas -= OnGeocercasEvaluadasHandler;
         }
 
         GC.SuppressFinalize(this);

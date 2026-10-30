@@ -56,7 +56,9 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     /// <summary>Solo los cambios de estado (y el alta) forman parte de la línea de tiempo pública.</summary>
     private static bool EsHitoPublico(EventoEnvio evento) =>
-        evento.EstadoAnterior is null || evento.EstadoAnterior != evento.EstadoNuevo;
+        evento.EstadoAnterior is null
+        || evento.EstadoAnterior != evento.EstadoNuevo
+        || evento.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca";
 
     private async Task<string?> ObtenerVentanaAsync(Envio envio, CancellationToken cancellationToken)
     {
@@ -80,6 +82,12 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         "IntentoEntregaFallido" => "No se pudo concretar la entrega",
         "ResolucionReglaOperativa_Reprogramado" => "Entrega reprogramada para un nuevo intento",
         "ResolucionReglaOperativa_EnDevolucion" => "El envío será devuelto al comercio",
+        "LlegadaGeocerca" => !string.IsNullOrWhiteSpace(evento.Payload)
+            ? evento.Payload
+            : "Repartidor ingresó a la zona de entrega (Geocerca < 100m)",
+        "SalidaGeocerca" => !string.IsNullOrWhiteSpace(evento.Payload)
+            ? evento.Payload
+            : "Repartidor salió de la zona de entrega",
         _ => evento.EstadoNuevo switch
         {
             EstadoEnvio.EnDeposito => "Envío en el depósito",

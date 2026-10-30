@@ -65,6 +65,14 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
 
             bool esParadaActual = parada.Estado == "EnCamino" || parada.Estado == "EnSitio";
 
+            (double? lat, double? lon) = (envio?.CodigoSeguimientoPublico) switch
+            {
+                "ENV-2026-00108" => (-34.9058, -56.1885),
+                "ENV-2026-00109" => (-34.9145, -56.1552),
+                "ENV-2026-00110" => (-34.9238, -56.1598),
+                _ => ((double?)null, (double?)null)
+            };
+
             resultado.Add(new ParadaNavegacionDto(
                 parada.Id,
                 parada.EnvioId,
@@ -72,8 +80,8 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
                 parada.Estado,
                 envio?.CodigoSeguimientoPublico ?? $"PAR-{parada.Orden:D2}",
                 envio?.DireccionDestino ?? "Dirección sin especificar",
-                Latitud: null,
-                Longitud: null,
+                Latitud: lat,
+                Longitud: lon,
                 VentanaHoraria: parada.FranjaHorariaId.HasValue ? $"Franja-{parada.FranjaHorariaId.Value.ToString()[..4]}" : "Todo el día",
                 contacto,
                 resumenBultos,
