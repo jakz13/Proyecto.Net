@@ -9,6 +9,7 @@
     // Registro de instancias activas de mapas por ID de contenedor DOM
     var instanciasMapas = {};
     var marcadoresPorContenedor = {};
+    var vistaModificadaPorUsuario = {};
 
     // Coordenadas base del Depósito Logístico Central (Montevideo - Zona Goes / Reducto)
     var DEPOSITO_CENTRAL = {
@@ -467,8 +468,27 @@
      * 2. Renderiza el mapa táctico de toda la flota en el Tablero de Operaciones en Vivo (Backoffice UC-12).
      */
     function renderizarMapaTableroFlota(idContenedor, vehiculos, callbackSeleccion) {
+        // En cada actualización en vivo el mapa se redibuja: se conserva la vista que dejó el usuario (zoom y desplazamiento)
+        // para que no vuelva al encuadre general cada pocos segundos.
+        // Solo se respeta si el usuario movió o acercó el mapa; si no, cada actualización vuelve a encuadrar la flota.
+        var vistaPrevia = null;
+        var mapaPrevio = instanciasMapas[idContenedor];
+        if (mapaPrevio && vistaModificadaPorUsuario[idContenedor]) {
+            try {
+                vistaPrevia = { centro: mapaPrevio.getCenter(), zoom: mapaPrevio.getZoom() };
+            } catch (e) {
+                vistaPrevia = null;
+            }
+        }
+
         var mapa = crearMapaBase(idContenedor, -34.8960, -56.1620, 12);
         if (!mapa) return;
+
+        ['mousedown', 'wheel', 'touchstart', 'dblclick'].forEach(function (evento) {
+            mapa.getContainer().addEventListener(evento, function () {
+                vistaModificadaPorUsuario[idContenedor] = true;
+            }, { passive: true });
+        });
 
         var listaVehiculos = Array.isArray(vehiculos) ? vehiculos : [];
         var puntosTotales = [[DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng]];
@@ -601,7 +621,9 @@
             };
         });
 
-        if (puntosTotales.length > 1) {
+        if (vistaPrevia) {
+            mapa.setView(vistaPrevia.centro, vistaPrevia.zoom, { animate: false });
+        } else if (puntosTotales.length > 1) {
             mapa.fitBounds(puntosTotales, { padding: [36, 36], maxZoom: 14 });
         }
     }
@@ -638,6 +660,7 @@
     }
 
     function ajustarVistaGeneralMapa(idContenedor) {
+        vistaModificadaPorUsuario[idContenedor] = false;
         var mapa = instanciasMapas[idContenedor];
         var reg = marcadoresPorContenedor[idContenedor];
         if (!mapa) return;

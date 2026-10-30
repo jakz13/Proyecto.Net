@@ -445,6 +445,19 @@
         }, 200);
     }
 
+    // Las posiciones llegan seguido: se refresca como máximo cada 2 s para no saturar la API ni redibujar el mapa sin parar
+    var ultimoRefrescoPosicion = 0;
+    var timerPosicion = null;
+    function programarActualizacionPorPosicion() {
+        if (timerPosicion) return;
+        var espera = Math.max(0, 2000 - (Date.now() - ultimoRefrescoPosicion));
+        timerPosicion = setTimeout(function () {
+            timerPosicion = null;
+            ultimoRefrescoPosicion = Date.now();
+            actualizarTableroEnVivo();
+        }, espera);
+    }
+
     function actualizarTableroEnVivo() {
         return fetch('?handler=DatosEnVivo', {
             method: 'GET',
@@ -496,6 +509,10 @@
 
         conexion.on('HitoParada', function () {
             programarActualizacionTablero();
+        });
+
+        conexion.on('PosicionVehiculo', function () {
+            programarActualizacionPorPosicion();
         });
 
         if (typeof conexion.onreconnecting === 'function') {

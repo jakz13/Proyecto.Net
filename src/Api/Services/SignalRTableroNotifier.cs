@@ -13,6 +13,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
 {
     public const string EventoCambioRuta = "CambioRuta";
     public const string EventoHitoParada = "HitoParada";
+    public const string EventoPosicionVehiculo = "PosicionVehiculo";
 
     private readonly IHubContext<TableroHub> _hubContext;
     private readonly ILogger<SignalRTableroNotifier> _logger;
@@ -97,5 +98,29 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                 operadorId);
         }
     }
-}
 
+    public async Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
+    {
+        if (operadorId == Guid.Empty || vehiculoId == Guid.Empty || double.IsNaN(latitud) || double.IsNaN(longitud))
+            return;
+
+        try
+        {
+            await _hubContext.Clients.Group(TableroHub.GrupoOperador(operadorId)).SendAsync(
+                EventoPosicionVehiculo,
+                new
+                {
+                    vehiculoId,
+                    hojaDeRutaId,
+                    latitud,
+                    longitud,
+                    timestamp = DateTime.UtcNow
+                },
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del vehículo {VehiculoId} (operador {OperadorId}).", EventoPosicionVehiculo, vehiculoId, operadorId);
+        }
+    }
+}

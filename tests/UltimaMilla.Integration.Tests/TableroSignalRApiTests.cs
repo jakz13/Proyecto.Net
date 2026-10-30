@@ -160,6 +160,54 @@ public class TableroSignalRApiTests
     }
 
     [FactPostgres]
+    public async Task PosicionVehiculo_SeEmiteSoloAlTableroDelOperadorPropietario()
+    {
+        var http = _factory.CreateClient();
+
+        var loginOp1 = await http.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest("admin@gmail.com", "Admin.2026!"));
+        var tokenOp1 = (await loginOp1.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>())!.Token;
+        var loginOp2 = await http.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest("admin2@gmail.com", "Admin.2026!"));
+        var tokenOp2 = (await loginOp2.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>())!.Token;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var wsOp1 = await _factory.Server.CreateWebSocketClient().ConnectAsync(
+            new Uri($"ws://localhost/hubs/tablero?access_token={Uri.EscapeDataString(tokenOp1)}"), cts.Token);
+        await EnviarHandshakeSignalRAsync(wsOp1, cts.Token);
+        await LeerTramasHastaContenerAsync(wsOp1, "ConectadoTablero", TimeSpan.FromSeconds(3));
+
+        var wsOp2 = await _factory.Server.CreateWebSocketClient().ConnectAsync(
+            new Uri($"ws://localhost/hubs/tablero?access_token={Uri.EscapeDataString(tokenOp2)}"), cts.Token);
+        await EnviarHandshakeSignalRAsync(wsOp2, cts.Token);
+        await LeerTramasHastaContenerAsync(wsOp2, "ConectadoTablero", TimeSpan.FromSeconds(3));
+
+        var vehiculoOp1 = Guid.NewGuid();
+        var vehiculoOp2 = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var notifier = scope.ServiceProvider.GetRequiredService<ITableroRealtimeNotifier>();
+            await notifier.NotificarPosicionVehiculoAsync(DatabaseSeeder.DefaultOperadorId, vehiculoOp1, null, -34.9040, -56.1700, cts.Token);
+            await notifier.NotificarPosicionVehiculoAsync(DatabaseSeeder.Operador2Id, vehiculoOp2, null, -34.8500, -56.0100, cts.Token);
+        }
+
+        var tramasOp1 = await LeerTramasHastaContenerAsync(wsOp1, vehiculoOp1.ToString(), TimeSpan.FromSeconds(3));
+        var tramasOp2 = await LeerTramasHastaContenerAsync(wsOp2, vehiculoOp2.ToString(), TimeSpan.FromSeconds(3));
+        var textoOp1 = string.Concat(tramasOp1);
+        var textoOp2 = string.Concat(tramasOp2);
+
+        Assert.Contains("PosicionVehiculo", textoOp1);
+        Assert.Contains(vehiculoOp1.ToString(), textoOp1);
+        Assert.DoesNotContain(vehiculoOp2.ToString(), textoOp1);
+
+        Assert.Contains("PosicionVehiculo", textoOp2);
+        Assert.Contains(vehiculoOp2.ToString(), textoOp2);
+        Assert.DoesNotContain(vehiculoOp1.ToString(), textoOp2);
+
+        wsOp1.Dispose();
+        wsOp2.Dispose();
+    }
+
+    [FactPostgres]
     public async Task Notifier_ConParametrosVaciosOInvalidos_NoLanzaExcepcion()
     {
         _ = _factory.CreateClient();

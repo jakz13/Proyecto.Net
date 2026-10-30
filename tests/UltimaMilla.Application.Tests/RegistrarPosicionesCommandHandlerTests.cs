@@ -21,6 +21,21 @@ public class RegistrarPosicionesCommandHandlerTests
         }
     }
 
+    private sealed class FakeTableroNotifier : ITableroRealtimeNotifier
+    {
+        public List<(Guid OperadorId, Guid VehiculoId, double Latitud, double Longitud)> Posiciones { get; } = new();
+
+        public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task NotificarHitoParadaAsync(Guid operadorId, Guid hojaDeRutaId, Guid paradaId, string estadoParada, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
+        {
+            Posiciones.Add((operadorId, vehiculoId, latitud, longitud));
+            return Task.CompletedTask;
+        }
+    }
+
     private readonly FakeRepartidorRepository _repartidores = new();
     private readonly FakeRutaRepository _rutas = new();
     private readonly FakePosicionRepository _posiciones = new();
@@ -36,7 +51,9 @@ public class RegistrarPosicionesCommandHandlerTests
         _repartidores.Repartidores.Add(_repartidor);
     }
 
-    private RegistrarPosicionesCommandHandler CrearHandler() => new(_repartidores, _rutas, _posiciones, _uow, _tenant, _clock);
+    private readonly FakeTableroNotifier _tablero = new();
+
+    private RegistrarPosicionesCommandHandler CrearHandler() => new(_repartidores, _rutas, _posiciones, _uow, _tenant, _clock, _tablero);
 
     private static RegistrarPosicionesCommand Comando(params PosicionDispositivoDto[] posiciones) => new(posiciones);
 
@@ -51,6 +68,33 @@ public class RegistrarPosicionesCommandHandlerTests
         Assert.Equal(_repartidor.Id, guardada.RepartidorId);
         Assert.Equal(_tenant.OperadorId, guardada.OperadorId);
         Assert.Equal(1, _uow.Confirmaciones);
+    }
+
+    [Fact]
+    public async Task LoteDePosiciones_AvisaAlTableroUnaVezPorVehiculoConLaPosicionMasReciente()
+    {
+        var hace10 = _clock.UtcNow.AddMinutes(-10);
+        var hace5 = _clock.UtcNow.AddMinutes(-5);
+
+        await CrearHandler().Handle(Comando(
+            new PosicionDispositivoDto(-34.90, -56.10, hace10),
+            new PosicionDispositivoDto(-34.91, -56.11, hace5)), default);
+
+        var aviso = Assert.Single(_tablero.Posiciones);
+        Assert.Equal(_tenant.OperadorId, aviso.OperadorId);
+        Assert.Equal(_vehiculoId, aviso.VehiculoId);
+        Assert.Equal(-34.91, aviso.Latitud);
+        Assert.Equal(-56.11, aviso.Longitud);
+    }
+
+    [Fact]
+    public async Task UsuarioQueNoEsRepartidor_NoAvisaAlTablero()
+    {
+        _repartidores.Repartidores.Clear();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            CrearHandler().Handle(Comando(new PosicionDispositivoDto(-34.9, -56.16)), default));
+        Assert.Empty(_tablero.Posiciones);
     }
 
     [Fact]

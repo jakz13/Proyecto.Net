@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Domain.Entities.Comercio;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Entities.Operador;
@@ -60,6 +61,7 @@ public static class DatabaseSeeder
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
             await SembrarOperacionAsync(context, logger, cancellationToken);
+            await SembrarGeolocalizacionRutaDemoAsync(context, logger, cancellationToken);
             await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
             await DatabaseSeederAdministracion.SembrarAsync(context, logger, cancellationToken);
             return;
@@ -273,8 +275,52 @@ public static class DatabaseSeeder
         logger.LogInformation("DatabaseSeeder: Datos semilla para la demo insertados con éxito en PostgreSQL (HojaDeRutaId: {RutaId}).", DefaultHojaDeRutaId);
 
         await SembrarOperacionAsync(context, logger, cancellationToken);
+        await SembrarGeolocalizacionRutaDemoAsync(context, logger, cancellationToken);
         await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
         await DatabaseSeederAdministracion.SembrarAsync(context, logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Las paradas de la ruta demo apuntan a direcciones que deben tener coordenadas reales para que el mapa del tablero (RF-29)
+    /// ubique cada parada, y el vehículo necesita una primera posición reportada (RF-23). Es idempotente y no pisa datos existentes.
+    /// </summary>
+    private static async Task SembrarGeolocalizacionRutaDemoAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
+    {
+        var direccionesRuta = new[]
+        {
+            (Id: Guid.Parse("eeeeeeee-0001-0000-0000-000000000001"), Calle: "Av. 18 de Julio", Numero: "1450", Lat: -34.9055, Lng: -56.1850),
+            (Id: Guid.Parse("eeeeeeee-0002-0000-0000-000000000002"), Calle: "Bvar. España", Numero: "2678", Lat: -34.9170, Lng: -56.1500),
+            (Id: Guid.Parse("eeeeeeee-0003-0000-0000-000000000003"), Calle: "Rambla Gandhi", Numero: "456", Lat: -34.9235, Lng: -56.1605)
+        };
+
+        var idsExistentes = await context.Direcciones.IgnoreQueryFilters()
+            .Where(d => direccionesRuta.Select(r => r.Id).Contains(d.Id))
+            .Select(d => d.Id)
+            .ToListAsync(cancellationToken);
+
+        var nuevas = direccionesRuta
+            .Where(r => !idsExistentes.Contains(r.Id))
+            .Select(r => new Direccion(r.Id, r.Calle, r.Numero, "Montevideo", null, r.Lat, r.Lng, null))
+            .ToList();
+        if (nuevas.Count > 0)
+            await context.Direcciones.AddRangeAsync(nuevas, cancellationToken);
+
+        var hayPosicion = await context.PosicionesVehiculo.IgnoreQueryFilters()
+            .AnyAsync(p => p.VehiculoId == DefaultVehiculoId, cancellationToken);
+        if (!hayPosicion)
+        {
+            // Primera posición del camión: saliendo del depósito hacia la primera parada
+            await context.PosicionesVehiculo.AddAsync(
+                new PosicionVehiculo(Guid.NewGuid(), DefaultOperadorId, DefaultVehiculoId, -34.9011, -56.1645, "Semilla",
+                    DefaultHojaDeRutaId, DefaultRepartidorId, velocidadKmh: 28, bateriaPct: 87),
+                cancellationToken);
+        }
+
+        if (nuevas.Count > 0 || !hayPosicion)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("DatabaseSeeder: geolocalización de la ruta demo sembrada ({Direcciones} dirección(es), posición inicial: {Posicion}).", nuevas.Count, !hayPosicion);
+        }
     }
 
     /// <summary>Recepciona y clasifica los bultos del envío, como ocurriría en depósito antes de armar una hoja de ruta.</summary>

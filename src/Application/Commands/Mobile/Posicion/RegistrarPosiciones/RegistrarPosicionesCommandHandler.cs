@@ -17,6 +17,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public RegistrarPosicionesCommandHandler(
         IRepartidorRepository repartidorRepository,
@@ -24,7 +25,8 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         IPosicionVehiculoRepository posicionRepository,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _repartidorRepository = repartidorRepository;
         _rutaRepository = rutaRepository;
@@ -32,6 +34,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<RegistrarPosicionesResultDto> Handle(RegistrarPosicionesCommand request, CancellationToken cancellationToken)
@@ -88,6 +91,16 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
 
         await _posicionRepository.AddRangeAsync(posiciones, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Tiempo real (RF-29): una sola notificación por vehículo y lote, con la posición más reciente; no condiciona el resultado
+        if (_tableroNotifier is not null)
+        {
+            foreach (var ultima in posiciones.GroupBy(x => x.VehiculoId).Select(g => g.OrderByDescending(x => x.Timestamp).First()))
+            {
+                await _tableroNotifier.NotificarPosicionVehiculoAsync(
+                    _currentTenant.OperadorId, ultima.VehiculoId, ultima.HojaDeRutaId, ultima.Latitud, ultima.Longitud, cancellationToken);
+            }
+        }
 
         return new RegistrarPosicionesResultDto(posiciones.Count);
     }
