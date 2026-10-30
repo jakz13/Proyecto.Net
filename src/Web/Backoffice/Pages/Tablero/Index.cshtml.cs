@@ -131,7 +131,7 @@ public class IndexModel : PageModel
 
     private string ObtenerUrlHub()
     {
-        var baseUrl = _configuracion?["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+        var baseUrl = UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.UrlPublicaDeLaApi(_configuracion);
         return $"{baseUrl.TrimEnd('/')}/hubs/tablero";
     }
 

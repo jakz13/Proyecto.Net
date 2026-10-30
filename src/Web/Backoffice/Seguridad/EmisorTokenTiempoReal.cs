@@ -31,7 +31,7 @@ public static class EmisorTokenTiempoReal
         var servicioJwt = new TokenJwtService(configuracion ?? new ConfigurationBuilder().Build());
         var token = servicioJwt.GenerarToken(usuario, perfil, new[] { "RUTAS_DESPACHO" }, Vigencia);
 
-        var baseUrl = configuracion?["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+        var baseUrl = UrlPublicaDeLaApi(configuracion);
         return new
         {
             accessToken = token.Token,
@@ -39,6 +39,16 @@ public static class EmisorTokenTiempoReal
             hubUrl = $"{baseUrl.TrimEnd('/')}{rutaHub}"
         };
     }
+
+    /// <summary>
+    /// Dirección de la API que el NAVEGADOR puede alcanzar. Puede diferir de <c>ApiSettings:BaseUrl</c> (la que usa el servidor del backoffice):
+    /// en Docker, por ejemplo, el servidor llega a la API como "http://api:8080" pero el navegador solo la ve en "http://localhost:5000".
+    /// Sin configuración específica se usa la misma que el servidor.
+    /// </summary>
+    public static string UrlPublicaDeLaApi(IConfiguration? configuracion) =>
+        configuracion?["ApiSettings:BaseUrlPublica"]
+        ?? configuracion?["ApiSettings:BaseUrl"]
+        ?? "http://localhost:5000";
 
     private static Guid ResolverOperador(ClaimsPrincipal usuarioSesion, MockContextoOperador? contextoOperador)
     {
