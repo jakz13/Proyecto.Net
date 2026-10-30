@@ -101,7 +101,11 @@ public static class WorkerProcesosEndpoints
         {
             try
             {
-                var comercioOperadorId = req.ComercioOperadorId ?? tenant.ComercioOperadorId ?? Guid.Empty;
+                // Un usuario de comercio solo puede suscribir su propio vínculo (segundo nivel de aislamiento)
+                if (tenant.ComercioOperadorId is { } propio && req.ComercioOperadorId is { } pedido && pedido != propio)
+                    return Results.Forbid();
+
+                var comercioOperadorId = tenant.ComercioOperadorId ?? req.ComercioOperadorId ?? Guid.Empty;
                 var resultado = await mediator.Send(
                     new CrearSuscripcionAvisoCommand(comercioOperadorId, req.TipoEvento, req.UrlWebhook, req.ClaveFirma),
                     ct);
@@ -126,9 +130,10 @@ public static class WorkerProcesosEndpoints
         suscripciones.MapGet("/", async (
             [FromQuery] Guid? comercioOperadorId,
             [FromServices] IMediator mediator,
+            [FromServices] ICurrentTenant tenant,
             CancellationToken ct) =>
         {
-            var resultado = await mediator.Send(new ListarSuscripcionesAvisoQuery(comercioOperadorId), ct);
+            var resultado = await mediator.Send(new ListarSuscripcionesAvisoQuery(tenant.ComercioOperadorId ?? comercioOperadorId), ct);
             return Results.Ok(resultado);
         })
         .WithName("ListarSuscripcionesWebhookComercio")
@@ -138,11 +143,12 @@ public static class WorkerProcesosEndpoints
             Guid id,
             [FromQuery] Guid? comercioOperadorId,
             [FromServices] IMediator mediator,
+            [FromServices] ICurrentTenant tenant,
             CancellationToken ct) =>
         {
             try
             {
-                var resultado = await mediator.Send(new DesactivarSuscripcionAvisoCommand(id, comercioOperadorId), ct);
+                var resultado = await mediator.Send(new DesactivarSuscripcionAvisoCommand(id, tenant.ComercioOperadorId ?? comercioOperadorId), ct);
                 return Results.Ok(resultado);
             }
             catch (DomainValidationException ex)
@@ -170,9 +176,10 @@ public static class WorkerProcesosEndpoints
             [FromQuery] string? estado,
             [FromQuery] int? limite,
             [FromServices] IMediator mediator,
+            [FromServices] ICurrentTenant tenant,
             CancellationToken ct) =>
         {
-            var resultado = await mediator.Send(new ListarHistorialAvisosQuery(comercioOperadorId, estado, limite ?? 50), ct);
+            var resultado = await mediator.Send(new ListarHistorialAvisosQuery(tenant.ComercioOperadorId ?? comercioOperadorId, estado, limite ?? 50), ct);
             return Results.Ok(resultado);
         })
         .WithName("ListarHistorialWebhooksOperacion")
@@ -195,6 +202,10 @@ public static class WorkerProcesosEndpoints
             catch (NotFoundException ex)
             {
                 return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
             }
         })
         .WithName("ReenviarWebhookManualOperacion")

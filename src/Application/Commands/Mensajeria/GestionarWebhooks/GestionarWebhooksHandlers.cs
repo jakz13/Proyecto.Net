@@ -161,13 +161,16 @@ public class ReenviarAvisoManualCommandHandler : IRequestHandler<ReenviarAvisoMa
 {
     private readonly IAvisoComercioRepository _avisoRepository;
     private readonly AvisoComercioEntregador _entregador;
+    private readonly ICurrentTenant _currentTenant;
 
     public ReenviarAvisoManualCommandHandler(
         IAvisoComercioRepository avisoRepository,
-        AvisoComercioEntregador entregador)
+        AvisoComercioEntregador entregador,
+        ICurrentTenant currentTenant)
     {
         _avisoRepository = avisoRepository;
         _entregador = entregador;
+        _currentTenant = currentTenant;
     }
 
     public async Task<AvisoComercioHistorialDto> Handle(ReenviarAvisoManualCommand request, CancellationToken cancellationToken)
@@ -177,6 +180,14 @@ public class ReenviarAvisoManualCommandHandler : IRequestHandler<ReenviarAvisoMa
 
         var aviso = await _avisoRepository.GetAvisoByIdAsync(request.AvisoId, cancellationToken)
             ?? throw new NotFoundException($"El aviso '{request.AvisoId}' no fue encontrado.");
+
+        // Un usuario de comercio solo puede reenviar avisos de sus propias suscripciones (segundo nivel de aislamiento)
+        if (_currentTenant.ComercioOperadorId is { } comercioPropio)
+        {
+            var suscripcion = await _avisoRepository.GetSuscripcionParaEdicionAsync(aviso.SuscripcionAvisoId, cancellationToken);
+            if (suscripcion is null || suscripcion.ComercioOperadorId != comercioPropio)
+                throw new UnauthorizedAccessException("El aviso indicado no pertenece al comercio autenticado.");
+        }
 
         aviso.PrepararReenvioManual();
         await _entregador.EntregarAsync(new[] { aviso }, cancellationToken);

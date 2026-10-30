@@ -47,9 +47,12 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build:

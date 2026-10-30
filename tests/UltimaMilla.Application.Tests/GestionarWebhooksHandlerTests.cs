@@ -30,6 +30,7 @@ public class GestionarWebhooksHandlerTests
         _comercioDeOtroOperador = new ComercioOperador(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "huella-op2");
         _comerciosRepo.Relaciones.Add(_comercioDelOperador);
         _comerciosRepo.Relaciones.Add(_comercioDeOtroOperador);
+        _tenant.ComercioOperadorId = _comercioDelOperador.Id;
     }
 
     private CrearSuscripcionAvisoCommandHandler CrearAltaHandler() =>
@@ -39,7 +40,7 @@ public class GestionarWebhooksHandlerTests
         new(_avisosRepo, _uow);
 
     private ReenviarAvisoManualCommandHandler CrearReenvioHandler() =>
-        new(_avisosRepo, new AvisoComercioEntregador(_avisosRepo, _webhookSender, _uow, _clock));
+        new(_avisosRepo, new AvisoComercioEntregador(_avisosRepo, _webhookSender, _uow, _clock), _tenant);
 
     [Fact]
     public async Task CrearSuscripcion_DatosValidos_CreaSuscripcionActivaYPersiste()
@@ -174,6 +175,40 @@ public class GestionarWebhooksHandlerTests
 
         await Assert.ThrowsAsync<DomainValidationException>(() =>
             CrearReenvioHandler().Handle(new ReenviarAvisoManualCommand(aviso.Id), CancellationToken.None));
+    }
+
+    private AvisoComercio CrearAvisoAgotadoDe(Guid comercioOperadorId)
+    {
+        var suscripcion = new SuscripcionAviso(Guid.NewGuid(), comercioOperadorId, "*", "https://comercio.ejemplo.com/hook", "clave-secreta-hmac-2026");
+        _avisosRepo.Suscripciones.Add(suscripcion);
+
+        var aviso = new AvisoComercio(Guid.NewGuid(), suscripcion.Id, Guid.NewGuid(), "{\"evento\":\"Entregado\"}", "sha256=abc123");
+        aviso.MarcarAgotado("HTTP 503");
+        _avisosRepo.Avisos.Add(aviso);
+        return aviso;
+    }
+
+    [Fact]
+    public async Task ReenviarAvisoManual_UsuarioDeOtroComercio_LanzaUnauthorizedAccessException()
+    {
+        // Segundo nivel de aislamiento: un comercio no puede reenviar avisos de otro comercio, aunque sea del mismo operador
+        var aviso = CrearAvisoAgotadoDe(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            CrearReenvioHandler().Handle(new ReenviarAvisoManualCommand(aviso.Id), CancellationToken.None));
+        Assert.Equal("Agotado", aviso.Estado);
+        Assert.Equal(0, _uow.Confirmaciones);
+    }
+
+    [Fact]
+    public async Task ReenviarAvisoManual_PerfilDeOperador_PuedeReenviarAvisosDeCualquierComercio()
+    {
+        _tenant.ComercioOperadorId = null;
+        var aviso = CrearAvisoAgotadoDe(_comercioDelOperador.Id);
+
+        var resultado = await CrearReenvioHandler().Handle(new ReenviarAvisoManualCommand(aviso.Id), CancellationToken.None);
+
+        Assert.Equal("Entregado", resultado.Estado);
     }
 
     private sealed class FakeAvisoRepo : IAvisoComercioRepository

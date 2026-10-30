@@ -26,6 +26,7 @@ public static class InyeccionDependencias
         servicios.AddSingleton<IMotivosNoEntregaApi, MockMotivosNoEntregaApi>();
         servicios.AddSingleton<IFlotaApi, MockFlotaApi>();
         servicios.AddSingleton<IMensajeriaApi, MockMensajeriaApi>();
+        servicios.AddSingleton<ICuentaCorrienteApi, MockCuentaCorrienteApi>();
         servicios.AddSingleton<IEnviosApi, MockEnviosApi>();
         servicios.AddSingleton<ISeguimientoApi, MockSeguimientoApi>();
         servicios.AddSingleton<IRutasApi, MockRutasApi>();
@@ -136,6 +137,12 @@ public static class InyeccionDependencias
         });
 
         servicios.AddHttpClient<ITableroApi, HttpTableroApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<ICuentaCorrienteApi, HttpCuentaCorrienteApi>(cliente =>
         {
             cliente.BaseAddress = new Uri(urlBaseApi);
             cliente.Timeout = TimeSpan.FromSeconds(15);
