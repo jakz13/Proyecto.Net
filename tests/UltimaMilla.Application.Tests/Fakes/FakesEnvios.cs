@@ -126,16 +126,6 @@ public class FakeDireccionRepository : IDireccionRepository
     }
 }
 
-public class FakeCuadroTarifarioRepository : ICuadroTarifarioRepository
-{
-    public List<CuadroTarifario> Cuadros { get; } = new();
-
-    public Task<CuadroTarifario?> GetVigenteAsync(Guid operadorId, DateTime fechaUtc, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Cuadros
-            .Where(c => c.OperadorId == operadorId && c.EstaVigenteEn(fechaUtc))
-            .OrderByDescending(c => c.Version)
-            .FirstOrDefault());
-}
 
 public class FakeRendicionRepository : IRendicionRepository
 {

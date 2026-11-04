@@ -6,12 +6,6 @@ using Comercio = UltimaMilla.Domain.Entities.Comercio.Comercio;
 
 namespace UltimaMilla.Application.Ports;
 
-/// <summary>Acceso al cuadro tarifario vigente del operador para tarificar envíos.</summary>
-public interface ICuadroTarifarioRepository
-{
-    Task<CuadroTarifario?> GetVigenteAsync(Guid operadorId, DateTime fechaUtc, CancellationToken cancellationToken = default);
-}
-
 /// <summary>Alta de destinatarios. No confirma cambios: lo hace IUnitOfWork.</summary>
 public interface IDestinatarioRepository
 {

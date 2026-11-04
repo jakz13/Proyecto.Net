@@ -813,13 +813,274 @@
         marker.openPopup();
     }
 
+
+    /**
+     * Parsea un texto de coordenadas para extraer los vértices del polígono de cobertura.
+     * Soporta GeoJSON, matrices numéricas [[lat, lng], ...], pares sueltos por línea o nombres de zonas.
+     */
+    function parsearCoordenadasPoligono(textoEntrada) {
+        if (!textoEntrada || typeof textoEntrada !== 'string') return [];
+        var texto = textoEntrada.trim();
+        if (!texto) return [];
+
+        // Intento 1: GeoJSON o JSON Array
+        if (texto.startsWith('{') || texto.startsWith('[')) {
+            try {
+                var objetoJson = JSON.parse(texto);
+                if (objetoJson.type === 'Polygon' && Array.isArray(objetoJson.coordinates) && objetoJson.coordinates.length > 0) {
+                    return objetoJson.coordinates[0].map(function (par) {
+                        return [Number(par[1]), Number(par[0])];
+                    }).filter(function (coord) { return !isNaN(coord[0]) && !isNaN(coord[1]); });
+                }
+                if (Array.isArray(objetoJson)) {
+                    var listaCoordenadas = [];
+                    var arregloPlano = Array.isArray(objetoJson[0]) && Array.isArray(objetoJson[0][0]) ? objetoJson[0] : objetoJson;
+                    for (var i = 0; i < arregloPlano.length; i++) {
+                        var punto = arregloPlano[i];
+                        if (Array.isArray(punto) && punto.length >= 2) {
+                            var lat = Number(punto[0]);
+                            var lng = Number(punto[1]);
+                            if (lat < -50 && lng > -40) {
+                                var aux = lat;
+                                lat = lng;
+                                lng = aux;
+                            }
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                listaCoordenadas.push([lat, lng]);
+                            }
+                        }
+                    }
+                    if (listaCoordenadas.length > 0) return listaCoordenadas;
+                }
+            } catch (e) {
+                // Si falla el parseo estricto, continúa con regex
+            }
+        }
+
+        // Intento 2: Búsqueda de pares numéricos con expresiones regulares
+        var patronPares = /\[?\s*(-?\d{1,2}\.?\d*)\s*[,;\s]\s*(-?\d{1,3}\.?\d*)\s*\]?/g;
+        var coincidencias = [];
+        var match;
+        while ((match = patronPares.exec(texto)) !== null) {
+            var num1 = parseFloat(match[1]);
+            var num2 = parseFloat(match[2]);
+            if (!isNaN(num1) && !isNaN(num2)) {
+                var latitud = num1;
+                var longitud = num2;
+                if (latitud < -50 && longitud > -40) {
+                    latitud = num2;
+                    longitud = num1;
+                }
+                coincidencias.push([latitud, longitud]);
+            }
+        }
+        if (coincidencias.length >= 3) return coincidencias;
+
+        // Intento 3: Nombres de zonas y barrios conocidos de Montevideo
+        var puntosCatalogo = [];
+        var partes = texto.split(/[,;\n]+/);
+        for (var j = 0; j < partes.length; j++) {
+            var nombreParte = partes[j].trim().toLowerCase();
+            if (!nombreParte) continue;
+            for (var z = 0; z < CATALOGO_ZONAS.length; z++) {
+                if (CATALOGO_ZONAS[z].clave === nombreParte || nombreParte.indexOf(CATALOGO_ZONAS[z].clave) !== -1) {
+                    puntosCatalogo.push([CATALOGO_ZONAS[z].lat, CATALOGO_ZONAS[z].lng]);
+                    break;
+                }
+            }
+        }
+        if (puntosCatalogo.length >= 3) return puntosCatalogo;
+
+        return coincidencias;
+    }
+
+    /**
+     * Editor interactivo en tiempo real para delimitar y visualizar una zona de cobertura en Leaflet.
+     * Permite escribir ubicaciones/coordenadas o hacer clic directamente sobre el mapa.
+     */
+    function renderizarEditorPoligonoZona(idContenedor, idCampoTexto, idSelectorColor, idContadorVertices) {
+        var contenedor = document.getElementById(idContenedor);
+        if (!contenedor) return;
+
+        var mapa = instanciasMapas[idContenedor];
+        if (!mapa) {
+            mapa = L.map(idContenedor, {
+                center: [-34.9011, -56.1645],
+                zoom: 13,
+                zoomControl: true
+            });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(mapa);
+            instanciasMapas[idContenedor] = mapa;
+        }
+
+        var capaPoligono = L.layerGroup().addTo(mapa);
+        var campoTexto = document.getElementById(idCampoTexto);
+        var selectorColor = document.getElementById(idSelectorColor);
+        var spanContador = idContadorVertices ? document.getElementById(idContadorVertices) : null;
+
+        function refrescarPoligono() {
+            capaPoligono.clearLayers();
+            var valorTexto = campoTexto ? campoTexto.value : '';
+            var color = (selectorColor && selectorColor.value) ? selectorColor.value : '#2563eb';
+            var vertices = parsearCoordenadasPoligono(valorTexto);
+
+            if (spanContador) {
+                if (vertices.length >= 3) {
+                    spanContador.textContent = vertices.length + ' vértices detectados (Válido)';
+                    spanContador.className = 'badge bg-success-subtle text-success border border-success-subtle';
+                } else if (vertices.length > 0) {
+                    spanContador.textContent = vertices.length + ' vértices (mínimo 3 para polígono)';
+                    spanContador.className = 'badge bg-warning-subtle text-warning border border-warning-subtle';
+                } else {
+                    spanContador.textContent = 'Sin coordenadas válidas';
+                    spanContador.className = 'badge bg-secondary-subtle text-secondary border';
+                }
+            }
+
+            if (vertices.length >= 3) {
+                var poligono = L.polygon(vertices, {
+                    color: color,
+                    weight: 2.5,
+                    fillColor: color,
+                    fillOpacity: 0.25
+                }).addTo(capaPoligono);
+
+                vertices.forEach(function (punto, indice) {
+                    L.circleMarker(punto, {
+                        radius: 4,
+                        color: color,
+                        fillColor: '#ffffff',
+                        fillOpacity: 1,
+                        weight: 2
+                    }).bindTooltip('Vértice ' + (indice + 1) + ' (' + punto[0].toFixed(4) + ', ' + punto[1].toFixed(4) + ')', { direction: 'top' })
+                      .addTo(capaPoligono);
+                });
+
+                mapa.fitBounds(poligono.getBounds(), { padding: [25, 25], maxZoom: 16 });
+            } else if (vertices.length > 0) {
+                vertices.forEach(function (punto, indice) {
+                    L.circleMarker(punto, {
+                        radius: 5,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.7,
+                        weight: 1
+                    }).addTo(capaPoligono);
+                });
+                mapa.setView(vertices[0], 14);
+            }
+        }
+
+        if (campoTexto) {
+            campoTexto.addEventListener('input', refrescarPoligono);
+            campoTexto.addEventListener('change', refrescarPoligono);
+        }
+        if (selectorColor) {
+            selectorColor.addEventListener('input', refrescarPoligono);
+            selectorColor.addEventListener('change', refrescarPoligono);
+        }
+
+        mapa.on('click', function (evento) {
+            var lat = Number(evento.latlng.lat.toFixed(4));
+            var lng = Number(evento.latlng.lng.toFixed(4));
+            var verticesActuales = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+            verticesActuales.push([lat, lng]);
+
+            if (campoTexto) {
+                var textoGenerado = '[\n  ' + verticesActuales.map(function (v) { return '[' + v[0] + ', ' + v[1] + ']'; }).join(',\n  ') + '\n]';
+                campoTexto.value = textoGenerado;
+                campoTexto.dispatchEvent(new Event('input'));
+            }
+            refrescarPoligono();
+        });
+
+        setTimeout(function () {
+            mapa.invalidateSize();
+            refrescarPoligono();
+        }, 150);
+
+        return {
+            refrescar: refrescarPoligono
+        };
+    }
+
+    /**
+     * Renderiza en Leaflet la totalidad de las zonas de cobertura configuradas para el operador.
+     */
+    function renderizarMapaVisualizadorZonas(idContenedor, listaZonas) {
+        var contenedor = document.getElementById(idContenedor);
+        if (!contenedor) return;
+
+        var mapa = instanciasMapas[idContenedor];
+        if (mapa) {
+            mapa.remove();
+            delete instanciasMapas[idContenedor];
+        }
+
+        mapa = L.map(idContenedor, {
+            center: [-34.8836, -56.1645],
+            zoom: 12,
+            zoomControl: true
+        });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(mapa);
+        instanciasMapas[idContenedor] = mapa;
+
+        var limitesTotales = [];
+
+        if (Array.isArray(listaZonas) && listaZonas.length > 0) {
+            listaZonas.forEach(function (zona) {
+                var color = zona.colorHex || '#2563eb';
+                var vertices = parsearCoordenadasPoligono(zona.poligonoGeografico || '');
+                if (vertices.length >= 3) {
+                    var poligono = L.polygon(vertices, {
+                        color: color,
+                        weight: 2,
+                        fillColor: color,
+                        fillOpacity: zona.activa ? 0.30 : 0.10,
+                        dashArray: zona.activa ? null : '4, 4'
+                    }).addTo(mapa);
+
+                    var totalFranjas = (zona.franjasHorarias ? zona.franjasHorarias.length : (zona.totalFranjas || 0));
+                    var contenidoPopup = '<div class="um-popup">' +
+                        '<div class="um-popup-titulo" style="color: ' + color + ';">' + escaparHtml(zona.nombre) + '</div>' +
+                        '<div class="um-popup-sub">Estado: <strong>' + (zona.activa ? 'Activa' : 'Inactiva') + '</strong></div>' +
+                        '<div class="um-popup-meta">' +
+                        '<div>Franjas horarias: <strong>' + totalFranjas + '</strong></div>' +
+                        '</div>' +
+                        '</div>';
+
+                    poligono.bindPopup(contenidoPopup);
+                    limitesTotales = limitesTotales.concat(vertices);
+                }
+            });
+        }
+
+        if (limitesTotales.length > 0) {
+            mapa.fitBounds(limitesTotales, { padding: [30, 30], maxZoom: 15 });
+        } else {
+            mapa.setView([-34.9011, -56.1645], 13);
+        }
+
+        setTimeout(function () {
+            mapa.invalidateSize();
+        }, 150);
+    }
+
     window.MapasUltimaMilla = {
         renderizarMapaSeguimientoEnvio: renderizarMapaSeguimientoEnvio,
         renderizarMapaTableroFlota: renderizarMapaTableroFlota,
         enfocarVehiculoEnTablero: enfocarVehiculoEnTablero,
         ajustarVistaGeneralMapa: ajustarVistaGeneralMapa,
         renderizarMapaDetalleRuta: renderizarMapaDetalleRuta,
-        enfocarParadaEnRuta: enfocarParadaEnRuta
+        enfocarParadaEnRuta: enfocarParadaEnRuta,
+        parsearCoordenadasPoligono: parsearCoordenadasPoligono,
+        renderizarEditorPoligonoZona: renderizarEditorPoligonoZona,
+        renderizarMapaVisualizadorZonas: renderizarMapaVisualizadorZonas
     };
 })(window);
-
