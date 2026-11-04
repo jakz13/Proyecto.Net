@@ -22,7 +22,7 @@
 {
     <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
         <div class="d-flex align-items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -37,41 +37,47 @@
         <form method="post">
             <input type="hidden" asp-for="Id" />
 
+            <!-- Fila 1: Nombre y Apellido separados -->
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label asp-for="Usuario.Nombre" class="form-label small fw-semibold">Nombre y Apellido *</label>
-                    <input asp-for="Usuario.Nombre" class="form-control form-control-sm" />
+                    <label asp-for="Usuario.Nombre" class="form-label small fw-semibold">Nombre *</label>
+                    <input asp-for="Usuario.Nombre" class="form-control form-control-sm" required />
                     <span asp-validation-for="Usuario.Nombre" class="text-danger small"></span>
                 </div>
                 <div class="col-md-6">
-                    <label asp-for="Usuario.Email" class="form-label small fw-semibold">Correo Electrónico *</label>
-                    <input asp-for="Usuario.Email" type="email" class="form-control form-control-sm" />
-                    <span asp-validation-for="Usuario.Email" class="text-danger small"></span>
+                    <label asp-for="Usuario.Apellido" class="form-label small fw-semibold">Apellido</label>
+                    <input asp-for="Usuario.Apellido" class="form-control form-control-sm" />
+                    <span asp-validation-for="Usuario.Apellido" class="text-danger small"></span>
                 </div>
             </div>
 
+            <!-- Fila 2: Correo Electrónico -->
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label asp-for="Usuario.PerfilId" class="form-label small fw-semibold">Asignar Perfil (Rol) *</label>
-                    <select asp-for="Usuario.PerfilId" class="form-select form-select-sm">
+                    <label asp-for="Usuario.Email" class="form-label small fw-semibold">Correo Electrónico *</label>
+                    <input asp-for="Usuario.Email" type="email" class="form-control form-control-sm" required />
+                    <span asp-validation-for="Usuario.Email" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Usuario.PerfilId" class="form-label small fw-semibold">Perfil / Rol a Asignar *</label>
+                    <select asp-for="Usuario.PerfilId" class="form-select form-select-sm" required>
                         @foreach (var perfil in Model.Perfiles)
                         {
                             <option value="@perfil.Id" selected="@(Model.Usuario.PerfilId == perfil.Id)">
-                                @perfil.Nombre — @perfil.Descripcion
+                                @perfil.Nombre
                             </option>
                         }
                     </select>
                     <span asp-validation-for="Usuario.PerfilId" class="text-danger small"></span>
-                    <div class="form-text small">
-                        El perfil determina los módulos visibles y permisos operativos del usuario en el sistema.
-                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-semibold">Ámbito / Comercio Vinculado</label>
-                    <input class="form-control form-control-sm" value="@(Model.NombreComercio ?? "Operador Logístico (Directo)")" disabled />
-                    <div class="form-text small">
-                        El comercio asignado queda determinado en el registro inicial del usuario.
-                    </div>
+            </div>
+
+            <!-- Fila 3: Comercio Vinculado -->
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Comercio Cliente Vinculado</label>
+                <input class="form-control form-control-sm bg-light" value="@(Model.NombreComercio ?? "Operador Logístico (Acceso interno)")" disabled />
+                <div class="form-text small" style="font-size: 0.725rem;">
+                    El comercio cliente queda determinado al momento del registro inicial.
                 </div>
             </div>
 

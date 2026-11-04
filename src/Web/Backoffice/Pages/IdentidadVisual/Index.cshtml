@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model UltimaMilla.Backoffice.Pages.IdentidadVisual.IndexModel
 @{
     ViewData["Title"] = "Identidad Visual";
@@ -78,37 +78,46 @@
             </div>
 
             <div class="panel-estandar-body">
-                <form method="post" asp-page-handler="Guardar">
-                    <!-- Fila 1: Datos de la Marca y Logotipo -->
+                <form method="post" asp-page-handler="Guardar" enctype="multipart/form-data">
+                    <!-- Fila 1: Datos de la Marca y Foto / Logotipo de la Empresa -->
                     <div class="row g-3 mb-4">
-                        <div class="col-12 col-md-6">
+                        <div class="col-12 col-md-5">
                             <label asp-for="Modelo.NombreComercial" class="form-label small fw-semibold">
                                 Nombre Comercial del Operador <span class="text-danger">*</span>
                             </label>
-                            <input asp-for="Modelo.NombreComercial" class="form-control form-control-sm" placeholder="Ej: TransLogística Express" required maxlength="100" />
+                            <input asp-for="Modelo.NombreComercial" class="form-control form-control-sm" placeholder="Ej: TransLogÃ­stica Express" required maxlength="100" />
                             <span asp-validation-for="Modelo.NombreComercial" class="text-danger small"></span>
                             <div class="form-text" style="font-size: 0.725rem;">
-                                Se mostrará en los encabezados, correos y ventanas de seguimiento dirigidas al cliente final.
+                                Se mostrarÃ¡ en la barra lateral, encabezados, correos y seguimiento al cliente.
                             </div>
                         </div>
 
-                        <div class="col-12 col-md-6">
-                            <label asp-for="Modelo.LogoUrl" class="form-label small fw-semibold">
-                                URL del Logotipo Oficial (Opcional)
+                        <div class="col-12 col-md-7">
+                            <label class="form-label small fw-semibold">
+                                Foto o Logotipo de la Empresa
                             </label>
-                            <div class="input-group input-group-sm">
-                                <input asp-for="Modelo.LogoUrl" id="inputLogoUrl" class="form-control" placeholder="https://ejemplo.com/logo.png" maxlength="300" />
-                                <button type="button" class="btn btn-outline-secondary" onclick="probarLogoSugerido()" title="Cargar logo de ejemplo">
-                                    Logo Demo
-                                </button>
-                            </div>
-                            <span asp-validation-for="Modelo.LogoUrl" class="text-danger small"></span>
-                            <div class="form-text" style="font-size: 0.725rem;">
-                                Si se deja vacío, el sistema genera automáticamente un isotipo circular con las iniciales de la marca.
+                            <div class="card p-2 bg-light border">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-auto">
+                                        <img id="previewFotoEmpresa" src="@(!string.IsNullOrEmpty(Model.Modelo.LogoUrl) ? Model.Modelo.LogoUrl : "/favicon.ico")"
+                                             alt="Foto de la empresa" class="rounded border p-1 bg-white shadow-sm"
+                                             style="width: 52px; height: 52px; object-fit: contain; @(string.IsNullOrEmpty(Model.Modelo.LogoUrl) ? "display:none;" : "")" />
+                                    </div>
+                                    <div class="col">
+                                        <label class="small text-secondary mb-1 d-block fw-semibold" style="font-size: 0.725rem;">Cargar foto/imagen desde la computadora:</label>
+                                        <input type="file" asp-for="ArchivoLogo" id="inputArchivoLogo" accept="image/*" class="form-control form-control-sm" onchange="previsualizarArchivoLogo(this)" />
+                                    </div>
+                                </div>
+                                <div class="mt-2 pt-2 border-top">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-secondary" style="font-size: 0.7rem;">O enlace URL directo a la imagen:</span>
+                                        <button type="button" class="btn btn-link btn-sm py-0 text-decoration-none" style="font-size: 0.7rem;" onclick="probarLogoSugerido()">Logo Demo</button>
+                                    </div>
+                                    <input asp-for="Modelo.LogoUrl" id="inputLogoUrl" class="form-control form-control-sm" placeholder="https://ejemplo.com/logo.png" maxlength="300" oninput="actualizarPreviewUrl(this.value)" />
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <!-- Fila 2: Paleta Cromática y Contraste Automático -->
                     <div class="row g-3 mb-4 p-3 rounded border bg-light" id="campo-colores">
                         <div class="col-12">
@@ -321,6 +330,37 @@
             } else if (muestraId === 'muestraSecundario') {
                 document.documentElement.style.setProperty('--color-secundario', hexColor);
                 document.documentElement.style.setProperty('--color-texto-secundario', colorTexto);
+            }
+        }
+
+                function previsualizarArchivoLogo(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = document.getElementById('previewFotoEmpresa');
+                    if (img) {
+                        img.src = e.target.result;
+                        img.style.display = 'inline-block';
+                    }
+                    var previewNav = document.getElementById('imgLogoNav');
+                    if (previewNav) {
+                        previewNav.src = e.target.result;
+                    }
+                    var previewSidebar = document.getElementById('sidebarLogoImg');
+                    if (previewSidebar) {
+                        previewSidebar.src = e.target.result;
+                        previewSidebar.style.display = 'inline-block';
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function actualizarPreviewUrl(url) {
+            var img = document.getElementById('previewFotoEmpresa');
+            if (img && url) {
+                img.src = url;
+                img.style.display = 'inline-block';
             }
         }
 

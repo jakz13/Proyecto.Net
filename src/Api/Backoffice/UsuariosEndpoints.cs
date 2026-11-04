@@ -66,7 +66,8 @@ public static class UsuariosEndpoints
                 dto.Email,
                 dto.Password,
                 dto.PerfilId,
-                dto.ComercioId
+                dto.ComercioId,
+                dto.Apellido
             );
 
             var creado = await mediator.Send(comando, ct);
@@ -88,7 +89,8 @@ public static class UsuariosEndpoints
                 dto.Nombre,
                 dto.Email,
                 dto.PerfilId,
-                dto.Activo
+                dto.Activo,
+                dto.Apellido
             );
 
             var actualizado = await mediator.Send(comando, ct);

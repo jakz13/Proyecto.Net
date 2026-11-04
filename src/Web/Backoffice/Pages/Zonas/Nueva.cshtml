@@ -8,7 +8,7 @@
     <div>
         <h1 class="h4 fw-bold text-dark mb-1">Definir Zona de Cobertura y Franjas</h1>
         <p class="text-secondary small mb-0">
-            Configure el polígono geográfico y asocie las ventanas horarias de reparto habilitadas para este operador.
+            Configure el polígono geográfico escribiendo calles/intersecciones o haciendo clic en el mapa, y asocie las ventanas horarias de reparto.
         </p>
     </div>
     <a asp-page="/Zonas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
@@ -39,7 +39,7 @@
 
 <form method="post" id="formularioZona">
     <div class="row g-4">
-        <!-- Columna Izquierda: Datos de la Zona y Polígono Geográfico -->
+        <!-- Columna Izquierda: Delimitación de la Zona por Calles y Mapa -->
         <div class="col-12 col-lg-5">
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
@@ -47,7 +47,7 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                         </svg>
-                        <span>1. Información de la Zona</span>
+                        <span>1. Delimitación Territorial</span>
                     </h2>
                 </div>
                 <div class="card-body p-4">
@@ -57,35 +57,75 @@
                         <span asp-validation-for="NuevaZona.Nombre" class="text-danger small"></span>
                     </div>
 
+                    <!-- Selector de Color en Tiempo Real -->
                     <div class="mb-3">
-                        <label asp-for="NuevaZona.ColorHex" class="form-label small fw-semibold">Color Identificador en Mapa</label>
+                        <label class="form-label small fw-semibold">Color Identificador en Mapa</label>
                         <div class="d-flex align-items-center gap-2">
-                            <input asp-for="NuevaZona.ColorHex" type="color" class="form-control form-control-color form-control-sm" id="selectorColor" style="width: 48px;" />
-                            <select class="form-select form-select-sm" onchange="document.getElementById('selectorColor').value = this.value; document.getElementById('NuevaZona_ColorHex').value = this.value; actualizarMapa();">
+                            <input asp-for="NuevaZona.ColorHex" type="color" class="form-control form-control-color form-control-sm" id="selectorColor" style="width: 48px;" oninput="sincronizarColor(this.value)" />
+                            <select class="form-select form-select-sm" id="comboColor" onchange="sincronizarColor(this.value)">
                                 <option value="#2563eb" selected>Azul Clásico (#2563eb)</option>
                                 <option value="#10b981">Verde Esmeralda (#10b981)</option>
                                 <option value="#f59e0b">Ámbar Dorado (#f59e0b)</option>
                                 <option value="#8b5cf6">Púrpura Logístico (#8b5cf6)</option>
                                 <option value="#ef4444">Rojo Coral (#ef4444)</option>
+                                <option value="#06b6d4">Cian Moderno (#06b6d4)</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <!-- Asistente de Delimitación por Calles / Esquinas -->
+                    <div class="mb-3 p-3 bg-light rounded-3 border">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label asp-for="NuevaZona.PoligonoGeografico" class="form-label small fw-semibold mb-0">Polígono Geográfico (Coordenadas) *</label>
-                            <span class="text-secondary" style="font-size: 0.7rem;">GeoJSON / Lat, Lng</span>
+                            <label class="form-label small fw-semibold text-dark mb-0 d-flex align-items-center gap-1">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                <span>Agregar Calle o Intersección</span>
+                            </label>
+                            <span class="text-muted" style="font-size: 0.7rem;">Montevideo / Canelones</span>
                         </div>
-                        <textarea asp-for="NuevaZona.PoligonoGeografico" class="form-control form-control-sm font-monospace" rows="4"
-                                  id="campoPoligono" oninput="actualizarMapa()" required></textarea>
-                        <span asp-validation-for="NuevaZona.PoligonoGeografico" class="text-danger small"></span>
-                        <div class="form-text small" style="font-size: 0.725rem;">
-                            Defina los vértices del polígono en formato de pares [latitud, longitud].
+                        <p class="text-secondary small mb-2" style="font-size: 0.725rem;">
+                            Escriba calles o esquinas de referencia (ej: <em>18 de Julio y Ejido</em>, <em>Rivera y Soca</em>) para marcar el perímetro:
+                        </p>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" id="inputEsquina" class="form-control" placeholder="Ej: 18 de Julio y Ejido, Rivera y Bvar. Artigas..." list="sugerenciasEsquinas" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarEsquinaManual();}" />
+                            <datalist id="sugerenciasEsquinas">
+                                <option value="18 de Julio y Ejido">Centro</option>
+                                <option value="18 de Julio y Río Negro">Centro</option>
+                                <option value="18 de Julio y Bvar. Artigas">Tres Cruces</option>
+                                <option value="Rivera y Bvar. Artigas">Pocitos</option>
+                                <option value="Rivera y Soca">Pocitos</option>
+                                <option value="Av. Brasil y Benito Blanco">Pocitos</option>
+                                <option value="21 de Setiembre y Ellauri">Punta Carretas</option>
+                                <option value="Agraciada y Joaquín Suárez">Bella Vista / Prado</option>
+                                <option value="8 de Octubre y Garibaldi">La Blanqueada</option>
+                                <option value="8 de Octubre y Comercio">Unión</option>
+                                <option value="Av. Italia y Propios">Malvín Norte</option>
+                                <option value="Av. Italia y Bolivia">Carrasco</option>
+                                <option value="Rambla y Kibón">Pocitos</option>
+                                <option value="Giannattasio y Calcagno">Ciudad de la Costa</option>
+                            </datalist>
+                            <button type="button" class="btn btn-dark" id="btnAgregarEsquina" onclick="agregarEsquinaManual()">
+                                + Agregar Esquina
+                            </button>
+                        </div>
+
+                        <!-- Lista visual de esquinas añadidas -->
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-secondary fw-semibold" style="font-size: 0.725rem;">Esquinas añadidas al perímetro (haga clic en una para quitarla):</span>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="deshacerEsquina()">Deshacer</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="limpiarEsquinas()">Limpiar</button>
+                            </div>
+                        </div>
+                        <div id="listaEsquinasVisual" class="d-flex flex-wrap gap-1 p-2 bg-white rounded border" style="min-height: 48px; max-height: 120px; overflow-y: auto;">
+                            <span class="text-muted small fst-italic" style="font-size: 0.75rem;" id="textoSinEsquinas">No hay esquinas añadidas. Escriba arriba o haga clic en el mapa.</span>
                         </div>
                     </div>
 
                     <!-- Plantillas Rápidas para Demostración -->
-                    <div class="p-3 bg-light rounded-3 border">
+                    <div class="p-3 bg-light rounded-3 border mb-3">
                         <div class="small fw-semibold text-secondary mb-2">Cargar Plantilla Geográfica Rápida:</div>
                         <div class="d-flex flex-wrap gap-1">
                             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;"
@@ -102,6 +142,16 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Coordenadas Técnicas (Desplegable Avanzado) -->
+                    <details class="small">
+                        <summary class="text-secondary fw-semibold cursor-pointer">Ver coordenadas GeoJSON (Avanzado)</summary>
+                        <div class="mt-2">
+                            <textarea asp-for="NuevaZona.PoligonoGeografico" class="form-control form-control-sm font-monospace" rows="3"
+                                      id="campoPoligono" required></textarea>
+                            <span asp-validation-for="NuevaZona.PoligonoGeografico" class="text-danger small"></span>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -112,15 +162,15 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                         </svg>
-                        <span>Delimitación en Mapa (Leaflet)</span>
+                        <span>Delimitación en Mapa en Vivo (Leaflet)</span>
                     </span>
-                    <span id="contadorVertices" class="badge bg-secondary-subtle text-secondary" style="font-size: 0.7rem;">Sin coordenadas</span>
+                    
                 </div>
                 <div class="card-body p-2 bg-white">
-                    <div id="mapaZonaLeaflet" class="border rounded-2" style="height: 250px; width: 100%;"></div>
+                    <div id="mapaZonaLeaflet" class="border rounded-2" style="height: 260px; width: 100%;"></div>
                     <div class="text-muted small mt-2 d-flex justify-content-between align-items-center px-1" style="font-size: 0.725rem;">
-                        <span>Escriba coordenadas o haga clic en el mapa para trazar vértices.</span>
-                        <span class="text-primary fw-semibold">En tiempo real</span>
+                        <span>Haga clic en el mapa para marcar esquinas directamente.</span>
+                        <span class="text-success fw-semibold">● Tiempo real</span>
                     </div>
                 </div>
             </div>
@@ -150,16 +200,17 @@
                         <span>Agregar Franja</span>
                     </button>
                 </div>
-                <div class="card-body p-0">
+
+                <div class="card-body p-3">
                     <div class="table-responsive">
-                        <table class="table table-hover table-compacta mb-0 align-middle" id="tablaFranjas">
+                        <table class="table table-sm table-hover align-middle mb-0" id="tablaFranjas">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 25%;">Día de la Semana *</th>
                                     <th style="width: 23%;">Hora Inicio *</th>
                                     <th style="width: 23%;">Hora Fin *</th>
-                                    <th style="width: 20%;">Capacidad (Envíos)</th>
-                                    <th style="width: 9%;" class="text-end"></th>
+                                    <th style="width: 20%;">Capacidad Máx. *</th>
+                                    <th style="width: 9%;" class="text-end">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="cuerpoTablaFranjas">
@@ -178,11 +229,11 @@
                                             </select>
                                         </td>
                                         <td>
-                                            <input type="time" name="Franjas[@i].HoraInicio" value="@Model.Franjas[i].HoraInicio.ToString("HH:mm")"
+                                            <input type="time" name="Franjas[@i].HoraInicio" value="@Model.Franjas[i].HoraInicio.ToString(@"hh\:mm")"
                                                    class="form-control form-control-sm" required />
                                         </td>
                                         <td>
-                                            <input type="time" name="Franjas[@i].HoraFin" value="@Model.Franjas[i].HoraFin.ToString("HH:mm")"
+                                            <input type="time" name="Franjas[@i].HoraFin" value="@Model.Franjas[i].HoraFin.ToString(@"hh\:mm")"
                                                    class="form-control form-control-sm" required />
                                         </td>
                                         <td>
@@ -203,7 +254,6 @@
 
                 <!-- Botones de Acción y Prueba de Validación 400 -->
                 <div class="card-footer bg-white p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <!-- Botón de prueba para simular superposición inconsistente durante la defensa oral -->
                     <button type="button" class="btn btn-outline-warning btn-sm" onclick="simularSuperposicionDemo()" title="Genera dos franjas solapadas el mismo día para evaluar validación">
                         Simular Superposición Inconsistente (Demo)
                     </button>
@@ -228,19 +278,89 @@
     <script>
         var editorMapaZona = null;
 
+        function sincronizarColor(color) {
+            document.getElementById('selectorColor').value = color;
+            document.getElementById('comboColor').value = color;
+            if (editorMapaZona && typeof editorMapaZona.cambiarColor === 'function') {
+                editorMapaZona.cambiarColor(color);
+            }
+        }
+
+        async function agregarEsquinaManual() {
+            var input = document.getElementById('inputEsquina');
+            var btn = document.getElementById('btnAgregarEsquina');
+            var valor = input.value.trim();
+            if (!valor) return;
+
+            var textoOriginalBtn = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Buscando...';
+            }
+
+            try {
+                if (editorMapaZona && typeof editorMapaZona.agregarPorDireccion === 'function') {
+                    var resultado = await editorMapaZona.agregarPorDireccion(valor);
+                    if (resultado) {
+                        input.value = '';
+                    } else {
+                        alert('No se pudo encontrar la ubicación "' + valor + '". Verifique el nombre o esquina (ej: "18 de Julio y Ejido", "Av. Italia y Propios") o haga clic directamente en el mapa para marcar el punto.');
+                    }
+                }
+            } catch (err) {
+                alert('Ocurrió un error al consultar el servicio de mapas. Puede marcar el punto haciendo clic en el mapa.');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = textoOriginalBtn;
+                }
+            }
+        }
+
+        function deshacerEsquina() {
+            if (editorMapaZona && typeof editorMapaZona.eliminarUltimoVertice === 'function') {
+                editorMapaZona.eliminarUltimoVertice();
+            }
+        }
+
+        function limpiarEsquinas() {
+            if (editorMapaZona && typeof editorMapaZona.limpiarVertices === 'function') {
+                editorMapaZona.limpiarVertices();
+            }
+        }
+
+        function actualizarListaEsquinasVisual(vertices, descripciones) {
+            var contenedor = document.getElementById('listaEsquinasVisual');
+            if (!contenedor) return;
+
+            if (!descripciones || descripciones.length === 0) {
+                contenedor.innerHTML = '<span class="text-muted small fst-italic" style="font-size: 0.75rem;" id="textoSinEsquinas">No hay esquinas añadidas. Escriba arriba o haga clic en el mapa.</span>';
+                return;
+            }
+
+            var html = '';
+            descripciones.forEach(function (item, idx) {
+                html += '<button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-1 px-2 border rounded-pill shadow-xs esquina-item" style="font-size: 0.725rem; background: #fff;" onclick="eliminarEsquinaEspecifica(' + idx + ')" title="Haga clic para quitar esta esquina">' +
+                    '<strong class="text-primary">' + item.indice + '.</strong> ' +
+                    '<span>' + item.descripcion + '</span>' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-danger ms-1" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
+                    '</button>';
+            });
+            contenedor.innerHTML = html;
+        }
+
+        function eliminarEsquinaEspecifica(indice) {
+            if (editorMapaZona && typeof editorMapaZona.eliminarVerticeEn === 'function') {
+                editorMapaZona.eliminarVerticeEn(indice);
+            }
+        }
+
         function cargarPlantilla(nombre, poligono, color) {
             document.getElementById('NuevaZona_Nombre').value = nombre;
             var campoPoligono = document.getElementById('campoPoligono');
             campoPoligono.value = poligono;
-            document.getElementById('selectorColor').value = color;
-            document.getElementById('NuevaZona_ColorHex').value = color;
+            sincronizarColor(color);
             campoPoligono.dispatchEvent(new Event('input'));
-        }
-
-        function actualizarMapa() {
-            if (editorMapaZona && typeof editorMapaZona.refrescar === 'function') {
-                editorMapaZona.refrescar();
-            }
         }
 
         function agregarFilaFranja() {
@@ -306,7 +426,6 @@
         function simularSuperposicionDemo() {
             var tbody = document.getElementById('cuerpoTablaFranjas');
             tbody.innerHTML = '';
-            // Insertar deliberadamente dos franjas solapadas el mismo día (Lunes 09:00 - 14:00 y Lunes 13:00 - 18:00)
             tbody.innerHTML = `
                 <tr class="fila-franja table-warning">
                     <td>
@@ -336,7 +455,15 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             if (window.MapasUltimaMilla && typeof window.MapasUltimaMilla.renderizarEditorPoligonoZona === 'function') {
-                editorMapaZona = window.MapasUltimaMilla.renderizarEditorPoligonoZona('mapaZonaLeaflet', 'campoPoligono', 'selectorColor', 'contadorVertices');
+                editorMapaZona = window.MapasUltimaMilla.renderizarEditorPoligonoZona(
+                    'mapaZonaLeaflet',
+                    'campoPoligono',
+                    'selectorColor',
+                    'contadorVertices',
+                    {
+                        onVerticesCambiados: actualizarListaEsquinasVisual
+                    }
+                );
             }
         });
     </script>

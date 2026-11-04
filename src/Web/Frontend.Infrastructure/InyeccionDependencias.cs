@@ -16,6 +16,7 @@ public static class InyeccionDependencias
     /// </summary>
     public static IServiceCollection AgregarMocksFrontend(this IServiceCollection servicios)
     {
+        servicios.AddHttpClient();
         servicios.AddSingleton<MockContextoOperador>();
         servicios.AddSingleton<IIdentidadVisualApi, MockIdentidadVisualApi>();
         servicios.AddSingleton<IComerciosApi, MockComerciosApi>();

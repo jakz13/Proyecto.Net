@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Módulo de Mapas Interactivos con Leaflet adaptado a la identidad visual de Última Milla.
  * Soporta renderizado de paradas de entrega, depósito central y camiones de reparto en vivo
  * tanto en el Portal del Comercio (Blazor WASM) como en el Backoffice (Razor Pages).
@@ -92,6 +92,174 @@
         { clave: 'ciudad de la costa', lat: -34.8380, lng: -55.9820 }
     ];
 
+    // Catálogo de esquinas e intersecciones logísticas de Montevideo y Canelones
+    var CATALOGO_INTERSECCIONES = [
+        { clave: '18 de julio y ejido', nombre: '18 de Julio y Ejido (Centro)', lat: -34.9056, lng: -56.1866 },
+        { clave: '18 de julio y rio negro', nombre: '18 de Julio y Río Negro (Centro)', lat: -34.9058, lng: -56.1925 },
+        { clave: '18 de julio y plaza independencia', nombre: '18 de Julio y Plaza Independencia', lat: -34.9064, lng: -56.1995 },
+        { clave: '18 de julio y bvar. artigas', nombre: '18 de Julio y Bvar. Artigas (Tres Cruces)', lat: -34.8967, lng: -56.1664 },
+        { clave: '18 de julio y bulevar artigas', nombre: '18 de Julio y Bvar. Artigas (Tres Cruces)', lat: -34.8967, lng: -56.1664 },
+        { clave: '18 de julio y minas', nombre: '18 de Julio y Minas (Cordón)', lat: -34.9048, lng: -56.1788 },
+        { clave: '18 de julio y andes', nombre: '18 de Julio y Andes (Centro)', lat: -34.9062, lng: -56.1970 },
+        { clave: 'rivera y bvar. artigas', nombre: 'Av. Rivera y Bvar. Artigas (Pocitos)', lat: -34.9058, lng: -56.1648 },
+        { clave: 'rivera y bulevar artigas', nombre: 'Av. Rivera y Bvar. Artigas (Pocitos)', lat: -34.9058, lng: -56.1648 },
+        { clave: 'rivera y soca', nombre: 'Av. Rivera y Soca (Pocitos)', lat: -34.9038, lng: -56.1554 },
+        { clave: 'rivera y luis alberto de herrera', nombre: 'Av. Rivera y L. A. de Herrera (Pocitos Nuevo)', lat: -34.8998, lng: -56.1360 },
+        { clave: 'rivera y comercio', nombre: 'Av. Rivera y Comercio (Buceo)', lat: -34.8985, lng: -56.1285 },
+        { clave: 'rivera y propios', nombre: 'Av. Rivera y Propios (Buceo)', lat: -34.8988, lng: -56.1305 },
+        { clave: 'bvar. artigas y garibaldi', nombre: 'Bvar. Artigas y Garibaldi', lat: -34.8872, lng: -56.1685 },
+        { clave: 'bvar. artigas y gral. flores', nombre: 'Bvar. Artigas y Gral. Flores (Goes)', lat: -34.8722, lng: -56.1755 },
+        { clave: 'bvar. artigas y suarez', nombre: 'Bvar. Artigas y Joaquín Suárez (Prado)', lat: -34.8640, lng: -56.1985 },
+        { clave: 'bvar. artigas y españa', nombre: 'Bvar. Artigas y Bvar. España (Parque Rodó)', lat: -34.9125, lng: -56.1610 },
+        { clave: 'av. brasil y benito blanco', nombre: 'Av. Brasil y Benito Blanco (Pocitos)', lat: -34.9152, lng: -56.1465 },
+        { clave: 'av. brasil y 26 de marzo', nombre: 'Av. Brasil y 26 de Marzo (Pocitos)', lat: -34.9142, lng: -56.1488 },
+        { clave: 'av. brasil y libertad', nombre: 'Av. Brasil y Libertad (Pocitos)', lat: -34.9135, lng: -56.1528 },
+        { clave: '21 de setiembre y ellauri', nombre: '21 de Setiembre y Ellauri (Punta Carretas)', lat: -34.9192, lng: -56.1568 },
+        { clave: '21 de setiembre y bvar. españa', nombre: '21 de Setiembre y Bvar. España', lat: -34.9138, lng: -56.1550 },
+        { clave: 'agraciada y suarez', nombre: 'Av. Agraciada y Joaquín Suárez (Bella Vista)', lat: -34.8672, lng: -56.2045 },
+        { clave: 'agraciada y asuncion', nombre: 'Av. Agraciada y Asunción (Aguada)', lat: -34.8845, lng: -56.1950 },
+        { clave: 'agraciada y san fructuoso', nombre: 'Av. Agraciada y San Fructuoso', lat: -34.8728, lng: -56.2005 },
+        { clave: '8 de octubre y garibaldi', nombre: 'Av. 8 de Octubre y Garibaldi (La Blanqueada)', lat: -34.8865, lng: -56.1605 },
+        { clave: '8 de octubre y centenario', nombre: 'Av. 8 de Octubre y Av. Centenario', lat: -34.8848, lng: -56.1560 },
+        { clave: '8 de octubre y comercio', nombre: 'Av. 8 de Octubre y Comercio (Unión)', lat: -34.8765, lng: -56.1380 },
+        { clave: '8 de octubre y propios', nombre: 'Av. 8 de Octubre y Propios (Batlle y Ordóñez)', lat: -34.8780, lng: -56.1430 },
+        { clave: '8 de octubre y belloni', nombre: 'Av. 8 de Octubre y Belloni (Maroñas)', lat: -34.8580, lng: -56.1310 },
+        { clave: 'av. italia y propios', nombre: 'Av. Italia y Propios (Buena Vista)', lat: -34.8890, lng: -56.1360 },
+        { clave: 'av. italia y comercio', nombre: 'Av. Italia y Comercio (Malvín Norte)', lat: -34.8905, lng: -56.1305 },
+        { clave: 'av. italia y bolivia', nombre: 'Av. Italia y Bolivia (Carrasco)', lat: -34.8850, lng: -56.0790 },
+        { clave: 'av. italia y barradas', nombre: 'Av. Italia y Barradas (Puente Carrasco)', lat: -34.8790, lng: -56.0350 },
+        { clave: 'rambla y kibon', nombre: 'Rambla y Kibón (Pocitos)', lat: -34.9110, lng: -56.1350 },
+        { clave: 'rambla y punta carretas', nombre: 'Rambla Mahatma Gandhi (Punta Carretas)', lat: -34.9275, lng: -56.1595 },
+        { clave: 'rambla y ciudad vieja', nombre: 'Rambla Portuaria y Ciudad Vieja', lat: -34.9090, lng: -56.2090 },
+        { clave: 'giannattasio y calcagno', nombre: 'Av. Giannattasio y Calcagno (Ciudad de la Costa)', lat: -34.8420, lng: -55.9960 },
+        { clave: 'giannattasio y marquez castro', nombre: 'Av. Giannattasio y Márquez Castro (Solymar)', lat: -34.8360, lng: -55.9780 }
+    ];
+
+    function normalizarTextoBusqueda(txt) {
+        return String(txt || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[.,]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function geocodificarInterseccion(textoEntrada) {
+        if (!textoEntrada || typeof textoEntrada !== 'string') return null;
+        var norm = normalizarTextoBusqueda(textoEntrada);
+        if (!norm) return null;
+
+        for (var i = 0; i < CATALOGO_INTERSECCIONES.length; i++) {
+            var item = CATALOGO_INTERSECCIONES[i];
+            var claveNorm = normalizarTextoBusqueda(item.clave);
+            if (norm === claveNorm || norm.indexOf(claveNorm) !== -1 || claveNorm.indexOf(norm) !== -1) {
+                return { lat: item.lat, lng: item.lng, nombre: item.nombre };
+            }
+        }
+
+        var separadores = [' y ', ' e ', ' con ', ' & ', ' / ', ' - '];
+        for (var s = 0; s < separadores.length; s++) {
+            if (norm.indexOf(separadores[s]) !== -1) {
+                var partes = norm.split(separadores[s]);
+                if (partes.length >= 2) {
+                    var calle1 = partes[0].trim();
+                    var calle2 = partes[1].trim();
+                    var coord1 = resolverCoordenadasMontevideo(calle1, '');
+                    var coord2 = resolverCoordenadasMontevideo(calle2, '');
+                    if (coord1 && coord2) {
+                        return {
+                            lat: Number(((coord1.lat + coord2.lat) / 2).toFixed(4)),
+                            lng: Number(((coord1.lng + coord2.lng) / 2).toFixed(4)),
+                            nombre: calle1.toUpperCase() + ' y ' + calle2.toUpperCase()
+                        };
+                    } else if (coord1) {
+                        return { lat: Number(coord1.lat.toFixed(4)), lng: Number(coord1.lng.toFixed(4)), nombre: calle1.toUpperCase() };
+                    } else if (coord2) {
+                        return { lat: Number(coord2.lat.toFixed(4)), lng: Number(coord2.lng.toFixed(4)), nombre: calle2.toUpperCase() };
+                    }
+                }
+            }
+        }
+
+        for (var z = 0; z < CATALOGO_ZONAS.length; z++) {
+            var zonaNorm = normalizarTextoBusqueda(CATALOGO_ZONAS[z].clave);
+            if (norm.indexOf(zonaNorm) !== -1) {
+                return {
+                    lat: CATALOGO_ZONAS[z].lat,
+                    lng: CATALOGO_ZONAS[z].lng,
+                    nombre: CATALOGO_ZONAS[z].clave.toUpperCase()
+                };
+            }
+        }
+
+        for (var d = 0; d < CATALOGO_DIRECCIONES.length; d++) {
+            var dirNorm = normalizarTextoBusqueda(CATALOGO_DIRECCIONES[d].clave);
+            if (norm.indexOf(dirNorm) !== -1) {
+                return {
+                    lat: CATALOGO_DIRECCIONES[d].lat,
+                    lng: CATALOGO_DIRECCIONES[d].lng,
+                    nombre: CATALOGO_DIRECCIONES[d].clave.toUpperCase()
+                };
+            }
+        }
+
+        return null;
+    }
+
+
+    async function geocodificarEnLineaNominatim(textoEntrada) {
+        if (!textoEntrada || typeof textoEntrada !== 'string') return null;
+        var consulta = textoEntrada.trim();
+        if (!consulta) return null;
+
+        if (!/uruguay/i.test(consulta)) {
+            consulta += ', Uruguay';
+        }
+
+        try {
+            var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=uy&q=' + encodeURIComponent(consulta);
+            var respuesta = await fetch(url, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (respuesta.ok) {
+                var resultados = await respuesta.json();
+                if (resultados && resultados.length > 0) {
+                    var primer = resultados[0];
+                    var lat = Number(parseFloat(primer.lat).toFixed(4));
+                    var lng = Number(parseFloat(primer.lon).toFixed(4));
+                    var partes = (primer.display_name || '').split(',');
+                    var nombreLimpio = partes[0] ? partes[0].trim() : textoEntrada.trim();
+                    return {
+                        lat: lat,
+                        lng: lng,
+                        nombre: nombreLimpio
+                    };
+                }
+            }
+        } catch (e) {
+            // Continúa sin bloquear ante falta de conexión
+        }
+        return null;
+    }
+
+    function encontrarEsquinaCercana(lat, lng) {
+        var minD2 = Infinity;
+        var mejor = null;
+        for (var i = 0; i < CATALOGO_INTERSECCIONES.length; i++) {
+            var esq = CATALOGO_INTERSECCIONES[i];
+            var dLat = esq.lat - lat;
+            var dLng = esq.lng - lng;
+            var d2 = dLat * dLat + dLng * dLng;
+            if (d2 < minD2) {
+                minD2 = d2;
+                mejor = esq;
+            }
+        }
+        if (minD2 < 0.0008 && mejor) {
+            return mejor.nombre;
+        }
+        return 'Punto (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')';
+    }
+
     function hashTexto(texto) {
         var h = 2166136261;
         var str = String(texto || 'um');
@@ -178,10 +346,9 @@
         });
 
         // Capa base CartoDB Positron adaptada a la paleta sobria de Última Milla
-        var capaPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            subdomains: 'abcd',
+        var capaPositron = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap &copy; CARTO'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
         });
 
         capaPositron.addTo(mapa);
@@ -876,17 +1043,15 @@
         }
         if (coincidencias.length >= 3) return coincidencias;
 
-        // Intento 3: Nombres de zonas y barrios conocidos de Montevideo
+        // Intento 3: Geocodificación por esquinas, intersecciones y barrios
         var puntosCatalogo = [];
         var partes = texto.split(/[,;\n]+/);
         for (var j = 0; j < partes.length; j++) {
-            var nombreParte = partes[j].trim().toLowerCase();
-            if (!nombreParte) continue;
-            for (var z = 0; z < CATALOGO_ZONAS.length; z++) {
-                if (CATALOGO_ZONAS[z].clave === nombreParte || nombreParte.indexOf(CATALOGO_ZONAS[z].clave) !== -1) {
-                    puntosCatalogo.push([CATALOGO_ZONAS[z].lat, CATALOGO_ZONAS[z].lng]);
-                    break;
-                }
+            var parteLimpia = partes[j].trim();
+            if (!parteLimpia) continue;
+            var geo = geocodificarInterseccion(parteLimpia);
+            if (geo) {
+                puntosCatalogo.push([geo.lat, geo.lng]);
             }
         }
         if (puntosCatalogo.length >= 3) return puntosCatalogo;
@@ -898,9 +1063,9 @@
      * Editor interactivo en tiempo real para delimitar y visualizar una zona de cobertura en Leaflet.
      * Permite escribir ubicaciones/coordenadas o hacer clic directamente sobre el mapa.
      */
-    function renderizarEditorPoligonoZona(idContenedor, idCampoTexto, idSelectorColor, idContadorVertices) {
+    function renderizarEditorPoligonoZona(idContenedor, idCampoTexto, idSelectorColor, idContadorVertices, opciones) {
         var contenedor = document.getElementById(idContenedor);
-        if (!contenedor) return;
+        if (!contenedor) return null;
 
         var mapa = instanciasMapas[idContenedor];
         if (!mapa) {
@@ -909,9 +1074,9 @@
                 zoom: 13,
                 zoomControl: true
             });
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
             }).addTo(mapa);
             instanciasMapas[idContenedor] = mapa;
         }
@@ -920,57 +1085,81 @@
         var campoTexto = document.getElementById(idCampoTexto);
         var selectorColor = document.getElementById(idSelectorColor);
         var spanContador = idContadorVertices ? document.getElementById(idContadorVertices) : null;
+        var callbackCambio = (opciones && typeof opciones.onVerticesCambiados === 'function') ? opciones.onVerticesCambiados : null;
+
+        function obtenerColorActual() {
+            if (selectorColor && selectorColor.value) return selectorColor.value;
+            return '#2563eb';
+        }
+
+        function sincronizarTextoYRefrescar(vertices) {
+            if (campoTexto) {
+                var textoGenerado = '[\n  ' + vertices.map(function (v) {
+                    return '[' + v[0].toFixed(4) + ', ' + v[1].toFixed(4) + ']';
+                }).join(',\n  ') + '\n]';
+                campoTexto.value = textoGenerado;
+                campoTexto.dispatchEvent(new Event('input'));
+            }
+            refrescarPoligono();
+        }
 
         function refrescarPoligono() {
             capaPoligono.clearLayers();
             var valorTexto = campoTexto ? campoTexto.value : '';
-            var color = (selectorColor && selectorColor.value) ? selectorColor.value : '#2563eb';
+            var color = obtenerColorActual();
             var vertices = parsearCoordenadasPoligono(valorTexto);
 
-            if (spanContador) {
-                if (vertices.length >= 3) {
-                    spanContador.textContent = vertices.length + ' vértices detectados (Válido)';
-                    spanContador.className = 'badge bg-success-subtle text-success border border-success-subtle';
-                } else if (vertices.length > 0) {
-                    spanContador.textContent = vertices.length + ' vértices (mínimo 3 para polígono)';
-                    spanContador.className = 'badge bg-warning-subtle text-warning border border-warning-subtle';
-                } else {
-                    spanContador.textContent = 'Sin coordenadas válidas';
-                    spanContador.className = 'badge bg-secondary-subtle text-secondary border';
-                }
-            }
+            if (spanContador) { spanContador.style.display = 'none'; }
+
+            var descripcionesVertices = [];
+            vertices.forEach(function (punto, indice) {
+                var desc = encontrarEsquinaCercana(punto[0], punto[1]);
+                descripcionesVertices.push({
+                    indice: indice + 1,
+                    lat: punto[0],
+                    lng: punto[1],
+                    descripcion: desc
+                });
+            });
 
             if (vertices.length >= 3) {
                 var poligono = L.polygon(vertices, {
                     color: color,
-                    weight: 2.5,
+                    weight: 3,
                     fillColor: color,
-                    fillOpacity: 0.25
+                    fillOpacity: 0.30
                 }).addTo(capaPoligono);
 
                 vertices.forEach(function (punto, indice) {
-                    L.circleMarker(punto, {
-                        radius: 4,
-                        color: color,
-                        fillColor: '#ffffff',
-                        fillOpacity: 1,
-                        weight: 2
-                    }).bindTooltip('Vértice ' + (indice + 1) + ' (' + punto[0].toFixed(4) + ', ' + punto[1].toFixed(4) + ')', { direction: 'top' })
-                      .addTo(capaPoligono);
-                });
-
-                mapa.fitBounds(poligono.getBounds(), { padding: [25, 25], maxZoom: 16 });
-            } else if (vertices.length > 0) {
-                vertices.forEach(function (punto, indice) {
+                    var desc = descripcionesVertices[indice].descripcion;
                     L.circleMarker(punto, {
                         radius: 5,
                         color: color,
+                        fillColor: '#ffffff',
+                        fillOpacity: 1,
+                        weight: 2.5
+                    }).bindTooltip((indice + 1) + '. ' + desc, { direction: 'top' })
+                      .addTo(capaPoligono);
+                });
+
+                mapa.fitBounds(poligono.getBounds(), { padding: [30, 30], maxZoom: 16 });
+            } else if (vertices.length > 0) {
+                vertices.forEach(function (punto, indice) {
+                    var desc = descripcionesVertices[indice].descripcion;
+                    L.circleMarker(punto, {
+                        radius: 6,
+                        color: color,
                         fillColor: color,
-                        fillOpacity: 0.7,
-                        weight: 1
-                    }).addTo(capaPoligono);
+                        fillOpacity: 0.8,
+                        weight: 2
+                    }).bindTooltip((indice + 1) + '. ' + desc, { direction: 'top', permanent: true })
+                      .addTo(capaPoligono);
                 });
                 mapa.setView(vertices[0], 14);
+            }
+
+            if (callbackCambio) {
+                callbackCambio(vertices, descripcionesVertices);
             }
         }
 
@@ -978,9 +1167,14 @@
             campoTexto.addEventListener('input', refrescarPoligono);
             campoTexto.addEventListener('change', refrescarPoligono);
         }
+
         if (selectorColor) {
-            selectorColor.addEventListener('input', refrescarPoligono);
-            selectorColor.addEventListener('change', refrescarPoligono);
+            selectorColor.addEventListener('input', function () {
+                refrescarPoligono();
+            });
+            selectorColor.addEventListener('change', function () {
+                refrescarPoligono();
+            });
         }
 
         mapa.on('click', function (evento) {
@@ -988,13 +1182,7 @@
             var lng = Number(evento.latlng.lng.toFixed(4));
             var verticesActuales = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
             verticesActuales.push([lat, lng]);
-
-            if (campoTexto) {
-                var textoGenerado = '[\n  ' + verticesActuales.map(function (v) { return '[' + v[0] + ', ' + v[1] + ']'; }).join(',\n  ') + '\n]';
-                campoTexto.value = textoGenerado;
-                campoTexto.dispatchEvent(new Event('input'));
-            }
-            refrescarPoligono();
+            sincronizarTextoYRefrescar(verticesActuales);
         });
 
         setTimeout(function () {
@@ -1003,7 +1191,50 @@
         }, 150);
 
         return {
-            refrescar: refrescarPoligono
+            refrescar: refrescarPoligono,
+            obtenerVertices: function () {
+                return parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+            },
+            agregarVertice: function (lat, lng) {
+                var vertices = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+                vertices.push([Number(lat), Number(lng)]);
+                sincronizarTextoYRefrescar(vertices);
+            },
+            eliminarVerticeEn: function (indice) {
+                var vertices = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+                if (indice >= 0 && indice < vertices.length) {
+                    vertices.splice(indice, 1);
+                    sincronizarTextoYRefrescar(vertices);
+                }
+            },
+            agregarPorDireccion: async function (textoDireccion) {
+                var geo = geocodificarInterseccion(textoDireccion);
+                if (!geo) {
+                    geo = await geocodificarEnLineaNominatim(textoDireccion);
+                }
+                if (!geo) return null;
+                var vertices = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+                vertices.push([geo.lat, geo.lng]);
+                sincronizarTextoYRefrescar(vertices);
+                return geo;
+            },
+            eliminarUltimoVertice: function () {
+                var vertices = parsearCoordenadasPoligono(campoTexto ? campoTexto.value : '');
+                if (vertices.length > 0) {
+                    vertices.pop();
+                    sincronizarTextoYRefrescar(vertices);
+                }
+            },
+            limpiarVertices: function () {
+                sincronizarTextoYRefrescar([]);
+            },
+            cambiarColor: function (nuevoColorHex) {
+                if (selectorColor) {
+                    selectorColor.value = nuevoColorHex;
+                    selectorColor.dispatchEvent(new Event('input'));
+                }
+                refrescarPoligono();
+            }
         };
     }
 
@@ -1025,9 +1256,9 @@
             zoom: 12,
             zoomControl: true
         });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap &copy; CARTO'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
         }).addTo(mapa);
         instanciasMapas[idContenedor] = mapa;
 
@@ -1080,6 +1311,9 @@
         renderizarMapaDetalleRuta: renderizarMapaDetalleRuta,
         enfocarParadaEnRuta: enfocarParadaEnRuta,
         parsearCoordenadasPoligono: parsearCoordenadasPoligono,
+        geocodificarInterseccion: geocodificarInterseccion,
+        encontrarEsquinaCercana: encontrarEsquinaCercana,
+        catalogoIntersecciones: CATALOGO_INTERSECCIONES,
         renderizarEditorPoligonoZona: renderizarEditorPoligonoZona,
         renderizarMapaVisualizadorZonas: renderizarMapaVisualizadorZonas
     };

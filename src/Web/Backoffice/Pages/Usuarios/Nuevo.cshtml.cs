@@ -43,7 +43,7 @@ public class NuevoModel : PageModel
         try
         {
             await _usuariosApi.CrearUsuarioAsync(NuevoUsuario);
-            TempData["MensajeExito"] = $"El usuario '{NuevoUsuario.Nombre}' fue dado de alta exitosamente con perfil asignado.";
+            TempData["MensajeExito"] = $"El usuario '{NuevoUsuario.NombreCompleto}' fue dado de alta exitosamente con perfil asignado.";
             return RedirectToPage("/Comercios/Index", new { tab = "usuarios" });
         }
         catch (Exception ex)

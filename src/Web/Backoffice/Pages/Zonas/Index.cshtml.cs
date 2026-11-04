@@ -29,6 +29,7 @@ public class IndexModel : PageModel
     public IReadOnlyList<ZonaCoberturaDto> Zonas { get; set; } = Array.Empty<ZonaCoberturaDto>();
 
     public int TotalZonasActivas { get; set; }
+    public int TotalZonasInactivas { get; set; }
     public int TotalFranjasConfiguradas { get; set; }
 
     public string? MensajeExito { get; set; }
@@ -39,28 +40,24 @@ public class IndexModel : PageModel
         MensajeExito = TempData["MensajeExito"]?.ToString();
         MensajeError = TempData["MensajeError"]?.ToString();
 
-        bool? soloActivas = Estado switch
+        // Obtenemos el conjunto global para el cálculo de métricas y contadores de pestañas
+        var todasLasZonas = await _zonasApi.ListarZonasAsync(new FiltroZonasDto { TextoBusqueda = Busqueda });
+        TotalZonasActivas = todasLasZonas.Count(z => z.Activa);
+        TotalZonasInactivas = todasLasZonas.Count(z => !z.Activa);
+        TotalFranjasConfiguradas = todasLasZonas.Where(z => z.Activa).Sum(z => z.TotalFranjas);
+
+        // Determinamos el subconjunto a mostrar según el panel/pestaña activo
+        Zonas = Estado switch
         {
-            "activas" => true,
-            "inactivas" => false,
-            _ => null
+            "inactivas" => todasLasZonas.Where(z => !z.Activa).ToList(),
+            "activas" => todasLasZonas.Where(z => z.Activa).ToList(),
+            _ => todasLasZonas
         };
-
-        var filtro = new FiltroZonasDto
-        {
-            TextoBusqueda = Busqueda,
-            SoloActivas = soloActivas
-        };
-
-        Zonas = await _zonasApi.ListarZonasAsync(filtro);
-
-        // Métricas de cobertura
-        TotalZonasActivas = Zonas.Count(z => z.Activa);
-        TotalFranjasConfiguradas = Zonas.Where(z => z.Activa).Sum(z => z.TotalFranjas);
     }
 
     /// <summary>
     /// Acción directa para inactivar o reactivar una zona de cobertura con reflejo inmediato.
+    /// Al inactivar, se redirige al panel de zonas inactivas para mostrar el estado y permitir su gestión.
     /// </summary>
     public async Task<IActionResult> OnPostCambiarEstadoAsync(Guid id, bool nuevoEstado)
     {
@@ -76,6 +73,8 @@ public class IndexModel : PageModel
             TempData["MensajeError"] = $"Error al modificar el estado de la zona: {ex.Message}";
         }
 
-        return RedirectToPage(new { Busqueda, Estado });
+        // Si se inactiva, abrir el panel activo de zonas inactivas para que el usuario verifique la baja
+        var estadoDestino = nuevoEstado ? "activas" : "inactivas";
+        return RedirectToPage(new { Busqueda, Estado = estadoDestino });
     }
 }

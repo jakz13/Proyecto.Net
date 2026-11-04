@@ -8,6 +8,7 @@ namespace UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 
 /// <summary>
 /// Manejador para modificar los datos, perfil y estado de un usuario del operador.
+/// Concatena limpiamente Nombre y Apellido si son provistos por separado (UC-01, RF-01).
 /// </summary>
 public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuarioCommand, UsuarioDetalleDto>
 {
@@ -64,7 +65,11 @@ public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuario
         if (perfil is null)
             throw new DomainValidationException("El perfil seleccionado no existe.");
 
-        usuario.ActualizarDatos(solicitud.Nombre, emailNormalizado);
+        var nombreCompleto = string.IsNullOrWhiteSpace(solicitud.Apellido)
+            ? (solicitud.Nombre ?? string.Empty).Trim()
+            : $"{(solicitud.Nombre ?? string.Empty).Trim()} {solicitud.Apellido.Trim()}";
+
+        usuario.ActualizarDatos(nombreCompleto, emailNormalizado);
         usuario.AsignarPerfil(solicitud.PerfilId);
 
         if (solicitud.Activo)
@@ -103,4 +108,3 @@ public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuario
         );
     }
 }
-
