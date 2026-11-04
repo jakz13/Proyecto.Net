@@ -177,10 +177,9 @@
         });
 
         // Capa base CartoDB Positron adaptada a la paleta sobria de Última Milla
-        var capaPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            subdomains: 'abcd',
+        var capaPositron = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap &copy; CARTO'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
         });
 
         capaPositron.addTo(mapa);

@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Variables y Tokens de Diseño - Backoffice del Operador
    ========================================================================== */
 :root {
@@ -81,8 +81,9 @@ body.sidebar-colapsada {
     bottom: 0;
     width: var(--sidebar-ancho);
     height: 100vh;
-    background-color: #0F172A;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-primario) 22%, #0B1120) 0%, #0F172A 50%, color-mix(in srgb, var(--color-primario) 12%, #090E17) 100%);
     color: #94A3B8;
+    border-right: 2px solid color-mix(in srgb, var(--color-secundario) 45%, transparent);
     z-index: 1040;
     transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -91,6 +92,11 @@ body.sidebar-colapsada {
     overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: #334155 transparent;
+}
+
+.sidebar-cabecera {
+    border-bottom: 2px solid color-mix(in srgb, var(--color-secundario) 40%, rgba(255,255,255,0.1)) !important;
+    background-color: rgba(0, 0, 0, 0.25);
 }
 
 /* Contenedor Principal con margen dinámico */
@@ -109,25 +115,29 @@ body.sidebar-colapsada {
     border-radius: 0.375rem;
     transition: all 0.15s ease-in-out;
     white-space: nowrap;
+    border-left: 3px solid transparent;
 }
 
 .sidebar-oscura .nav-link:hover {
     color: #FFFFFF;
     background-color: rgba(255, 255, 255, 0.08);
+    border-left: 3px solid color-mix(in srgb, var(--color-secundario) 70%, transparent);
 }
 
 .sidebar-oscura .nav-link.active {
-    color: #FFFFFF;
+    color: var(--color-texto-primario);
     background-color: var(--color-primario);
+    border-left: 4px solid var(--color-secundario);
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .sidebar-seccion {
     font-size: 0.7rem;
     text-transform: uppercase;
     font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #64748B;
+    letter-spacing: 0.06em;
+    color: var(--color-secundario);
     padding: 0.75rem 0.75rem 0.25rem 0.75rem;
     white-space: nowrap;
 }

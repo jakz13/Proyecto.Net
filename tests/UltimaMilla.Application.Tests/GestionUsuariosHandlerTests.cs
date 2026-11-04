@@ -1,4 +1,4 @@
-using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
+﻿using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Operador.GestionUsuarios;
 using UltimaMilla.Application.Tests.Fakes;
@@ -458,5 +458,67 @@ public class GestionUsuariosHandlerTests
         Assert.Contains(resultado, p => p.Nombre == "Administrador");
         Assert.Contains(resultado, p => p.Nombre == "Operador");
     }
-}
+    [Fact]
+    public async Task CrearUsuario_ConNombreYApellidoSeparados_ConcatenaNombreCompleto()
+    {
+        // Arrange
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _comercioOperadorRepositorio,
+            _hasheadorContrasena,
+            _inquilinoActual,
+            _unidadDeTrabajo);
 
+        var comando = new CrearUsuarioCommand(
+            "Marcela",
+            "marcela.gonzalez@operador.com",
+            "ClaveSegura123",
+            _perfilAdmin.Id,
+            null,
+            "GonzÃ¡lez");
+
+        // Act
+        var resultado = await handler.Handle(comando, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("Marcela GonzÃ¡lez", resultado.Nombre);
+        var guardado = _usuarioRepositorio.Usuarios.Single(u => u.Id == resultado.Id);
+        Assert.Equal("Marcela GonzÃ¡lez", guardado.Nombre);
+    }
+
+    [Fact]
+    public async Task ActualizarUsuario_ConNombreYApellidoSeparados_ConcatenaNombreCompleto()
+    {
+        // Arrange
+        var usuario = new Usuario(
+            Guid.NewGuid(),
+            "Antiguo Nombre",
+            "usuario.update@operador.com",
+            "hash",
+            _perfilAdmin.Id,
+            _inquilinoActual.OperadorId);
+        _usuarioRepositorio.Usuarios.Add(usuario);
+
+        var handler = new ActualizarUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _inquilinoActual,
+            _unidadDeTrabajo);
+
+        var comando = new ActualizarUsuarioCommand(
+            usuario.Id,
+            "LucÃ­a",
+            "usuario.update@operador.com",
+            _perfilAdmin.Id,
+            true,
+            "FernÃ¡ndez");
+
+        // Act
+        var resultado = await handler.Handle(comando, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("LucÃ­a FernÃ¡ndez", resultado.Nombre);
+        Assert.Equal("LucÃ­a FernÃ¡ndez", usuario.Nombre);
+    }
+}

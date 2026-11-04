@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
@@ -189,7 +189,7 @@ public class MockUsuariosApi : IUsuariosApi
         var entidad = new UsuarioDto
         {
             Id = nuevoId,
-            Nombre = nuevoUsuario.Nombre.Trim(),
+            Nombre = nuevoUsuario.NombreCompleto,
             Email = nuevoUsuario.Email.Trim().ToLowerInvariant(),
             PerfilId = perfil.Id,
             NombrePerfil = perfil.Nombre,
@@ -218,7 +218,7 @@ public class MockUsuariosApi : IUsuariosApi
         var usuarioExistente = UsuariosEnMemoria[indice];
         var modificado = usuarioExistente with
         {
-            Nombre = usuarioActualizado.Nombre.Trim(),
+            Nombre = usuarioActualizado.NombreCompleto,
             Email = usuarioActualizado.Email.Trim().ToLowerInvariant(),
             PerfilId = perfil.Id,
             NombrePerfil = perfil.Nombre,

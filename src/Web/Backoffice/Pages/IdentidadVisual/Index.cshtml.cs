@@ -9,23 +9,31 @@ namespace UltimaMilla.Backoffice.Pages.IdentidadVisual;
 
 /// <summary>
 /// Modelo de página para el caso de uso UC-06: Gestionar identidad visual del operador.
-/// Permite al Administrador configurar logotipo, paleta cromática y canales de contacto oficial,
-/// reflejando la marca en el portal del comercio, seguimiento público y comunicaciones (RF-05).
+/// Permite al Administrador configurar logotipo (URL o carga de archivo local), paleta cromática
+/// y canales de contacto oficial, reflejando la marca en todos los portales (RF-05).
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel
 {
     private readonly IIdentidadVisualApi _identidadApi;
+    private readonly IWebHostEnvironment _entorno;
 
-    public IndexModel(IIdentidadVisualApi identidadApi)
+    public IndexModel(IIdentidadVisualApi identidadApi, IWebHostEnvironment entorno)
     {
         _identidadApi = identidadApi;
+        _entorno = entorno;
     }
 
     public IdentidadVisualDto IdentidadActual { get; set; } = new();
 
     [BindProperty]
     public ActualizarIdentidadVisualDto Modelo { get; set; } = new();
+
+    /// <summary>
+    /// Archivo de imagen subido directamente desde la computadora del usuario.
+    /// </summary>
+    [BindProperty]
+    public IFormFile? ArchivoLogo { get; set; }
 
     [TempData]
     public string? MensajeExito { get; set; }
@@ -53,6 +61,39 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostGuardarAsync()
     {
+        // Si el usuario subió una imagen desde su equipo, procesarla y guardarla en wwwroot/uploads/logos
+        if (ArchivoLogo is not null && ArchivoLogo.Length > 0)
+        {
+            try
+            {
+                var rutaWebRoot = _entorno.WebRootPath ?? Path.Combine(_entorno.ContentRootPath, "wwwroot");
+                var carpetaUploads = Path.Combine(rutaWebRoot, "uploads", "logos");
+                Directory.CreateDirectory(carpetaUploads);
+
+                var extension = Path.GetExtension(ArchivoLogo.FileName);
+                if (string.IsNullOrWhiteSpace(extension))
+                {
+                    extension = ".png";
+                }
+
+                var nombreArchivo = $"logo_empresa_{Guid.NewGuid():N}{extension}";
+                var rutaDestino = Path.Combine(carpetaUploads, nombreArchivo);
+
+                using (var stream = new FileStream(rutaDestino, FileMode.Create))
+                {
+                    await ArchivoLogo.CopyToAsync(stream);
+                }
+
+                Modelo.LogoUrl = $"/uploads/logos/{nombreArchivo}";
+            }
+            catch (Exception ex)
+            {
+                MensajeError = $"No se pudo guardar la imagen subida: {ex.Message}";
+                await CargarIdentidadAsync();
+                return Page();
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             MensajeError = "Por favor verifica que todos los campos obligatorios cumplan con los formatos requeridos.";
@@ -63,7 +104,7 @@ public class IndexModel : PageModel
         try
         {
             var actualizada = await _identidadApi.ActualizarIdentidadVisualAsync(Modelo);
-            MensajeExito = $"Identidad visual de '{actualizada.NombreComercial}' guardada exitosamente. Se aplicó en el portal del comercio, seguimiento público y comunicaciones (RF-05).";
+            MensajeExito = $"Identidad visual de '{actualizada.NombreComercial}' guardada exitosamente. Se aplicó en el panel lateral, portal del comercio, seguimiento público y comunicaciones (RF-05).";
             return RedirectToPage();
         }
         catch (ApiExcepcion ex)

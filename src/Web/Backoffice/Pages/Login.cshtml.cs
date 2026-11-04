@@ -20,9 +20,9 @@ public class LoginModel : PageModel
 
     private readonly MockContextoOperador _contextoOperador;
     private readonly IConfiguration _configuracion;
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly IHttpClientFactory? _httpFactory;
 
-    public LoginModel(MockContextoOperador contextoOperador, IConfiguration configuracion, IHttpClientFactory httpFactory)
+    public LoginModel(MockContextoOperador contextoOperador, IConfiguration configuracion, IHttpClientFactory? httpFactory = null)
     {
         _contextoOperador = contextoOperador;
         _configuracion = configuracion;
@@ -119,7 +119,8 @@ public class LoginModel : PageModel
 
         try
         {
-            using var respuesta = await _httpFactory.CreateClient()
+            using var cliente = _httpFactory?.CreateClient() ?? new HttpClient();
+            using var respuesta = await cliente
                 .PostAsJsonAsync($"{baseUrl.TrimEnd('/')}/api/v1/auth/login", new { Email = email, Password = password });
 
             if (respuesta.IsSuccessStatusCode)

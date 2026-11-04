@@ -18,7 +18,7 @@
     </a>
 </div>
 
-<!-- Tarjetas de Métricas de Cobertura Estandarizadas -->
+<!-- Tarjetas de Métricas de Cobertura -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-4">
         <div class="metrica-card">
@@ -26,8 +26,19 @@
                 <span class="metrica-card__label">Zonas Activas</span>
                 <partial name="_BotonAyuda" model='"Zonas con polígono operativo delimitado y disponibles para despacho."' />
             </div>
-            <div class="metrica-card__valor text-dark">
+            <div class="metrica-card__valor text-success">
                 @Model.TotalZonasActivas
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+        <div class="metrica-card">
+            <div class="metrica-card__header">
+                <span class="metrica-card__label">Zonas Inactivas (Bajas)</span>
+                <partial name="_BotonAyuda" model='"Zonas dadas de baja temporalmente o fuera de servicio."' />
+            </div>
+            <div class="metrica-card__valor text-secondary">
+                @Model.TotalZonasInactivas
             </div>
         </div>
     </div>
@@ -39,17 +50,6 @@
             </div>
             <div class="metrica-card__valor text-primary">
                 @Model.TotalFranjasConfiguradas
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-md-4">
-        <div class="metrica-card">
-            <div class="metrica-card__header">
-                <span class="metrica-card__label">Polígonos Logísticos</span>
-                <partial name="_BotonAyuda" model='"Coordenadas GeoJSON estándar para cálculo de tarifas y asignación automática de rutas."' />
-            </div>
-            <div class="metrica-card__valor fs-5 text-dark">
-                GeoJSON Estándar
             </div>
         </div>
     </div>
@@ -84,43 +84,91 @@
     </div>
 }
 
-<!-- Barra de Búsqueda y Filtrado -->
-<div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-body p-3 bg-white">
-        <form method="get" class="row g-2 align-items-center">
-            <div class="col-12 col-md-6">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-light border-end-0">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                    </span>
-                    <input type="text" name="Busqueda" value="@Model.Busqueda"
-                           class="form-control border-start-0" placeholder="Buscar por nombre de zona de cobertura..." />
+<!-- Barra de Pestañas y Paneles de Cobertura -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <ul class="nav nav-pills gap-1" role="tablist">
+        <li class="nav-item">
+            <a asp-page="/Zonas/Index" asp-route-Estado="activas" asp-route-Busqueda="@Model.Busqueda"
+               class="nav-link py-1 px-3 d-flex align-items-center gap-2 @(Model.Estado == "activas" || string.IsNullOrEmpty(Model.Estado) ? "active bg-dark text-white" : "bg-white text-dark border")"
+               style="font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Zonas Activas</span>
+                <span class="badge @(Model.Estado == "activas" || string.IsNullOrEmpty(Model.Estado) ? "bg-white text-dark" : "bg-success text-white") rounded-pill">
+                    @Model.TotalZonasActivas
+                </span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a asp-page="/Zonas/Index" asp-route-Estado="inactivas" asp-route-Busqueda="@Model.Busqueda"
+               class="nav-link py-1 px-3 d-flex align-items-center gap-2 @(Model.Estado == "inactivas" ? "active bg-secondary text-white" : "bg-white text-dark border")"
+               style="font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                </svg>
+                <span>Panel de Zonas Inactivas (Bajas)</span>
+                <span class="badge @(Model.Estado == "inactivas" ? "bg-white text-dark" : "bg-secondary text-white") rounded-pill">
+                    @Model.TotalZonasInactivas
+                </span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a asp-page="/Zonas/Index" asp-route-Estado="todos" asp-route-Busqueda="@Model.Busqueda"
+               class="nav-link py-1 px-3 d-flex align-items-center gap-2 @(Model.Estado == "todos" ? "active bg-dark text-white" : "bg-white text-dark border")"
+               style="font-size: 0.85rem;">
+                <span>Todas</span>
+                <span class="badge @(Model.Estado == "todos" ? "bg-white text-dark" : "bg-light text-dark border") rounded-pill">
+                    @(Model.TotalZonasActivas + Model.TotalZonasInactivas)
+                </span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Buscador Integrado -->
+    <form method="get" class="d-flex align-items-center gap-2">
+        <input type="hidden" name="Estado" value="@Model.Estado" />
+        <div class="input-group input-group-sm" style="min-width: 260px;">
+            <span class="input-group-text bg-white border-end-0">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </span>
+            <input type="text" name="Busqueda" value="@Model.Busqueda"
+                   class="form-control border-start-0" placeholder="Buscar zona..." />
+            @if (!string.IsNullOrEmpty(Model.Busqueda))
+            {
+                <a asp-page="/Zonas/Index" asp-route-Estado="@Model.Estado" class="btn btn-outline-secondary btn-sm" title="Limpiar búsqueda">✕</a>
+            }
+            <button type="submit" class="btn btn-dark btn-sm">Buscar</button>
+        </div>
+    </form>
+</div>
+
+<!-- Panel de Zonas Inactivas (Aviso Explicativo cuando está activo el panel) -->
+@if (Model.Estado == "inactivas")
+{
+    <div class="card border-0 bg-warning-subtle text-dark border-start border-4 border-warning shadow-sm rounded-3 p-3 mb-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning-emphasis flex-shrink-0" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div>
+                    <strong class="d-block text-warning-emphasis">Panel Activo: Zonas Dadas de Baja (Inactivas)</strong>
+                    <span class="small text-muted">Las zonas listadas a continuación están inactivadas y no participan del cálculo tarifario ni de la planificación de rutas. Puede reactivarlas presionando el botón "Reactivar".</span>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <select name="Estado" class="form-select form-select-sm">
-                    <option value="todos" selected="@(Model.Estado == "todos")">Todos los estados</option>
-                    <option value="activas" selected="@(Model.Estado == "activas")">Solo zonas activas</option>
-                    <option value="inactivas" selected="@(Model.Estado == "inactivas")">Solo zonas inactivas</option>
-                </select>
-            </div>
-            <div class="col-6 col-md-3 d-flex gap-2">
-                <button type="submit" class="btn btn-outline-dark btn-sm px-3">
-                    Filtrar
-                </button>
-                @if (!string.IsNullOrEmpty(Model.Busqueda) || Model.Estado != "todos")
-                {
-                    <a asp-page="/Zonas/Index" class="btn btn-link btn-sm text-secondary text-decoration-none">
-                        Limpiar
-                    </a>
-                }
-            </div>
-        </form>
+            <a asp-page="/Zonas/Index" asp-route-Estado="activas" class="btn btn-outline-dark btn-sm">
+                ← Volver a Zonas Activas
+            </a>
+        </div>
     </div>
-</div>
+}
 
 <!-- Visualizador Global de Cobertura con Leaflet -->
 @if (Model.Zonas.Count > 0)
@@ -134,7 +182,7 @@
                 <span>Mapa de Cobertura Territorial de Zonas</span>
             </h2>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.725rem;">
-                @Model.Zonas.Count zonas registradas
+                @Model.Zonas.Count zonas en este panel
             </span>
         </div>
         <div class="card-body p-2 bg-white">
@@ -149,10 +197,25 @@
     {
         <div class="col-12">
             <div class="card border-0 shadow-sm rounded-3 p-5 text-center text-muted">
-                <p class="mb-2">No se encontraron zonas de cobertura que coincidan con los criterios de búsqueda.</p>
-                <div>
-                    <a asp-page="/Zonas/Nueva" class="btn btn-outline-dark btn-sm">Definir una nueva zona</a>
-                </div>
+                @if (Model.Estado == "inactivas")
+                {
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-success" aria-hidden="true">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <h3 class="h6 fw-bold text-dark mb-1">No hay zonas inactivas</h3>
+                    <p class="mb-3 small">Todas las zonas de cobertura se encuentran actualmente activas y operativas.</p>
+                    <div>
+                        <a asp-page="/Zonas/Index" asp-route-Estado="activas" class="btn btn-outline-dark btn-sm">Ver Zonas Activas</a>
+                    </div>
+                }
+                else
+                {
+                    <p class="mb-2">No se encontraron zonas de cobertura que coincidan con los criterios de búsqueda.</p>
+                    <div>
+                        <a asp-page="/Zonas/Nueva" class="btn btn-outline-dark btn-sm">Definir una nueva zona</a>
+                    </div>
+                }
             </div>
         </div>
     }
@@ -161,7 +224,7 @@
         @foreach (var zona in Model.Zonas)
         {
             <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm rounded-3 h-100" style="border-left: 5px solid @zona.ColorHex !important;">
+                <div class="card border-0 shadow-sm rounded-3 h-100 @(!zona.Activa ? "bg-light-subtle opacity-90" : "")" style="border-left: 5px solid @zona.ColorHex !important;">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
@@ -180,7 +243,7 @@
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                    <span class="badge bg-secondary text-white px-2 py-1">
                                         Inactiva (Baja)
                                     </span>
                                 }
@@ -241,15 +304,15 @@
                                     {
                                         <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2" style="font-size: 0.8rem;"
                                                 title="Inactivar zona de cobertura"
-                                                onclick="return confirm('¿Está seguro de que desea inactivar esta zona? Las franjas asociadas no estarán disponibles para nuevos envíos ni cálculo de tarifas.');">
+                                                onclick="return confirm('¿Está seguro de que desea inactivar esta zona? Se moverá al Panel de Zonas Inactivas y sus franjas no estarán disponibles para nuevos envíos.');">
                                             Inactivar
                                         </button>
                                     }
                                     else
                                     {
-                                        <button type="submit" class="btn btn-outline-success btn-sm py-1 px-2" style="font-size: 0.8rem;"
+                                        <button type="submit" class="btn btn-success btn-sm py-1 px-3 text-white" style="font-size: 0.8rem;"
                                                 title="Reactivar zona de cobertura">
-                                            Reactivar
+                                            Reactivar Zona
                                         </button>
                                     }
                                 </form>
@@ -261,7 +324,6 @@
         }
     }
 </div>
-
 
 @section Scripts {
     <script>

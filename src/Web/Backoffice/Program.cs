@@ -45,6 +45,9 @@ builder.Services.AddRazorPages(opciones =>
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
 });
 
+// Fábrica de clientes HTTP (requerida por LoginModel y clientes de integración)
+builder.Services.AddHttpClient();
+
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
 var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", true);
 
