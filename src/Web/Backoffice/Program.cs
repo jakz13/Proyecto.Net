@@ -1,4 +1,8 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using UltimaMilla.Backoffice.Pages;
+using UltimaMilla.Backoffice.Seguridad;
 using UltimaMilla.Frontend.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +48,32 @@ builder.Services.AddRazorPages(opciones =>
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
 var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", true);
 
+// Detrás del proxy inverso (Caddy) el esquema y la IP reales llegan en cabeceras X-Forwarded-*.
+// Solo Caddy alcanza este contenedor, por eso se aceptan sin lista de proxies conocidos.
+builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
+{
+    opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    opciones.KnownNetworks.Clear();
+    opciones.KnownProxies.Clear();
+});
+
+// Claves de las cookies de sesión en un volumen: así no se invalidan las sesiones al reiniciar el contenedor
+var rutaClaves = builder.Configuration["DataProtection:Path"];
+if (!string.IsNullOrWhiteSpace(rutaClaves))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("UltimaMilla.Backoffice")
+        .PersistKeysToFileSystem(new DirectoryInfo(rutaClaves));
+}
+
+// Con el modo demo apagado, las llamadas a la API llevan el JWT de la sesión del usuario
+if (!LoginModel.ModoDemoActivo(builder.Configuration))
+{
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddTransient<TokenApiHandler>();
+    builder.Services.ConfigureHttpClientDefaults(cliente => cliente.AddHttpMessageHandler<TokenApiHandler>());
+}
+
 if (usarMocks)
 {
     // Registra implementaciones simuladas en memoria para demo y desarrollo local
@@ -56,6 +86,8 @@ else
 }
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {

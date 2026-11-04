@@ -46,8 +46,9 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
 
             // Si el token es un token de sesión de desarrollo del Portal del Comercio o Backoffice (termina en .demo-firma-jwt o .demo-sig),
             // extraer los claims de su payload JSON en Base64Url para respetar el comercio_id y operador_id del usuario autenticado
-            if (tokenString.EndsWith(".demo-firma-jwt", StringComparison.OrdinalIgnoreCase) ||
-                tokenString.EndsWith(".demo-sig", StringComparison.OrdinalIgnoreCase))
+            if (ModoDemoPermitido() &&
+                (tokenString.EndsWith(".demo-firma-jwt", StringComparison.OrdinalIgnoreCase) ||
+                 tokenString.EndsWith(".demo-sig", StringComparison.OrdinalIgnoreCase)))
             {
                 var principalDemo = ExtraerClaimsDeTokenDemo(tokenString);
                 if (principalDemo is not null)
@@ -63,6 +64,12 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
             {
                 return Task.FromResult(AuthenticateResult.Fail("Token JWT inválido o expirado."));
             }
+        }
+
+        // Con el modo demo apagado (servidor desplegado) solo se acepta un JWT válido: no hay identidad por defecto
+        if (!ModoDemoPermitido())
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
         }
 
         // Modo de desarrollo / demo: lectura de cabeceras personalizadas de tenant y usuario
@@ -113,6 +120,13 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
+
+    /// <summary>
+    /// Lee <c>Auth:PermitirModoDemo</c> (por defecto <c>true</c>, para desarrollo local). En el servidor se apaga
+    /// con la variable de entorno <c>Auth__PermitirModoDemo=false</c>.
+    /// </summary>
+    private bool ModoDemoPermitido() =>
+        Context.RequestServices.GetRequiredService<IConfiguration>().GetValue("Auth:PermitirModoDemo", true);
 
     private static ClaimsPrincipal? ExtraerClaimsDeTokenDemo(string token)
     {

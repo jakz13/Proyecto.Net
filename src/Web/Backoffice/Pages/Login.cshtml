@@ -28,26 +28,53 @@
                     </svg>
                 </div>
                 <h1 class="h4 fw-bold mb-1">Acceso al Backoffice</h1>
-                <p class="text-muted small mb-0">Seleccione el perfil para simular el inicio de sesión del operador.</p>
+                @if (Model.ModoDemo)
+                {
+                    <p class="text-muted small mb-0">Seleccione el perfil para simular el inicio de sesión del operador.</p>
+                }
+                else
+                {
+                    <p class="text-muted small mb-0">Ingrese con su correo y contraseña.</p>
+                }
             </div>
 
-            <form method="post">
-                <div class="mb-3">
-                    <label asp-for="NombreUsuario" class="form-label small fw-semibold">Nombre del Operario</label>
-                    <input asp-for="NombreUsuario" class="form-control" />
-                </div>
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <div class="alert alert-danger small py-2" role="alert">@Model.Error</div>
+            }
 
-                <div class="mb-4">
-                    <label asp-for="RolSeleccionado" class="form-label small fw-semibold">Perfil / Rol a asumir</label>
-                    <select asp-for="RolSeleccionado" class="form-select">
-                        <option value="Administrador">Administrador</option>
-                        <option value="Despachador">Despachador</option>
-                        <option value="Operario">Operario de depósito</option>
-                    </select>
-                    <div class="form-text small">
-                        El menú del sistema se adaptará dinámicamente según el rol seleccionado.
+            <form method="post">
+                @if (Model.ModoDemo)
+                {
+                    <div class="mb-3">
+                        <label asp-for="NombreUsuario" class="form-label small fw-semibold">Nombre del Operario</label>
+                        <input asp-for="NombreUsuario" class="form-control" />
                     </div>
-                </div>
+
+                    <div class="mb-4">
+                        <label asp-for="RolSeleccionado" class="form-label small fw-semibold">Perfil / Rol a asumir</label>
+                        <select asp-for="RolSeleccionado" class="form-select">
+                            <option value="Administrador">Administrador</option>
+                            <option value="Despachador">Despachador</option>
+                            <option value="Operario">Operario de depósito</option>
+                        </select>
+                        <div class="form-text small">
+                            El menú del sistema se adaptará dinámicamente según el rol seleccionado.
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label small fw-semibold">Correo electrónico</label>
+                        <input asp-for="Email" type="email" class="form-control" autocomplete="username" required />
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Password" class="form-label small fw-semibold">Contraseña</label>
+                        <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" required />
+                    </div>
+                }
 
                 <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold">
                     Iniciar Sesión

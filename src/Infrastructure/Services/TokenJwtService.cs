@@ -21,7 +21,27 @@ public class TokenJwtService : ITokenJwtService
 
     public const string ClaveSecretaPorDefecto = "ClaveSecretaSuperSeguraParaDesarrolloLocalUltimaMilla2026!Minimo32Bytes";
 
+    // Clave con la que ValidarYExtraerClaims (estático) verifica la firma. La fija la API al arrancar para que
+    // emisor y validador usen siempre la misma; si no se inicializa, rige la clave por defecto de desarrollo.
+    private static string? _claveGlobal;
+
     public TokenJwtService(IConfiguration configuration)
+    {
+        _claveSecreta = ResolverClave(configuration);
+        _emisor = configuration["Jwt:Issuer"] ?? "UltimaMilla.Api";
+        _audiencia = configuration["Jwt:Audience"] ?? "UltimaMilla.Clients";
+    }
+
+    /// <summary>
+    /// Fija la clave de validación a partir de la configuración. Debe llamarse una vez al iniciar la aplicación
+    /// que valida tokens (la API), antes de atender solicitudes.
+    /// </summary>
+    public static void InicializarClaveGlobal(IConfiguration configuration)
+    {
+        _claveGlobal = ResolverClave(configuration);
+    }
+
+    private static string ResolverClave(IConfiguration configuration)
     {
         var claveConfigurada = configuration["Jwt:SecretKey"]
             ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
@@ -32,13 +52,13 @@ public class TokenJwtService : ITokenJwtService
             throw new InvalidOperationException("Debe configurarse 'Jwt:SecretKey' (o variable de entorno JWT_SECRET_KEY) con al menos 32 caracteres.");
         }
 
-        _claveSecreta = !string.IsNullOrWhiteSpace(claveConfigurada) ? claveConfigurada : ClaveSecretaPorDefecto;
-        if (_claveSecreta.Length < 32)
+        var clave = !string.IsNullOrWhiteSpace(claveConfigurada) ? claveConfigurada : ClaveSecretaPorDefecto;
+        if (clave.Length < 32)
         {
             throw new InvalidOperationException("La clave secreta JWT debe poseer al menos 32 caracteres para HMAC-SHA256.");
         }
-        _emisor = configuration["Jwt:Issuer"] ?? "UltimaMilla.Api";
-        _audiencia = configuration["Jwt:Audience"] ?? "UltimaMilla.Clients";
+
+        return clave;
     }
 
     public TokenGeneradoDto GenerarToken(
@@ -115,7 +135,7 @@ public class TokenJwtService : ITokenJwtService
         var payloadBase64 = partes[1];
         var firmaBase64 = partes[2];
 
-        var clave = claveSecreta ?? ClaveSecretaPorDefecto;
+        var clave = claveSecreta ?? _claveGlobal ?? ClaveSecretaPorDefecto;
         var contenidoFirmado = $"{headerBase64}.{payloadBase64}";
         var firmaEsperadaBytes = CalcularHmacSha256(contenidoFirmado, clave);
         var firmaEsperadaBase64 = CodificarBase64Url(firmaEsperadaBytes);
