@@ -7,28 +7,6 @@ using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
-public class EfCuadroTarifarioRepository : ICuadroTarifarioRepository
-{
-    private readonly AppDbContext _dbContext;
-
-    public EfCuadroTarifarioRepository(AppDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
-
-    public async Task<CuadroTarifario?> GetVigenteAsync(Guid operadorId, DateTime fechaUtc, CancellationToken cancellationToken = default)
-    {
-        // El operador llega explícito (también desde el canal por clave de API, que no tiene inquilino)
-        return await _dbContext.CuadrosTarifarios
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(c => c.OperadorId == operadorId
-                        && c.VigenteDesde <= fechaUtc
-                        && (c.VigenteHasta == null || c.VigenteHasta >= fechaUtc))
-            .OrderByDescending(c => c.Version)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-}
 
 public class EfDestinatarioRepository : IDestinatarioRepository
 {

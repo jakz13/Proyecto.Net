@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IPosicionVehiculoRepository, EfPosicionVehiculoRepository>();
         services.AddScoped<IVehiculoRepository, EfVehiculoRepository>();
         services.AddScoped<IFranjaHorariaRepository, EfFranjaHorariaRepository>();
+        services.AddScoped<IZonaCoberturaRepository, EfZonaCoberturaRepository>();
         services.AddScoped<ICuadroTarifarioRepository, EfCuadroTarifarioRepository>();
         services.AddScoped<IDestinatarioRepository, EfDestinatarioRepository>();
         services.AddScoped<IDireccionRepository, EfDireccionRepository>();
