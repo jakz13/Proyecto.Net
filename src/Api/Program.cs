@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -8,6 +9,7 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 using UltimaMilla.Api.Auth;
 using UltimaMilla.Api.Backoffice;
 using UltimaMilla.Api.Endpoints;
+using UltimaMilla.Api.Health;
 using UltimaMilla.Api.Hubs;
 using UltimaMilla.Api.Services;
 using UltimaMilla.Application.Ports;
@@ -22,6 +24,9 @@ using UltimaMilla.Infrastructure;
 using UltimaMilla.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// El validador de tokens usa la misma clave configurada (Jwt:SecretKey) con la que se firman al iniciar sesión
+UltimaMilla.Infrastructure.Services.TokenJwtService.InicializarClaveGlobal(builder.Configuration);
 
 // Add services
 builder.Services.AddEndpointsApiExplorer();
@@ -120,6 +125,13 @@ if (!string.IsNullOrWhiteSpace(redisBackplane))
 
 builder.Services.AddScoped<ITableroRealtimeNotifier, SignalRTableroNotifier>();
 
+// Puntos de verificación de salud para el balanceador: /live (proceso), /ready (base de datos) y /health (todo)
+builder.Services.AddHealthChecks()
+    .AddCheck<BaseDatosHealthCheck>("postgres", tags: new[] { "ready" });
+
+// Apagado controlado: da tiempo a terminar las solicitudes en curso cuando el contenedor recibe SIGTERM
+builder.Services.Configure<HostOptions>(opciones => opciones.ShutdownTimeout = TimeSpan.FromSeconds(30));
+
 // CORS restringido a los orígenes de las aplicaciones web (configurable: Cors:AllowedOrigins)
 var origenesPermitidos = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5002", "http://localhost:5003", "http://localhost:5004", "https://localhost:7002", "https://localhost:7003", "https://localhost:7004" };
@@ -184,6 +196,10 @@ app.UseAuthorization();
 
 // Auto-migrate database on startup with resilience retry and idempotent seed data
 await ApplyMigrationsAsync(app);
+
+app.MapHealthChecks("/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/ready", new HealthCheckOptions { Predicate = verificacion => verificacion.Tags.Contains("ready") });
+app.MapHealthChecks("/health");
 
 // Custom CSS for modern Swagger UI
 app.MapGet("/swagger-custom.css", () =>

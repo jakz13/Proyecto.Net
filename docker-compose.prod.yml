@@ -1,0 +1,174 @@
+# Despliegue en la VM de Oracle Cloud (1 GB de RAM + swap): dos instancias de la API detrás de Caddy.
+#
+# Las imágenes se construyen en la PC (no en la VM, que no tiene memoria para compilar .NET):
+#   docker compose -f docker-compose.prod.yml build
+#   docker save ultimamilla/api ultimamilla/worker ultimamilla/backoffice | ssh ubuntu@IP "docker load"
+# En la VM:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Variables requeridas en .env.prod: DOMINIO, POSTGRES_PASSWORD, RABBITMQ_PASSWORD, JWT_SECRET
+# Solo Caddy publica puertos (80/443). Todo lo demás queda en la red interna.
+x-api: &api
+  image: ultimamilla/api:latest
+  build:
+    context: .
+    dockerfile: src/Api/Dockerfile
+  restart: unless-stopped
+  stop_grace_period: 40s
+  environment: &api-env
+    ASPNETCORE_ENVIRONMENT: Production
+    ASPNETCORE_HTTP_PORTS: "8080"
+    ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD}
+    ConnectionStrings__Redis: redis:6379
+    Cors__AllowedOrigins__0: https://${DOMINIO:?definir DOMINIO}
+    # Sin identidad por defecto: solo se acepta un JWT válido emitido por /api/v1/auth/login
+    Auth__PermitirModoDemo: "false"
+    Jwt__SecretKey: ${JWT_SECRET:?definir JWT_SECRET (mínimo 32 caracteres)}
+    Jwt__RequireConfiguredSecret: "true"
+    DOTNET_GCConserveMemory: "7"
+    DOTNET_TieredPGO: "0"
+  mem_limit: 256m
+  networks: [interna]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ultimamilla
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=192MB
+      -c work_mem=2MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=40
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ultimamilla"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    networks: [interna]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "32mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    mem_limit: 48m
+    networks: [interna]
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ultimamilla
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?definir RABBITMQ_PASSWORD}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit vm_memory_high_watermark 0.25"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    mem_limit: 320m
+    networks: [interna]
+
+  # Instancia 1: aplica las migraciones al arrancar. La instancia 2 espera a que esta esté sana
+  # para que las dos no migren la base a la vez.
+  api1:
+    <<: *api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck: &api-health
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /live HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q \" 200 \" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  api2:
+    <<: *api
+    depends_on:
+      api1:
+        condition: service_healthy
+    healthcheck: *api-health
+
+  worker:
+    image: ultimamilla/worker:latest
+    build:
+      context: .
+      dockerfile: src/Worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD}
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: ultimamilla
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      DOTNET_GCConserveMemory: "7"
+    depends_on:
+      api1:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    mem_limit: 192m
+    networks: [interna]
+
+  backoffice:
+    image: ultimamilla/backoffice:latest
+    build:
+      context: .
+      dockerfile: src/Web/Backoffice/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # El backoffice habla con la API a través del balanceador interno de Caddy (puerto 8081)
+      ApiSettings__BaseUrl: http://caddy:8081
+      # Dirección de la API que alcanza el navegador (SignalR del tablero)
+      ApiSettings__BaseUrlPublica: https://${DOMINIO}
+      UsarMocks: "false"
+      Auth__PermitirModoDemo: "false"
+      Jwt__SecretKey: ${JWT_SECRET:?definir JWT_SECRET (mínimo 32 caracteres)}
+      Jwt__RequireConfiguredSecret: "true"
+      DataProtection__Path: /keys
+      DOTNET_GCConserveMemory: "7"
+    volumes:
+      - backoffice_keys:/keys
+    depends_on:
+      - caddy
+    mem_limit: 192m
+    networks: [interna]
+
+  # Proxy inverso y balanceador: HTTPS automático (Let's Encrypt) y reparto entre api1 y api2.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 64m
+    networks: [interna]
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  backoffice_keys:
+  caddy_data:
+  caddy_config:
+
+networks:
+  interna:
+    driver: bridge

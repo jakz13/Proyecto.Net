@@ -1,0 +1,35 @@
+# Balanceador y proxy inverso de producción.
+# {$DOMINIO} lo toma de la variable de entorno; Caddy obtiene y renueva el certificado solo.
+
+# Interno (sin publicar): balanceador que usa el backoffice para llegar a la API.
+:8081 {
+	reverse_proxy api1:8080 api2:8080 {
+		lb_policy round_robin
+		health_uri /ready
+		health_interval 10s
+		health_timeout 3s
+		lb_try_duration 5s
+	}
+}
+
+{$DOMINIO} {
+	encode gzip
+
+	# La API (REST, SignalR y salud) se reparte entre las dos instancias.
+	# lb_policy cookie mantiene a cada cliente en la misma instancia (necesario para SignalR).
+	@api path /api/* /hubs/* /swagger* /health /ready /live
+	handle @api {
+		reverse_proxy api1:8080 api2:8080 {
+			lb_policy cookie
+			health_uri /ready
+			health_interval 10s
+			health_timeout 3s
+			lb_try_duration 5s
+		}
+	}
+
+	# El resto es el backoffice (Razor Pages)
+	handle {
+		reverse_proxy backoffice:8080
+	}
+}
