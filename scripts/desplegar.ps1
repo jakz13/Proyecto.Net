@@ -15,15 +15,17 @@
     .\scripts\desplegar.ps1                       # api, worker y backoffice
     .\scripts\desplegar.ps1 -Servicios api        # solo la API (lo más rápido)
     .\scripts\desplegar.ps1 -Servicios backoffice
+    .\scripts\desplegar.ps1 -Servicios portal
 #>
 param(
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
-    [ValidateSet('api', 'worker', 'backoffice')]
-    [string[]]$Servicios = @('api', 'worker', 'backoffice'),
+    [ValidateSet('api', 'worker', 'backoffice', 'portal')]
+    [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal'),
 
     [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '152.70.219.103' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\oracle_ultimamilla" }),
-    [string]$Dominio = 'shippingbox.duckdns.org'
+    [string]$Dominio = 'shippingbox.duckdns.org',
+    [string]$DominioComercio = 'shippingbox-comercio.duckdns.org'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,16 +61,16 @@ if (-not (Test-DockerResponde)) {
 Write-Host 'Docker listo.'
 
 # ---------------------------------------------------------------- Construcción
-# api -> servicio de compose api1 (api1 y api2 comparten la misma imagen)
-$mapaServicio = @{ api = 'api1'; worker = 'worker'; backoffice = 'backoffice' }
+# api -> servicio de compose api1; portal -> portal-comercio (api1 y api2 comparten la misma imagen)
+$mapaServicio = @{ api = 'api1'; worker = 'worker'; backoffice = 'backoffice'; portal = 'portal-comercio' }
 $serviciosCompose = $Servicios | ForEach-Object { $mapaServicio[$_] }
-$imagenes = $Servicios | ForEach-Object { "ultimamilla/${_}:latest" }
+$imagenes = $serviciosCompose | ForEach-Object { if ($_ -eq 'api1') { 'ultimamilla/api:latest' } else { "ultimamilla/${_}:latest" } }
 
 Paso "Construyendo imágenes: $($Servicios -join ', ')"
 # El compose exige estas variables al interpolarse; para construir sus valores no importan
 $respaldo = @{}
-foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
-$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'
+foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
+$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'
 try {
     docker compose -f docker-compose.prod.yml build @serviciosCompose
     Verificar 'docker compose build'
@@ -121,17 +123,24 @@ ssh @opcionesSsh $destino "echo $b64 | base64 -d | bash"
 Verificar 'reinicio en la VM'
 
 # ---------------------------------------------------------------- Verificación
-Paso "Verificando https://$Dominio/ready"
-$codigo = 0
-foreach ($intento in 1..12) {
-    try { $codigo = (Invoke-WebRequest "https://$Dominio/ready" -UseBasicParsing -TimeoutSec 15).StatusCode }
-    catch { $codigo = 0 }
-    if ($codigo -eq 200) { break }
-    Start-Sleep 5
+function Esperar200($url) {
+    $codigo = 0
+    foreach ($intento in 1..12) {
+        try { $codigo = (Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 15).StatusCode }
+        catch { $codigo = 0 }
+        if ($codigo -eq 200) { break }
+        Start-Sleep 5
+    }
+    return $codigo
 }
-if ($codigo -eq 200) {
-    Write-Host "`nDespliegue terminado: https://$Dominio responde 200." -ForegroundColor Green
+$sitios = @("https://$Dominio/ready")
+if ($Servicios -contains 'portal') { $sitios += "https://$DominioComercio/" }
+foreach ($url in $sitios) {
+    Paso "Verificando $url"
+    $codigo = Esperar200 $url
+    if ($codigo -ne 200) {
+        throw "$url no respondió 200 (último código: $codigo). Revisá los logs: ssh -i `"$Clave`" $destino 'cd shippingbox && docker compose -f docker-compose.prod.yml --env-file .env.prod logs --tail 50'"
+    }
+    Write-Host "  $url responde 200." -ForegroundColor Green
 }
-else {
-    throw "El sitio no respondió 200 en /ready (último código: $codigo). Revisá los logs: ssh -i `"$Clave`" $destino 'cd shippingbox && docker compose -f docker-compose.prod.yml --env-file .env.prod logs --tail 50'"
-}
+Write-Host "`nDespliegue terminado." -ForegroundColor Green

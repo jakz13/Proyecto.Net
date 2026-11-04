@@ -33,3 +33,23 @@
 		reverse_proxy backoffice:8080
 	}
 }
+
+# Portal del comercio en su propio dominio. La API se sirve también aquí (mismo origen para el navegador).
+{$DOMINIO_COMERCIO} {
+	encode gzip
+
+	@api path /api/* /hubs/*
+	handle @api {
+		reverse_proxy api1:8080 api2:8080 {
+			lb_policy cookie
+			health_uri /ready
+			health_interval 10s
+			health_timeout 3s
+			lb_try_duration 5s
+		}
+	}
+
+	handle {
+		reverse_proxy portal-comercio:8080
+	}
+}
