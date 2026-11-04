@@ -465,8 +465,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
                 CodigoSeguimiento = codigoSeguimientoReal,
                 NotasComercio = p.NotasComercio ?? string.Empty,
-                Latitud = DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Latitud,
-                Longitud = DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Longitud,
+                Latitud = p.Latitud != 0 ? p.Latitud : DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Latitud,
+                Longitud = p.Longitud != 0 ? p.Longitud : DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Longitud,
                 Bultos = bultoItems
             };
 

@@ -1,10 +1,12 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.Services.Sync;
@@ -32,6 +34,7 @@ public interface ISyncService
     bool IsOfflineSimulado { get; set; }
     bool IsOnline { get; }
     bool IsSyncing { get; }
+    RutaActivaRepartidorDto? UltimaRutaDescargada { get; }
 
     event EventHandler<SyncStateChangedEventArgs>? OnSyncStateChanged;
 
@@ -46,6 +49,7 @@ public class SyncService : ISyncService, IDisposable
 {
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAuthService _authService;
     private readonly ILogger<SyncService> _logger;
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
 
@@ -54,6 +58,8 @@ public class SyncService : ISyncService, IDisposable
     private bool _disposed;
 
     public event EventHandler<SyncStateChangedEventArgs>? OnSyncStateChanged;
+
+    public RutaActivaRepartidorDto? UltimaRutaDescargada { get; private set; }
 
     public bool IsOfflineSimulado
     {
@@ -80,10 +86,12 @@ public class SyncService : ISyncService, IDisposable
     public SyncService(
         ILocalDatabaseService localDatabaseService,
         IHttpClientFactory httpClientFactory,
+        IAuthService authService,
         ILogger<SyncService> logger)
     {
         _localDatabaseService = localDatabaseService;
         _httpClientFactory = httpClientFactory;
+        _authService = authService;
         _logger = logger;
 
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
@@ -129,43 +137,93 @@ public class SyncService : ISyncService, IDisposable
     }
 
     /// <summary>
-    /// UC-17: Descarga la hoja de ruta desde el backend hacia SQLite si hay conexión.
-    /// Si no hay red o está en modo offline simulado, hace fallback transparente leyendo de SQLite.
+    /// Descarga dinámicamente la hoja de ruta activa del repartidor autenticado desde GET /api/mobile/v1/rutas/activa
+    /// y la persiste en SQLite cifrado. Si el dispositivo está en modo offline o sin señal, recupera la última ruta sincronizada en SQLite.
     /// </summary>
     public async Task<List<ParadaItemViewModel>> DescargarRutaDelDiaAsync(Guid? hojaDeRutaId = null, CancellationToken cancellationToken = default)
     {
-        var targetRutaId = hojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
-
-        // Si estamos Online, intentamos consultar el endpoint oficial
         if (IsOnline)
         {
             try
             {
-                _logger.LogInformation("Descargando hoja de ruta {RutaId} desde backend...", targetRutaId);
                 var client = _httpClientFactory.CreateClient("BackendApi");
-                var url = $"/api/mobile/v1/rutas/{targetRutaId}/paradas";
+                client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
-                var paradasDto = await client.GetFromJsonAsync<List<ParadaNavegacionDto>>(url, cancellationToken);
-                if (paradasDto != null && paradasDto.Count > 0)
+                // 1. Consultar endpoint autenticado de ruta activa del repartidor
+                var responseActiva = await client.GetAsync("/api/mobile/v1/rutas/activa", cancellationToken);
+                if (responseActiva.IsSuccessStatusCode)
                 {
-                    await _localDatabaseService.GuardarRutaDescargadaAsync(targetRutaId, paradasDto);
-                    _logger.LogInformation("Hoja de ruta {RutaId} descargada y persistida en SQLite ({Count} paradas).", targetRutaId, paradasDto.Count);
-
-                    var localActualizado = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
-                    if (localActualizado != null && localActualizado.Paradas.Count > 0)
+                    var rutaActiva = await responseActiva.Content.ReadFromJsonAsync<RutaActivaRepartidorDto>(JsonOptions, cancellationToken);
+                    if (rutaActiva != null && rutaActiva.HojaDeRutaId != Guid.Empty)
                     {
-                        await NotificarCambioEstadoAsync("Ruta actualizada desde backend.");
-                        return localActualizado.Paradas;
+                        UltimaRutaDescargada = rutaActiva;
+                        if (rutaActiva.RepartidorId != Guid.Empty)
+                        {
+                            await _authService.ActualizarRepartidorIdAsync(rutaActiva.RepartidorId);
+                        }
+
+                        List<MotivoNoEntregaLocal>? motivosLocal = null;
+                        if (rutaActiva.MotivosNoEntrega is { Count: > 0 })
+                        {
+                            motivosLocal = rutaActiva.MotivosNoEntrega
+                                .Select(m => new MotivoNoEntregaLocal
+                                {
+                                    Id = m.Id,
+                                    Codigo = m.Codigo,
+                                    Descripcion = m.Descripcion,
+                                    Activo = true
+                                })
+                                .ToList();
+                        }
+
+                        await _localDatabaseService.GuardarRutaDescargadaAsync(
+                            rutaActiva.HojaDeRutaId,
+                            rutaActiva.Paradas,
+                            motivosLocal);
+
+                        _logger.LogInformation(
+                            "Hoja de ruta activa {RutaId} descargada para el repartidor {RepartidorId} ({Count} paradas).",
+                            rutaActiva.HojaDeRutaId,
+                            rutaActiva.RepartidorId,
+                            rutaActiva.Paradas.Count);
+
+                        var localActualizado = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                        if (localActualizado != null)
+                        {
+                            await NotificarCambioEstadoAsync("Ruta activa sincronizada con el servidor.");
+                            return localActualizado.Paradas;
+                        }
+                    }
+                }
+                else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound && !hojaDeRutaId.HasValue)
+                {
+                    _logger.LogInformation("El repartidor autenticado no posee una hoja de ruta activa en el servidor (404).");
+                    await NotificarCambioEstadoAsync("Sin hoja de ruta activa asignada.");
+                    return new List<ParadaItemViewModel>();
+                }
+                else if (hojaDeRutaId.HasValue && hojaDeRutaId.Value != Guid.Empty)
+                {
+                    var url = $"/api/mobile/v1/rutas/{hojaDeRutaId.Value}/paradas";
+                    var paradasDto = await client.GetFromJsonAsync<List<ParadaNavegacionDto>>(url, cancellationToken);
+                    if (paradasDto != null && paradasDto.Count > 0)
+                    {
+                        await _localDatabaseService.GuardarRutaDescargadaAsync(hojaDeRutaId.Value, paradasDto);
+                        var localActualizado = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                        if (localActualizado != null && localActualizado.Paradas.Count > 0)
+                        {
+                            await NotificarCambioEstadoAsync("Ruta actualizada desde backend.");
+                            return localActualizado.Paradas;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No fue posible descargar la ruta desde backend en {RutaId}. Continuando en modo offline local.", targetRutaId);
+                _logger.LogWarning(ex, "No fue posible descargar la ruta activa desde el servidor. Utilizando almacenamiento local SQLite.");
             }
         }
 
-        // Fallback transparente: Recuperar desde SQLite local cifrado
+        // Fallback Offline-First: Recuperar la última ruta sincronizada desde SQLite local cifrado
         var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
         if (local != null && local.Paradas.Count > 0)
         {
@@ -174,11 +232,7 @@ public class SyncService : ISyncService, IDisposable
             return local.Paradas;
         }
 
-        // Si la base local estuviera completamente vacía (primera instalación sin red):
-        await _localDatabaseService.SeedRutaDemoSiEstaVaciaAsync();
-        var seedData = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
-        await NotificarCambioEstadoAsync("Ruta demo inicializada localmente.");
-        return seedData?.Paradas ?? new List<ParadaItemViewModel>();
+        return new List<ParadaItemViewModel>();
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -221,8 +275,12 @@ public class SyncService : ISyncService, IDisposable
                 return new SyncResult(0, 0, 0, false, "No hay operaciones pendientes de sincronización.", detallesErrores);
             }
 
+            var rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+            var rutaActivaId = rutaLocal?.Ruta?.Id ?? UltimaRutaDescargada?.HojaDeRutaId ?? Guid.Empty;
+
             _logger.LogInformation("Iniciando envío FIFO de {Count} operaciones pendientes...", pendientes.Count);
             var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
             foreach (var op in pendientes)
             {
@@ -243,6 +301,7 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<ConfirmarCargaOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
+                                var targetRutaId = payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : rutaActivaId;
                                 var req = new
                                 {
                                     CodigosBultosCargados = payload.CodigosBultosCargados,
@@ -250,7 +309,7 @@ public class SyncService : ISyncService, IDisposable
                                     ObservacionesDiscrepancia = payload.ObservacionesDiscrepancia
                                 };
 
-                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/carga/confirmar";
+                                var url = $"/api/mobile/v1/rutas/{targetRutaId}/carga/confirmar";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "ConfirmarCarga", detallesErrores, cancellationToken);
                                 if (ok) exitosas++; else erroresNegocio++;
@@ -263,6 +322,7 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<SeleccionarParadaOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
+                                var targetRutaId = payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : rutaActivaId;
                                 var req = new
                                 {
                                     LatitudActual = payload.LatitudActual,
@@ -271,7 +331,7 @@ public class SyncService : ISyncService, IDisposable
                                     Accion = payload.Accion
                                 };
 
-                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/seleccionar";
+                                var url = $"/api/mobile/v1/rutas/{targetRutaId}/paradas/{payload.ParadaId}/seleccionar";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "SeleccionarParada", detallesErrores, cancellationToken);
                                 if (ok) exitosas++; else erroresNegocio++;
@@ -284,12 +344,8 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<EntregaExitosaOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
-                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
-                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada2Id;
-                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio2Id;
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
                                 if (string.IsNullOrWhiteSpace(payload.IdempotencyKey)) payload.IdempotencyKey = $"ENTREGA-{payload.ParadaId:N}-{DateTime.UtcNow.Ticks}";
-                                if (string.IsNullOrWhiteSpace(payload.NombreReceptor)) payload.NombreReceptor = "Lucía Fernández";
-                                if (string.IsNullOrWhiteSpace(payload.DocumentoReceptor)) payload.DocumentoReceptor = "4.567.890-1";
 
                                 var req = new
                                 {
@@ -331,13 +387,9 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<IntentoFallidoOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
-                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
-                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada3Id;
-                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio3Id;
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
                                 if (string.IsNullOrWhiteSpace(payload.IdempotencyKey)) payload.IdempotencyKey = $"FALLO-{payload.ParadaId:N}-{DateTime.UtcNow.Ticks}";
                                 if (string.IsNullOrWhiteSpace(payload.MotivoCodigo)) payload.MotivoCodigo = "CLI_AUSENTE";
-                                if (!payload.MotivoNoEntregaId.HasValue || payload.MotivoNoEntregaId.Value == Guid.Empty)
-                                    payload.MotivoNoEntregaId = Guid.Parse("dddddddd-0001-0000-0000-000000000001");
                                 if (string.IsNullOrWhiteSpace(payload.Observaciones)) payload.Observaciones = "No atiende en domicilio";
 
                                 var req = new
@@ -396,9 +448,7 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<RetiroDevolucionOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
-                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
-                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada3Id;
-                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio3Id;
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
                                 if (string.IsNullOrWhiteSpace(payload.IdempotencyKey)) payload.IdempotencyKey = $"RET-DEV-{payload.ParadaId:N}-{DateTime.UtcNow.Ticks}";
 
                                 var req = new
@@ -438,9 +488,7 @@ public class SyncService : ISyncService, IDisposable
                             var payload = JsonSerializer.Deserialize<EventoGeocercaOfflinePayload>(op.PayloadJson, JsonOptions);
                             if (payload != null)
                             {
-                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId;
-                                if (payload.ParadaId == Guid.Empty) payload.ParadaId = DemoDataDefaults.Parada1Id;
-                                if (payload.EnvioId == Guid.Empty) payload.EnvioId = DemoDataDefaults.Envio1Id;
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
                                 if (string.IsNullOrWhiteSpace(payload.IdempotencyKey))
                                     payload.IdempotencyKey = $"GEO-{payload.TipoEvento}-{payload.ParadaId:N}-{payload.TimestampUtc.Ticks}";
 
@@ -554,6 +602,7 @@ public class SyncService : ISyncService, IDisposable
         try
         {
             var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
             var response = await client.PostAsync("/api/mobile/v1/demo/reset", null, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
@@ -571,6 +620,10 @@ public class SyncService : ISyncService, IDisposable
         }
 
         await _localDatabaseService.ReiniciarDatosDemoLocalAsync();
+        if (IsOnline)
+        {
+            await DescargarRutaDelDiaAsync(null, cancellationToken);
+        }
         await NotificarCambioEstadoAsync("Datos de demo reiniciados local y remotamente.");
 
         return $"{msgBackend}Base SQLite local reiniciada con éxito (cola en 0).";

@@ -6,14 +6,27 @@ public class AuthDelegatingHandler : DelegatingHandler
 {
     public const string AuthTokenKey = "auth_token";
 
+    /// <summary>
+    /// Caché en memoria del token JWT activo para inyección inmediata en todas las peticiones HTTP,
+    /// respaldado por SecureStorage del sistema operativo.
+    /// </summary>
+    public static string? CurrentTokenInMemory { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         try
         {
-            // RNF 6.3: Recuperación segura del token JWT persistido
-            var token = await SecureStorage.Default.GetAsync(AuthTokenKey);
+            var token = CurrentTokenInMemory;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                token = await SecureStorage.Default.GetAsync(AuthTokenKey);
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    CurrentTokenInMemory = token;
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(token))
             {
@@ -22,7 +35,10 @@ public class AuthDelegatingHandler : DelegatingHandler
         }
         catch (Exception)
         {
-            // Si SecureStorage no está disponible o falla, la petición continúa sin token
+            if (!string.IsNullOrWhiteSpace(CurrentTokenInMemory))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CurrentTokenInMemory);
+            }
         }
 
         return await base.SendAsync(request, cancellationToken);

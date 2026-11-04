@@ -1,11 +1,16 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Configuration;
+using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Sync;
 
 namespace UltimaMilla.Mobile.ViewModels.Auth;
 
 public partial class LoginViewModel : ObservableObject
 {
+    private readonly IAuthService? _authService;
+    private readonly ISyncService? _syncService;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     private bool _isBusy;
@@ -19,10 +24,58 @@ public partial class LoginViewModel : ObservableObject
     private string _password = string.Empty;
 
     [ObservableProperty]
+    private string _servidorActivo = ApiEndpoints.BaseUrl;
+
+    [ObservableProperty]
+    private string _tipoServidorTexto = ApiEndpoints.EsServidorNube ? "Nube" : "Local";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _errorMessage;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStatus))]
     private string? _statusMessage;
+
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+
+    public bool HasStatus => !string.IsNullOrWhiteSpace(StatusMessage);
+
+    public LoginViewModel() : this(null, null)
+    {
+    }
+
+    public LoginViewModel(IAuthService? authService, ISyncService? syncService = null)
+    {
+        _authService = authService;
+        _syncService = syncService;
+    }
+
+    [RelayCommand]
+    private void AlternarServidor()
+    {
+        if (ApiEndpoints.EsServidorNube)
+        {
+            ApiEndpoints.UsarServidorLocal();
+        }
+        else
+        {
+            ApiEndpoints.UsarServidorNube();
+        }
+
+        ServidorActivo = ApiEndpoints.BaseUrl;
+        TipoServidorTexto = ApiEndpoints.EsServidorNube ? "Nube" : "Local";
+        StatusMessage = $"Servidor configurado: {TipoServidorTexto} ({ServidorActivo})";
+    }
+
+    [RelayCommand]
+    private void CargarCredencialesDemo()
+    {
+        ErrorMessage = null;
+        Usuario = AuthService.DemoRepartidorEmail;
+        Password = AuthService.DemoRepartidorPassword;
+        StatusMessage = "Credenciales de demostración cargadas.";
+    }
 
     [RelayCommand]
     private async Task LoginAsync()
@@ -35,42 +88,71 @@ public partial class LoginViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(Usuario) || string.IsNullOrWhiteSpace(Password))
         {
-            ErrorMessage = "Debe ingresar usuario y contraseña.";
+            ErrorMessage = "Debe ingresar su usuario/email y contraseña.";
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Datos Requeridos",
+                    ErrorMessage,
+                    "Aceptar");
+            }
             return;
         }
 
         try
         {
             IsBusy = true;
-            StatusMessage = "Conectando con el servidor...";
+            StatusMessage = "Verificando credenciales con el servidor...";
 
-            // Simulación de latencia de red de 2 segundos (backend mockeado)
-            await Task.Delay(2000);
+            if (_authService is null)
+            {
+                ErrorMessage = "El servicio de autenticación no se encuentra disponible.";
+                return;
+            }
 
-            // Generación de token JWT mockeado
-            var header = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"alg\":\"HS256\",\"typ\":\"JWT\"}"));
-            var payload = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(
-                $"{{\"sub\":\"{Usuario.Trim()}\",\"rol\":\"Repartidor\",\"iat\":{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}}"
-            ));
-            var fakeJwt = $"{header}.{payload}.mock_secure_signature_rnf6_3";
+            var resultado = await _authService.LoginAsync(Usuario.Trim(), Password);
 
-            // RNF 6.3: Almacenamiento seguro del token en SecureStorage
-            await SecureStorage.Default.SetAsync(AuthDelegatingHandler.AuthTokenKey, fakeJwt);
+            if (!resultado.Exitoso)
+            {
+                StatusMessage = null;
+                ErrorMessage = resultado.Mensaje;
 
-            StatusMessage = "Inicio de sesión exitoso. Credencial asegurada.";
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Error de Autenticación",
+                        resultado.Mensaje,
+                        "Aceptar");
+                }
+                return;
+            }
 
-            // Navegación post-login o feedback
+            StatusMessage = "Descargando hoja de ruta asignada...";
+
+            if (_syncService is not null)
+            {
+                await _syncService.DescargarRutaDelDiaAsync();
+            }
+
+            StatusMessage = "Sesión iniciada correctamente.";
+
             if (Shell.Current is not null)
             {
-                await Shell.Current.DisplayAlertAsync(
-                    "Bienvenido",
-                    $"Sesión iniciada como: {Usuario.Trim()}\nCredenciales de acceso verificadas correctamente.",
-                    "Continuar");
+                await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Error al iniciar sesión: {ex.Message}";
+            StatusMessage = null;
+            ErrorMessage = $"Error inesperado al iniciar sesión: {ex.Message}";
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Error de Inicio de Sesión",
+                    ErrorMessage,
+                    "Aceptar");
+            }
         }
         finally
         {

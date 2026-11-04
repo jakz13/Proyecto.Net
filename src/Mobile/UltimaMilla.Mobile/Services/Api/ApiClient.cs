@@ -25,7 +25,8 @@ public class ApiClient : IApiClient
     {
         try
         {
-            _logger.LogInformation("Enviando ping de conectividad a {Url}...", ApiEndpoints.MobilePing);
+            _httpClient.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+            _logger.LogInformation("Enviando ping de conectividad a {BaseUrl}{Url}...", ApiEndpoints.BaseUrl, ApiEndpoints.MobilePing);
             var response = await _httpClient.GetFromJsonAsync<MobileConnectivityDto>(
                 ApiEndpoints.MobilePing,
                 cancellationToken

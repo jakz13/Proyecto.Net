@@ -18,6 +18,7 @@ public partial class App : Application
 
         AplicarTokensSegunDisplay();
         window.SizeChanged += (_, _) => TokensResponsive.Aplicar(this, window.Width);
+        window.Created += async (_, _) => await _appShell.VerificarSesionInicialAsync();
 
         return window;
     }
@@ -36,5 +37,3 @@ public partial class App : Application
             TokensResponsive.Aplicar(this, display.Width / display.Density);
     }
 }
-
-

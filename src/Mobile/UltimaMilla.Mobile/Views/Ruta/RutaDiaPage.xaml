@@ -88,6 +88,23 @@
                                        VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
+
+                        <!-- Botón Cerrar Sesión -->
+                        <Border BackgroundColor="#F1F5F9"
+                                Stroke="#CBD5E1"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 20"
+                                Padding="10,5"
+                                VerticalOptions="Center">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding CerrarSesionCommand}" />
+                            </Border.GestureRecognizers>
+                            <Label Text="Cerrar Sesión"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="#334155"
+                                   VerticalOptions="Center" />
+                        </Border>
                     </HorizontalStackLayout>
                 </FlexLayout>
 

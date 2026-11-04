@@ -13,6 +13,7 @@ using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Mobile.DescargarHojasDeRuta;
 using UltimaMilla.Application.Queries.Mobile.Navegacion.ObtenerSecuenciaParadas;
+using UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Infrastructure.Persistence;
 
@@ -53,6 +54,48 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
+
+        // =========================================================================
+        // OBTENER HOJA DE RUTA ACTIVA DEL REPARTIDOR AUTENTICADO
+        // =========================================================================
+        var obtenerRutaActivaHandler = async (
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new ObtenerRutaActivaRepartidorQuery(), ct);
+                return Results.Ok(resultado);
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        };
+
+        app.MapGet("/api/mobile/v1/rutas/activa", obtenerRutaActivaHandler)
+            .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+            .RequireAuthorization()
+            .WithName("ObtenerRutaActivaRepartidor")
+            .WithSummary("Obtener la hoja de ruta activa del repartidor autenticado")
+            .WithDescription("Resuelve el RepartidorId a partir de los Claims del JWT y devuelve su hoja de ruta en estado Despachada o EnTransito junto con sus paradas ordenadas, bultos y destinatarios. Retorna 404 si no posee ruta activa.")
+            .Produces<RutaActivaRepartidorDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithOpenApi();
+
+        app.MapGet("/api/mobile/v1/rutas/mi-ruta-activa", obtenerRutaActivaHandler)
+            .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+            .RequireAuthorization()
+            .ExcludeFromDescription();
 
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")

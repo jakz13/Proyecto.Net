@@ -4,6 +4,7 @@ using Polly.Extensions.Http;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
+using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
 using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
@@ -41,6 +42,7 @@ public static class MauiProgram
 
         // 1. Almacenamiento Local Cifrado (RNF 6.11 - SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
+        builder.Services.AddSingleton<IAuthService, AuthService>();
 
         // 1b. Motor de Sincronización Resiliente Offline-First (UC-17 a UC-21)
         builder.Services.AddSingleton<ISyncService, SyncService>();

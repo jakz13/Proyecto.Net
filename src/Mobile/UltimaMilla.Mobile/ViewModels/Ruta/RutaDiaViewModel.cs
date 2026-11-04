@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
@@ -118,6 +119,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly ISyncService? _syncService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly IGeofenceService? _geofenceService;
+    private readonly IAuthService? _authService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -184,7 +186,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null)
     {
     }
 
@@ -192,12 +194,14 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         ILocalDatabaseService? localDatabaseService,
         ISyncService? syncService,
         IGeolocalizacionTrackingService? trackingService,
-        IGeofenceService? geofenceService = null)
+        IGeofenceService? geofenceService = null,
+        IAuthService? authService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _trackingService = trackingService;
         _geofenceService = geofenceService;
+        _authService = authService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -397,7 +401,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             if (rutaId == Guid.Empty)
                 rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
 
-            var repartidorId = DemoDataDefaults.DefaultRepartidorId;
+            var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
 
             if (!_trackingService.IsTrackingActive)
             {
@@ -479,6 +483,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         const string opcionSync = "Sincronizar Ahora con Backend";
         const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
+        const string opcionCerrarSesion = "Cerrar Sesión";
 
         var seleccion = await Shell.Current.DisplayActionSheetAsync(
             $"Conectividad y Cola Offline ({pendientes} pendientes)",
@@ -486,7 +491,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             null,
             opcionToggle,
             opcionSync,
-            opcionReset);
+            opcionReset,
+            opcionCerrarSesion);
 
         if (seleccion == opcionToggle && _syncService is not null)
         {
@@ -555,6 +561,28 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                     IsBusy = false;
                 }
             }
+        }
+        else if (seleccion == opcionCerrarSesion)
+        {
+            await CerrarSesionAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CerrarSesionAsync()
+    {
+        if (_trackingService is { IsTrackingActive: true })
+        {
+            await _trackingService.DetenerTrackingAsync();
+        }
+
+        if (_authService is not null)
+        {
+            await _authService.CerrarSesionAsync();
+        }
+        else if (Shell.Current is not null)
+        {
+            await Shell.Current.GoToAsync("//LoginPage");
         }
     }
 
@@ -724,7 +752,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 if (rutaId == Guid.Empty)
                     rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
 
-                await _trackingService.IniciarTrackingAsync(rutaId, DemoDataDefaults.DefaultRepartidorId);
+                var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
+                await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS en Vivo",
                     $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.",

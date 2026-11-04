@@ -26,4 +26,10 @@ public record CrearRepartidorDto
     public Guid? VehiculoAsignadoId { get; init; }
 
     public string Estado { get; init; } = "Disponible";
+
+    /// <summary>
+    /// Contraseña de acceso a la app móvil del repartidor. Si se omite, se asigna 'Repartidor.2026!'.
+    /// </summary>
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
+    public string? Password { get; init; }
 }

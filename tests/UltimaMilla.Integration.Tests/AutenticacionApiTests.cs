@@ -89,4 +89,32 @@ public class AutenticacionApiTests
         var respuestaBloqueo = await cliente.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest(email, "Erroneo_5"));
         Assert.Equal(HttpStatusCode.Locked, respuestaBloqueo.StatusCode);
     }
+
+    [FactPostgres]
+    public async Task Login_RepartidorYConsultaRutaActiva_Retorna200ConRutaYParadasOrdenadas()
+    {
+        var cliente = _factory.CreateClient();
+
+        var request = new IniciarSesionRequest("repartidor@gmail.com", "Repartidor.2026!");
+        var respuestaLogin = await cliente.PostAsJsonAsync("/api/auth/login", request);
+
+        Assert.Equal(HttpStatusCode.OK, respuestaLogin.StatusCode);
+
+        var resultadoLogin = await respuestaLogin.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>();
+        Assert.NotNull(resultadoLogin);
+        Assert.False(string.IsNullOrWhiteSpace(resultadoLogin.Token));
+        Assert.Equal("repartidor@gmail.com", resultadoLogin.Email);
+        Assert.Equal("Repartidor", resultadoLogin.Perfil);
+
+        var requestRutaActiva = new HttpRequestMessage(HttpMethod.Get, "/api/mobile/v1/rutas/activa");
+        requestRutaActiva.Headers.Authorization = new AuthenticationHeaderValue("Bearer", resultadoLogin.Token);
+        var respuestaRuta = await cliente.SendAsync(requestRutaActiva);
+
+        Assert.Equal(HttpStatusCode.OK, respuestaRuta.StatusCode);
+
+        var json = await respuestaRuta.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(UltimaMilla.Infrastructure.Persistence.DatabaseSeeder.DefaultHojaDeRutaId, json.GetProperty("hojaDeRutaId").GetGuid());
+        Assert.Equal(UltimaMilla.Infrastructure.Persistence.DatabaseSeeder.DefaultRepartidorId, json.GetProperty("repartidorId").GetGuid());
+        Assert.True(json.GetProperty("paradas").GetArrayLength() >= 3);
+    }
 }

@@ -13,7 +13,7 @@ public static class AuthEndpoints
         var group = app.MapGroup("/api/v1/auth")
             .WithTags("Autenticación y Autorización (UC-40)");
 
-        group.MapPost("/login", async (
+        var loginHandler = async (
             [FromBody] IniciarSesionRequest request,
             [FromServices] IMediator mediator,
             CancellationToken ct) =>
@@ -40,17 +40,24 @@ public static class AuthEndpoints
             {
                 return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status403Forbidden);
             }
-        })
-        .AllowAnonymous()
-        .WithName("IniciarSesion")
-        .WithSummary("Iniciar sesión y obtener token JWT (UC-40)")
-        .WithDescription("Valida las credenciales del usuario, previene fuerza bruta bloqueando temporalmente tras reiterados fallos, y emite el token JWT con su perfil, operador y comercio asignado.")
-        .Produces<IniciarSesionResultadoDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status401Unauthorized)
-        .Produces(StatusCodes.Status423Locked)
-        .Produces(StatusCodes.Status403Forbidden)
-        .WithOpenApi();
+        };
+
+        group.MapPost("/login", loginHandler)
+            .AllowAnonymous()
+            .WithName("IniciarSesion")
+            .WithSummary("Iniciar sesión y obtener token JWT (UC-40)")
+            .WithDescription("Valida las credenciales del usuario, previene fuerza bruta bloqueando temporalmente tras reiterados fallos, y emite el token JWT con su perfil, operador y comercio asignado.")
+            .Produces<IniciarSesionResultadoDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status423Locked)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithOpenApi();
+
+        app.MapPost("/api/auth/login", loginHandler)
+            .AllowAnonymous()
+            .WithTags("Autenticación y Autorización (UC-40)")
+            .ExcludeFromDescription();
 
         return app;
     }

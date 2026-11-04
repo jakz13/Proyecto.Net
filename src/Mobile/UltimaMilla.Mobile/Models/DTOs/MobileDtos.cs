@@ -1,5 +1,41 @@
 namespace UltimaMilla.Mobile.Models.DTOs;
 
+public record LoginRequestDto(
+    string Email,
+    string Password
+);
+
+public record LoginResponseDto(
+    string Token,
+    Guid UsuarioId,
+    string Nombre,
+    string Email,
+    string Perfil,
+    Guid? OperadorId,
+    Guid? ComercioId,
+    List<string>? Permisos,
+    DateTime ExpiraUtc
+);
+
+public record MotivoNoEntregaDescargaDto(
+    Guid Id,
+    string Codigo,
+    string Descripcion
+);
+
+public record RutaActivaRepartidorDto(
+    Guid HojaDeRutaId,
+    string NumeroRuta,
+    DateOnly Fecha,
+    string Estado,
+    Guid RepartidorId,
+    Guid? VehiculoId,
+    string? PatenteVehiculo,
+    string? TipoVehiculo,
+    List<ParadaNavegacionDto> Paradas,
+    List<MotivoNoEntregaDescargaDto>? MotivosNoEntrega
+);
+
 public record DestinatarioContactoDto(
     string Nombre,
     string? Telefono,

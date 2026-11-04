@@ -54,6 +54,7 @@ public partial class DiagnosticViewModel : BaseViewModel
         try
         {
             IsBusy = true;
+            ApiUrl = ApiEndpoints.BaseUrl;
             HasSuccess = false;
             HasError = false;
             ErrorMessage = string.Empty;
