@@ -128,6 +128,119 @@
                                  ProgressColor="{StaticResource Primary}"
                                  HeightRequest="8" />
                 </VerticalStackLayout>
+
+                <!-- Acción Operativa: Optimización del Orden de Paradas (Vecino Más Cercano + 2-Opt) -->
+                <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                    <Button Grid.Column="0"
+                            Text="Optimizar Ruta"
+                            Command="{Binding OptimizarRutaCommand}"
+                            BackgroundColor="#0F172A"
+                            TextColor="White"
+                            FontSize="12"
+                            FontAttributes="Bold"
+                            CornerRadius="8"
+                            HeightRequest="38"
+                            Padding="12,0" />
+
+                    <Button Grid.Column="1"
+                            IsVisible="{Binding MostrarResumenOptimizacion}"
+                            Text="Restaurar Orden Inicial"
+                            Command="{Binding RestaurarOrdenEstandarCommand}"
+                            BackgroundColor="#F1F5F9"
+                            TextColor="#334155"
+                            BorderColor="#CBD5E1"
+                            BorderWidth="1"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            CornerRadius="8"
+                            HeightRequest="38"
+                            Padding="10,0" />
+                </Grid>
+
+                <!-- Tarjeta de Resumen Comparativo de Optimización de Ruta -->
+                <Border IsVisible="{Binding MostrarResumenOptimizacion}"
+                        BackgroundColor="#F8FAFC"
+                        Stroke="#93C5FD"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 10"
+                        Padding="12,10">
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                            <Label Grid.Column="0"
+                                   Text="Resumen de Optimización de Ruta"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A"
+                                   VerticalOptions="Center" />
+
+                            <Button Grid.Column="1"
+                                    Text="Ocultar"
+                                    Command="{Binding OcultarResumenOptimizacionCommand}"
+                                    BackgroundColor="Transparent"
+                                    TextColor="#64748B"
+                                    FontSize="11"
+                                    FontAttributes="Bold"
+                                    HeightRequest="26"
+                                    Padding="4,0" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#CBD5E1" />
+
+                        <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto" RowSpacing="4">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Criterio Estándar de Despacho:"
+                                   FontSize="12"
+                                   TextColor="#475569" />
+                            <Label Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding ResumenCriterioEstandarTexto}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#334155" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Ruta Optimizada (Heurística 2-Opt):"
+                                   FontSize="12"
+                                   TextColor="#1E40AF"
+                                   FontAttributes="Bold" />
+                            <Label Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding ResumenRutaOptimizadaTexto}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#1E40AF" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#CBD5E1" />
+
+                        <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto" RowSpacing="4">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Ahorro Medido en Recorrido:"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#15803D" />
+                            <Label Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding ResumenAhorroRecorridoTexto}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#15803D" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Tiempo Estimado Reducido:"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#15803D" />
+                            <Label Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding ResumenTiempoReducidoTexto}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#15803D" />
+                        </Grid>
+
+                        <Label Text="{Binding ResumenSecuenciaAplicadaTexto, StringFormat='Secuencia aplicada: {0}'}"
+                               FontSize="11"
+                               TextColor="#475569"
+                               LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
         </Border>
 

@@ -31,6 +31,7 @@ public interface ILocalDatabaseService
     Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync();
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
+    Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas);
     Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
     Task SeedRutaDemoSiEstaVaciaAsync();
     Task ReiniciarDatosDemoLocalAsync();
@@ -272,7 +273,11 @@ public class LocalDatabaseService : ILocalDatabaseService
 
                 paradaLocal.HojaDeRutaId = hojaDeRutaId != Guid.Empty ? hojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId;
                 paradaLocal.EnvioId = envioId;
-                paradaLocal.Orden = p.Orden;
+                if (isNew || paradaLocal.Orden <= 0)
+                {
+                    paradaLocal.Orden = p.Orden;
+                    paradaLocal.OrdenVisita = p.Orden;
+                }
                 
                 // Preservar estado completado local si aún no se sincroniza
                 if (isNew || (paradaLocal.Estado != "Entregado" && paradaLocal.Estado != "Fallido" && paradaLocal.Estado != "EnDevolucion"))
@@ -463,6 +468,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
                 Estado = p.Estado,
                 HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
+                VentanaHoraria = !string.IsNullOrWhiteSpace(p.VentanaHoraria) ? p.VentanaHoraria : "09:00 - 13:00",
                 CodigoSeguimiento = codigoSeguimientoReal,
                 NotasComercio = p.NotasComercio ?? string.Empty,
                 Latitud = p.Latitud != 0 ? p.Latitud : DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Latitud,
@@ -501,6 +507,40 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
+    public async Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas)
+    {
+        if (paradasOrdenadas == null || paradasOrdenadas.Count == 0)
+            return;
+
+        await InitAsync();
+
+        await Db.RunInTransactionAsync(conn =>
+        {
+            for (int i = 0; i < paradasOrdenadas.Count; i++)
+            {
+                var item = paradasOrdenadas[i];
+                int nuevoOrden = i + 1;
+
+                var paradaLocal = conn.Find<ParadaLocal>(item.Id);
+                if (paradaLocal == null && !string.IsNullOrWhiteSpace(item.CodigoSeguimiento))
+                {
+                    paradaLocal = conn.Table<ParadaLocal>()
+                        .Where(p => p.CodigoSeguimiento == item.CodigoSeguimiento)
+                        .FirstOrDefault();
+                }
+
+                if (paradaLocal != null)
+                {
+                    paradaLocal.Orden = nuevoOrden;
+                    paradaLocal.OrdenVisita = nuevoOrden;
+                    paradaLocal.HoraEstimada = $"{8 + nuevoOrden:D2}:30";
+                    paradaLocal.EsParadaActual = nuevoOrden == 1;
+                    conn.Update(paradaLocal);
+                }
+            }
+        });
+    }
+
     public async Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync()
     {
         await InitAsync();
@@ -527,7 +567,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 ParadaId: DemoDataDefaults.Parada1Id,
                 EnvioId: DemoDataDefaults.Envio1Id,
                 Orden: 1,
-                EstadoParada: "Entregado",
+                EstadoParada: "Pendiente",
                 CodigoSeguimiento: "ENV-2026-00108",
                 DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
                 Latitud: DemoDataDefaults.Parada1Latitud,

@@ -6,6 +6,7 @@ using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
@@ -51,6 +52,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IRealtimeTrackingService, RealtimeTrackingService>();
         builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
         builder.Services.AddSingleton<IGeolocalizacionTrackingService, GeolocalizacionTrackingService>();
+        builder.Services.AddSingleton<IRutaOptimizationService, RutaOptimizationService>();
 
         // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
         builder.Services.AddTransient<AuthDelegatingHandler>();

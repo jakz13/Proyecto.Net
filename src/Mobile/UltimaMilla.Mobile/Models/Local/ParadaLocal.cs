@@ -16,6 +16,8 @@ public class ParadaLocal
 
     public int Orden { get; set; }
 
+    public int OrdenVisita { get; set; }
+
     public string Estado { get; set; } = "Pendiente"; // "Pendiente", "EnCamino", "EnSitio", "Entregado", "Fallido", "Reprogramado", "EnDevolucion"
 
     public string CodigoSeguimiento { get; set; } = string.Empty;
