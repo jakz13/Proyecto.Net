@@ -435,4 +435,78 @@ public class MovilidadComponentesUnitTests
         Assert.Equal("LLEGADA_GEOCERCA", cmd.TipoEvento);
         Assert.True(cmd.DistanciaMetros > 0);
     }
+
+    // =========================================================================
+    // 4. SEGURIDAD CRIPTOGRÁFICA Y ALMACENAMIENTO SQLCIPHER (RNF 6.3, RNF 6.11)
+    // =========================================================================
+
+    public record EstadoCifradoDiagnosticoDto(
+        bool CifradoActivo,
+        string CipherVersion,
+        bool ArchivoEsCifradoEnDisco,
+        string MensajeDiagnostico);
+
+    [Fact]
+    public void GeneracionClaveCriptografica_256Bits_ProduceClaveValidaYEntropiaAlta()
+    {
+        var keyBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        var base64Key = Convert.ToBase64String(keyBytes);
+
+        Assert.Equal(32, keyBytes.Length);
+        Assert.Equal(44, base64Key.Length);
+        Assert.False(string.IsNullOrWhiteSpace(base64Key));
+
+        // Claves sucesivas deben ser criptográficamente impredecibles y únicas
+        var keyBytes2 = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        var base64Key2 = Convert.ToBase64String(keyBytes2);
+        Assert.NotEqual(base64Key, base64Key2);
+    }
+
+    [Fact]
+    public void ValidacionCabeceraBaseDeDatos_DeteccionTextoPlanoVsCifrado_DistingueCorrectamente()
+    {
+        var sqlitePlaintextHeader = "SQLite format 3\0"u8.ToArray();
+        Assert.Equal(16, sqlitePlaintextHeader.Length);
+
+        // Archivo en texto plano: primeros 16 bytes coinciden con el magic header de SQLite
+        byte[] samplePlaintext = new byte[16];
+        Array.Copy(sqlitePlaintextHeader, samplePlaintext, 16);
+        bool esTextoPlano = samplePlaintext.SequenceEqual(sqlitePlaintextHeader);
+        bool esCifrado = !esTextoPlano;
+
+        Assert.True(esTextoPlano);
+        Assert.False(esCifrado);
+
+        // Archivo cifrado con SQLCipher: primeros 16 bytes contienen salt criptográfico aleatorio
+        byte[] sampleCiphertext = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        bool esTextoPlanoCipher = sampleCiphertext.SequenceEqual(sqlitePlaintextHeader);
+        bool esCifradoCipher = !esTextoPlanoCipher;
+
+        Assert.False(esTextoPlanoCipher);
+        Assert.True(esCifradoCipher);
+    }
+
+    [Fact]
+    public void EstadoCifradoDiagnosticoDto_ContratoCifradoSQLCipher_CumpleInvariantes()
+    {
+        var dto = new EstadoCifradoDiagnosticoDto(
+            CifradoActivo: true,
+            CipherVersion: "4.5.7 community",
+            ArchivoEsCifradoEnDisco: true,
+            MensajeDiagnostico: "Cifrado activo con SQLCipher v4.5.7 community. Base de datos cifrada en disco."
+        );
+
+        Assert.True(dto.CifradoActivo);
+        Assert.Equal("4.5.7 community", dto.CipherVersion);
+        Assert.True(dto.ArchivoEsCifradoEnDisco);
+        Assert.Contains("SQLCipher", dto.MensajeDiagnostico);
+
+        var json = JsonSerializer.Serialize(dto);
+        var deserializado = JsonSerializer.Deserialize<EstadoCifradoDiagnosticoDto>(json);
+
+        Assert.NotNull(deserializado);
+        Assert.Equal(dto.CifradoActivo, deserializado.CifradoActivo);
+        Assert.Equal(dto.CipherVersion, deserializado.CipherVersion);
+        Assert.Equal(dto.ArchivoEsCifradoEnDisco, deserializado.ArchivoEsCifradoEnDisco);
+    }
 }

@@ -20,6 +20,7 @@ using UltimaMilla.Mobile.Views.Carga;
 using UltimaMilla.Mobile.Views.Diagnostic;
 using UltimaMilla.Mobile.Views.Entrega;
 using UltimaMilla.Mobile.Views.Ruta;
+using ZXing.Net.Maui.Controls;
 
 namespace UltimaMilla.Mobile;
 
@@ -27,9 +28,13 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        // Inicializar proveedor nativo de SQLCipher (SQLitePCLRaw.bundle_e_sqlcipher)
+        SQLitePCL.Batteries_V2.Init();
+
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseBarcodeReader()
             .ConfigureMauiHandlers(handlers =>
             {
 #if ANDROID
@@ -92,6 +97,7 @@ public static class MauiProgram
         builder.Services.AddTransient<RegistroEntregaPage>();
         builder.Services.AddTransient<IntentoFallidoPage>();
         builder.Services.AddTransient<CargaVehiculoPage>();
+        builder.Services.AddTransient<EscanerCodigoPage>();
 
         builder.Services.AddSingleton<AppShell>();
 

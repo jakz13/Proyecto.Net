@@ -8,6 +8,7 @@ using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
+using UltimaMilla.Mobile.Views.Carga;
 
 namespace UltimaMilla.Mobile.ViewModels.Carga;
 
@@ -426,6 +427,49 @@ public partial class CargaVehiculoViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task EscanearConCamaraAsync()
+    {
+        if (Shell.Current is null)
+            return;
+
+        try
+        {
+            var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
+            if (status != PermissionStatus.Granted)
+            {
+                status = await Permissions.RequestAsync<Permissions.Camera>();
+            }
+
+            if (status != PermissionStatus.Granted)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Permiso Requerido",
+                    "Permiso de cámara denegado. Habilítelo en la configuración del dispositivo o utilice el ingreso manual.",
+                    "Entendido");
+                return;
+            }
+
+            var escanerModal = new EscanerCodigoPage();
+            await Shell.Current.Navigation.PushModalAsync(escanerModal);
+            var codigoLeido = await escanerModal.ResultadoEscaneoTask;
+
+            if (!string.IsNullOrWhiteSpace(codigoLeido))
+            {
+                CodigoEscaneoInput = codigoLeido.Trim();
+                await ProcesarCodigoEscaneadoAsync(codigoLeido.Trim().ToUpperInvariant());
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Fallo al iniciar cámara: {ex.Message}");
+            await Shell.Current.DisplayAlertAsync(
+                "Cámara No Disponible",
+                "El lector de cámara no está disponible en este dispositivo. Puede utilizar el lector láser o ingresar el código manualmente.",
+                "Entendido");
+        }
+    }
+
+    [RelayCommand]
     private async Task EscanearBultoAsync()
     {
         if (Shell.Current is null)
@@ -435,6 +479,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             "Control de Carga en Vehículo",
             "Cancelar",
             null,
+            "Escanear con cámara",
             "Escanear siguiente bulto pendiente",
             "Simular escaneo completo (Todos cargados)",
             "Simular bulto sobrante (BLT-999-SOBRANTE)",
@@ -443,7 +488,11 @@ public partial class CargaVehiculoViewModel : ObservableObject
         if (string.IsNullOrEmpty(opcion) || opcion == "Cancelar")
             return;
 
-        if (opcion == "Escanear siguiente bulto pendiente")
+        if (opcion == "Escanear con cámara")
+        {
+            await EscanearConCamaraAsync();
+        }
+        else if (opcion == "Escanear siguiente bulto pendiente")
         {
             var siguiente = BultosPendientes.FirstOrDefault();
             if (siguiente != null)
@@ -646,7 +695,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             {
                 var codigosFaltantes = string.Join(", ", BultosPendientes.Select(b => b.CodigoBulto));
                 var mensajeAlerta = faltantes > 0
-                    ? $"Se detectaron {faltantes} bulto(s) faltante(s) sin escanear:\n{codigosFaltantes}\n\nLos envíos que no tengan todos sus bultos cargados quedarán excluidos de la ruta activa y volverán a depósito (UC-09).\n\n¿Desea confirmar la salida del vehículo?"
+                    ? $"Se detectaron {faltantes} bulto(s) faltante(s) sin escanear:\n{codigosFaltantes}\n\nLos envíos que no tengan todos sus bultos cargados quedarán excluidos de la ruta activa y volverán a depósito.\n\n¿Desea confirmar la salida del vehículo?"
                     : $"Se detectaron {sobrantes} bulto(s) sobrante(s).\n\n¿Desea registrar las discrepancias y confirmar la salida del vehículo?";
 
                 var continuar = await Shell.Current.DisplayAlertAsync(

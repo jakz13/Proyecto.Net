@@ -43,12 +43,23 @@ public interface ILocalDatabaseService
     Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento);
     Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50);
     Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
+    Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync();
 }
+
+public record EstadoCifradoDiagnosticoDto(
+    bool CifradoActivo,
+    string CipherVersion,
+    bool ArchivoEsCifradoEnDisco,
+    string MensajeDiagnostico);
 
 public class LocalDatabaseService : ILocalDatabaseService
 {
     private const string KeyStorageAlias = "sqlite_db_encryption_key";
+    private const string DatabaseFileName = "ultimamilla_cipher_v1.db3";
+
+#if DEBUG
     private const string FallbackDeterministicKey = "SuperSecretKey2026_DeterministicFallbackKey";
+#endif
 
     private SQLiteAsyncConnection? _database;
     private SQLiteAsyncConnection Db => _database!;
@@ -75,7 +86,8 @@ public class LocalDatabaseService : ILocalDatabaseService
     /// <summary>
     /// Obtiene la clave criptográfica desde SecureStorage del dispositivo (RNF 6.3 y RNF 6.11).
     /// Si aún no existe, genera una clave aleatoria de 32 bytes (256 bits), la almacena de forma segura y la retorna.
-    /// Incluye fallback determinista únicamente por si el entorno de ejecución (ej. runner) no soporta SecureStorage.
+    /// En modo DEBUG incluye fallback determinista si el entorno de ejecución no soporta SecureStorage.
+    /// En modo RELEASE se elimina la clave fija y se exige SecureStorage bajo excepción explícita impidiendo claves débiles.
     /// </summary>
     private static async Task<string> GetOrGenerateEncryptionKeyAsync()
     {
@@ -87,28 +99,32 @@ public class LocalDatabaseService : ILocalDatabaseService
                 return existingKey;
             }
 
-            var keyBytes = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(keyBytes);
-            }
-
+            var keyBytes = RandomNumberGenerator.GetBytes(32);
             var newKey = Convert.ToBase64String(keyBytes);
             await SecureStorage.Default.SetAsync(KeyStorageAlias, newKey);
             return newKey;
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback determinista para entornos sin soporte de KeyStore nativo
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[LocalDatabaseService] SecureStorage no disponible en DEBUG, usando fallback determinista: {ex.Message}");
             return FallbackDeterministicKey;
+#else
+            throw new InvalidOperationException(
+                "Fallo crítico de seguridad: No se pudo acceder a SecureStorage para obtener o almacenar la clave de cifrado de la base de datos local en producción.",
+                ex);
+#endif
         }
     }
 
     /// <summary>
-    /// Crea la conexión cifrada y las tablas locales necesarias para la operativa offline si aún no existen.
+    /// Crea la conexión cifrada con SQLCipher y las tablas locales necesarias para la operativa offline si aún no existen.
     /// </summary>
     public async Task InitAsync()
     {
+        // Inicializar proveedor nativo de SQLCipher antes de abrir cualquier conexión SQLite
+        SQLitePCL.Batteries_V2.Init();
+
         if (_initialized && _database != null)
             return;
 
@@ -118,7 +134,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             if (_initialized && _database != null)
                 return;
 
-            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
+            var dbPath = Path.Combine(FileSystem.AppDataDirectory, DatabaseFileName);
             var encryptionKey = await GetOrGenerateEncryptionKeyAsync();
 
             var connectionString = new SQLiteConnectionString(
@@ -131,17 +147,11 @@ public class LocalDatabaseService : ILocalDatabaseService
 
             try
             {
-                await _database.CreateTableAsync<HojaDeRutaLocal>();
-                await _database.CreateTableAsync<ParadaLocal>();
-                await _database.CreateTableAsync<EnvioLocal>();
-                await _database.CreateTableAsync<BultoLocal>();
-                await _database.CreateTableAsync<MotivoNoEntregaLocal>();
-                await _database.CreateTableAsync<OperacionOfflineLocal>();
-                await _database.CreateTableAsync<EventoGeocercaLocal>();
+                await CrearTablasAsync(_database);
             }
             catch (SQLiteException)
             {
-                // Si la clave criptográfica cambió y no coincide con un archivo local antiguo, se recrea el archivo
+                // Si la base en disco es incompatible (ej. base previa en texto plano o clave corrupta), se recrea limpia
                 try
                 {
                     await _database.CloseAsync();
@@ -151,13 +161,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     }
 
                     _database = new SQLiteAsyncConnection(connectionString);
-                    await _database.CreateTableAsync<HojaDeRutaLocal>();
-                    await _database.CreateTableAsync<ParadaLocal>();
-                    await _database.CreateTableAsync<EnvioLocal>();
-                    await _database.CreateTableAsync<BultoLocal>();
-                    await _database.CreateTableAsync<MotivoNoEntregaLocal>();
-                    await _database.CreateTableAsync<OperacionOfflineLocal>();
-                await _database.CreateTableAsync<EventoGeocercaLocal>();
+                    await CrearTablasAsync(_database);
                 }
                 catch
                 {
@@ -171,6 +175,91 @@ public class LocalDatabaseService : ILocalDatabaseService
         {
             _initLock.Release();
         }
+    }
+
+    private static async Task CrearTablasAsync(SQLiteAsyncConnection database)
+    {
+        await database.CreateTableAsync<HojaDeRutaLocal>();
+        await database.CreateTableAsync<ParadaLocal>();
+        await database.CreateTableAsync<EnvioLocal>();
+        await database.CreateTableAsync<BultoLocal>();
+        await database.CreateTableAsync<MotivoNoEntregaLocal>();
+        await database.CreateTableAsync<OperacionOfflineLocal>();
+        await database.CreateTableAsync<EventoGeocercaLocal>();
+    }
+
+    /// <summary>
+    /// Verifica que SQLCipher esté activo mediante PRAGMA cipher_version y que el archivo .db3 en disco
+    /// no contenga la cabecera estándar en texto plano 'SQLite format 3'.
+    /// </summary>
+    public async Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync()
+    {
+        await InitAsync();
+
+        string cipherVersion = string.Empty;
+        bool cipherActivo = false;
+        string mensaje;
+        bool archivoEsCifradoEnDisco = false;
+
+        try
+        {
+            cipherVersion = await Db.ExecuteScalarAsync<string>("PRAGMA cipher_version;") ?? string.Empty;
+            cipherActivo = !string.IsNullOrWhiteSpace(cipherVersion);
+        }
+        catch (Exception ex)
+        {
+            cipherActivo = false;
+            cipherVersion = string.Empty;
+            mensaje = $"Fallo al consultar PRAGMA cipher_version: {ex.Message}";
+        }
+
+        var dbPath = Path.Combine(FileSystem.AppDataDirectory, DatabaseFileName);
+        if (File.Exists(dbPath))
+        {
+            try
+            {
+                using var stream = File.OpenRead(dbPath);
+                var headerBytes = new byte[16];
+                int bytesRead = stream.Read(headerBytes, 0, headerBytes.Length);
+
+                // La cabecera estándar de SQLite en texto plano es "SQLite format 3\0"
+                var sqlitePlaintextHeader = "SQLite format 3\0"u8.ToArray();
+                bool tieneCabeceraTextoPlano = bytesRead >= 16 && headerBytes.SequenceEqual(sqlitePlaintextHeader);
+
+                archivoEsCifradoEnDisco = bytesRead > 0 && !tieneCabeceraTextoPlano;
+
+                if (cipherActivo && archivoEsCifradoEnDisco)
+                {
+                    mensaje = $"Cifrado activo con SQLCipher v{cipherVersion}. Base de datos cifrada en disco (sin cabecera de texto plano).";
+                }
+                else if (tieneCabeceraTextoPlano)
+                {
+                    mensaje = "Advertencia de seguridad: El archivo contiene cabecera en texto plano 'SQLite format 3'.";
+                }
+                else if (!cipherActivo)
+                {
+                    mensaje = "Advertencia de seguridad: PRAGMA cipher_version no devolvió versión de SQLCipher.";
+                }
+                else
+                {
+                    mensaje = "Estado de cifrado verificado con observaciones.";
+                }
+            }
+            catch (Exception ex)
+            {
+                mensaje = $"Error al leer cabecera del archivo en disco: {ex.Message}";
+            }
+        }
+        else
+        {
+            mensaje = "El archivo de base de datos aún no ha sido creado en disco.";
+        }
+
+        return new EstadoCifradoDiagnosticoDto(
+            CifradoActivo: cipherActivo && archivoEsCifradoEnDisco,
+            CipherVersion: cipherVersion,
+            ArchivoEsCifradoEnDisco: archivoEsCifradoEnDisco,
+            MensajeDiagnostico: mensaje);
     }
 
     public async Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson)

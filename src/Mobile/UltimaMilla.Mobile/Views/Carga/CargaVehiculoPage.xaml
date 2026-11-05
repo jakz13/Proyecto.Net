@@ -19,7 +19,7 @@
                 <VerticalStackLayout Spacing="8">
                     <Label Text="Control de Carga en Vehículo"
                            Style="{StaticResource H2Label}" />
-                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada (UC-18)."
+                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada."
                            Style="{StaticResource BodyLabel}" />
 
                     <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,4" />
@@ -90,8 +90,17 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Lector / Buscador Directo de Código de Bulto (UC-18) -->
-                    <Label Text="Escanear Código de Bulto" Style="{StaticResource CaptionLabel}" Margin="0,4,0,0" />
+                    <!-- Botón Principal de Escaneo con Cámara -->
+                    <Button Text="Escanear con Cámara"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding EscanearConCamaraCommand}"
+                            HeightRequest="46"
+                            FontSize="13"
+                            FontAttributes="Bold"
+                            Margin="0,4,0,0" />
+
+                    <!-- Lector / Buscador Directo de Código de Bulto -->
+                    <Label Text="Ingreso Manual o Lector Láser" Style="{StaticResource CaptionLabel}" Margin="0,4,0,0" />
                     <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
                         <Border Grid.Column="0"
                                 Stroke="{StaticResource InputBorder}"
@@ -108,8 +117,8 @@
                                    VerticalOptions="Center" />
                         </Border>
                         <Button Grid.Column="1"
-                                Text="Escanear"
-                                Style="{StaticResource PrimaryButton}"
+                                Text="Validar"
+                                Style="{StaticResource SecondaryButton}"
                                 Command="{Binding EscanearCodigoManualCommand}"
                                 HeightRequest="44"
                                 Padding="16,0"
@@ -118,7 +127,7 @@
 
                     <!-- Botones de Acción de Escaneo Auxiliares -->
                     <controls:AdaptiveRow Spacing="10" Margin="0,4,0,0">
-                        <Button Text="Cámara / Opciones"
+                        <Button Text="Más Opciones"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding EscanearBultoCommand}"
                                 HeightRequest="40"
@@ -135,7 +144,7 @@
             </Border>
 
             <!-- ========================================================= -->
-            <!-- SECCIÓN: BULTOS PENDIENTES DE ESCANEO (UC-18)             -->
+            <!-- SECCIÓN: BULTOS PENDIENTES DE ESCANEO -->
             <!-- ========================================================= -->
             <FlexLayout Wrap="Wrap"
                         Direction="Row"
@@ -312,7 +321,7 @@
             </VerticalStackLayout>
 
             <!-- ========================================================= -->
-            <!-- SECCIÓN: BULTOS SOBRANTES / DISCREPANCIAS (UC-18)         -->
+            <!-- SECCIÓN: BULTOS SOBRANTES / DISCREPANCIAS -->
             <!-- ========================================================= -->
             <VerticalStackLayout IsVisible="{Binding TieneSobrantes}"
                                  Spacing="10"
@@ -363,7 +372,7 @@
             <!-- BOTONES DE ACCIÓN PRINCIPAL (SALIDA / DESPACHO)           -->
             <!-- ========================================================= -->
             <VerticalStackLayout Spacing="8" Margin="0,12,0,24">
-                <!-- Botón para confirmar carga y despachar vehículo (UC-18 / UC-09) -->
+                <!-- Botón para confirmar carga y despachar vehículo -->
                 <Button Text="Confirmar Carga y Despachar Vehículo"
                         Style="{StaticResource SuccessButton}"
                         Command="{Binding ConfirmarCargaYDespacharCommand}"

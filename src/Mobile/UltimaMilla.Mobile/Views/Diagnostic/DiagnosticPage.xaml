@@ -12,16 +12,46 @@
         <VerticalStackLayout Padding="{DynamicResource PaddingPagina}" Spacing="{DynamicResource EspaciadoSecciones}">
 
             <!-- Header Card -->
-            <Border>
+            <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="Última Milla Repartidor" Style="{StaticResource TitleLabel}" />
-                    <Label Text="Panel de Diagnóstico y Conectividad" Style="{StaticResource SubtitleLabel}" />
-                    <Label Text="Estado del motor local SQLite y conectividad con el servidor central." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="Última Milla Repartidor" Style="{StaticResource H2Label}" />
+                    <Label Text="Panel de Diagnóstico y Conectividad" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource Primary}" />
+                    <Label Text="Estado del motor local SQLite con SQLCipher y conectividad con el servidor central." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- SQLCipher Encryption Card -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Seguridad Criptográfica (SQLCipher AES-256)" FontAttributes="Bold" FontSize="16" />
+
+                    <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto" RowSpacing="6" ColumnSpacing="8">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Estado Cifrado:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding EstadoCifradoTexto}" FontAttributes="Bold" TextColor="{StaticResource PrimaryDark}" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Text="Versión SQLCipher:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding CipherVersion}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+
+                        <Label Grid.Row="2" Grid.Column="0" Text="Archivo en Disco:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding ArchivoEnDiscoTexto}" />
+                    </Grid>
+
+                    <Border BackgroundColor="#F0FDF4" Stroke="#86EFAC" IsVisible="{Binding CifradoActivo}" Padding="10">
+                        <Label Text="{Binding MensajeDiagnosticoCifrado}" TextColor="#166534" FontSize="12" FontAttributes="Bold" />
+                    </Border>
+
+                    <Border BackgroundColor="#FEF2F2" Stroke="#FCA5A5" IsVisible="{Binding CifradoConFallo}" Padding="10">
+                        <Label Text="{Binding MensajeDiagnosticoCifrado}" TextColor="#991B1B" FontSize="12" />
+                    </Border>
+
+                    <Button Text="Verificar Cifrado SQLCipher"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding VerificarCifradoCommand}" />
                 </VerticalStackLayout>
             </Border>
 
             <!-- API Connection Card -->
-            <Border>
+            <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="12">
                     <Label Text="Estado de Conexión Web API" FontAttributes="Bold" FontSize="16" />
                     
@@ -57,13 +87,14 @@
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HeightRequest="30" />
 
                     <Button Text="Probar Conexión con API"
+                            Style="{StaticResource PrimaryButton}"
                             Command="{Binding CheckConnectivityCommand}"
                             IsEnabled="{Binding IsNotBusy}" />
                 </VerticalStackLayout>
             </Border>
 
             <!-- Offline Storage Card -->
-            <Border>
+            <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="12">
                     <Label Text="Almacenamiento Local (SQLite)" FontAttributes="Bold" FontSize="16" />
                     
