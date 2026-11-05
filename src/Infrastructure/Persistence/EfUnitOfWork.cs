@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using UltimaMilla.Application.Exceptions;
@@ -69,8 +68,8 @@ public class EfUnitOfWork : IUnitOfWork
                 envios[envio.Id] = (envio.OperadorId, envio.ComercioOperadorId, envio.CodigoSeguimientoPublico);
         }
 
-        // El identificador de traza W3C de la solicitud original permite seguir la operación hasta el worker
-        var correlationId = Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
+        // Toma el identificador de correlación fijado por el middleware (X-Correlation-Id) o la traza actual (UC-44)
+        var correlationId = ContextoCorrelacion.ObtenerCorrelationIdActual();
 
         foreach (var evento in eventosNuevos)
         {

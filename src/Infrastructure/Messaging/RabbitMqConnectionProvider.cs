@@ -56,6 +56,27 @@ public sealed class RabbitMqConnectionProvider : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Consulta de forma segura la cantidad de mensajes listos en la cola si la conexión con RabbitMQ ya está activa.
+    /// Nunca lanza excepción si el broker no está disponible o si el proceso actual (ej. API) no usa RabbitMQ.
+    /// </summary>
+    public async Task<long?> ObtenerMensajesListosSiConectadoAsync(string nombreCola, CancellationToken cancellationToken = default)
+    {
+        if (_conexion is not { IsOpen: true })
+            return null;
+
+        try
+        {
+            await using var canal = await _conexion.CreateChannelAsync(cancellationToken: cancellationToken);
+            var conteo = await canal.MessageCountAsync(nombreCola, cancellationToken);
+            return conteo;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_conexion is not null)

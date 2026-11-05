@@ -21,8 +21,15 @@
         <div class="container littlebox-header__contenedor">
             <div class="d-flex justify-content-between align-items-center">
                 <a href="" class="littlebox-header__marca">
-                    <div class="littlebox-header__logo-caja">
-                        <Icono Nombre="caja" Tamano="22" />
+                    <div class="littlebox-header__logo-caja overflow-hidden">
+                        @if (!string.IsNullOrEmpty(identidad.LogoUrl))
+                        {
+                            <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" />
+                        }
+                        else
+                        {
+                            <Icono Nombre="caja" Tamano="22" />
+                        }
                     </div>
                     <div class="littlebox-header__titulos">
                         <span class="littlebox-header__nombre-app">LittleBox Envíos</span>

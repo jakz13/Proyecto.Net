@@ -18,17 +18,20 @@ public class AvisoComercioEntregador
     private readonly IWebhookSender _webhookSender;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IMetricasNegocio? _metricas;
 
     public AvisoComercioEntregador(
         IAvisoComercioRepository avisoRepository,
         IWebhookSender webhookSender,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IMetricasNegocio? metricas = null)
     {
         _avisoRepository = avisoRepository;
         _webhookSender = webhookSender;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _metricas = metricas;
     }
 
     public async Task<ResultadoEntregaAvisos> EntregarAsync(IReadOnlyCollection<AvisoComercio> avisos, CancellationToken cancellationToken = default)
@@ -43,11 +46,13 @@ public class AvisoComercioEntregador
             if (suscripcion is null || !suscripcion.Activa)
             {
                 aviso.MarcarAgotado("La suscripción del comercio ya no existe o fue desactivada.");
+                _metricas?.RegistrarIntentoAviso(false);
                 agotados++;
                 continue;
             }
 
             var resultado = await _webhookSender.EnviarAsync(suscripcion.UrlWebhook, aviso.Payload, aviso.FirmaEnviada, aviso.Id, cancellationToken);
+            _metricas?.RegistrarIntentoAviso(resultado.Exitoso);
 
             if (resultado.Exitoso)
             {

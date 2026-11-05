@@ -1,60 +1,126 @@
+@using UltimaMilla.Frontend.Contracts.Modelos.Seguimiento
 @inject ISeguimientoApi SeguimientoApi
 
-<div class="panel-reprogramacion" role="region" aria-label="Solicitud de reprogramación de entrega">
+<div class="panel-reprogramacion shadow-xs" role="region" aria-label="Solicitud de reprogramación de entrega (UC-34)">
     <div class="panel-reprogramacion__encabezado">
         <Icono Nombre="reloj" Tamano="18" />
-        <h3 class="panel-reprogramacion__titulo">¿Deseás reprogramar la fecha de entrega?</h3>
+        <h3 class="panel-reprogramacion__titulo">¿Deseás reprogramar la fecha u horario de entrega?</h3>
     </div>
     <p class="panel-reprogramacion__descripcion">
-        No fue posible concretar la entrega anteriormente. Podés solicitar una nueva fecha para recibir el paquete en tu domicilio.
+        Podés elegir una franja horaria alternativa entre las disponibles para tu zona de entrega. El sistema evaluará automáticamente las reglas del operador para confirmar el cambio.
     </p>
 
-    @if (!mostrarFormulario)
+    @if (!mostrarSelector)
     {
-        <button type="button" class="btn btn-outline-dark btn-sm fw-semibold" @onclick="() => mostrarFormulario = true">
-            <Icono Nombre="calendario" Tamano="14" Clase="me-1" />
-            Solicitar nueva fecha de entrega
+        <button type="button" class="btn btn-outline-dark btn-sm fw-semibold d-inline-flex align-items-center gap-1 shadow-xs" @onclick="AbrirSelectorFranjas">
+            <Icono Nombre="calendario" Tamano="14" />
+            <span>Seleccionar franja horaria disponible</span>
         </button>
     }
     else
     {
-        <div class="panel-reprogramacion__form">
-            <label for="inputFechaReprogramar" class="visually-hidden">Nueva fecha de entrega</label>
-            <input id="inputFechaReprogramar"
-                   type="date"
-                   class="panel-reprogramacion__input form-control form-control-sm"
-                   style="max-width: 200px;"
-                   min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")"
-                   @bind="fechaSeleccionada" />
-
-            <button type="button"
-                    class="panel-reprogramacion__boton-confirmar"
-                    disabled="@estaEnviando"
-                    @onclick="ManejarConfirmacion">
-                @if (estaEnviando)
-                {
-                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                    <span>Guardando...</span>
-                }
-                else
-                {
-                    <Icono Nombre="check" Tamano="14" />
-                    <span>Confirmar nueva fecha</span>
-                }
+        @if (estaCargandoFranjas)
+        {
+            <div class="py-3 text-center text-muted small">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                <span>Consultando franjas disponibles para tu zona...</span>
+            </div>
+        }
+        else if (franjasDisponibles == null || franjasDisponibles.Franjas.Count == 0)
+        {
+            <div class="alert alert-secondary small py-2 mb-2">
+                No hay franjas horarias alternativas configuradas para esta zona en este momento.
+            </div>
+            <button type="button" class="btn btn-link btn-sm text-secondary p-0" @onclick="() => mostrarSelector = false">
+                Cerrar
             </button>
+        }
+        else
+        {
+            <div class="mb-3">
+                <label class="form-label small fw-bold text-dark mb-2">
+                    Franjas horarias disponibles para tu zona:
+                </label>
+                <div class="d-flex flex-column gap-2">
+                    @foreach (var franja in franjasDisponibles.Franjas)
+                    {
+                        var esSeleccionada = franjaSeleccionadaId == franja.Id;
+                        <div class="card p-2 px-3 border rounded-3 @(esSeleccionada ? "border-primary bg-primary-subtle" : "bg-white")"
+                             style="cursor: pointer; transition: all 0.15s ease;"
+                             @onclick="() => SeleccionarFranja(franja.Id)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="radio"
+                                           class="form-check-input mt-0"
+                                           name="radioFranjas"
+                                           checked="@esSeleccionada"
+                                           @onchange="() => SeleccionarFranja(franja.Id)" />
+                                    <div>
+                                        <div class="fw-semibold small text-dark">
+                                            @franja.DiaSemana: @franja.HoraInicio a @franja.HoraFin hs
+                                        </div>
+                                        <div class="text-muted small" style="font-size: 0.7rem;">
+                                            Ventana estimada de entrega en domicilio
+                                        </div>
+                                    </div>
+                                </div>
+                                @if (franja.EsLaActual)
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.65rem;">Franja actual</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
 
-            <button type="button" class="btn btn-link btn-sm text-secondary" @onclick="() => mostrarFormulario = false">
-                Cancelar
-            </button>
-        </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button"
+                        class="panel-reprogramacion__boton-confirmar"
+                        disabled="@(estaEnviando || franjaSeleccionadaId == null)"
+                        @onclick="ConfirmarReprogramacion">
+                    @if (estaEnviando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        <span>Evaluando reglas...</span>
+                    }
+                    else
+                    {
+                        <Icono Nombre="check" Tamano="14" />
+                        <span>Confirmar reprogramación</span>
+                    }
+                </button>
+
+                <button type="button" class="btn btn-link btn-sm text-secondary" @onclick="() => mostrarSelector = false" disabled="@estaEnviando">
+                    Cancelar
+                </button>
+            </div>
+        }
     }
 
-    @if (!string.IsNullOrEmpty(mensajeFeedback))
+    <!-- Alerta de Resultado (Aceptada / Rechazada con motivo RF-26) -->
+    @if (resultadoEvaluacion != null)
     {
-        <div class="mt-2 text-success small fw-semibold">
-            <Icono Nombre="check" Tamano="14" Clase="me-1" />
-            @mensajeFeedback
-        </div>
+        @if (resultadoEvaluacion.Aceptada)
+        {
+            <div class="alert alert-success border-0 shadow-xs rounded-3 p-3 mt-3 d-flex align-items-center gap-2" role="status">
+                <Icono Nombre="check" Tamano="18" Clase="text-success flex-shrink-0" />
+                <div class="small">
+                    <strong>¡Reprogramación confirmada!</strong>
+                    <span>Tu envío fue reprogramado exitosamente para la franja: @resultadoEvaluacion.FranjaAsignada.</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning border-0 shadow-xs rounded-3 p-3 mt-3 d-flex align-items-center gap-2" role="alert">
+                <Icono Nombre="alerta" Tamano="18" Clase="text-warning flex-shrink-0" />
+                <div class="small">
+                    <strong>Solicitud no aceptada por las reglas del operador:</strong>
+                    <span>@(resultadoEvaluacion.Motivo ?? "No es posible reprogramar este envío en este momento.")</span>
+                </div>
+            </div>
+        }
     }
 </div>
 
@@ -65,29 +131,59 @@
     [Parameter]
     public EventCallback AlReprogramarExitoso { get; set; }
 
-    private bool mostrarFormulario = false;
-    private DateTime fechaSeleccionada = DateTime.Today.AddDays(1);
+    private bool mostrarSelector = false;
+    private bool estaCargandoFranjas = false;
     private bool estaEnviando = false;
-    private string? mensajeFeedback;
+    private Guid? franjaSeleccionadaId;
+    private FranjasDisponiblesDto? franjasDisponibles;
+    private ResultadoReprogramacionDto? resultadoEvaluacion;
 
-    private async Task ManejarConfirmacion()
+    private async Task AbrirSelectorFranjas()
     {
-        estaEnviando = true;
-        mensajeFeedback = null;
+        mostrarSelector = true;
+        resultadoEvaluacion = null;
+        estaCargandoFranjas = true;
 
         try
         {
-            var exito = await SeguimientoApi.SolicitarReprogramacionAsync(CodigoSeguimiento, fechaSeleccionada);
-            if (exito)
+            franjasDisponibles = await SeguimientoApi.ObtenerFranjasDisponiblesAsync(CodigoSeguimiento);
+            var primeraAlternativa = franjasDisponibles?.Franjas.FirstOrDefault(f => !f.EsLaActual);
+            franjaSeleccionadaId = primeraAlternativa?.Id ?? franjasDisponibles?.Franjas.FirstOrDefault()?.Id;
+        }
+        catch (Exception ex)
+        {
+            resultadoEvaluacion = new ResultadoReprogramacionDto(false, "Error", $"No se pudieron cargar las franjas: {ex.Message}", null);
+        }
+        finally
+        {
+            estaCargandoFranjas = false;
+        }
+    }
+
+    private void SeleccionarFranja(Guid id)
+    {
+        franjaSeleccionadaId = id;
+    }
+
+    private async Task ConfirmarReprogramacion()
+    {
+        if (franjaSeleccionadaId == null) return;
+
+        estaEnviando = true;
+        resultadoEvaluacion = null;
+
+        try
+        {
+            resultadoEvaluacion = await SeguimientoApi.SolicitarReprogramacionAsync(CodigoSeguimiento, franjaSeleccionadaId.Value);
+            if (resultadoEvaluacion.Aceptada)
             {
-                mensajeFeedback = $"Reprogramación solicitada correctamente para el {fechaSeleccionada:dd/MM/yyyy}.";
-                mostrarFormulario = false;
+                mostrarSelector = false;
                 await AlReprogramarExitoso.InvokeAsync();
             }
         }
         catch (Exception ex)
         {
-            mensajeFeedback = $"No fue posible reprogramar: {ex.Message}";
+            resultadoEvaluacion = new ResultadoReprogramacionDto(false, "Error", $"Error al procesar la solicitud: {ex.Message}", null);
         }
         finally
         {

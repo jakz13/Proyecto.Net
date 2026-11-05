@@ -200,4 +200,62 @@ public class HttpSeguimientoApiTests
         // Assert
         Assert.True(resultado);
     }
+
+    [Fact]
+    public async Task ObtenerFranjasDisponibles_ConRespuestaValida_RetornaListadoDeFranjas()
+    {
+        // Arrange
+        var jsonFranjas = """
+        {
+            "puedeReprogramar": true,
+            "franjas": [
+                {
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "diaSemana": "Mañana",
+                    "horaInicio": "09:00",
+                    "horaFin": "13:00",
+                    "esLaActual": false
+                }
+            ]
+        }
+        """;
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonFranjas);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpSeguimientoApi(clienteHttp);
+
+        // Act
+        var resultado = await api.ObtenerFranjasDisponiblesAsync("TRK-2026-0006");
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.True(resultado.PuedeReprogramar);
+        Assert.Single(resultado.Franjas);
+        Assert.Equal("09:00", resultado.Franjas[0].HoraInicio);
+    }
+
+    [Fact]
+    public async Task SolicitarReprogramacion_ConFranjaIdAceptada_RetornaResultadoAprobado()
+    {
+        // Arrange
+        var jsonResultado = """
+        {
+            "aceptada": true,
+            "estado": "Aprobada",
+            "motivo": null,
+            "franjaAsignada": "Mañana 09:00 - 13:00 hs"
+        }
+        """;
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonResultado);
+        var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
+        var api = new HttpSeguimientoApi(clienteHttp);
+
+        // Act
+        var resultado = await api.SolicitarReprogramacionAsync("TRK-2026-0006", Guid.Parse("11111111-1111-1111-1111-111111111111"));
+
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Aceptada);
+        Assert.Equal("Aprobada", resultado.Estado);
+        Assert.Equal("Mañana 09:00 - 13:00 hs", resultado.FranjaAsignada);
+    }
 }

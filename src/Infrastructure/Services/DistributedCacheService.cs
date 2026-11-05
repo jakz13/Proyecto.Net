@@ -7,18 +7,26 @@ namespace UltimaMilla.Infrastructure.Services;
 public class DistributedCacheService : IDistributedCacheService
 {
     private readonly IDistributedCache _cache;
+    private readonly IMetricasNegocio? _metricas;
 
-    public DistributedCacheService(IDistributedCache cache)
+    public DistributedCacheService(IDistributedCache cache, IMetricasNegocio? metricas = null)
     {
         _cache = cache;
+        _metricas = metricas;
     }
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         var data = await _cache.GetStringAsync(key, cancellationToken);
         if (string.IsNullOrEmpty(data))
+        {
+            // Registra fallo (miss) en las métricas de observabilidad (UC-44)
+            _metricas?.RegistrarFalloCache();
             return default;
+        }
 
+        // Registra acierto (hit) en las métricas de observabilidad (UC-44)
+        _metricas?.RegistrarAciertoCache();
         return JsonSerializer.Deserialize<T>(data);
     }
 

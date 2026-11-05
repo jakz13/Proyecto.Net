@@ -1,6 +1,6 @@
 @using UltimaMilla.Frontend.Contracts.Enums
 
-<div class="stepper-seguimiento">
+<div class="stepper-seguimiento shadow-xs">
     <ol class="stepper-seguimiento__lista">
         <!-- Paso 1: Admitido -->
         <li class="stepper-seguimiento__paso @ObtenerClasePaso(1)">
@@ -20,21 +20,21 @@
             <div class="stepper-seguimiento__linea"></div>
         </li>
 
-        <!-- Paso 3: En Tránsito / Reparto -->
+        <!-- Paso 3: En Tránsito / Reparto / Intento -->
         <li class="stepper-seguimiento__paso @ObtenerClasePaso(3)">
             <div class="stepper-seguimiento__nodo">
-                <Icono Nombre="camion" Tamano="16" />
+                <Icono Nombre="@IconoPaso3" Tamano="16" />
             </div>
-            <span class="stepper-seguimiento__etiqueta">En reparto</span>
+            <span class="stepper-seguimiento__etiqueta">@EtiquetaPaso3</span>
             <div class="stepper-seguimiento__linea"></div>
         </li>
 
-        <!-- Paso 4: Entregado -->
+        <!-- Paso 4: Final (Entregado / Devuelto) -->
         <li class="stepper-seguimiento__paso @ObtenerClasePaso(4)">
             <div class="stepper-seguimiento__nodo">
-                <Icono Nombre="check" Tamano="16" />
+                <Icono Nombre="@IconoPaso4" Tamano="16" />
             </div>
-            <span class="stepper-seguimiento__etiqueta">Entregado</span>
+            <span class="stepper-seguimiento__etiqueta">@EtiquetaPaso4</span>
         </li>
     </ol>
 </div>
@@ -47,20 +47,58 @@
     {
         EstadoEnvioDto.Admitido => 1,
         EstadoEnvioDto.EnDeposito => 2,
-        EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito => 3,
-        EstadoEnvioDto.Entregado => 4,
-        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado => 3,
+        EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito or EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado => 3,
+        EstadoEnvioDto.Entregado or EstadoEnvioDto.Devuelto or EstadoEnvioDto.Extraviado => 4,
         _ => 2
+    };
+
+    private string IconoPaso3 => Estado switch
+    {
+        EstadoEnvioDto.NoEntregado => "alerta",
+        EstadoEnvioDto.Reprogramado => "reloj",
+        EstadoEnvioDto.EnDevolucion => "alerta",
+        _ => "camion"
+    };
+
+    private string EtiquetaPaso3 => Estado switch
+    {
+        EstadoEnvioDto.NoEntregado => "Intento fallido",
+        EstadoEnvioDto.Reprogramado => "Reprogramado",
+        EstadoEnvioDto.EnDevolucion => "En devolución",
+        EstadoEnvioDto.AsignadoARuta => "En hoja de ruta",
+        _ => "En reparto"
+    };
+
+    private string IconoPaso4 => Estado switch
+    {
+        EstadoEnvioDto.Devuelto => "deposito",
+        EstadoEnvioDto.Extraviado => "cerrar",
+        _ => "check"
+    };
+
+    private string EtiquetaPaso4 => Estado switch
+    {
+        EstadoEnvioDto.Devuelto => "Devuelto",
+        EstadoEnvioDto.Extraviado => "Extraviado",
+        _ => "Entregado"
     };
 
     private string ObtenerClasePaso(int numeroPaso)
     {
-        if (numeroPaso < PasoActualNumero || Estado == EstadoEnvioDto.Entregado)
+        if (numeroPaso < PasoActualNumero || (numeroPaso == 4 && (Estado == EstadoEnvioDto.Entregado || Estado == EstadoEnvioDto.Devuelto)))
         {
             return "stepper-seguimiento__paso--completado";
         }
         if (numeroPaso == PasoActualNumero)
         {
+            if (Estado == EstadoEnvioDto.NoEntregado || Estado == EstadoEnvioDto.EnDevolucion)
+            {
+                return "stepper-seguimiento__paso--alerta";
+            }
+            if (Estado == EstadoEnvioDto.Reprogramado)
+            {
+                return "stepper-seguimiento__paso--reprogramado";
+            }
             return "stepper-seguimiento__paso--activo";
         }
         return string.Empty;

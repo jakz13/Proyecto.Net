@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Messaging;
+using UltimaMilla.Infrastructure.Observabilidad;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Infrastructure.Persistence.Repositories;
 using UltimaMilla.Infrastructure.Services;
@@ -71,7 +72,8 @@ public static class DependencyInjection
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
-        // Servicios transversales
+        // Observabilidad y servicios transversales (UC-44)
+        services.AddSingleton<IMetricasNegocio, MetricasNegocio>();
         services.AddDistributedMemoryCache();
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
