@@ -1,10 +1,11 @@
-name: CI
+name: CI/CD
 
 on:
   push:
     branches: [ "main", "master", "develop" ]
   pull_request:
     branches: [ "main", "master", "develop" ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -27,3 +28,35 @@ jobs:
 
       - name: Run automated tests
         run: dotnet test UltimaMilla.Backend.slnf --no-build --configuration Release --verbosity normal
+
+  # Entrega continua: solo se despliega al fusionar en main y únicamente si compiló y las pruebas pasaron.
+  # Requiere los secretos del repositorio VM_HOST (IP de la VM) y VM_SSH_KEY (clave privada SSH autorizada en la VM).
+  desplegar:
+    needs: build-and-test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: produccion
+    # Un solo despliegue a la vez: si llegan dos pushes seguidos, el segundo espera al primero
+    concurrency:
+      group: despliegue-produccion
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Preparar clave SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          if [ -z "$VM_SSH_KEY" ]; then echo "Falta el secreto VM_SSH_KEY"; exit 1; fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/clave_vm
+          chmod 600 ~/.ssh/clave_vm
+
+      - name: Desplegar en Oracle Cloud
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          export VM_CLAVE_SSH="$HOME/.ssh/clave_vm"
+          bash scripts/desplegar.sh
