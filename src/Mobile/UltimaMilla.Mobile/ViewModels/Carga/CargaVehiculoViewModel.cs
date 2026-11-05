@@ -100,7 +100,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             if (BultosSobrantes.Count > 0)
                 return $"Discrepancia detectada: {BultosSobrantes.Count} bulto(s) sobrante(s).";
             if (BultosCargados == BultosTotales)
-                return "Carga completa y verificada (6 de 6 bultos). Listo para iniciar ruta.";
+                return $"Carga completa y verificada ({BultosCargados} de {BultosTotales} bultos). Listo para iniciar ruta.";
             if (BultosCargados > 0)
                 return $"Carga en progreso: {BultosCargados} de {BultosTotales} bultos escaneados.";
             return "Presione Escanear Bulto para iniciar la verificación de la carga.";
@@ -137,6 +137,31 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 {
                     HojaDeRutaId = rutaLocal.Ruta.Id;
                     NumeroRuta = rutaLocal.Ruta.NumeroRuta;
+
+                    var bultosDescargados = rutaLocal.Paradas
+                        .OrderBy(p => p.Orden)
+                        .SelectMany(p => p.Bultos.Select(b => new BultoCargaItemViewModel
+                        {
+                            CodigoBulto = b.Codigo,
+                            CodigoSeguimiento = p.CodigoSeguimiento,
+                            Destinatario = p.Destinatario,
+                            Direccion = $"{p.Direccion}, {p.Ciudad}",
+                            ParadaOrden = p.Orden,
+                            PesoKg = b.PesoKg,
+                            EstaEscaneado = Bultos.FirstOrDefault(x => x.CodigoBulto == b.Codigo)?.EstaEscaneado ?? false
+                        }))
+                        .ToList();
+
+                    if (bultosDescargados.Count > 0)
+                    {
+                        Bultos.Clear();
+                        foreach (var b in bultosDescargados)
+                        {
+                            Bultos.Add(b);
+                        }
+                        BultosTotales = Bultos.Count;
+                        ActualizarConteos();
+                    }
                 }
             }
             catch

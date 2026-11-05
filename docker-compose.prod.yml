@@ -21,6 +21,7 @@ x-api: &api
     ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD}
     ConnectionStrings__Redis: redis:6379
     Cors__AllowedOrigins__0: https://${DOMINIO:?definir DOMINIO}
+    Cors__AllowedOrigins__1: https://${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
     # Sin identidad por defecto: solo se acepta un JWT válido emitido por /api/v1/auth/login
     Auth__PermitirModoDemo: "false"
     Jwt__SecretKey: ${JWT_SECRET:?definir JWT_SECRET (mínimo 32 caracteres)}
@@ -145,12 +146,34 @@ services:
     mem_limit: 192m
     networks: [interna]
 
+  # Portal del comercio (Blazor WebAssembly): el servidor solo entrega los archivos del cliente.
+  # El navegador llama a la API por el mismo dominio del portal (Caddy reparte /api y /hubs entre api1 y api2),
+  # así no hay llamadas entre dominios ni problemas con la cookie de afinidad de SignalR.
+  portal-comercio:
+    image: ultimamilla/portal-comercio:latest
+    build:
+      context: .
+      dockerfile: src/Web/PortalComercio/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ApiSettings__BaseUrl: https://${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
+      UsarMocks: "false"
+      Auth__PermitirModoDemo: "false"
+      DOTNET_GCConserveMemory: "7"
+    depends_on:
+      - caddy
+    mem_limit: 128m
+    networks: [interna]
+
   # Proxy inverso y balanceador: HTTPS automático (Let's Encrypt) y reparto entre api1 y api2.
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     environment:
       DOMINIO: ${DOMINIO}
+      DOMINIO_COMERCIO: ${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
     ports:
       - "80:80"
       - "443:443"

@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
@@ -22,7 +24,10 @@ public partial class ParadaItemViewModel : ObservableObject
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid HojaDeRutaId { get; set; } = Guid.Empty;
     public Guid EnvioId { get; init; } = Guid.Empty;
-    public int Orden { get; init; }
+
+    [ObservableProperty]
+    private int _orden;
+
     public string Direccion { get; init; } = string.Empty;
     public string Ciudad { get; init; } = string.Empty;
     public string Destinatario { get; init; } = string.Empty;
@@ -51,7 +56,10 @@ public partial class ParadaItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(GeocercaTextoBadge))]
     private double? _distanciaActualMetros;
 
-    public string HoraEstimada { get; init; } = string.Empty;
+    [ObservableProperty]
+    private string _horaEstimada = string.Empty;
+
+    public string VentanaHoraria { get; init; } = "09:00 - 13:00";
     public string CodigoSeguimiento { get; init; } = string.Empty;
     public string NotasComercio { get; init; } = string.Empty;
     public double Latitud { get; init; }
@@ -118,6 +126,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly ISyncService? _syncService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly IGeofenceService? _geofenceService;
+    private readonly IAuthService? _authService;
+    private readonly IRutaOptimizationService _optimizationService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -182,9 +192,30 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isBusy;
 
+    // =========================================================================
+    // OPTIMIZACIÓN DEL ORDEN DE PARADAS (VECINO MÁS CERCANO + 2-OPT)
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarResumenOptimizacion;
+
+    [ObservableProperty]
+    private string _resumenCriterioEstandarTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _resumenRutaOptimizadaTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _resumenAhorroRecorridoTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _resumenTiempoReducidoTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _resumenSecuenciaAplicadaTexto = string.Empty;
+
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null)
     {
     }
 
@@ -192,12 +223,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         ILocalDatabaseService? localDatabaseService,
         ISyncService? syncService,
         IGeolocalizacionTrackingService? trackingService,
-        IGeofenceService? geofenceService = null)
+        IGeofenceService? geofenceService = null,
+        IAuthService? authService = null,
+        IRutaOptimizationService? optimizationService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _trackingService = trackingService;
         _geofenceService = geofenceService;
+        _authService = authService;
+        _optimizationService = optimizationService ?? new RutaOptimizationService();
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -397,7 +432,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             if (rutaId == Guid.Empty)
                 rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
 
-            var repartidorId = DemoDataDefaults.DefaultRepartidorId;
+            var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
 
             if (!_trackingService.IsTrackingActive)
             {
@@ -479,6 +514,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         const string opcionSync = "Sincronizar Ahora con Backend";
         const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
+        const string opcionCerrarSesion = "Cerrar Sesión";
 
         var seleccion = await Shell.Current.DisplayActionSheetAsync(
             $"Conectividad y Cola Offline ({pendientes} pendientes)",
@@ -486,7 +522,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             null,
             opcionToggle,
             opcionSync,
-            opcionReset);
+            opcionReset,
+            opcionCerrarSesion);
 
         if (seleccion == opcionToggle && _syncService is not null)
         {
@@ -545,6 +582,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 try
                 {
                     _geofenceService?.ReiniciarEstadosMemoria();
+                    MostrarResumenOptimizacion = false;
                     var res = await _syncService.ReiniciarDemoCompletaAsync();
                     ActualizarEstadoVisualConectividad(_syncService.IsOnline, 0);
                     await RefrescarParadasDesdeSQLiteAsync();
@@ -555,6 +593,28 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                     IsBusy = false;
                 }
             }
+        }
+        else if (seleccion == opcionCerrarSesion)
+        {
+            await CerrarSesionAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CerrarSesionAsync()
+    {
+        if (_trackingService is { IsTrackingActive: true })
+        {
+            await _trackingService.DetenerTrackingAsync();
+        }
+
+        if (_authService is not null)
+        {
+            await _authService.CerrarSesionAsync();
+        }
+        else if (Shell.Current is not null)
+        {
+            await Shell.Current.GoToAsync("//LoginPage");
         }
     }
 
@@ -724,13 +784,149 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 if (rutaId == Guid.Empty)
                     rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
 
-                await _trackingService.IniciarTrackingAsync(rutaId, DemoDataDefaults.DefaultRepartidorId);
+                var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
+                await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS en Vivo",
                     $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.",
                     "Entendido");
             }
         }
+    }
+
+    [RelayCommand]
+    private async Task OptimizarRutaAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var paradasActuales = Paradas.ToList();
+        int cantidadPendientes = paradasActuales.Count(p => p.Estado == "Pendiente");
+
+        if (cantidadPendientes < 2)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Optimización de Ruta",
+                    "Se requieren al menos 2 paradas en estado Pendiente para ejecutar la optimización de recorrido. Las paradas ya completadas (Entregado o Fallido) permanecen fijas en su posición histórica.",
+                    "Aceptar");
+            }
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+
+            double? latActual = null;
+            double? lonActual = null;
+            try
+            {
+                var lastLocation = await Geolocation.Default.GetLastKnownLocationAsync();
+                if (lastLocation != null)
+                {
+                    latActual = lastLocation.Latitude;
+                    lonActual = lastLocation.Longitude;
+                }
+            }
+            catch
+            {
+                // Si el dispositivo está offline o sin permiso GPS activo, RutaOptimizationService usa el punto de partida operativo
+            }
+
+            var resultado = await _optimizationService.OptimizarOrdenParadasAsync(
+                paradasActuales,
+                latActual,
+                lonActual);
+
+            bool confirmar = true;
+            if (Shell.Current is not null)
+            {
+                string pregunta = resultado.ModificaOrdenActual
+                    ? "¿Desea aplicar la nueva secuencia optimizada a su hoja de ruta local?"
+                    : "La secuencia actual ya coincide con el recorrido óptimo 2-Opt. ¿Desea reafirmar y mostrar el resumen comparativo?";
+
+                confirmar = await Shell.Current.DisplayAlertAsync(
+                    "Optimización de Orden de Paradas",
+                    $"{resultado.ResumenFormateado}\n\n{pregunta}",
+                    "Aplicar Optimización",
+                    "Cancelar");
+            }
+
+            if (confirmar)
+            {
+                await AplicarSecuenciaParadasAsync(resultado.SecuenciaOptimizada);
+
+                ResumenCriterioEstandarTexto = $"{resultado.DistanciaBaseKm:F1} km (~{resultado.TiempoEstimadoBaseMinutos} min)";
+                ResumenRutaOptimizadaTexto = $"{resultado.DistanciaOptimizadaKm:F1} km (~{resultado.TiempoEstimadoOptimizadoMinutos} min)";
+                ResumenAhorroRecorridoTexto = $"-{resultado.PorcentajeAhorro:F1}% (-{resultado.AhorroKm:F1} km)";
+                ResumenTiempoReducidoTexto = $"-{resultado.AhorroMinutos} minutos";
+                ResumenSecuenciaAplicadaTexto = string.Join(" -> ", resultado.SecuenciaOptimizada.Select(p => p.CodigoSeguimiento));
+                MostrarResumenOptimizacion = true;
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RestaurarOrdenEstandarAsync()
+    {
+        if (IsBusy || Paradas.Count == 0)
+            return;
+
+        try
+        {
+            IsBusy = true;
+            var secuenciaEstandar = _optimizationService.ConstruirSecuenciaEstandarDespacho(Paradas.ToList());
+            await AplicarSecuenciaParadasAsync(secuenciaEstandar);
+            MostrarResumenOptimizacion = false;
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Orden de Ruta Restaurado",
+                    "Se ha restaurado el orden inicial bajo el Criterio Estándar de Despacho y actualizado en SQLite local.",
+                    "Aceptar");
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OcultarResumenOptimizacion()
+    {
+        MostrarResumenOptimizacion = false;
+    }
+
+    private async Task AplicarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> nuevaSecuencia)
+    {
+        for (int i = 0; i < nuevaSecuencia.Count; i++)
+        {
+            int nuevoOrden = i + 1;
+            nuevaSecuencia[i].Orden = nuevoOrden;
+            nuevaSecuencia[i].HoraEstimada = $"{8 + nuevoOrden:D2}:30";
+        }
+
+        Paradas.Clear();
+        foreach (var parada in nuevaSecuencia)
+        {
+            Paradas.Add(parada);
+        }
+
+        if (_localDatabaseService is not null)
+        {
+            await _localDatabaseService.ActualizarSecuenciaParadasAsync(nuevaSecuencia);
+        }
+
+        AplicarEstadosGeocercaEnParadas();
+        RecalcularProgreso();
     }
 
     public void Dispose()

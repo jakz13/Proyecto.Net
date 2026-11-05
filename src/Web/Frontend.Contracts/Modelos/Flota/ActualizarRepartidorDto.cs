@@ -30,4 +30,10 @@ public record ActualizarRepartidorDto
 
     [Required(ErrorMessage = "El estado es obligatorio.")]
     public string Estado { get; init; } = "Disponible";
+
+    /// <summary>
+    /// Nueva contraseña de acceso a la app móvil (opcional: solo si se desea cambiar).
+    /// </summary>
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
+    public string? NuevaPassword { get; init; }
 }

@@ -4,8 +4,10 @@
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Auth"
              x:Class="UltimaMilla.Mobile.Views.Auth.LoginPage"
              x:DataType="vm:LoginViewModel"
-             Title="Acceso Repartidor"
-             BackgroundColor="{AppThemeBinding Light=#F4F6F9, Dark=#121212}">
+             Title="Inicio de Sesión - Operaciones en Terreno"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
 
     <ScrollView>
         <VerticalStackLayout
@@ -13,92 +15,159 @@
             Padding="{DynamicResource PaddingLogin}"
             VerticalOptions="Center">
 
-            <!-- Encabezado / Branding -->
-            <Label
-                Text="Última Milla"
-                FontSize="{DynamicResource FontSizeLoginTitulo}"
-                FontAttributes="Bold"
-                HorizontalOptions="Center"
-                TextColor="#0D6EFD" />
+            <!-- Encabezado Corporativo -->
+            <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                <Label
+                    Text="Última Milla"
+                    FontSize="{DynamicResource FontSizeLoginTitulo}"
+                    FontAttributes="Bold"
+                    HorizontalOptions="Center"
+                    TextColor="#0F172A" />
 
-            <Label
-                Text="Ingreso a Operación de Calle"
-                FontSize="16"
-                HorizontalOptions="Center"
-                TextColor="{AppThemeBinding Light=#6C757D, Dark=#ADB5BD}" />
+                <Label
+                    Text="Inicio de Sesión - Operaciones en Terreno"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    HorizontalOptions="Center"
+                    HorizontalTextAlignment="Center"
+                    TextColor="#475569" />
+            </VerticalStackLayout>
 
             <!-- Contenedor del Formulario -->
             <Border
                 StrokeShape="RoundRectangle 12"
                 StrokeThickness="1"
-                Stroke="{AppThemeBinding Light=#E0E0E0, Dark=#2C2C2C}"
-                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E1E1E}"
+                Stroke="{StaticResource CardBorder}"
+                BackgroundColor="{StaticResource CardBackground}"
                 Padding="{DynamicResource PaddingTarjetaLogin}"
-                Margin="0,10,0,0">
+                Margin="0,8,0,0">
 
                 <VerticalStackLayout Spacing="16">
 
-                    <!-- Campo Usuario -->
-                    <Label
-                        Text="Usuario / Email"
-                        FontSize="14"
-                        FontAttributes="Bold"
-                        TextColor="{AppThemeBinding Light=#212529, Dark=#E9ECEF}" />
+                    <!-- Campo Usuario / Email -->
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Text="Usuario / Email"
+                            FontSize="13"
+                            FontAttributes="Bold"
+                            TextColor="{StaticResource TextPrimary}" />
 
-                    <Entry
-                        Placeholder="repartidor@operador.com"
-                        Text="{Binding Usuario}"
-                        Keyboard="Email"
-                        ClearButtonVisibility="WhileEditing"
-                        IsEnabled="{Binding IsNotBusy}" />
+                        <Entry
+                            Placeholder="repartidor@gmail.com"
+                            Text="{Binding Usuario}"
+                            Keyboard="Email"
+                            ClearButtonVisibility="WhileEditing"
+                            IsEnabled="{Binding IsNotBusy}" />
+                    </VerticalStackLayout>
 
                     <!-- Campo Contraseña -->
-                    <Label
-                        Text="Contraseña"
-                        FontSize="14"
-                        FontAttributes="Bold"
-                        TextColor="{AppThemeBinding Light=#212529, Dark=#E9ECEF}" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Text="Contraseña"
+                            FontSize="13"
+                            FontAttributes="Bold"
+                            TextColor="{StaticResource TextPrimary}" />
 
-                    <Entry
-                        Placeholder="••••••••"
-                        Text="{Binding Password}"
-                        IsPassword="True"
-                        ClearButtonVisibility="WhileEditing"
-                        IsEnabled="{Binding IsNotBusy}" />
+                        <Entry
+                            Placeholder="Ingrese su contraseña"
+                            Text="{Binding Password}"
+                            IsPassword="True"
+                            ClearButtonVisibility="WhileEditing"
+                            IsEnabled="{Binding IsNotBusy}" />
+                    </VerticalStackLayout>
 
                     <!-- Mensajes de Estado / Error -->
                     <Label
                         Text="{Binding ErrorMessage}"
-                        TextColor="#DC3545"
+                        TextColor="#DC2626"
                         FontSize="13"
                         HorizontalOptions="Center"
-                        IsVisible="{Binding ErrorMessage, Converter={x:Null}}" />
+                        HorizontalTextAlignment="Center"
+                        IsVisible="{Binding HasError}" />
 
                     <Label
                         Text="{Binding StatusMessage}"
-                        TextColor="#198754"
+                        TextColor="#15803D"
                         FontSize="13"
                         HorizontalOptions="Center"
-                        IsVisible="{Binding StatusMessage, Converter={x:Null}}" />
+                        HorizontalTextAlignment="Center"
+                        IsVisible="{Binding HasStatus}" />
 
                     <!-- Indicador de Carga -->
                     <ActivityIndicator
                         IsRunning="{Binding IsBusy}"
                         IsVisible="{Binding IsBusy}"
-                        Color="#0D6EFD"
+                        Color="#2563EB"
                         HorizontalOptions="Center" />
 
-                    <!-- Botón de Iniciar Sesión -->
+                    <!-- Botón Principal Ingresar -->
                     <Button
-                        Text="Iniciar Sesión"
+                        Text="Ingresar"
                         Command="{Binding LoginCommand}"
                         IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="#0D6EFD"
+                        BackgroundColor="#0F172A"
                         TextColor="White"
                         FontAttributes="Bold"
-                        CornerRadius="8"
+                        CornerRadius="10"
                         HeightRequest="48"
-                        Margin="0,8,0,0" />
+                        Margin="0,4,0,0" />
+
+                    <!-- Botón Secundario Discreto: Cargar Credenciales Demo -->
+                    <Button
+                        Text="Cargar Credenciales Demo"
+                        Command="{Binding CargarCredencialesDemoCommand}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="#F1F5F9"
+                        TextColor="#334155"
+                        BorderColor="#CBD5E1"
+                        BorderWidth="1"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        CornerRadius="10"
+                        HeightRequest="42" />
+
+                    <!-- Selector discreto de servidor (Nube / Local) -->
+                    <Border
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="1"
+                        Stroke="#E2E8F0"
+                        BackgroundColor="#F8FAFC"
+                        Padding="10,6"
+                        Margin="0,4,0,0">
+                        <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                            <VerticalStackLayout Grid.Column="0" Spacing="1" VerticalOptions="Center">
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label
+                                        Text="Servidor:"
+                                        FontSize="11"
+                                        TextColor="#64748B" />
+                                    <Label
+                                        Text="{Binding TipoServidorTexto}"
+                                        FontSize="11"
+                                        FontAttributes="Bold"
+                                        TextColor="#0F172A" />
+                                </HorizontalStackLayout>
+                                <Label
+                                    Text="{Binding ServidorActivo}"
+                                    FontSize="10"
+                                    TextColor="#475569"
+                                    LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+
+                            <Button
+                                Grid.Column="1"
+                                Text="Cambiar"
+                                Command="{Binding AlternarServidorCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                BackgroundColor="Transparent"
+                                TextColor="#2563EB"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                HeightRequest="32"
+                                Padding="8,0"
+                                VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
 
                 </VerticalStackLayout>
             </Border>

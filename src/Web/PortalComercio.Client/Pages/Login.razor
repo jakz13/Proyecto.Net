@@ -1,0 +1,101 @@
+@page "/login"
+@using System.Net
+@inject HttpClient Http
+@inject ITokenStore TokenStore
+@inject NavigationManager Navegador
+
+<PageTitle>Portal del Comercio — Ingresar</PageTitle>
+
+<div class="row justify-content-center py-4">
+    <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-body p-4">
+                <h1 class="h4 fw-bold mb-1">Ingresar al portal</h1>
+                <p class="text-muted small mb-4">Use las credenciales de su comercio.</p>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <div class="alert alert-danger py-2 small" role="alert">@error</div>
+                }
+
+                <EditForm Model="modelo" OnValidSubmit="IngresarAsync" FormName="login-comercio">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="email">Correo electrónico</label>
+                        <InputText id="email" class="form-control" type="email" autocomplete="username" @bind-Value="modelo.Email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="password">Contraseña</label>
+                        <InputText id="password" class="form-control" type="password" autocomplete="current-password" @bind-Value="modelo.Password" />
+                    </div>
+                    <button type="submit" class="btn btn-marca w-100" disabled="@enCurso">
+                        @(enCurso ? "Ingresando…" : "Ingresar")
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly CredencialesModelo modelo = new();
+    private string? error;
+    private bool enCurso;
+
+    private async Task IngresarAsync()
+    {
+        error = null;
+        enCurso = true;
+        try
+        {
+            var respuesta = await Http.PostAsJsonAsync("api/v1/auth/login", new { modelo.Email, modelo.Password });
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                error = "Correo o contraseña incorrectos.";
+                return;
+            }
+            if (respuesta.StatusCode == HttpStatusCode.Locked)
+            {
+                error = "Cuenta bloqueada temporalmente por intentos fallidos. Intente más tarde.";
+                return;
+            }
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No se pudo iniciar sesión. Verifique sus datos e intente nuevamente.";
+                return;
+            }
+
+            var resultado = await respuesta.Content.ReadFromJsonAsync<RespuestaLogin>();
+            if (resultado is null || string.IsNullOrWhiteSpace(resultado.Token))
+            {
+                error = "Respuesta inválida del servidor.";
+                return;
+            }
+            if (!string.Equals(resultado.Perfil, "Comercio", StringComparison.OrdinalIgnoreCase))
+            {
+                error = "Este portal es solo para usuarios de comercios.";
+                return;
+            }
+
+            await TokenStore.GuardarTokenAsync(resultado.Token);
+            // Recarga completa para que todo el portal arranque ya con la sesión
+            Navegador.NavigateTo("/", forceLoad: true);
+        }
+        catch
+        {
+            error = "No se pudo conectar con el servidor.";
+        }
+        finally
+        {
+            enCurso = false;
+        }
+    }
+
+    private sealed class CredencialesModelo
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private sealed record RespuestaLogin(string Token, string Perfil);
+}

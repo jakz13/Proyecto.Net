@@ -399,6 +399,14 @@
                                 <input asp-for="NuevoRepartidor.Telefono" class="form-control form-control-sm" placeholder="+598 99 111 222" required maxlength="30" />
                                 <span asp-validation-for="NuevoRepartidor.Telefono" class="text-danger small"></span>
                             </div>
+                            <div class="col-md-6">
+                                <label asp-for="NuevoRepartidor.Password" class="form-label small fw-semibold">
+                                    Contraseña para App Móvil
+                                </label>
+                                <input asp-for="NuevoRepartidor.Password" type="password" class="form-control form-control-sm" placeholder="Por defecto: Repartidor.2026!" maxlength="100" />
+                                <span class="text-muted small" style="font-size: 0.725rem;">Si se omite, se asigna 'Repartidor.2026!'.</span>
+                                <span asp-validation-for="NuevoRepartidor.Telefono" class="text-danger small"></span>
+                            </div>
                             <div class="col-12">
                                 <label asp-for="NuevoRepartidor.VehiculoAsignadoId" class="form-label small fw-semibold">
                                     Asociar a Vehículo (Opcional)
@@ -481,6 +489,13 @@
                                     <option value="En Ruta">En Ruta</option>
                                     <option value="Inactivo">Inactivo</option>
                                 </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EdicionRepartidor.NuevaPassword" class="form-label small fw-semibold">
+                                    Nueva Contraseña para App Móvil
+                                </label>
+                                <input asp-for="EdicionRepartidor.NuevaPassword" id="editRepartidorPassword" type="password" class="form-control form-control-sm" placeholder="Dejar en blanco para no modificar" maxlength="100" />
+                                <span class="text-muted small" style="font-size: 0.725rem;">Opcional. Ingrese un valor solo si desea cambiar el acceso.</span>
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="EdicionRepartidor.VehiculoAsignadoId" class="form-label small fw-semibold">
@@ -728,6 +743,8 @@
                 document.getElementById('editRepartidorTelefono').value = telefono;
                 document.getElementById('editRepartidorEstado').value = estado;
                 document.getElementById('editRepartidorVehiculoId').value = vehiculoId || '';
+                var passInput = document.getElementById('editRepartidorPassword');
+                if (passInput) { passInput.value = ''; }
 
                 panel.style.display = 'block';
                 panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

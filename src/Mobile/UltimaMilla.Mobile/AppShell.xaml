@@ -3,13 +3,25 @@
     x:Class="UltimaMilla.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:UltimaMilla.Mobile.Views.Auth"
     xmlns:ruta="clr-namespace:UltimaMilla.Mobile.Views.Ruta"
     xmlns:carga="clr-namespace:UltimaMilla.Mobile.Views.Carga"
     Title="Última Milla Repartidor"
+    Shell.FlyoutBehavior="Disabled"
     Shell.TabBarBackgroundColor="#0F172A"
     Shell.TabBarForegroundColor="#FFFFFF"
     Shell.TabBarTitleColor="#FFFFFF"
     Shell.TabBarUnselectedColor="#94A3B8">
+
+    <!-- ========================================================= -->
+    <!-- PANTALLA DE INICIO DE SESIÓN (SIN TABBAR NI NAVBAR)       -->
+    <!-- ========================================================= -->
+    <ShellContent
+        Title="Inicio de Sesión - Operaciones en Terreno"
+        ContentTemplate="{DataTemplate auth:LoginPage}"
+        Route="LoginPage"
+        Shell.NavBarIsVisible="False"
+        Shell.TabBarIsVisible="False" />
 
     <!-- ========================================================= -->
     <!-- NAVEGACIÓN PRINCIPAL: TABBAR INFERIOR MODERNO             -->

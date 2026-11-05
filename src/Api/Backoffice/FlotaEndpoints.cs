@@ -33,6 +33,8 @@ public static class FlotaEndpoints
             [FromQuery] bool? soloActivos,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var consulta = db.Vehiculos.AsNoTracking().Where(v => v.OperadorId == tenant.OperadorId);
@@ -59,6 +61,8 @@ public static class FlotaEndpoints
             [FromBody] CrearVehiculoDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var patente = (dto.Patente ?? string.Empty).Trim().ToUpperInvariant();
@@ -80,6 +84,8 @@ public static class FlotaEndpoints
             [FromBody] ActualizarVehiculoDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var vehiculo = await db.Vehiculos.FirstOrDefaultAsync(v => v.Id == id && v.OperadorId == tenant.OperadorId, ct);
@@ -105,6 +111,8 @@ public static class FlotaEndpoints
             [FromBody] CambioEstadoActivoRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var vehiculo = await db.Vehiculos.FirstOrDefaultAsync(v => v.Id == id && v.OperadorId == tenant.OperadorId, ct);
@@ -127,6 +135,8 @@ public static class FlotaEndpoints
             [FromQuery] string? estado,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var consulta = db.Repartidores.AsNoTracking().Where(r => r.OperadorId == tenant.OperadorId);
@@ -155,9 +165,12 @@ public static class FlotaEndpoints
 
         grupo.MapPost("/repartidores", (
             [FromBody] CrearRepartidorDto dto,
+            IPasswordHasherService hasher,
             AppDbContext db,
             ICurrentTenant tenant,
-            IPasswordHasherService hasher,
+
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var estado = NormalizarEstado(dto.Estado);
@@ -177,7 +190,8 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "No está configurado el perfil Repartidor.");
 
             // El repartidor ingresa a la app con un usuario propio; la contraseña provisional se cambia en el primer ingreso
-            var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, hasher.HashearPassword(Guid.NewGuid().ToString("N")),
+            var passwordInicial = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "Repartidor.2026!";
+            var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, hasher.HashearPassword(passwordInicial),
                 perfil.Id, tenant.OperadorId);
             var repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, tenant.OperadorId, dto.Documento, dto.Telefono, dto.VehiculoAsignadoId, estado);
 
@@ -194,8 +208,11 @@ public static class FlotaEndpoints
         grupo.MapPut("/repartidores/{id:guid}", (
             Guid id,
             [FromBody] ActualizarRepartidorDto dto,
+            IPasswordHasherService hasher,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
@@ -216,6 +233,11 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, errorVehiculo);
 
             usuario?.ActualizarDatos(dto.NombreCompleto, email);
+            if (!string.IsNullOrWhiteSpace(dto.NuevaPassword) && usuario is not null)
+            {
+                usuario.CambiarPassword(hasher.HashearPassword(dto.NuevaPassword.Trim()));
+                usuario.Desbloquear();
+            }
             repartidor.ActualizarDocumento(dto.Documento);
             repartidor.ActualizarContacto(dto.Telefono);
             repartidor.CambiarEstado(estado);
@@ -232,6 +254,8 @@ public static class FlotaEndpoints
             [FromBody] AsignarVehiculoRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
@@ -254,6 +278,8 @@ public static class FlotaEndpoints
             [FromBody] CambioEstadoRepartidorRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
+
+
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
@@ -270,6 +296,35 @@ public static class FlotaEndpoints
         }))
         .WithName("CambiarEstadoRepartidor")
         .WithSummary("Cambiar el estado operativo de un repartidor");
+
+        grupo.MapPost("/repartidores/{id:guid}/restablecer-password", (
+            Guid id,
+            [FromBody] RestablecerPasswordRepartidorRequest? cuerpo,
+            AppDbContext db,
+            ICurrentTenant tenant,
+            IPasswordHasherService hasher,
+            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        {
+            var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
+            if (repartidor is null)
+                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el repartidor solicitado.");
+
+            var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == repartidor.UsuarioId, ct);
+            if (usuario is null)
+                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario asociado al repartidor.");
+
+            var passwordNueva = !string.IsNullOrWhiteSpace(cuerpo?.NuevaPassword)
+                ? cuerpo.NuevaPassword.Trim()
+                : "Repartidor.2026!";
+
+            usuario.CambiarPassword(hasher.HashearPassword(passwordNueva));
+            usuario.Desbloquear();
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new { mensaje = $"Contraseña del repartidor restablecida con éxito a '{passwordNueva}'." });
+        }))
+        .WithName("RestablecerPasswordRepartidor")
+        .WithSummary("Restablecer la contraseña de acceso a la app móvil del repartidor");
     }
 
     private static string? NormalizarEstado(string? estado) =>
@@ -355,3 +410,5 @@ public static class FlotaEndpoints
 public record AsignarVehiculoRequest(Guid? VehiculoId);
 
 public record CambioEstadoRepartidorRequest(string? NuevoEstado);
+
+public record RestablecerPasswordRepartidorRequest(string? NuevaPassword);

@@ -3,6 +3,8 @@
 @inject MockContextoOperador ContextoOperador
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navegador
+@inject IConfiguration Configuracion
+@inject ITokenStore TokenStore
 @implements IDisposable
 
 @* Inyección dinámica de variables CSS de identidad visual del operador con transición suave *@
@@ -105,6 +107,10 @@
                         <div class="d-none d-sm-block text-end text-white">
                             <div class="fw-semibold" style="font-size: 0.88rem;">@context.User.Identity?.Name</div>
                         </div>
+                        @if (!modoDemo)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-light" @onclick="CerrarSesionAsync">Salir</button>
+                        }
                     </Authorized>
                     <NotAuthorized>
                         <span class="badge bg-secondary">Sin sesión activa</span>
@@ -146,8 +152,30 @@
     private string colorTextoPrimario = "#FFFFFF";
     private string colorTextoSecundario = "#0F172A";
 
+    private bool modoDemo = true;
+
+    private async Task CerrarSesionAsync()
+    {
+        await TokenStore.EliminarTokenAsync();
+        Navegador.NavigateTo("login", forceLoad: true);
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        modoDemo = Configuracion.GetValue("Auth:PermitirModoDemo", true);
+        if (!modoDemo)
+        {
+            // Servidor: sin sesión real no hay portal; se manda al login
+            var estado = await AuthStateProvider.GetAuthenticationStateAsync();
+            var enLogin = Navegador.ToBaseRelativePath(Navegador.Uri).StartsWith("login", StringComparison.OrdinalIgnoreCase);
+            if (estado.User.Identity?.IsAuthenticated != true)
+            {
+                if (!enLogin)
+                    Navegador.NavigateTo("login");
+                return;
+            }
+        }
+
         ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
         await CargarOperadoresDisponibles();
         await CargarIdentidadVisual();

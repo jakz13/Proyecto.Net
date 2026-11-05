@@ -9,15 +9,24 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 // Configuración de URL y modo mock desde /appsettings.json (servido dinámicamente por el host)
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
 var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", false);
+// Modo demo (por defecto, desarrollo local): token precargado, sin pedir usuario ni contraseña.
+// En el servidor se apaga con Auth__PermitirModoDemo=false y el acceso pasa por el login real.
+var modoDemo = builder.Configuration.GetValue("Auth:PermitirModoDemo", true);
 
 // Soporte de autorización en Blazor WebAssembly
 builder.Services.AddAuthorizationCore();
-builder.Services.AddSingleton<ITokenStore, TokenStoreEnMemoria>();
+if (modoDemo)
+    builder.Services.AddSingleton<ITokenStore, TokenStoreEnMemoria>();
+else
+    builder.Services.AddSingleton<ITokenStore, TokenStoreSesion>();
 builder.Services.AddScoped<CustomAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthStateProvider>());
 
 // DelegatingHandler para JWT y CorrelationId
 builder.Services.AddTransient<JwtAuthorizationHandler>();
+// Con login real, todos los clientes HTTP del portal deben enviar el JWT de la sesión
+if (!modoDemo)
+    builder.Services.ConfigureHttpClientDefaults(b => b.AddHttpMessageHandler<JwtAuthorizationHandler>());
 
 builder.Services.AddHttpClient("UltimaMillaApi", cliente =>
 {

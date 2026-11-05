@@ -39,6 +39,7 @@ app.Use(async (contexto, siguiente) =>
         var jsonConfiguracion = JsonSerializer.Serialize(new
         {
             ApiSettings = new { BaseUrl = urlBaseApi },
+            Auth = new { PermitirModoDemo = app.Configuration.GetValue("Auth:PermitirModoDemo", true) },
             UsarMocks = usarMocks
         });
 

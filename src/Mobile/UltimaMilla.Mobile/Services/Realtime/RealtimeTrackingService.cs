@@ -14,6 +14,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
     private readonly ILogger<RealtimeTrackingService> _logger;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private HubConnection? _hubConnection;
+    private string? _currentHubUrl;
     private bool _isDisposed;
 
     public event EventHandler<bool>? ConnectionStateChanged;
@@ -29,10 +30,22 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     private void EnsureHubConnection()
     {
-        if (_hubConnection != null)
+        var hubUrl = $"{ApiEndpoints.BaseUrl.TrimEnd('/')}{ApiEndpoints.OperacionHub}";
+
+        if (_hubConnection != null && string.Equals(_currentHubUrl, hubUrl, StringComparison.OrdinalIgnoreCase))
             return;
 
-        var hubUrl = $"{ApiEndpoints.BaseUrl.TrimEnd('/')}{ApiEndpoints.OperacionHub}";
+        if (_hubConnection != null)
+        {
+            try
+            {
+                _ = _hubConnection.DisposeAsync();
+            }
+            catch { }
+            _hubConnection = null;
+        }
+
+        _currentHubUrl = hubUrl;
 
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
@@ -43,11 +56,17 @@ public class RealtimeTrackingService : IRealtimeTrackingService
                     try
                     {
                         var token = await SecureStorage.Default.GetAsync(AuthDelegatingHandler.AuthTokenKey);
-                        return !string.IsNullOrWhiteSpace(token) ? token : "dev-token";
+                        if (!string.IsNullOrWhiteSpace(token))
+                        {
+                            return token;
+                        }
+
+                        // En servidor local en desarrollo se tolera 'dev-token', pero en la nube debe ser null
+                        return ApiEndpoints.EsServidorNube ? null : "dev-token";
                     }
                     catch
                     {
-                        return "dev-token";
+                        return null;
                     }
                 };
             })
