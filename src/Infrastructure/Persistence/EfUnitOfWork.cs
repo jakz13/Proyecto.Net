@@ -69,13 +69,16 @@ public class EfUnitOfWork : IUnitOfWork
     }
 
     /// <summary>
-    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado (UC-39)
+    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado o entrega parcial (UC-39, RF-36)
     /// y recopila los envíos y cuadros tarifarios modificados para invalidar su caché tras confirmar la transacción.
     /// </summary>
     private async Task<(List<(Guid Id, Guid OperadorId, string CodigoSeguimientoPublico)> Envios, List<(Guid Id, Guid OperadorId)> Cuadros)>
         EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(CancellationToken cancellationToken)
     {
         _dbContext.ChangeTracker.DetectChanges();
+
+        var enviosEntidades = _dbContext.ChangeTracker.Entries<Envio>()
+            .ToDictionary(e => e.Entity.Id, e => e.Entity);
 
         var enviosRastreados = _dbContext.ChangeTracker.Entries<Envio>()
             .ToDictionary(
@@ -101,7 +104,7 @@ public class EfUnitOfWork : IUnitOfWork
         }
 
         var eventosCambioEstado = todosEventosNuevos
-            .Where(e => e.EstadoAnterior != e.EstadoNuevo)
+            .Where(e => e.EstadoAnterior != e.EstadoNuevo || e.TipoEvento == "EntregaParcial")
             .ToList();
 
         if (eventosCambioEstado.Count > 0)
@@ -114,6 +117,14 @@ public class EfUnitOfWork : IUnitOfWork
                 if (!enviosRastreados.TryGetValue(evento.EnvioId, out var datos))
                     continue;
 
+                IReadOnlyList<EventoBultoPublicado>? bultosPublicados = null;
+                if (enviosEntidades.TryGetValue(evento.EnvioId, out var entidadEnvio) && entidadEnvio.Bultos.Count > 0)
+                {
+                    bultosPublicados = entidadEnvio.Bultos
+                        .Select(b => new EventoBultoPublicado(b.Identificacion, b.EstadoBulto, b.MotivoNoEntregaCodigo))
+                        .ToList();
+                }
+
                 var publicado = new EventoEnvioPublicado(
                     datos.OperadorId,
                     evento.EnvioId,
@@ -123,7 +134,8 @@ public class EfUnitOfWork : IUnitOfWork
                     evento.EstadoAnterior?.ToString(),
                     evento.EstadoNuevo.ToString(),
                     evento.Timestamp,
-                    correlationId);
+                    correlationId,
+                    bultosPublicados);
 
                 await _dbContext.OutboxMessages.AddAsync(
                     new OutboxMessage(Guid.NewGuid(), nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),

@@ -15,5 +15,7 @@ public enum EstadoEnvioDto
     Reprogramado = 7,
     EnDevolucion = 8,
     Devuelto = 9,
-    Extraviado = 10
+    Extraviado = 10,
+    EntregadoParcialmente = 11,
+    Cancelado = 99
 }

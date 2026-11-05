@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Application.Commands.Mensajeria.GestionarWebhooks;
 
@@ -6,13 +7,15 @@ public record CrearSuscripcionAvisoRequest(
     Guid? ComercioOperadorId,
     string TipoEvento,
     string UrlWebhook,
-    string ClaveFirma);
+    string ClaveFirma,
+    string VersionContrato = SuscripcionAviso.ContratoV1);
 
 public record CrearSuscripcionAvisoCommand(
     Guid ComercioOperadorId,
     string TipoEvento,
     string UrlWebhook,
-    string ClaveFirma) : IRequest<SuscripcionAvisoDto>;
+    string ClaveFirma,
+    string VersionContrato = SuscripcionAviso.ContratoV1) : IRequest<SuscripcionAvisoDto>;
 
 public record ListarSuscripcionesAvisoQuery(
     Guid? ComercioOperadorId = null) : IRequest<IReadOnlyList<SuscripcionAvisoDto>>;
@@ -26,7 +29,8 @@ public record SuscripcionAvisoDto(
     Guid ComercioOperadorId,
     string TipoEvento,
     string UrlWebhook,
-    bool Activa);
+    bool Activa,
+    string VersionContrato = SuscripcionAviso.ContratoV1);
 
 public record ListarHistorialAvisosQuery(
     Guid? ComercioOperadorId = null,
@@ -45,4 +49,3 @@ public record AvisoComercioHistorialDto(
     DateTime? ProximoReintento,
     string? UltimaRespuestaHttp,
     DateTime Timestamp);
-

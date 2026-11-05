@@ -21,6 +21,10 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Entregado a las 11:20 hs",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-1),
             PermiteReprogramacion = false,
+            TotalBultos = 1,
+            BultosEntregados = 1,
+            BultosPendientes = 0,
+            AvanceEntregaBultos = "1 de 1 bultos entregados",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-36), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema logístico." },
@@ -37,6 +41,10 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Hoy entre 15:30 y 18:30 hs",
             FechaUltimaActualizacion = DateTime.UtcNow.AddMinutes(-30),
             PermiteReprogramacion = false,
+            TotalBultos = 2,
+            BultosEntregados = 0,
+            BultosPendientes = 2,
+            AvanceEntregaBultos = "0 de 2 bultos entregados",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-18), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema." },
@@ -52,6 +60,10 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Próximo intento coordinado para mañana",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-5),
             PermiteReprogramacion = true,
+            TotalBultos = 1,
+            BultosEntregados = 0,
+            BultosPendientes = 1,
+            AvanceEntregaBultos = "0 de 1 bultos entregados",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddDays(-2), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden registrada." },
@@ -67,6 +79,10 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Entregado a las 10:45 hs",
             FechaUltimaActualizacion = DateTime.UtcNow,
             PermiteReprogramacion = false,
+            TotalBultos = 2,
+            BultosEntregados = 2,
+            BultosPendientes = 0,
+            AvanceEntregaBultos = "2 de 2 bultos entregados",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-4), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Envío registrado y admitido" },
@@ -74,6 +90,26 @@ public class MockSeguimientoApi : ISeguimientoApi
                 new() { Fecha = DateTime.UtcNow.AddHours(-2), Estado = EstadoEnvioDto.AsignadoARuta, DescripcionPublica = "Envío asignado a una ruta de distribución" },
                 new() { Fecha = DateTime.UtcNow.AddHours(-1), Estado = EstadoEnvioDto.EnTransito, DescripcionPublica = "El envío salió a reparto" },
                 new() { Fecha = DateTime.UtcNow, Estado = EstadoEnvioDto.Entregado, DescripcionPublica = "Envío entregado" }
+            }
+        },
+        ["ENV-2026-00110"] = new SeguimientoPublicoDto
+        {
+            CodigoSeguimiento = "ENV-2026-00110",
+            EstadoActual = EstadoEnvioDto.EntregadoParcialmente,
+            VentanaHorariaEstimada = "1 bulto pendiente programado para próxima visita",
+            FechaUltimaActualizacion = DateTime.UtcNow,
+            PermiteReprogramacion = true,
+            TotalBultos = 3,
+            BultosEntregados = 2,
+            BultosPendientes = 1,
+            AvanceEntregaBultos = "2 de 3 bultos entregados",
+            HistorialEventos = new List<HitoSeguimientoDto>
+            {
+                new() { Fecha = DateTime.UtcNow.AddHours(-4), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Envío registrado y admitido" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-3), Estado = EstadoEnvioDto.EnDeposito, DescripcionPublica = "Envío recibido en el depósito" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-2), Estado = EstadoEnvioDto.AsignadoARuta, DescripcionPublica = "Envío asignado a una ruta de distribución" },
+                new() { Fecha = DateTime.UtcNow.AddHours(-1), Estado = EstadoEnvioDto.EnTransito, DescripcionPublica = "El envío salió a reparto" },
+                new() { Fecha = DateTime.UtcNow, Estado = EstadoEnvioDto.EntregadoParcialmente, DescripcionPublica = "Se entregaron 2 de 3 bultos. 1 bulto pendiente para próxima visita." }
             }
         }
     };
@@ -96,8 +132,6 @@ public class MockSeguimientoApi : ISeguimientoApi
             return Task.FromResult<SeguimientoPublicoDto?>(seguimiento);
         }
 
-        // Si el código no existe o no se encuentra, retorna null.
-        // La UI mostrará el mismo mensaje genérico para evitar enumeración de códigos de envío.
         return Task.FromResult<SeguimientoPublicoDto?>(null);
     }
 

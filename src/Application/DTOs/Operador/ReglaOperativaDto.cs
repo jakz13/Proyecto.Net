@@ -1,3 +1,5 @@
+using UltimaMilla.Domain.Entities.Operador;
+
 namespace UltimaMilla.Application.DTOs.Operador;
 
 public record ReglaOperativaDto(
@@ -13,7 +15,9 @@ public record ReglaOperativaDto(
     TimeSpan PlazoComprometidoEstandar,
     TimeSpan PlazoComprometidoUrgente,
     int MaxParadasPorRuta,
-    string? Comentario = null);
+    string? Comentario = null,
+    bool AdmiteEntregaParcial = true,
+    string PoliticaEntregaParcial = ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
 
 public record ResultadoSimulacionReglasDto(
     bool Exitoso,

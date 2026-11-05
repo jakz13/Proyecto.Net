@@ -5,6 +5,7 @@ using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
 using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
+using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaParcial;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.RegistrarEventoGeocerca;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
@@ -105,7 +106,6 @@ public static class MobileRutasEndpoints
         // UC-18: ESCANEAR BULTOS AL CARGAR EL VEHÍCULO (RF-19)
         // =========================================================================
 
-        // A) Validar escaneo de carga (Detección de discrepancias: faltantes y sobrantes)
         group.MapPost("/carga/validar", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromBody] ValidarCargaRequest request,
@@ -140,7 +140,6 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // B) Confirmar carga y despachar ruta (Idempotente, inicia ruta y transiciona envíos)
         group.MapPost("/carga/confirmar", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromBody] ConfirmarCargaRequest request,
@@ -183,7 +182,6 @@ public static class MobileRutasEndpoints
         // UC-19: NAVEGAR ENTRE PARADAS
         // =========================================================================
 
-        // A) Obtener secuencia ordenada de paradas para navegación
         group.MapGet("/paradas", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromServices] IMediator mediator,
@@ -217,7 +215,6 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // B) Seleccionar parada actual (Iniciar navegación hacia parada)
         group.MapPost("/paradas/{paradaId:guid}/seleccionar", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromRoute] Guid paradaId,
@@ -260,7 +257,6 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // B2) Registrar arribo al destino de la parada
         group.MapPost("/paradas/{paradaId:guid}/arribo", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromRoute] Guid paradaId,
@@ -326,7 +322,9 @@ public static class MobileRutasEndpoints
                     request.FotoEvidenciaBase64,
                     request.Latitud,
                     request.Longitud,
-                    request.FechaHoraDispositivoUtc);
+                    request.FechaHoraDispositivoUtc,
+                    request.CodigosBultosEntregados,
+                    request.BultosNoEntregados);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Ok(resultado);
@@ -348,6 +346,58 @@ public static class MobileRutasEndpoints
         .WithSummary("UC-20: Registrar entrega exitosa en parada")
         .WithDescription("Registra la prueba de entrega (firma, foto, documento) e intento exitoso, transiciona el envío a Entregado, completa la parada, genera EventoEnvio e integration event para webhooks y notificaciones.")
         .Produces<EntregaExitosaResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        // =========================================================================
+        // CAMBIO 2.1: REGISTRAR ENTREGA PARCIAL POR BULTOS (RF-31, RF-32, RF-33, RF-34)
+        // =========================================================================
+        group.MapPost("/paradas/{paradaId:guid}/entrega-parcial", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromRoute] Guid paradaId,
+            [FromBody] RegistrarEntregaParcialRequest request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new RegistrarEntregaParcialCommand(
+                    hojaDeRutaId,
+                    paradaId,
+                    request.EnvioId,
+                    request.IdempotencyKey,
+                    request.CodigosBultosEntregados ?? Array.Empty<string>(),
+                    request.BultosNoEntregados ?? Array.Empty<BultoNoEntregadoRequestDto>(),
+                    request.NombreReceptor,
+                    request.DocumentoReceptor,
+                    request.FirmaDigitalBase64,
+                    request.FotoEvidenciaBase64,
+                    request.Latitud,
+                    request.Longitud,
+                    request.FechaHoraDispositivoUtc);
+
+                var resultado = await mediator.Send(command, ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("RegistrarEntregaParcial")
+        .WithSummary("RF-31 a RF-34: Registrar entrega parcial de bultos en parada")
+        .WithDescription("Registra mediante escaneo qué bultos se entregan y el motivo de no entrega para los restantes, asocia la prueba de entrega a los bultos entregados y deriva el estado del envío.")
+        .Produces<EntregaParcialResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)
@@ -450,7 +500,6 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // =========================================================================
         // GEOCERCAS: DETECCIÓN AUTOMÁTICA DE LLEGADA Y SALIDA (Sección 7.3)
         // =========================================================================
         group.MapPost("/paradas/{paradaId:guid}/geocerca", async (
@@ -500,7 +549,6 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // REINICIO DE DATOS DE DEMO (MODO OFFLINE/ONLINE)
-        // =========================================================================
         app.MapPost("/api/mobile/v1/demo/reset", async (
             [FromServices] AppDbContext dbContext,
             [FromServices] IDistributedCacheService cacheService,
@@ -546,7 +594,7 @@ public static class MobileRutasEndpoints
 
             var eventosGeocercaODemo = await dbContext.EventosEnvio
                 .Where(ev => (ev.EnvioId == id1 || ev.EnvioId == id2 || ev.EnvioId == id3)
-                    && (ev.TipoEvento == "LlegadaGeocerca" || ev.TipoEvento == "SalidaGeocerca" || ev.TipoEvento == "ReinicioDemo"))
+                    && (ev.TipoEvento == "LlegadaGeocerca" || ev.TipoEvento == "SalidaGeocerca" || ev.TipoEvento == "ReinicioDemo" || ev.TipoEvento == "EntregaParcial"))
                 .ToListAsync(ct);
 
             if (eventosGeocercaODemo.Count > 0)
@@ -597,7 +645,6 @@ public record RegistrarRetiroDevolucionRequest(
     DateTime? FechaHoraDispositivoUtc = null,
     string? Observaciones = null);
 
-// Request Contracts
 public record ValidarCargaRequest(List<string> CodigosBultosEscaneados);
 
 public record ConfirmarCargaRequest(
@@ -621,6 +668,22 @@ public record RegistrarArriboRequest(
 public record RegistrarEntregaExitosaRequest(
     Guid EnvioId,
     string IdempotencyKey,
+    string NombreReceptor,
+    string DocumentoReceptor,
+    string? FirmaDigitalBase64 = null,
+    string? FotoEvidenciaBase64 = null,
+    double? Latitud = null,
+    double? Longitud = null,
+    DateTime? FechaHoraDispositivoUtc = null,
+    IReadOnlyList<string>? CodigosBultosEntregados = null,
+    IReadOnlyList<BultoNoEntregadoRequestDto>? BultosNoEntregados = null
+);
+
+public record RegistrarEntregaParcialRequest(
+    Guid EnvioId,
+    string IdempotencyKey,
+    IReadOnlyList<string>? CodigosBultosEntregados,
+    IReadOnlyList<BultoNoEntregadoRequestDto>? BultosNoEntregados,
     string NombreReceptor,
     string DocumentoReceptor,
     string? FirmaDigitalBase64 = null,

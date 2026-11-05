@@ -49,7 +49,7 @@
         EstadoEnvioDto.EnDeposito => 2,
         EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito => 3,
         EstadoEnvioDto.Entregado => 4,
-        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado => 3,
+        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado or EstadoEnvioDto.EntregadoParcialmente => 3,
         _ => 2
     };
 

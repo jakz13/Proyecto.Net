@@ -75,12 +75,12 @@ public class ListarRutasPendientesRendicionQueryHandler : IRequestHandler<Listar
                 .ToList();
 
             var bultosViajaron = enviosRuta
-                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio"))
                 .ToList();
 
             var bultosEntregados = enviosRuta
                 .Where(e => e.EstadoActual == EstadoEnvio.Entregado)
-                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio"))
                 .Count();
 
             var bultosRetornoEstimados = bultosViajaron.Count - bultosEntregados;

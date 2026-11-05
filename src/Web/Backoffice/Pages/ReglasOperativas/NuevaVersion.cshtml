@@ -126,6 +126,24 @@
                     <input asp-for="NuevaVersion.PoliticaDevolucion" class="form-control form-control-sm" id="inputDevolucionTexto" required />
                     <span asp-validation-for="NuevaVersion.PoliticaDevolucion" class="text-danger small"></span>
                 </div>
+
+                <div class="col-md-6 mt-3">
+                    <label class="form-label small fw-semibold d-block">Admite Entrega Parcial de Bultos (RF-33)</label>
+                    <div class="form-check form-switch mt-1">
+                        <input asp-for="NuevaVersion.AdmiteEntregaParcial" class="form-check-input" type="checkbox" id="checkEntregaParcial" />
+                        <label class="form-check-label small" for="checkEntregaParcial">Habilitar entrega parcial por escaneo de bulto en parada</label>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mt-3">
+                    <label asp-for="NuevaVersion.PoliticaEntregaParcial" class="form-label small fw-semibold">Política para Bultos Pendientes (RF-33)</label>
+                    <select asp-for="NuevaVersion.PoliticaEntregaParcial" class="form-select form-select-sm">
+                        <option value="NuevaVisitaSinRecargo">Nueva visita sin recargo</option>
+                        <option value="NuevaVisitaConRecargo">Nueva visita con recargo</option>
+                        <option value="DevolucionAlComercio">Devolución al comercio</option>
+                    </select>
+                    <span asp-validation-for="NuevaVersion.PoliticaEntregaParcial" class="text-danger small"></span>
+                </div>
             </div>
         </div>
     </div>

@@ -87,7 +87,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId && p.Estado != "Cancelada")
             ?? throw new DomainValidationException("El envío no tiene una parada vigente en esta hoja de ruta.");
 
-        if (parada.Estado is "Entregada" or "Fallida")
+        if (parada.Estado is "Entregada" or "EntregadaParcialmente" or "Fallida")
             throw new DomainValidationException($"La parada del envío ya fue cerrada ({parada.Estado}) y no se puede retirar.");
 
         parada.CancelarPorFaltante("Envío retirado de la ruta por el despachador.");
@@ -201,7 +201,6 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (parada is null)
             throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
 
-        // Si alguna otra parada estaba en camino, se regresa a pendiente (reordenamiento en calle)
         foreach (var p in _paradas.Where(p => p.Id != paradaId && p.Estado == "EnCamino"))
         {
             p.CambiarEstado("Pendiente");
@@ -215,7 +214,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public Parada RegistrarArriboAParada(Guid paradaId)
     {
         if (Estado != "EnTransito" && Estado != "Despachada")
-            throw new DomainValidationException($"No se puede registrar arribo si la ruta no está en tránsito.");
+            throw new DomainValidationException("No se puede registrar arribo si la ruta no está en tránsito.");
 
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId);
         if (parada is null)
@@ -251,6 +250,18 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         return parada;
     }
 
+    public Parada RegistrarEntregaParcialEnParada(Guid paradaId)
+    {
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
+            ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarEntregaParcial();
+        SelloModificacion = Guid.NewGuid();
+
+        VerificarYActualizarFinDeRuta();
+        return parada;
+    }
+
     public Parada RegistrarIntentoFallidoEnParada(Guid paradaId)
     {
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
@@ -265,7 +276,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     private void VerificarYActualizarFinDeRuta()
     {
-        bool todasCompletadas = _paradas.Count > 0 && _paradas.All(p => p.Estado is "Entregada" or "Fallida" or "Cancelada");
+        bool todasCompletadas = _paradas.Count > 0 && _paradas.All(p => p.Estado is "Entregada" or "EntregadaParcialmente" or "Fallida" or "Cancelada");
         if (todasCompletadas)
         {
             Estado = "Finalizada";

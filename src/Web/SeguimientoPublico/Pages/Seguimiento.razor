@@ -42,6 +42,23 @@
                 <!-- Ventana Horaria Estimada -->
                 <VentanaHoraria Ventana="@seguimiento.VentanaHorariaEstimada" />
 
+                @if (seguimiento.TotalBultos > 0)
+                {
+                    <div class="alert @(seguimiento.EstadoActual == UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EntregadoParcialmente ? "alert-warning" : "alert-light") border d-flex align-items-center justify-content-between py-2 px-3 mb-3">
+                        <div class="d-flex align-items-center gap-2 small fw-semibold">
+                            <Icono Nombre="paquete" Tamano="16" />
+                            <span>Avance de entrega de bultos: @(seguimiento.AvanceEntregaBultos ?? $"{seguimiento.BultosEntregados} de {seguimiento.TotalBultos} bultos entregados")</span>
+                        </div>
+                        <span class="badge bg-dark">
+                            @seguimiento.BultosEntregados / @seguimiento.TotalBultos entregados
+                            @if (seguimiento.BultosPendientes > 0)
+                            {
+                                <span> (@seguimiento.BultosPendientes @(seguimiento.BultosPendientes == 1 ? "pendiente" : "pendientes"))</span>
+                            }
+                        </span>
+                    </div>
+                }
+
                 <div class="tarjeta-envio__actualizacion">
                     <Icono Nombre="reloj" Tamano="14" />
                     <span>Última actualización: @seguimiento.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs.</span>

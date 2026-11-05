@@ -44,7 +44,6 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
         if (ruta.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: La hoja de ruta no corresponde al operador actual.");
 
-        // Una ruta ya despachada no admite cambios en la carga: se responde sin modificar nada
         if (ruta.Estado is "Despachada" or "EnTransito" or "Finalizada")
         {
             return new ConfirmarCargaResultDto(
@@ -63,7 +62,7 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
         var envios = await _envioRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
         var bultosDeLaRuta = envios
             .SelectMany(e => e.Bultos)
-            .Where(b => b.EstadoBulto is "Recibido" or "Danado")
+            .Where(b => b.EstaDisponibleParaRuta)
             .ToList();
 
         var cargados = bultosDeLaRuta.Where(b => codigos.Contains(b.Identificacion)).ToList();

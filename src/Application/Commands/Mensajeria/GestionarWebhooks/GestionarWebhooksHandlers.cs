@@ -54,7 +54,8 @@ public class CrearSuscripcionAvisoCommandHandler : IRequestHandler<CrearSuscripc
             comercioOperador.Id,
             request.TipoEvento,
             request.UrlWebhook.Trim(),
-            request.ClaveFirma.Trim());
+            request.ClaveFirma.Trim(),
+            request.VersionContrato);
 
         await _avisoRepository.AddSuscripcionAsync(suscripcion, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -64,7 +65,8 @@ public class CrearSuscripcionAvisoCommandHandler : IRequestHandler<CrearSuscripc
             suscripcion.ComercioOperadorId,
             suscripcion.TipoEvento,
             suscripcion.UrlWebhook,
-            suscripcion.Activa);
+            suscripcion.Activa,
+            suscripcion.VersionContrato);
     }
 }
 
@@ -81,7 +83,7 @@ public class ListarSuscripcionesAvisoQueryHandler : IRequestHandler<ListarSuscri
     {
         var suscripciones = await _avisoRepository.ListarSuscripcionesAsync(request.ComercioOperadorId, cancellationToken);
         return suscripciones
-            .Select(s => new SuscripcionAvisoDto(s.Id, s.ComercioOperadorId, s.TipoEvento, s.UrlWebhook, s.Activa))
+            .Select(s => new SuscripcionAvisoDto(s.Id, s.ComercioOperadorId, s.TipoEvento, s.UrlWebhook, s.Activa, s.VersionContrato))
             .ToList();
     }
 }
@@ -122,7 +124,8 @@ public class DesactivarSuscripcionAvisoCommandHandler : IRequestHandler<Desactiv
             suscripcion.ComercioOperadorId,
             suscripcion.TipoEvento,
             suscripcion.UrlWebhook,
-            suscripcion.Activa);
+            suscripcion.Activa,
+            suscripcion.VersionContrato);
     }
 }
 

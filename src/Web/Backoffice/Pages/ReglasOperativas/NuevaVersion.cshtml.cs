@@ -39,7 +39,9 @@ public class NuevaVersionModel : PageModel
                 HorasPlazoComprometidoEstandar = VersionActual.HorasPlazoComprometidoEstandar,
                 HorasPlazoComprometidoUrgente = VersionActual.HorasPlazoComprometidoUrgente,
                 VigenteDesde = DateTime.UtcNow,
-                Comentario = $"Actualización de reglas operativas sobre Versión {VersionActual.Version}"
+                Comentario = $"Actualización de reglas operativas sobre Versión {VersionActual.Version}",
+                AdmiteEntregaParcial = VersionActual.AdmiteEntregaParcial,
+                PoliticaEntregaParcial = VersionActual.PoliticaEntregaParcial
             };
         }
     }

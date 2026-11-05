@@ -84,7 +84,7 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
         foreach (var envio in envios)
         {
             var bultosQueViajaron = envio.Bultos
-                .Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito")
+                .Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio")
                 .ToList();
 
             totalBultosRuta += bultosQueViajaron.Count;
@@ -110,7 +110,7 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
                 b.Identificacion,
                 b.Peso,
                 b.EstadoBulto,
-                CargadoEnVehiculo: b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"
+                CargadoEnVehiculo: b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio"
             )).ToList();
 
             listaEnviosDto.Add(new EnvioRendicionDetalleDto(

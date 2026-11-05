@@ -170,6 +170,9 @@
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Entregado:
                                             <span class="estado-entregado">Entregado</span>
                                             break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EntregadoParcialmente:
+                                            <span class="estado-intermedio">Entregado Parcialmente</span>
+                                            break;
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Extraviado:
                                             <span class="estado-fallo">Extraviado</span>
                                             @if (!string.IsNullOrEmpty(envio.IncidenciaAsociadaNumero))

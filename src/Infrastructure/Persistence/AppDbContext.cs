@@ -125,6 +125,10 @@ public class AppDbContext : DbContext
             builder.HasKey(b => b.Id);
             builder.Ignore(b => b.Volumen);
             builder.Ignore(b => b.EstaClasificado);
+            builder.Ignore(b => b.EstaEntregado);
+            builder.Ignore(b => b.EstaDisponibleParaRuta);
+            builder.Ignore(b => b.MotivoNoEntregaCodigo);
+            builder.Ignore(b => b.PruebaDeEntregaId);
             builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
             builder.Property(b => b.EstadoBulto).IsRequired().HasMaxLength(50);
             builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
@@ -202,6 +206,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PruebaDeEntrega>(builder =>
         {
             builder.ToTable("PruebasDeEntrega");
+            builder.Ignore(p => p.CodigosBultosEntregados);
             builder.HasKey(p => p.Id);
             builder.Property(p => p.Tipo).IsRequired().HasMaxLength(100);
         });
@@ -209,6 +214,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ReglaOperativa>(builder =>
         {
             builder.ToTable("ReglasOperativas");
+            builder.Ignore(r => r.AdmiteEntregaParcial);
+            builder.Ignore(r => r.PoliticaEntregaParcial);
             builder.HasKey(r => r.Id);
             builder.Property(r => r.TipoPruebaEntregaExigida).IsRequired().HasMaxLength(200);
             builder.Property(r => r.PoliticaDevolucion).IsRequired().HasMaxLength(500);
@@ -510,6 +517,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SuscripcionAviso>(builder =>
         {
             builder.ToTable("SuscripcionesAviso");
+            builder.Ignore(s => s.VersionContrato);
             builder.HasKey(s => s.Id);
             builder.Property(s => s.TipoEvento).IsRequired().HasMaxLength(100);
             builder.Property(s => s.UrlWebhook).IsRequired().HasMaxLength(500);

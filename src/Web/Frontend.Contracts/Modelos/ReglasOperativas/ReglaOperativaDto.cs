@@ -84,4 +84,14 @@ public record ReglaOperativaDto
     /// Observaciones o justificación del cambio de versión.
     /// </summary>
     public string? Comentario { get; init; }
+
+    /// <summary>
+    /// Indica si el operador admite la entrega parcial de bultos en una parada (RF-33).
+    /// </summary>
+    public bool AdmiteEntregaParcial { get; init; } = true;
+
+    /// <summary>
+    /// Política aplicable a los bultos pendientes tras una entrega parcial (RF-33).
+    /// </summary>
+    public string PoliticaEntregaParcial { get; init; } = "NuevaVisitaSinRecargo";
 }

@@ -55,11 +55,9 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(request.HojaDeRutaId, cancellationToken)
             ?? throw new NotFoundException($"Hoja de ruta '{request.HojaDeRutaId}' no encontrada.");
 
-        // Anti-IDOR: la ruta debe pertenecer al operador del usuario autenticado
         if (ruta.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: la hoja de ruta no corresponde al operador actual.");
 
-        // Idempotencia: una ruta ya rendida devuelve la rendición registrada sin repetir transiciones
         if (ruta.Estado == "Rendida")
         {
             var previa = await _rendicionRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
@@ -85,7 +83,6 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         var viajaron = envios.SelectMany(e => ViajaronEnElVehiculo(e)).Select(b => b.Identificacion).ToHashSet();
         var sobrantes = presentados.Where(c => !viajaron.Contains(c)).OrderBy(c => c).ToList();
 
-        // Primero se resuelve el motivo interno (si hace falta) para no modificar nada ante un dato inválido
         var retornanSinIntento = envios
             .Where(e => e.EstadoActual == EstadoEnvio.EnTransito && TodosPresentados(e, presentados))
             .ToList();
@@ -108,6 +105,33 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             {
                 case EstadoEnvio.Entregado:
                     entregados += bultos.Count;
+                    break;
+
+                case EstadoEnvio.EntregadoParcialmente:
+                    var bultosEntregadosParcial = bultos.Where(b => b.EstaEntregado).ToList();
+                    var bultosNoEntregadosParcial = bultos.Where(b => !b.EstaEntregado).ToList();
+                    var presentadosParcial = bultosNoEntregadosParcial.Count(b => presentados.Contains(b.Identificacion));
+
+                    entregados += bultosEntregadosParcial.Count;
+                    devueltos += presentadosParcial;
+                    pendientes += bultosNoEntregadosParcial.Count - presentadosParcial;
+
+                    if (bultosNoEntregadosParcial.Count > 0 && presentadosParcial == bultosNoEntregadosParcial.Count)
+                    {
+                        envio.ReintegrarADepositoPorRendicion(usuarioId);
+                        reintegrados.Add(envio.CodigoSeguimientoPublico);
+                        mensajes.Add(CrearMensaje(nameof(Envio), envio.Id, "EnvioReintegradoADepositoIntegrationEvent", new
+                        {
+                            EnvioId = envio.Id,
+                            HojaDeRutaId = ruta.Id,
+                            Estado = envio.EstadoActual.ToString(),
+                            Timestamp = _clock.UtcNow
+                        }));
+                    }
+                    else if (presentadosParcial < bultosNoEntregadosParcial.Count)
+                    {
+                        enviosPendientes.Add(envio.CodigoSeguimientoPublico);
+                    }
                     break;
 
                 case EstadoEnvio.EnDevolucion:
@@ -142,7 +166,6 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
                     }
                     else
                     {
-                        // Los bultos que no se presentan quedan pendientes: se resuelven luego (por ejemplo, declarándolos extraviados)
                         enviosPendientes.Add(envio.CodigoSeguimientoPublico);
                     }
                     break;
@@ -190,9 +213,14 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
                 : $"Rendición registrada con diferencias: {pendientes} bulto(s) pendiente(s) y {sobrantes.Count} código(s) sobrante(s).");
     }
 
-    /// <summary>Bultos que salieron en el vehículo con esta ruta (la entrega no cambia el estado del bulto).</summary>
+    /// <summary>Bultos que salieron en el vehículo con esta ruta (entregados, en tránsito, pendientes o en retorno).</summary>
     private static IEnumerable<Bulto> ViajaronEnElVehiculo(Envio envio) =>
-        envio.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito");
+        envio.Bultos.Where(b => b.EstadoBulto is
+            MaquinaEstadosBulto.CargadoEnVehiculo
+            or MaquinaEstadosBulto.EnRetornoADeposito
+            or MaquinaEstadosBulto.Entregado
+            or MaquinaEstadosBulto.NoEntregado
+            or MaquinaEstadosBulto.PendienteReenvio);
 
     private static bool TodosPresentados(Envio envio, HashSet<string> presentados)
     {

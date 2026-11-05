@@ -1,12 +1,25 @@
-﻿using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Operador;
 
 namespace UltimaMilla.Application.DTOs.Operador;
 
 public static class OperadorMapper
 {
     public static ReglaOperativaDto ToDto(ReglaOperativa r) => new(
-        r.Id, r.OperadorId, r.Version, r.VigenteDesde, r.VigenteHasta, r.MaxIntentosEntrega, r.PlazoEntreIntentos,
-        r.TipoPruebaEntregaExigida, r.PoliticaDevolucion, r.PlazoComprometidoEstandar, r.PlazoComprometidoUrgente, r.MaxParadasPorRuta, r.Comentario);
+        r.Id,
+        r.OperadorId,
+        r.Version,
+        r.VigenteDesde,
+        r.VigenteHasta,
+        r.MaxIntentosEntrega,
+        r.PlazoEntreIntentos,
+        r.TipoPruebaEntregaExigida,
+        r.PoliticaDevolucion,
+        r.PlazoComprometidoEstandar,
+        r.PlazoComprometidoUrgente,
+        r.MaxParadasPorRuta,
+        r.Comentario,
+        r.AdmiteEntregaParcial,
+        r.PoliticaEntregaParcial);
 
     public static MotivoNoEntregaDto ToDto(MotivoNoEntrega m) => new(m.Id, m.Codigo, m.Descripcion, m.Activo, m.EsInterno);
 }

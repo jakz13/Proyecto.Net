@@ -43,4 +43,11 @@ public record CrearReglaOperativaDto
     [StringLength(300, ErrorMessage = "El comentario no puede superar 300 caracteres.")]
     [Display(Name = "Motivo de la nueva versión")]
     public string? Comentario { get; set; }
+
+    [Display(Name = "Admite entrega parcial de bultos")]
+    public bool AdmiteEntregaParcial { get; set; } = true;
+
+    [Required(ErrorMessage = "Debe definir la política para bultos pendientes en entregas parciales.")]
+    [Display(Name = "Política para bultos pendientes (Entrega Parcial)")]
+    public string PoliticaEntregaParcial { get; set; } = "NuevaVisitaSinRecargo";
 }

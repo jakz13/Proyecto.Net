@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
@@ -6,6 +7,8 @@ namespace UltimaMilla.Domain.Entities.Envios;
 
 public class Bulto : Entity
 {
+    private static readonly ConcurrentDictionary<Guid, (string? MotivoCodigo, Guid? PruebaId)> MetadatosPorBulto = new();
+
     public Guid EnvioId { get; private set; }
     public string Identificacion { get; private set; } = string.Empty;
     public decimal Peso { get; private set; }
@@ -24,6 +27,38 @@ public class Bulto : Entity
 
     public bool EstaClasificado => FechaClasificacion.HasValue;
 
+    private string? _motivoNoEntregaCodigo;
+    private Guid? _pruebaDeEntregaId;
+
+    /// <summary>Código del motivo de no entrega registrado para este bulto cuando no pudo entregarse en la parada (RF-32).</summary>
+    public string? MotivoNoEntregaCodigo
+    {
+        get => _motivoNoEntregaCodigo ?? (MetadatosPorBulto.TryGetValue(Id, out var meta) ? meta.MotivoCodigo : null);
+        private set
+        {
+            _motivoNoEntregaCodigo = value;
+            SincronizarMetadatos();
+        }
+    }
+
+    /// <summary>Identificador de la prueba de entrega asociada cuando el bulto fue efectivamente entregado (RF-32).</summary>
+    public Guid? PruebaDeEntregaId
+    {
+        get => _pruebaDeEntregaId ?? (MetadatosPorBulto.TryGetValue(Id, out var meta) ? meta.PruebaId : null);
+        private set
+        {
+            _pruebaDeEntregaId = value;
+            SincronizarMetadatos();
+        }
+    }
+
+    /// <summary>Indica si el bulto ya fue entregado al destinatario.</summary>
+    public bool EstaEntregado => string.Equals(EstadoBulto, MaquinaEstadosBulto.Entregado, StringComparison.Ordinal);
+
+    /// <summary>Indica si el bulto se encuentra en depósito o pendiente de reenvío y disponible para asignarse a una hoja de ruta (RF-34).</summary>
+    public bool EstaDisponibleParaRuta =>
+        EstadoBulto is MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.PendienteReenvio;
+
     protected Bulto() { }
 
     public Bulto(
@@ -34,7 +69,7 @@ public class Bulto : Entity
         decimal alto,
         decimal ancho,
         decimal profundo,
-        string estadoBulto = "Ingresado") : base(id)
+        string estadoBulto = MaquinaEstadosBulto.Ingresado) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del bulto no puede ser vacío.");
@@ -57,7 +92,7 @@ public class Bulto : Entity
         Alto = alto;
         Ancho = ancho;
         Profundo = profundo;
-        EstadoBulto = string.IsNullOrWhiteSpace(estadoBulto) ? "Ingresado" : estadoBulto.Trim();
+        EstadoBulto = string.IsNullOrWhiteSpace(estadoBulto) ? MaquinaEstadosBulto.Ingresado : estadoBulto.Trim();
     }
 
     public void ActualizarEstado(string nuevoEstado)
@@ -68,9 +103,91 @@ public class Bulto : Entity
         EstadoBulto = nuevoEstado.Trim();
     }
 
+    public void MarcarRecibido()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.Recibido);
+        EstadoBulto = MaquinaEstadosBulto.Recibido;
+    }
+
+    public void MarcarDanado()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.Danado);
+        EstadoBulto = MaquinaEstadosBulto.Danado;
+    }
+
+    public void MarcarFaltanteEnRecepcion()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.FaltanteEnRecepcion);
+        EstadoBulto = MaquinaEstadosBulto.FaltanteEnRecepcion;
+    }
+
     public void MarcarCargadoEnVehiculo()
     {
-        EstadoBulto = "CargadoEnVehiculo";
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.CargadoEnVehiculo);
+        EstadoBulto = MaquinaEstadosBulto.CargadoEnVehiculo;
+    }
+
+    public void MarcarCargado() => MarcarCargadoEnVehiculo();
+
+    public void MarcarFaltanteEnCarga()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.FaltanteEnCarga);
+        EstadoBulto = MaquinaEstadosBulto.FaltanteEnCarga;
+    }
+
+    public void MarcarFaltante(string? motivo = null) => MarcarFaltanteEnCarga();
+
+    public void MarcarEnRetornoADeposito()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.EnRetornoADeposito);
+        EstadoBulto = MaquinaEstadosBulto.EnRetornoADeposito;
+    }
+
+    /// <summary>Registra la entrega efectiva del bulto y lo vincula con la prueba de entrega correspondiente (RF-31, RF-32).</summary>
+    public void MarcarEntregado(Guid? pruebaDeEntregaId = null)
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.Entregado);
+        EstadoBulto = MaquinaEstadosBulto.Entregado;
+        PruebaDeEntregaId = pruebaDeEntregaId;
+        MotivoNoEntregaCodigo = null;
+    }
+
+    /// <summary>
+    /// Registra que el bulto no pudo entregarse en la parada, guarda el motivo del catálogo del operador
+    /// y lo transiciona al estado posterior según la regla operativa vigente (RF-32, RF-33).
+    /// </summary>
+    public void MarcarNoEntregado(string codigoMotivo, string? destinoSegunRegla = null)
+    {
+        if (string.IsNullOrWhiteSpace(codigoMotivo))
+            throw new DomainValidationException($"Debe indicar el motivo de no entrega para el bulto '{Identificacion}'.");
+
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.NoEntregado);
+        EstadoBulto = MaquinaEstadosBulto.NoEntregado;
+        MotivoNoEntregaCodigo = codigoMotivo.Trim().ToUpperInvariant();
+        PruebaDeEntregaId = null;
+
+        if (!string.IsNullOrWhiteSpace(destinoSegunRegla)
+            && !string.Equals(destinoSegunRegla, MaquinaEstadosBulto.NoEntregado, StringComparison.Ordinal))
+        {
+            MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, destinoSegunRegla.Trim());
+            EstadoBulto = destinoSegunRegla.Trim();
+        }
+    }
+
+    /// <summary>Marca el bulto como devuelto al comercio de origen.</summary>
+    public void MarcarDevuelto()
+    {
+        MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.Devuelto);
+        EstadoBulto = MaquinaEstadosBulto.Devuelto;
+    }
+
+    /// <summary>Restablece el bulto como cargado en vehículo únicamente para reinicio de demostraciones.</summary>
+    public void ReiniciarEstadoParaDemo()
+    {
+        EstadoBulto = MaquinaEstadosBulto.CargadoEnVehiculo;
+        MotivoNoEntregaCodigo = null;
+        PruebaDeEntregaId = null;
+        MetadatosPorBulto.TryRemove(Id, out _);
     }
 
     /// <summary>Valida que el bulto admita la clasificación indicada y devuelve el tipo normalizado.</summary>
@@ -82,7 +199,7 @@ public class Bulto : Entity
         if (zonaCoberturaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la zona de cobertura no puede ser vacío.");
 
-        if (EstadoBulto is not ("Recibido" or "Danado"))
+        if (EstadoBulto is not (MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.PendienteReenvio))
             throw new DomainValidationException($"El bulto {Identificacion} no se puede clasificar porque su estado es '{EstadoBulto}'.");
 
         var tipoNormalizado = string.IsNullOrWhiteSpace(tipo) ? null : tipo.Trim();
@@ -103,23 +220,6 @@ public class Bulto : Entity
         FechaClasificacion = DateTime.UtcNow;
     }
 
-    public void MarcarEnRetornoADeposito() => EstadoBulto = "EnRetornoADeposito";
-
-    public void MarcarRecibido() => EstadoBulto = "Recibido";
-
-    public void MarcarFaltanteEnRecepcion() => EstadoBulto = "FaltanteEnRecepcion";
-
-    public void MarcarDanado() => EstadoBulto = "Danado";
-
-    public void MarcarCargado() => MarcarCargadoEnVehiculo();
-
-    public void MarcarFaltanteEnCarga()
-    {
-        EstadoBulto = "FaltanteEnCarga";
-    }
-
-    public void MarcarFaltante(string? motivo = null) => MarcarFaltanteEnCarga();
-
     public void ActualizarDimensiones(decimal peso, decimal alto, decimal ancho, decimal profundo)
     {
         if (peso <= 0)
@@ -132,5 +232,16 @@ public class Bulto : Entity
         Alto = alto;
         Ancho = ancho;
         Profundo = profundo;
+    }
+
+    private void SincronizarMetadatos()
+    {
+        if (Id == Guid.Empty)
+            return;
+
+        if (_motivoNoEntregaCodigo is null && _pruebaDeEntregaId is null)
+            MetadatosPorBulto.TryRemove(Id, out _);
+        else
+            MetadatosPorBulto[Id] = (_motivoNoEntregaCodigo, _pruebaDeEntregaId);
     }
 }

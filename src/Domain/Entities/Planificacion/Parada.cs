@@ -64,7 +64,7 @@ public class Parada : Entity
 
     public void IniciarNavegacion()
     {
-        if (Estado == "Entregada" || Estado == "Cancelada")
+        if (Estado is "Entregada" or "EntregadaParcialmente" or "Cancelada")
             throw new DomainValidationException($"No se puede iniciar navegación hacia una parada en estado '{Estado}'.");
 
         Estado = "EnCamino";
@@ -72,7 +72,7 @@ public class Parada : Entity
 
     public void RegistrarArribo()
     {
-        if (Estado == "Entregada" || Estado == "Cancelada")
+        if (Estado is "Entregada" or "EntregadaParcialmente" or "Cancelada")
             throw new DomainValidationException($"No se puede registrar arribo a una parada en estado '{Estado}'.");
 
         Estado = "EnSitio";
@@ -86,6 +86,14 @@ public class Parada : Entity
         Estado = "Entregada";
     }
 
+    public void RegistrarEntregaParcial()
+    {
+        if (Estado == "Cancelada")
+            throw new DomainValidationException("No se puede registrar entrega parcial en una parada cancelada.");
+
+        Estado = "EntregadaParcialmente";
+    }
+
     public void RegistrarIntentoFallido()
     {
         if (Estado == "Cancelada")
@@ -97,7 +105,7 @@ public class Parada : Entity
     /// <summary>La parada nunca se visitó: se cierra así al rendir la hoja de ruta.</summary>
     public void MarcarNoVisitada()
     {
-        if (Estado is "Entregada" or "Fallida" or "Cancelada")
+        if (Estado is "Entregada" or "EntregadaParcialmente" or "Fallida" or "Cancelada")
             return;
 
         Estado = "NoVisitada";
