@@ -9,6 +9,7 @@ public static class TiposOperacionOffline
     public const string RetiroDevolucion = "RETIRO_DEVOLUCION";
     public const string EventoGeocerca = "EVENTO_GEOCERCA";
     public const string IniciarRecorrido = "INICIAR_RECORRIDO";
+    public const string TelemetriaGps = "TELEMETRIA_GPS";
 }
 
 public class IniciarRecorridoOfflinePayload
@@ -91,5 +92,17 @@ public class EventoGeocercaOfflinePayload
     public double DistanciaMetros { get; set; }
     public int? TiempoPermanenciaSegundos { get; set; }
     public DateTime TimestampUtc { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+}
+
+public class TelemetriaGpsOfflinePayload
+{
+    public Guid HojaDeRutaId { get; set; }
+    public Guid RepartidorId { get; set; }
+    public double Latitud { get; set; }
+    public double Longitud { get; set; }
+    public double? PrecisionMetros { get; set; }
+    public DateTime TimestampUtc { get; set; }
+    public int? BateriaPct { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
 }

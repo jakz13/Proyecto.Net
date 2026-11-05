@@ -89,7 +89,7 @@
                                     FontSize="12"
                                     Command="{Binding SimularFirmaCommand}" />
 
-                            <Button Text="Limpiar"
+                            <Button Text="Limpiar Firma"
                                     Style="{StaticResource SecondaryButton}"
                                     HeightRequest="36"
                                     Padding="10,0"
@@ -98,24 +98,32 @@
                         </HorizontalStackLayout>
                     </FlexLayout>
 
-                    <Label Text="Dibuje la firma con el mouse o dedo en el recuadro blanco:"
+                    <Label Text="Dibuje la firma con el mouse o dedo en el recuadro blanco sobre la línea guía:"
                            Style="{StaticResource CaptionLabel}" />
 
                     <!-- Pad interactivo de dibujo con GraphicsView sin vistas superpuestas -->
-                    <Border HeightRequest="160"
+                    <Border HeightRequest="180"
                             Stroke="{StaticResource InputBorder}"
                             StrokeThickness="1.5"
                             StrokeShape="RoundRectangle 10"
                             BackgroundColor="#FFFFFF"
                             Padding="0">
-                        <GraphicsView x:Name="SignatureView"
+                        <GraphicsView x:Name="FirmaGraphicsView"
                                       StartInteraction="OnSignatureStartInteraction"
                                       DragInteraction="OnSignatureDragInteraction"
                                       EndInteraction="OnSignatureEndInteraction"
-                                      HeightRequest="160"
+                                      HeightRequest="180"
                                       HorizontalOptions="Fill"
                                       VerticalOptions="Fill" />
                     </Border>
+
+                    <Button Text="Limpiar Firma"
+                            Style="{StaticResource DangerOutlineButton}"
+                            HeightRequest="36"
+                            Padding="14,0"
+                            FontSize="12"
+                            HorizontalOptions="Center"
+                            Command="{Binding LimpiarFirmaCommand}" />
 
                     <Label Text="{Binding FirmaStatusText}"
                            Style="{StaticResource CaptionLabel}"
@@ -195,6 +203,37 @@
                                FontAttributes="Bold"
                                HorizontalOptions="Center" />
                     </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- AUDITORÍA DE GEO-POSICIÓN Y FECHA/HORA                    -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Auditoría de Captura"
+                           Style="{StaticResource H3Label}" />
+
+                    <Label Text="Información registrada automáticamente por el dispositivo:"
+                           Style="{StaticResource CaptionLabel}" />
+
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="6" Margin="0,4,0,0">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0">
+                            <Label Text="Posición GPS Registrada" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding PosicionGpsTexto, FallbackValue='Consultando GPS...'}"
+                                   FontAttributes="Bold"
+                                   FontSize="12"
+                                   TextColor="{StaticResource TextPrimary}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="1">
+                            <Label Text="Fecha y Hora de Captura" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding FechaHoraCapturaTexto, FallbackValue='--/--/---- --:--:--'}"
+                                   FontAttributes="Bold"
+                                   FontSize="12"
+                                   TextColor="{StaticResource TextPrimary}" />
+                        </VerticalStackLayout>
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 

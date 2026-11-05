@@ -8,6 +8,7 @@ using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
 using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
+using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Auth;
@@ -46,20 +47,21 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // 1. Almacenamiento Local Cifrado (RNF 6.11 - SQLite con SQLCipher)
+        // 1. Almacenamiento Local Cifrado (SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
         builder.Services.AddSingleton<IAuthService, AuthService>();
+        builder.Services.AddSingleton<IBiometricAuthService, BiometricAuthService>();
 
-        // 1b. Motor de Sincronización Resiliente Offline-First (UC-17 a UC-21)
+        // 1b. Motor de Sincronizacion Resiliente Offline-First
         builder.Services.AddSingleton<ISyncService, SyncService>();
 
-        // 1c. Telemetría y Geolocalización en Tiempo Real con SignalR (Hito 4 / RNF 6.10, RNF 6.11)
+        // 1c. Telemetria y Geolocalizacion en Tiempo Real con SignalR
         builder.Services.AddSingleton<IRealtimeTrackingService, RealtimeTrackingService>();
         builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
         builder.Services.AddSingleton<IGeolocalizacionTrackingService, GeolocalizacionTrackingService>();
         builder.Services.AddSingleton<IRutaOptimizationService, RutaOptimizationService>();
 
-        // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
+        // 2. Interceptor HTTP de Autenticacion (Inyeccion de Bearer token desde SecureStorage)
         builder.Services.AddTransient<AuthDelegatingHandler>();
 
         // 3. Registro de Cliente HTTP genérico con el interceptor configurado

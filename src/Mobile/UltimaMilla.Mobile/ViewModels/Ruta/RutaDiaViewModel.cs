@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Optimization;
+using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
@@ -161,6 +162,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly IGeofenceService? _geofenceService;
     private readonly IAuthService? _authService;
     private readonly IRutaOptimizationService _optimizationService;
+    private readonly IBiometricAuthService? _biometricAuthService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -211,6 +213,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private bool _isTrackingGpsActivo = false;
 
     [ObservableProperty]
+    private bool _foregroundServiceActivo = false;
+
+    [ObservableProperty]
     private string _estadoTrackingTexto = "GPS en vivo";
 
     [ObservableProperty]
@@ -254,7 +259,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null, null)
     {
     }
 
@@ -264,7 +269,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         IGeolocalizacionTrackingService? trackingService,
         IGeofenceService? geofenceService = null,
         IAuthService? authService = null,
-        IRutaOptimizationService? optimizationService = null)
+        IRutaOptimizationService? optimizationService = null,
+        IBiometricAuthService? biometricAuthService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -272,6 +278,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         _geofenceService = geofenceService;
         _authService = authService;
         _optimizationService = optimizationService ?? new RutaOptimizationService();
+        _biometricAuthService = biometricAuthService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -308,6 +315,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             IsTrackingGpsActivo = activo;
+            ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
             ActualizarEstadoVisualTracking(activo);
         });
     }
@@ -317,14 +325,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             UltimaUbicacionTexto = $"{e.Latitud:F4}, {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
+            ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
+            string estadoGps = ForegroundServiceActivo ? "GPS en vivo (Segundo plano)" : "GPS en vivo";
             if (e.TransmitidaSignalR)
             {
-                EstadoTrackingTexto = "GPS en vivo";
+                EstadoTrackingTexto = estadoGps;
                 TrackingDotColor = Color.FromArgb("#16A34A");
             }
             else
             {
-                EstadoTrackingTexto = "GPS en vivo";
+                EstadoTrackingTexto = estadoGps;
                 TrackingDotColor = Color.FromArgb("#10B981");
             }
         });
@@ -367,9 +377,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     private void ActualizarEstadoVisualTracking(bool activo)
     {
+        ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
         if (activo)
         {
-            EstadoTrackingTexto = "GPS en vivo";
+            EstadoTrackingTexto = ForegroundServiceActivo ? "GPS en vivo (Segundo plano)" : "GPS en vivo";
             TrackingBadgeBgColor = Color.FromArgb("#ECFDF5");
             TrackingBadgeBorderColor = Color.FromArgb("#A7F3D0");
             TrackingBadgeTextColor = Color.FromArgb("#065F46");
@@ -563,6 +574,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             ? "Desactivar Modo Offline (Pasar a Online)"
             : "Activar Modo Offline Simulado (Demo)";
 
+        const string opcionRendirRuta = "Rendir Hoja de Ruta en Depósito";
         const string opcionSync = "Sincronizar Ahora con Backend";
         const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
         const string opcionCerrarSesion = "Cerrar Sesión";
@@ -572,11 +584,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             "Cerrar",
             null,
             opcionToggle,
+            opcionRendirRuta,
             opcionSync,
             opcionReset,
             opcionCerrarSesion);
 
-        if (seleccion == opcionToggle && _syncService is not null)
+        if (seleccion == opcionRendirRuta)
+        {
+            await RendirHojaDeRutaAsync();
+        }
+        else if (seleccion == opcionToggle && _syncService is not null)
         {
             await _syncService.AlternarModoOfflineSimuladoAsync();
 
@@ -666,6 +683,66 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         else if (Shell.Current is not null)
         {
             await Shell.Current.GoToAsync("//LoginPage");
+        }
+    }
+
+    [RelayCommand]
+    private async Task RendirHojaDeRutaAsync()
+    {
+        if (IsBusy)
+            return;
+
+        if (_biometricAuthService != null)
+        {
+            var autorizado = await _biometricAuthService.ValidarIdentidadAsync(
+                "Autorizar Rendicion de Ruta",
+                "Verifique su identidad para confirmar la entrega de bultos en deposito y cerrar la jornada.");
+
+            if (!autorizado)
+            {
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Operacion Cancelada",
+                        "No se completo la validacion biometrica. La rendicion de la hoja de ruta fue cancelada.",
+                        "Entendido");
+                }
+                return;
+            }
+        }
+
+        try
+        {
+            IsBusy = true;
+
+            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
+            if (_trackingService is { IsTrackingActive: true })
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+
+            if (_localDatabaseService != null && rutaId != Guid.Empty)
+            {
+                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(rutaId, "Rendida");
+            }
+
+            EstadoHojaDeRuta = "Rendida";
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Hoja de Ruta Rendida",
+                    "La rendición en depósito fue confirmada exitosamente con autenticación biométrica.",
+                    "Aceptar");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al rendir ruta: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -861,9 +938,12 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
                 var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
                 await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
+                string modoSegundoPlano = _trackingService.ForegroundServiceActivo
+                    ? "\nModo segundo plano: Activo con soporte de pantalla apagada (Servicio en primer plano Android)."
+                    : string.Empty;
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS en Vivo",
-                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.",
+                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.{modoSegundoPlano}",
                     "Entendido");
             }
         }

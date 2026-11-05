@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Carga;
@@ -182,18 +183,25 @@ public partial class CargaVehiculoViewModel : ObservableObject
         }
     }
 
-    public CargaVehiculoViewModel() : this(null, null, null)
+    private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
+    private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly IBiometricAuthService? _biometricAuthService;
+
+    public CargaVehiculoViewModel() : this(null, null, null, null)
     {
     }
 
     public CargaVehiculoViewModel(
         ILocalDatabaseService? localDatabaseService,
         ISyncService? syncService = null,
-        IHttpClientFactory? httpClientFactory = null)
+        IHttpClientFactory? httpClientFactory = null,
+        IBiometricAuthService? biometricAuthService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _httpClientFactory = httpClientFactory;
+        _biometricAuthService = biometricAuthService;
 
         CargarBultosRutaDefecto();
     }
@@ -608,6 +616,25 @@ public partial class CargaVehiculoViewModel : ObservableObject
             return;
         }
 
+        if (_biometricAuthService != null)
+        {
+            var autorizado = await _biometricAuthService.ValidarIdentidadAsync(
+                "Autorizar Custodia de Carga",
+                "Verifique su identidad para asumir la custodia de los bultos y despachar la hoja de ruta.");
+
+            if (!autorizado)
+            {
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Operación Cancelada",
+                        "No se completó la verificación de identidad. La custodia de la carga no fue confirmada.",
+                        "Entendido");
+                }
+                return;
+            }
+        }
+
         try
         {
             IsBusy = true;
@@ -706,6 +733,25 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
                 if (!continuar)
                     return;
+            }
+        }
+
+        if (_biometricAuthService != null)
+        {
+            var autorizado = await _biometricAuthService.ValidarIdentidadAsync(
+                "Autorizar Custodia de Carga",
+                "Verifique su identidad para asumir la custodia de los bultos y despachar la hoja de ruta.");
+
+            if (!autorizado)
+            {
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Operación Cancelada",
+                        "No se completó la verificación de identidad. La custodia de la carga no fue confirmada.",
+                        "Entendido");
+                }
+                return;
             }
         }
 

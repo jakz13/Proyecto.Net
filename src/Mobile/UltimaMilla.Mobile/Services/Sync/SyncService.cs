@@ -567,6 +567,42 @@ public class SyncService : ISyncService, IDisposable
                             break;
                         }
 
+                        case TiposOperacionOffline.TelemetriaGps:
+                        {
+                            var payload = JsonSerializer.Deserialize<TelemetriaGpsOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                var targetRutaId = payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : rutaActivaId;
+                                var req = new
+                                {
+                                    Posiciones = new[]
+                                    {
+                                        new
+                                        {
+                                            Latitud = payload.Latitud,
+                                            Longitud = payload.Longitud,
+                                            TomadaEn = (DateTime?)payload.TimestampUtc,
+                                            BateriaPct = payload.BateriaPct,
+                                            HojaDeRutaId = targetRutaId != Guid.Empty ? (Guid?)targetRutaId : null
+                                        }
+                                    }
+                                };
+
+                                var url = "/api/mobile/v1/posiciones";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "TelemetriaGps", detallesErrores, cancellationToken);
+                                if (ok)
+                                {
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
                         default:
                             _logger.LogWarning("Tipo de operación offline no reconocido: {Tipo}", op.TipoOperacion);
                             var errorTipo = $"Op #{op.Id}: Tipo de operación '{op.TipoOperacion}' no soportado.";

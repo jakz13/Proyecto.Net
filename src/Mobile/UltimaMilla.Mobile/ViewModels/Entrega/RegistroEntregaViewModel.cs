@@ -1,9 +1,9 @@
-using System.IO.Compression;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Media;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
@@ -70,10 +70,29 @@ public partial class RegistroEntregaViewModel : ObservableObject
     private string _firmaStatusText = "Toque o dibuje para firmar";
 
     [ObservableProperty]
+    private double? _latitudActual;
+
+    [ObservableProperty]
+    private double? _longitudActual;
+
+    [ObservableProperty]
+    private string _posicionGpsTexto = "Consultando ubicación GPS...";
+
+    [ObservableProperty]
+    private string _fechaHoraCapturaTexto = string.Empty;
+
+    [ObservableProperty]
+    private DateTime _fechaHoraDispositivoUtc = DateTime.UtcNow;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     private bool _isBusy;
 
     public bool IsNotBusy => !IsBusy;
+
+    public Func<Task<string?>>? ObtenerFirmaAsyncCallback { get; set; }
+    public Action? LimpiarFirmaAction { get; set; }
+    public Action? CargarFirmaDemoAction { get; set; }
 
     public RegistroEntregaViewModel() : this(null, null)
     {
@@ -85,7 +104,8 @@ public partial class RegistroEntregaViewModel : ObservableObject
         _syncService = syncService;
 
         _nombreReceptor = string.Empty;
-        _documentoReceptor = "4.123.456-7"; // Valor numérico demo por defecto
+        _documentoReceptor = "4.123.456-7"; // Valor por defecto sobrio
+        _fechaHoraCapturaTexto = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
     }
 
     partial void OnParadaSeleccionadaChanged(ParadaItemViewModel? value)
@@ -112,6 +132,59 @@ public partial class RegistroEntregaViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Consulta la geolocalización actual y actualiza la fecha/hora del dispositivo para auditoría.
+    /// </summary>
+    public async Task ActualizarUbicacionYFechaAsync()
+    {
+        try
+        {
+            var ahoraLocal = DateTime.Now;
+            FechaHoraDispositivoUtc = DateTime.UtcNow;
+            FechaHoraCapturaTexto = ahoraLocal.ToString("dd/MM/yyyy HH:mm:ss");
+
+            Location? location = null;
+            try
+            {
+                location = await Geolocation.Default.GetLastKnownLocationAsync();
+                if (location is null)
+                {
+                    var req = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5));
+                    location = await Geolocation.Default.GetLocationAsync(req);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] GPS no disponible: {ex.Message}");
+            }
+
+            if (location is not null)
+            {
+                LatitudActual = location.Latitude;
+                LongitudActual = location.Longitude;
+            }
+            else if (ParadaSeleccionada?.Latitud != null && ParadaSeleccionada.Latitud != 0)
+            {
+                LatitudActual = ParadaSeleccionada.Latitud;
+                LongitudActual = ParadaSeleccionada.Longitud;
+            }
+            else
+            {
+                // Coordenadas de contingencia urbana
+                LatitudActual = -34.9011;
+                LongitudActual = -56.1645;
+            }
+
+            PosicionGpsTexto = $"Lat: {LatitudActual:F4}, Lon: {LongitudActual:F4}";
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error actualizando auditoría: {ex.Message}");
+            PosicionGpsTexto = "GPS no disponible (Modo manual)";
+            FechaHoraCapturaTexto = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+        }
+    }
+
     [RelayCommand]
     private async Task AbrirCamaraAsync()
     {
@@ -120,7 +193,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
         if (Shell.Current is null)
         {
-            AplicarEvidenciaDemo();
+            await AplicarEvidenciaDemoAsync();
             return;
         }
 
@@ -146,7 +219,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 break;
 
             case OpcionGenerarDemo:
-                AplicarEvidenciaDemo();
+                await AplicarEvidenciaDemoAsync();
                 break;
         }
     }
@@ -265,7 +338,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
                 if (usarDemo)
                 {
-                    AplicarEvidenciaDemo();
+                    await AplicarEvidenciaDemoAsync();
                 }
             }
         }
@@ -275,7 +348,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
     {
         if (Shell.Current is null)
         {
-            AplicarEvidenciaDemo();
+            await AplicarEvidenciaDemoAsync();
             return;
         }
 
@@ -292,219 +365,71 @@ public partial class RegistroEntregaViewModel : ObservableObject
         }
         else if (accion == OpcionGenerarDemo)
         {
-            AplicarEvidenciaDemo();
+            await AplicarEvidenciaDemoAsync();
         }
     }
 
     private async Task ProcesarArchivoFotoAsync(FileResult photo)
     {
-        await using var stream = await photo.OpenReadAsync();
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream);
-        var bytes = memoryStream.ToArray();
-
-        if (bytes.Length == 0)
+        try
         {
+            await using var stream = await photo.OpenReadAsync();
+            var resultado = await ImageCompressionService.ComprimirFotoAsync(stream);
+
+            if (resultado.CompressedBytes.Length == 0)
+            {
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Archivo Vacío",
+                        "La fotografía seleccionada no contiene datos válidos.",
+                        "Entendido");
+                }
+                return;
+            }
+
+            FotoEvidenciaBase64 = resultado.Base64DataUri;
+            FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(resultado.CompressedBytes));
+            TieneFoto = true;
+            FotoStatusText = resultado.ResumenCompresion;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error al procesar fotografía: {ex.Message}");
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
-                    "Archivo vacío",
-                    "La fotografía seleccionada no contiene datos válidos.",
+                    "Error de Imagen",
+                    "No fue posible procesar y comprimir la imagen seleccionada.",
                     "Entendido");
             }
-            return;
         }
-
-        string mimeType = DeterminarMimeType(photo.ContentType, photo.FileName);
-        FotoEvidenciaBase64 = $"data:{mimeType};base64,{Convert.ToBase64String(bytes)}";
-        FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(bytes));
-        TieneFoto = true;
-
-        double sizeKb = Math.Max(0.1, Math.Round(bytes.Length / 1024.0, 1));
-        FotoStatusText = $"Fotografía adjuntada correctamente ({sizeKb:0.#} KB)";
     }
 
-    private void AplicarEvidenciaDemo()
+    private async Task AplicarEvidenciaDemoAsync()
     {
-        var base64DataUri = GenerarPngDemoBase64(out var pngBytes);
-        FotoEvidenciaBase64 = base64DataUri;
-        FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(pngBytes));
-        TieneFoto = true;
-
-        double sizeKb = Math.Max(0.1, Math.Round(pngBytes.Length / 1024.0, 1));
-        FotoStatusText = $"Fotografía adjuntada correctamente ({sizeKb:0.#} KB)";
-    }
-
-    private static string DeterminarMimeType(string? contentType, string? fileName)
-    {
-        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-            return contentType.ToLowerInvariant();
-
-        var ext = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
-        return ext switch
+        try
         {
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            _ => "image/jpeg"
-        };
-    }
-
-    /// <summary>
-    /// Genera una imagen PNG válida en memoria (240x150 px) con estética corporativa
-    /// que representa un comprobante de entrega (POD) para pruebas rápidas en Windows/Demo.
-    /// </summary>
-    private static string GenerarPngDemoBase64(out byte[] pngBytes)
-    {
-        const int width = 240;
-        const int height = 150;
-
-        // Construcción de scanlines RGB (filtro 0 por fila + 3 bytes R,G,B por píxel)
-        var rawScanlines = new byte[height * (1 + width * 3)];
-        int offset = 0;
-
-        for (int y = 0; y < height; y++)
-        {
-            rawScanlines[offset++] = 0; // Filter type: None
-            for (int x = 0; x < width; x++)
-            {
-                // Fondo general azul pizarra suave (#EFF6FF)
-                byte r = 239, g = 246, b = 255;
-
-                // Borde exterior corporativo (#2563EB)
-                if (x < 4 || x >= width - 4 || y < 4 || y >= height - 4)
-                {
-                    r = 37; g = 99; b = 235;
-                }
-                // Tarjeta interior blanca de comprobante
-                else if (x >= 20 && x < width - 20 && y >= 18 && y < height - 18)
-                {
-                    r = 255; g = 255; b = 255;
-
-                    // Franja superior azul en la tarjeta
-                    if (y < 36)
-                    {
-                        r = 37; g = 99; b = 235;
-                    }
-                    // Sello circular verde de verificación a la derecha
-                    else
-                    {
-                        int cx = width - 62;
-                        int cy = 84;
-                        int dx = x - cx;
-                        int dy = y - cy;
-                        if (dx * dx + dy * dy <= 22 * 22)
-                        {
-                            r = 22; g = 163; b = 74; // Verde éxito (#16A34A)
-                        }
-                        // Líneas simulando datos del remito a la izquierda
-                        else if (x >= 34 && x <= 135)
-                        {
-                            if ((y >= 52 && y <= 58) ||
-                                (y >= 70 && y <= 76) ||
-                                (y >= 88 && y <= 94) ||
-                                (y >= 106 && y <= 112 && x <= 105))
-                            {
-                                r = 148; g = 163; b = 184; // Slate-400 (#94A3B8)
-                            }
-                        }
-                    }
-                }
-
-                rawScanlines[offset++] = r;
-                rawScanlines[offset++] = g;
-                rawScanlines[offset++] = b;
-            }
+            var resultado = await ImageCompressionService.GenerarEvidenciaDemoAsync();
+            FotoEvidenciaBase64 = resultado.Base64DataUri;
+            FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(resultado.CompressedBytes));
+            TieneFoto = true;
+            FotoStatusText = resultado.ResumenCompresion;
         }
-
-        using var ms = new MemoryStream();
-        // Firma estándar PNG
-        ms.Write([137, 80, 78, 71, 13, 10, 26, 10]);
-
-        // Chunk IHDR (width, height, bitDepth=8, colorType=2 RGB)
-        var ihdr = new byte[13];
-        EscribirUInt32BigEndian(ihdr, 0, width);
-        EscribirUInt32BigEndian(ihdr, 4, height);
-        ihdr[8] = 8; // Bit depth
-        ihdr[9] = 2; // Color type: Truecolor RGB
-        ihdr[10] = 0;
-        ihdr[11] = 0;
-        ihdr[12] = 0;
-        EscribirChunkPng(ms, "IHDR"u8, ihdr);
-
-        // Chunk IDAT (comprimido con ZLib)
-        using (var compressedStream = new MemoryStream())
+        catch (Exception ex)
         {
-            using (var zlib = new ZLibStream(compressedStream, CompressionLevel.Fastest, leaveOpen: true))
-            {
-                zlib.Write(rawScanlines, 0, rawScanlines.Length);
-            }
-            EscribirChunkPng(ms, "IDAT"u8, compressedStream.ToArray());
+            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en AplicarEvidenciaDemoAsync: {ex.Message}");
+            TieneFoto = true;
+            FotoStatusText = "Fotografía de prueba adjuntada";
         }
-
-        // Chunk IEND
-        EscribirChunkPng(ms, "IEND"u8, []);
-
-        pngBytes = ms.ToArray();
-        return $"data:image/png;base64,{Convert.ToBase64String(pngBytes)}";
     }
-
-    private static void EscribirChunkPng(Stream output, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
-    {
-        Span<byte> lengthBytes = stackalloc byte[4];
-        EscribirUInt32BigEndian(lengthBytes, 0, (uint)data.Length);
-        output.Write(lengthBytes);
-        output.Write(type);
-        if (!data.IsEmpty)
-        {
-            output.Write(data);
-        }
-
-        uint crc = CalcularCrc32(type, data);
-        Span<byte> crcBytes = stackalloc byte[4];
-        EscribirUInt32BigEndian(crcBytes, 0, crc);
-        output.Write(crcBytes);
-    }
-
-    private static void EscribirUInt32BigEndian(Span<byte> buffer, int offset, uint value)
-    {
-        buffer[offset] = (byte)(value >> 24);
-        buffer[offset + 1] = (byte)(value >> 16);
-        buffer[offset + 2] = (byte)(value >> 8);
-        buffer[offset + 3] = (byte)value;
-    }
-
-    private static uint CalcularCrc32(ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
-    {
-        uint crc = 0xFFFFFFFFu;
-        foreach (byte b in type)
-        {
-            crc = ActualizarCrc32(crc, b);
-        }
-        foreach (byte b in data)
-        {
-            crc = ActualizarCrc32(crc, b);
-        }
-        return ~crc;
-    }
-
-    private static uint ActualizarCrc32(uint crc, byte b)
-    {
-        crc ^= b;
-        for (int i = 0; i < 8; i++)
-        {
-            crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
-        }
-        return crc;
-    }
-
-    public Func<string?>? ObtenerFirmaCallback { get; set; }
-    public Action? LimpiarFirmaAction { get; set; }
 
     [RelayCommand]
     private void SimularFirma()
     {
+        CargarFirmaDemoAction?.Invoke();
         TieneFirma = true;
-        FirmaStatusText = "Firma digital capturada";
+        FirmaStatusText = "Firma digital capturada (Demo)";
     }
 
     [RelayCommand]
@@ -526,8 +451,20 @@ public partial class RegistroEntregaViewModel : ObservableObject
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
-                    "Campos requeridos",
+                    "Campos Requeridos",
                     "Por favor, complete el nombre y documento del receptor.",
+                    "Entendido");
+            }
+            return;
+        }
+
+        if (!TieneFirma)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Firma Requerida",
+                    "Debe registrar la firma del receptor antes de confirmar la entrega.",
                     "Entendido");
             }
             return;
@@ -564,23 +501,26 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
             var idempotencyKey = $"ENTREGA-{paradaId:N}-{DateTime.UtcNow.Ticks}";
 
-            // Obtener firma dibujada real (vectorial en SVG Base64) o fallback
-            string? firmaBase64 = ObtenerFirmaCallback?.Invoke();
+            // 1. Auditoría exacta al confirmar: coordenadas GPS y fecha/hora UTC
+            await ActualizarUbicacionYFechaAsync();
+
+            // 2. Obtener firma digital capturada del lienzo táctil
+            string? firmaBase64 = null;
+            if (ObtenerFirmaAsyncCallback != null)
+            {
+                firmaBase64 = await ObtenerFirmaAsyncCallback.Invoke();
+            }
+
             if (string.IsNullOrWhiteSpace(firmaBase64) && TieneFirma)
             {
+                // Fallback de imagen 1x1 en caso extremo
                 firmaBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
             }
 
-            // Obtener fotografía real capturada/seleccionada o fallback PNG válido si se activó TieneFoto
-            string? fotoBase64 = null;
-            if (TieneFoto)
-            {
-                fotoBase64 = !string.IsNullOrWhiteSpace(FotoEvidenciaBase64)
-                    ? FotoEvidenciaBase64
-                    : GenerarPngDemoBase64(out _);
-            }
+            // 3. Obtener fotografía comprimida (JPEG máx 1024px, 70% calidad) si existe
+            string? fotoBase64 = TieneFoto ? FotoEvidenciaBase64 : null;
 
-            // Contrato idéntico a RegistrarEntregaExitosaCommand (UC-20)
+            // 4. Payload offline completo para persistencia SQLite y sincronización
             var payload = new EntregaExitosaOfflinePayload
             {
                 HojaDeRutaId = hojaDeRutaId,
@@ -591,12 +531,12 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 DocumentoReceptor = DocumentoReceptor.Trim(),
                 FirmaDigitalBase64 = firmaBase64,
                 FotoEvidenciaBase64 = fotoBase64,
-                Latitud = (parada?.Latitud != null && parada.Latitud != 0) ? parada.Latitud : -34.9124,
-                Longitud = (parada?.Longitud != null && parada.Longitud != 0) ? parada.Longitud : -56.1589,
-                FechaHoraDispositivoUtc = DateTime.UtcNow
+                Latitud = LatitudActual ?? ((parada?.Latitud != null && parada.Latitud != 0) ? parada.Latitud : -34.9011),
+                Longitud = LongitudActual ?? ((parada?.Longitud != null && parada.Longitud != 0) ? parada.Longitud : -56.1645),
+                FechaHoraDispositivoUtc = FechaHoraDispositivoUtc
             };
 
-            // 1. Guardar en cola offline cifrada y actualizar estado local SQLite
+            // 5. Guardar en cola offline cifrada y actualizar estado local SQLite
             if (_localDatabaseService is not null)
             {
                 await _localDatabaseService.EncolarOperacionAsync(
@@ -606,13 +546,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Entregado");
             }
 
-            // 2. Actualizar estado en modelo en memoria
+            // 6. Actualizar estado en modelo en memoria
             if (parada is not null)
             {
                 parada.Estado = "Entregado";
             }
 
-            // 3. Si la app está Online, disparar sincronización en background
+            // 7. Si la app está Online, disparar sincronización en background
             if (_syncService?.IsOnline == true)
             {
                 _ = Task.Run(async () =>

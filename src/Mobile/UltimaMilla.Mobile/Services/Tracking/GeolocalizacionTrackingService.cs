@@ -1,6 +1,8 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Realtime;
 
 namespace UltimaMilla.Mobile.Services.Tracking;
@@ -32,6 +34,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private string? _codigoProximaParada;
 
     public bool IsTrackingActive => _isTrackingActive;
+
+    public bool ForegroundServiceActivo { get; private set; }
 
     public Location? UltimaUbicacionConocida => _ultimaUbicacion;
 
@@ -67,6 +71,25 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 {
                     current = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
                 }
+
+#if ANDROID
+                if (OperatingSystem.IsAndroidVersionAtLeast(33))
+                {
+                    try
+                    {
+                        var notifStatus = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
+                        if (notifStatus != PermissionStatus.Granted)
+                        {
+                            await Permissions.RequestAsync<Permissions.PostNotifications>();
+                        }
+                    }
+                    catch (Exception exNotif)
+                    {
+                        _logger.LogWarning(exNotif, "No fue posible solicitar permiso POST_NOTIFICATIONS.");
+                    }
+                }
+#endif
+
                 return current;
             });
 
@@ -136,6 +159,10 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
         await SolicitarPermisosUbicacionAsync();
         await _realtimeTrackingService.StartAsync(cancellationToken);
+
+#if ANDROID
+        ArrancarForegroundServiceAndroid();
+#endif
 
         _trackingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _isTrackingActive = true;
@@ -245,6 +272,40 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "SignalR no disponible al transmitir posición GPS.");
+        }
+
+        // Si la transmisión en vivo por SignalR no estuvo disponible (por pantalla apagada o corte de red),
+        // persistir y encolar la telemetría en SQLite local cifrado para sincronización posterior hacia el backend.
+        if (!enviada)
+        {
+            try
+            {
+                var (bateriaPct, _, _) = LeerEstadoBateriaDispositivo();
+                var payloadOffline = new TelemetriaGpsOfflinePayload
+                {
+                    HojaDeRutaId = hojaDeRutaId,
+                    RepartidorId = repartidorId,
+                    Latitud = latitud,
+                    Longitud = longitud,
+                    PrecisionMetros = precisionMetros,
+                    TimestampUtc = timestampUtc,
+                    BateriaPct = bateriaPct,
+                    IdempotencyKey = $"GPS-{hojaDeRutaId:N}-{timestampUtc.Ticks}"
+                };
+
+                await _localDatabaseService.EncolarOperacionAsync(
+                    TiposOperacionOffline.TelemetriaGps,
+                    JsonSerializer.Serialize(payloadOffline));
+
+                _logger.LogDebug(
+                    "Posición GPS encolada en SQLite local cifrado por falta de conexión SignalR activa ({Lat}, {Lon}).",
+                    latitud,
+                    longitud);
+            }
+            catch (Exception exDb)
+            {
+                _logger.LogWarning(exDb, "No fue posible encolar posición GPS en almacenamiento local SQLite.");
+            }
         }
 
         OnPosicionActualizada?.Invoke(this, new PosicionActualizadaEventArgs
@@ -373,6 +434,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         sb.AppendLine($"- Ahorro de energia del SO: {(telemetria.AhorroEnergiaActivo ? "Activo" : "Inactivo")}");
         sb.AppendLine($"- Perfil activo: {telemetria.PerfilAdaptativoActual}");
         sb.AppendLine($"- Parametros GPS: Intervalo {telemetria.IntervaloSegundosActual}s | Precision {telemetria.PrecisionGpsActual}");
+        sb.AppendLine($"- Modo de segundo plano (pantalla apagada): {(ForegroundServiceActivo ? "Operativo (Foreground Service)" : "Inactivo o no requerido")}");
         sb.AppendLine($"- Consumo actual estimado: ~{telemetria.ConsumoEstimadoMahHora:F0} mAh/h (Ahorro instantaneo: {telemetria.AhorroEstimadoPorcentaje:F0}%)");
         sb.AppendLine($"- Lecturas GPS procesadas en sesion: {telemetria.LecturasGpsRealizadas}");
         if (telemetria.DistanciaProximaParadaMetros.HasValue)
@@ -415,6 +477,10 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         if (!_isTrackingActive)
             return;
 
+#if ANDROID
+        DetenerForegroundServiceAndroid();
+#endif
+
         try
         {
             _trackingCts?.Cancel();
@@ -433,11 +499,54 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             _trackingCts = null;
             _trackingLoopTask = null;
             _isTrackingActive = false;
+            ForegroundServiceActivo = false;
             OnTrackingStateChanged?.Invoke(this, false);
         }
 
         await _realtimeTrackingService.StopAsync();
     }
+
+#if ANDROID
+    private void ArrancarForegroundServiceAndroid()
+    {
+        try
+        {
+            var context = Android.App.Application.Context;
+            var intent = new Android.Content.Intent(context, typeof(Platforms.Android.LocationForegroundService));
+            if (OperatingSystem.IsAndroidVersionAtLeast(26))
+            {
+                context.StartForegroundService(intent);
+            }
+            else
+            {
+                context.StartService(intent);
+            }
+            ForegroundServiceActivo = true;
+            _logger.LogInformation("Servicio en primer plano de geolocalizacion iniciado en Android.");
+        }
+        catch (Exception ex)
+        {
+            ForegroundServiceActivo = false;
+            _logger.LogWarning(ex, "Fallo al iniciar el servicio en primer plano de geolocalizacion en Android.");
+        }
+    }
+
+    private void DetenerForegroundServiceAndroid()
+    {
+        try
+        {
+            var context = Android.App.Application.Context;
+            var intent = new Android.Content.Intent(context, typeof(Platforms.Android.LocationForegroundService));
+            context.StopService(intent);
+            ForegroundServiceActivo = false;
+            _logger.LogInformation("Servicio en primer plano de geolocalizacion detenido en Android.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallo al detener el servicio en primer plano de geolocalizacion en Android.");
+        }
+    }
+#endif
 
     public async ValueTask DisposeAsync()
     {
