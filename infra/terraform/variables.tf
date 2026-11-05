@@ -86,3 +86,9 @@ variable "cidr_subred" {
   type        = string
   default     = "10.0.0.0/24"
 }
+
+variable "crear_ip_reservada" {
+  description = "Crear una IP pública reservada (estable ante reinicios). En un ambiente ya creado con IP efímera, dejar en false."
+  type        = bool
+  default     = true
+}

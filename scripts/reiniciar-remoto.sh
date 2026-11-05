@@ -26,5 +26,9 @@ for s in $SERVICIOS; do
   esac
 done
 $C up -d --no-build
+# Prometheus y Grafana leen su configuración al arrancar: si cambió un archivo montado hay que reiniciarlos
+case " $SERVICIOS " in
+  *" prometheus "*|*" grafana "*) $C restart prometheus grafana ;;
+esac
 docker exec shippingbox-caddy-1 caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || echo "  (aviso) Caddy no pudo recargar su configuración"
 $C ps --format 'table {{.Service}}\t{{.Status}}'
