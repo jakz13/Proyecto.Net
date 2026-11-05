@@ -10,13 +10,38 @@ using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
 
-public class BultoItemViewModel
+public partial class BultoItemViewModel : ObservableObject
 {
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid ParadaId { get; init; } = Guid.Empty;
+    public Guid EnvioId { get; init; } = Guid.Empty;
     public string Codigo { get; init; } = string.Empty;
     public string Descripcion { get; init; } = string.Empty;
     public decimal PesoKg { get; init; }
     public bool EsFragil { get; init; }
     public string Icono => EsFragil ? "FRÁGIL" : "ESTÁNDAR";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoCargaTexto))]
+    [NotifyPropertyChangedFor(nameof(BadgeCargaBgColor))]
+    [NotifyPropertyChangedFor(nameof(BadgeCargaTextColor))]
+    private bool _verificadoEnCarga;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoEntregaTexto))]
+    [NotifyPropertyChangedFor(nameof(BadgeEntregaBgColor))]
+    [NotifyPropertyChangedFor(nameof(BadgeEntregaTextColor))]
+    [NotifyPropertyChangedFor(nameof(FondoCardColor))]
+    private bool _verificadoEnEntrega;
+
+    public string EstadoCargaTexto => VerificadoEnCarga ? "Cargado y Verificado" : "Pendiente de Escaneo";
+    public Color BadgeCargaBgColor => VerificadoEnCarga ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F1F5F9");
+    public Color BadgeCargaTextColor => VerificadoEnCarga ? Color.FromArgb("#16A34A") : Color.FromArgb("#64748B");
+
+    public string EstadoEntregaTexto => VerificadoEnEntrega ? "Verificado para entrega" : "Pendiente de verificación";
+    public Color BadgeEntregaBgColor => VerificadoEnEntrega ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F1F5F9");
+    public Color BadgeEntregaTextColor => VerificadoEnEntrega ? Color.FromArgb("#16A34A") : Color.FromArgb("#64748B");
+    public Color FondoCardColor => VerificadoEnEntrega ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F8FAFC");
 }
 
 public partial class ParadaItemViewModel : ObservableObject
@@ -66,26 +91,34 @@ public partial class ParadaItemViewModel : ObservableObject
     public double Longitud { get; init; }
     public List<BultoItemViewModel> Bultos { get; init; } = new();
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoBgColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoTextColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoBorderColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoTextoBadge))]
+    [NotifyPropertyChangedFor(nameof(PuedeRegistrar))]
+    private bool _enPrecarga;
+
     // Helpers visuales para el renderizado del badge de estado en XAML
     public Color EstadoBgColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#DCFCE7"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#FEE2E2"),
-        _ => Color.FromArgb("#FEF3C7")
+        _ => EnPrecarga ? Color.FromArgb("#F1F5F9") : Color.FromArgb("#FEF3C7")
     };
 
     public Color EstadoTextColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#15803D"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#B91C1C"),
-        _ => Color.FromArgb("#B45309")
+        _ => EnPrecarga ? Color.FromArgb("#475569") : Color.FromArgb("#B45309")
     };
 
     public Color EstadoBorderColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#86EFAC"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#FCA5A5"),
-        _ => Color.FromArgb("#FCD34D")
+        _ => EnPrecarga ? Color.FromArgb("#CBD5E1") : Color.FromArgb("#FCD34D")
     };
 
     public string EstadoTextoBadge => Estado switch
@@ -93,7 +126,7 @@ public partial class ParadaItemViewModel : ObservableObject
         "Entregado" => "Entregado",
         "EnDevolucion" => "En Devolución",
         "Fallido" => "Fallido",
-        _ => "Pendiente"
+        _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
     };
 
     // Helpers visuales para Geocercas
@@ -117,7 +150,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public Color GeocercaBorderColor => Color.FromArgb("#93C5FD");
     public Color GeocercaTextColor => Color.FromArgb("#1E40AF");
 
-    public bool PuedeRegistrar => Estado == "Pendiente";
+    public bool PuedeRegistrar => Estado == "Pendiente" && !EnPrecarga;
 }
 
 public partial class RutaDiaViewModel : ObservableObject, IDisposable
@@ -131,6 +164,12 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _fechaHojaRuta;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecorridoNoIniciado))]
+    private string _estadoHojaDeRuta = "EnTransito";
+
+    public bool RecorridoNoIniciado => EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador";
 
     [ObservableProperty]
     private bool _isOffline = true;
@@ -384,6 +423,14 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
             AplicarEstadosGeocercaEnParadas();
             RecalcularProgreso();
+            if (_localDatabaseService != null)
+            {
+                var rutaActiva = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                if (rutaActiva?.Ruta != null)
+                {
+                    EstadoHojaDeRuta = rutaActiva.Ruta.Estado;
+                }
+            }
             await EvaluarYActualizarTrackingAsync();
         }
         finally
@@ -408,6 +455,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                     Paradas.Add(p);
                 }
                 AplicarEstadosGeocercaEnParadas();
+            }
+            if (local?.Ruta != null)
+            {
+                EstadoHojaDeRuta = local.Ruta.Estado;
             }
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
@@ -624,6 +675,18 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (parada is null)
             return;
 
+        if (RecorridoNoIniciado || parada.EnPrecarga)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Pendiente de Carga en Depósito",
+                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
+                    "Entendido");
+            }
+            return;
+        }
+
         await Shell.Current.GoToAsync("DetalleParadaPage", new Dictionary<string, object>
         {
             { "Parada", parada }
@@ -635,6 +698,18 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     {
         if (parada is null)
             return;
+
+        if (RecorridoNoIniciado || parada.EnPrecarga)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Pendiente de Carga en Depósito",
+                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
+                    "Entendido");
+            }
+            return;
+        }
 
         try
         {

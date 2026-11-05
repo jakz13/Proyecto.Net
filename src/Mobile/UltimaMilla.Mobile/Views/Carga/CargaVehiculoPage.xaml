@@ -19,7 +19,7 @@
                 <VerticalStackLayout Spacing="8">
                     <Label Text="Control de Carga en Vehículo"
                            Style="{StaticResource H2Label}" />
-                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada."
+                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada (UC-18)."
                            Style="{StaticResource BodyLabel}" />
 
                     <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,4" />
@@ -35,9 +35,14 @@
                             <Label Text="{Binding NumeroRuta}" FontAttributes="Bold" />
                         </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="0">
                             <Label Text="Capacidad" Style="{StaticResource CaptionLabel}" />
                             <Label Text="{Binding VehiculoTipo}" Style="{StaticResource BodyLabel}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1">
+                            <Label Text="Estado de Ruta" Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding EstadoHojaDeRuta}" FontAttributes="Bold" TextColor="{StaticResource SecondaryDark}" />
                         </VerticalStackLayout>
                     </Grid>
                 </VerticalStackLayout>
@@ -53,8 +58,8 @@
                                 JustifyContent="SpaceBetween"
                                 AlignItems="Center"
                                 AlignContent="Start">
-                        <Label Text="Progreso de Escaneo" Style="{StaticResource H3Label}" Margin="0,0,8,2" />
-                        <Label Text="{Binding BultosCargados, StringFormat='{0} de 6 bultos'}"
+                        <Label Text="Progreso de Carga" Style="{StaticResource H3Label}" Margin="0,0,8,2" />
+                        <Label Text="{Binding BultosCargados, StringFormat='{0} bultos cargados'}"
                                FontAttributes="Bold"
                                TextColor="{StaticResource Primary}"
                                Margin="0,0,0,2" />
@@ -85,37 +90,101 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Botones de Acción de Escaneo (se apilan si no entran en el ancho) -->
-                    <controls:AdaptiveRow Spacing="10" Margin="0,6,0,0">
-                        <Button Text="Escanear Bulto (QR / Barras)"
-                                Style="{StaticResource PrimaryButton}"
-                                Command="{Binding EscanearBultoCommand}"
+                    <!-- Lector / Buscador Directo de Código de Bulto (UC-18) -->
+                    <Label Text="Escanear Código de Bulto" Style="{StaticResource CaptionLabel}" Margin="0,4,0,0" />
+                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                        <Border Grid.Column="0"
+                                Stroke="{StaticResource InputBorder}"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,0"
                                 HeightRequest="44"
-                                FontSize="13" />
-
-                        <Button Text="Reiniciar"
-                                Style="{StaticResource SecondaryButton}"
-                                Command="{Binding ReiniciarCargaCommand}"
+                                BackgroundColor="{StaticResource InputBackground}">
+                            <Entry Text="{Binding CodigoEscaneoInput, Mode=TwoWay}"
+                                   Placeholder="Código de bulto (ej: BLT-001-A)"
+                                   PlaceholderColor="{StaticResource TextMuted}"
+                                   TextColor="{StaticResource TextPrimary}"
+                                   ReturnCommand="{Binding EscanearCodigoManualCommand}"
+                                   ClearButtonVisibility="WhileEditing"
+                                   VerticalOptions="Center" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                Text="Escanear"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding EscanearCodigoManualCommand}"
                                 HeightRequest="44"
                                 Padding="16,0"
                                 FontSize="13" />
+                    </Grid>
+
+                    <!-- Botones de Acción de Escaneo Auxiliares -->
+                    <controls:AdaptiveRow Spacing="10" Margin="0,4,0,0">
+                        <Button Text="Cámara / Opciones"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding EscanearBultoCommand}"
+                                HeightRequest="40"
+                                FontSize="12" />
+
+                        <Button Text="Simular Escaneo Completo"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding SimularEscaneoCompletoCommand}"
+                                IsVisible="{Binding TieneBultosPendientes}"
+                                HeightRequest="40"
+                                FontSize="12" />
                     </controls:AdaptiveRow>
                 </VerticalStackLayout>
             </Border>
 
             <!-- ========================================================= -->
-            <!-- LISTADO DE BULTOS DE LA RUTA (6 ASIGNADOS)                -->
+            <!-- SECCIÓN: BULTOS PENDIENTES DE ESCANEO (UC-18)             -->
             <!-- ========================================================= -->
-            <Label Text="Bultos Asignados a la Ruta"
-                   Style="{StaticResource H3Label}"
-                   Margin="4,4,0,0" />
+            <FlexLayout Wrap="Wrap"
+                        Direction="Row"
+                        JustifyContent="SpaceBetween"
+                        AlignItems="Center"
+                        AlignContent="Start"
+                        Margin="4,4,0,0">
+                <Label Text="Bultos Pendientes de Escaneo"
+                       Style="{StaticResource H3Label}" />
+                <Label Text="{Binding BultosPendientes.Count, StringFormat='{0} pendiente(s)'}"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource Danger}" />
+            </FlexLayout>
 
-            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bultos}" Spacing="10">
+            <!-- Aviso cuando no hay bultos pendientes (Carga completada o ruta ya despachada) -->
+            <Border IsVisible="{Binding SinBultosPendientes}"
+                    BackgroundColor="#F8FAFC"
+                    Stroke="#CBD5E1"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    Padding="16,14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="No hay bultos pendientes de escaneo. Carga completada."
+                           FontAttributes="Bold"
+                           FontSize="13"
+                           TextColor="#166534" />
+                    <Label Text="Todos los bultos asignados han sido verificados en el vehículo o la ruta ya fue despachada."
+                           FontSize="12"
+                           TextColor="{StaticResource TextMuted}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Lista de Bultos Pendientes -->
+            <VerticalStackLayout IsVisible="{Binding TieneBultosPendientes}"
+                                 BindableLayout.ItemsSource="{Binding BultosPendientes}"
+                                 Spacing="10">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:BultoCargaItemViewModel">
-                        <Border Style="{StaticResource CardView}" Padding="14">
+                        <Border BackgroundColor="{Binding CardBgColor}"
+                                Stroke="{Binding CardBorderColor}"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CargaVehiculoViewModel}}, Path=TocarBultoPendienteCommand}"
+                                                      CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto, Auto" RowSpacing="4">
-                                <!-- Código de Bulto y Parada (Spans: envuelve en vez de pisar el badge) -->
                                 <Label Grid.Row="0" Grid.Column="0" Margin="0,0,8,0" VerticalOptions="Center">
                                     <Label.FormattedText>
                                         <FormattedString>
@@ -131,7 +200,6 @@
                                     </Label.FormattedText>
                                 </Label>
 
-                                <!-- Badge de Estado -->
                                 <Border Grid.Row="0" Grid.Column="1"
                                         BackgroundColor="{Binding BadgeColor}"
                                         Stroke="Transparent"
@@ -145,7 +213,6 @@
                                            TextColor="{Binding BadgeTextColor}" />
                                 </Border>
 
-                                <!-- Destinatario y Dirección -->
                                 <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                        Text="{Binding Destinatario}"
                                        FontAttributes="Bold"
@@ -168,7 +235,84 @@
             </VerticalStackLayout>
 
             <!-- ========================================================= -->
-            <!-- SECCIÓN BULTOS SOBRANTES / DISCREPANCIAS                  -->
+            <!-- SECCIÓN: BULTOS CARGADOS EN EL VEHÍCULO / EN DEVOLUCIÓN   -->
+            <!-- ========================================================= -->
+            <VerticalStackLayout IsVisible="{Binding TieneBultosCargados}" Spacing="10" Margin="0,8,0,0">
+                <FlexLayout Wrap="Wrap"
+                            Direction="Row"
+                            JustifyContent="SpaceBetween"
+                            AlignItems="Center"
+                            AlignContent="Start"
+                            Margin="4,0,0,0">
+                    <Label Text="Bultos Cargados en el Vehículo"
+                           Style="{StaticResource H3Label}" />
+                    <Label Text="{Binding BultosCargadosLista.Count, StringFormat='{0} cargado(s)'}"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource Success}" />
+                </FlexLayout>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BultosCargadosLista}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BultoCargaItemViewModel">
+                            <Border BackgroundColor="{Binding CardBgColor}"
+                                    Stroke="{Binding CardBorderColor}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="14">
+                                <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto, Auto" RowSpacing="4">
+                                    <Label Grid.Row="0" Grid.Column="0" Margin="0,0,8,0" VerticalOptions="Center">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding CodigoBulto}"
+                                                      FontAttributes="Bold"
+                                                      FontSize="15"
+                                                      TextColor="{StaticResource TextPrimary}" />
+                                                <Span Text="  " />
+                                                <Span Text="{Binding ParadaOrden, StringFormat='(Parada {0})'}"
+                                                      FontSize="13"
+                                                      TextColor="{StaticResource TextMuted}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+
+                                    <Border Grid.Row="0" Grid.Column="1"
+                                            BackgroundColor="{Binding BadgeColor}"
+                                            Stroke="Transparent"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 6"
+                                            Padding="8,3"
+                                            VerticalOptions="Start">
+                                        <Label Text="{Binding EstadoTexto}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextColor="{Binding BadgeTextColor}" />
+                                    </Border>
+
+                                    <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                           Text="{Binding Destinatario}"
+                                           FontAttributes="Bold"
+                                           FontSize="13"
+                                           TextColor="{StaticResource TextSecondary}" />
+
+                                    <Label Grid.Row="2" Grid.Column="0"
+                                           Text="{Binding Direccion}"
+                                           Style="{StaticResource CaptionLabel}" />
+
+                                    <Label Grid.Row="2" Grid.Column="1"
+                                           Text="{Binding PesoKg, StringFormat='{0:F1} kg'}"
+                                           FontSize="12"
+                                           TextColor="{StaticResource TextMuted}"
+                                           HorizontalOptions="End" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- ========================================================= -->
+            <!-- SECCIÓN: BULTOS SOBRANTES / DISCREPANCIAS (UC-18)         -->
             <!-- ========================================================= -->
             <VerticalStackLayout IsVisible="{Binding TieneSobrantes}"
                                  Spacing="10"
@@ -216,15 +360,27 @@
             </VerticalStackLayout>
 
             <!-- ========================================================= -->
-            <!-- BOTÓN PRINCIPAL: CONFIRMAR CARGA Y DESPACHAR              -->
+            <!-- BOTONES DE ACCIÓN PRINCIPAL (SALIDA / DESPACHO)           -->
             <!-- ========================================================= -->
-            <Button Text="Confirmar Carga y Despachar Ruta"
-                    Style="{StaticResource SuccessButton}"
-                    Command="{Binding ConfirmarCargaYDespacharCommand}"
-                    IsEnabled="{Binding PuedeConfirmarCarga}"
-                    HeightRequest="52"
-                    FontSize="15"
-                    Margin="0,12,0,24" />
+            <VerticalStackLayout Spacing="8" Margin="0,12,0,24">
+                <!-- Botón para confirmar carga y despachar vehículo (UC-18 / UC-09) -->
+                <Button Text="Confirmar Carga y Despachar Vehículo"
+                        Style="{StaticResource SuccessButton}"
+                        Command="{Binding ConfirmarCargaYDespacharCommand}"
+                        IsEnabled="{Binding PuedeConfirmarCarga}"
+                        IsVisible="{Binding EsRutaLiberada}"
+                        HeightRequest="52"
+                        FontSize="14" />
+
+                <!-- Botón para iniciar recorrido cuando ya está despachada -->
+                <Button Text="Iniciar Recorrido en Calle"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding IniciarRecorridoCommand}"
+                        IsEnabled="{Binding PuedeIniciarRecorrido}"
+                        IsVisible="{Binding EsRutaDespachada}"
+                        HeightRequest="52"
+                        FontSize="14" />
+            </VerticalStackLayout>
 
         </VerticalStackLayout>
     </ScrollView>

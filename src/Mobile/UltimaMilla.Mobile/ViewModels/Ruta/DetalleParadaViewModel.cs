@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,17 +19,53 @@ public partial class DetalleParadaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TieneNotasComercio))]
     [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
     [NotifyPropertyChangedFor(nameof(PuedeAccionar))]
+    [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
+    [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
     private ParadaItemViewModel? _parada;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeAccionar))]
+    [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
+    [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
     private bool _isBusy;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
+    [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
+    private string _estadoHojaDeRuta = "EnTransito";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
+    private ObservableCollection<BultoItemViewModel> _bultos = new();
+
     public bool TieneNotasComercio => !string.IsNullOrWhiteSpace(Parada?.NotasComercio);
 
-    public bool PuedeAccionar => Parada?.Estado == "Pendiente" && !IsBusy;
+    public bool RutaActivaEnCalle => EstadoHojaDeRuta is "Despachada" or "EnTransito";
+
+    public bool PuedeAccionar => Parada?.Estado == "Pendiente" && RutaActivaEnCalle && !IsBusy;
+
+    public bool PuedeConfirmarEntrega =>
+        Parada?.Estado == "Pendiente" &&
+        RutaActivaEnCalle &&
+        !IsBusy;
+
+    public bool MostrarAvisoBloqueo =>
+        Parada?.Estado == "Pendiente" && !RutaActivaEnCalle;
+
+    public string MensajeBloqueoEntrega
+    {
+        get
+        {
+            if (!RutaActivaEnCalle)
+                return "Pendiente de Carga en Depósito. Debe escanear y confirmar la carga en la pestaña Carga antes de realizar entregas.";
+            return string.Empty;
+        }
+    }
 
     public bool PuedeRegistrarRetiroDevolucion =>
         Parada is not null &&
@@ -40,11 +77,16 @@ public partial class DetalleParadaViewModel : ObservableObject
     {
         get
         {
-            if (Parada is null || Parada.Bultos.Count == 0)
-                return $"{Parada?.CantidadBultos ?? 0} bultos asociados";
+            if (Bultos.Count == 0 && (Parada is null || Parada.Bultos.Count == 0))
+                return $"{Parada?.CantidadBultos ?? 0} bulto(s) asociados";
 
-            var totalPeso = Parada.Bultos.Sum(b => b.PesoKg);
-            return $"{Parada.Bultos.Count} bultos declarados • {totalPeso:F1} kg total";
+            IEnumerable<BultoItemViewModel> lista = Bultos.Count > 0
+                ? Bultos
+                : (Parada?.Bultos ?? (IEnumerable<BultoItemViewModel>)Array.Empty<BultoItemViewModel>());
+
+            var totalPeso = lista.Sum(b => b.PesoKg);
+            int total = lista.Count();
+            return $"{total} bulto(s) • {totalPeso:F1} kg";
         }
     }
 
@@ -80,6 +122,66 @@ public partial class DetalleParadaViewModel : ObservableObject
                 new() { Codigo = "BLT-002-A", Descripcion = "Caja cristalería y vajilla fina", PesoKg = 1.8m, EsFragil = true }
             }
         };
+
+        foreach (var b in _parada.Bultos)
+        {
+            _bultos.Add(b);
+        }
+    }
+
+    partial void OnParadaChanged(ParadaItemViewModel? value)
+    {
+        _ = CargarDatosParadaAsync(value);
+    }
+
+    public async Task CargarDatosParadaAsync(ParadaItemViewModel? p)
+    {
+        if (p == null)
+            return;
+
+        if (_localDatabaseService != null)
+        {
+            var rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+            if (rutaLocal?.Ruta != null)
+            {
+                EstadoHojaDeRuta = rutaLocal.Ruta.Estado;
+            }
+
+            var paradaDb = rutaLocal?.Paradas.FirstOrDefault(x => x.Id == p.Id || x.CodigoSeguimiento == p.CodigoSeguimiento);
+            Bultos.Clear();
+            if (paradaDb != null && paradaDb.Bultos.Count > 0)
+            {
+                foreach (var b in paradaDb.Bultos)
+                {
+                    Bultos.Add(b);
+                }
+            }
+            else
+            {
+                foreach (var b in p.Bultos)
+                {
+                    Bultos.Add(b);
+                }
+            }
+        }
+        else
+        {
+            Bultos.Clear();
+            foreach (var b in p.Bultos)
+            {
+                Bultos.Add(b);
+            }
+        }
+
+        ActualizarEstadoBultos();
+    }
+
+    private void ActualizarEstadoBultos()
+    {
+        OnPropertyChanged(nameof(PuedeConfirmarEntrega));
+        OnPropertyChanged(nameof(MostrarAvisoBloqueo));
+        OnPropertyChanged(nameof(MensajeBloqueoEntrega));
+        OnPropertyChanged(nameof(ResumenBultosTexto));
     }
 
     [RelayCommand]
@@ -126,9 +228,26 @@ public partial class DetalleParadaViewModel : ObservableObject
         if (Parada is null)
             return;
 
+        if (!PuedeConfirmarEntrega)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Entrega Bloqueada",
+                    MensajeBloqueoEntrega,
+                    "Entendido");
+            }
+            return;
+        }
+
         await Shell.Current.GoToAsync(nameof(RegistroEntregaPage), new Dictionary<string, object>
         {
-            { "Parada", Parada }
+            { "Parada", Parada },
+            { "ParadaId", Parada.Id.ToString() },
+            { "EnvioId", Parada.EnvioId.ToString() },
+            { "CodigoSeguimiento", Parada.CodigoSeguimiento },
+            { "NombreDestinatario", Parada.Destinatario },
+            { "Direccion", Parada.Direccion }
         });
     }
 

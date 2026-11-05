@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
+using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
 using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
@@ -174,6 +175,41 @@ public static class MobileRutasEndpoints
         .WithSummary("UC-18: Confirmar la carga del vehículo")
         .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache (UC-09). No transiciona envíos.")
         .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        // C) Iniciar recorrido (Transición de Despachada a EnTransito)
+        group.MapPost("/iniciar-recorrido", async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromBody] IniciarRecorridoRequest? request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new IniciarRecorridoCommand(hojaDeRutaId, request?.IdempotencyKey);
+                var resultado = await mediator.Send(command, ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithName("IniciarRecorrido")
+        .WithSummary("UC-18 / UC-19: Iniciar recorrido en calle de la hoja de ruta")
+        .WithDescription("Pasa la hoja de ruta de Despachada a EnTransito, emite el evento de inicio hacia el Outbox y habilita la confirmación de entregas.")
+        .Produces<IniciarRecorridoResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)

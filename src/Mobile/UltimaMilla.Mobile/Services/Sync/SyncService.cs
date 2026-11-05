@@ -179,7 +179,8 @@ public class SyncService : ISyncService, IDisposable
                         await _localDatabaseService.GuardarRutaDescargadaAsync(
                             rutaActiva.HojaDeRutaId,
                             rutaActiva.Paradas,
-                            motivosLocal);
+                            motivosLocal,
+                            estadoRuta: rutaActiva.Estado);
 
                         _logger.LogInformation(
                             "Hoja de ruta activa {RutaId} descargada para el repartidor {RepartidorId} ({Count} paradas).",
@@ -312,7 +313,23 @@ public class SyncService : ISyncService, IDisposable
                                 var url = $"/api/mobile/v1/rutas/{targetRutaId}/carga/confirmar";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "ConfirmarCarga", detallesErrores, cancellationToken);
-                                if (ok) exitosas++; else erroresNegocio++;
+                                if (ok)
+                                {
+                                    exitosas++;
+                                    try
+                                    {
+                                        var despachoUrl = $"/api/planificacion/hojas-de-ruta/{targetRutaId}/despacho";
+                                        await client.PostAsJsonAsync(despachoUrl, new { Observaciones = payload.ObservacionesDiscrepancia }, cancellationToken);
+                                    }
+                                    catch (Exception exDespacho)
+                                    {
+                                        _logger.LogWarning(exDespacho, "No se pudo invocar el despacho automático tras confirmar carga para la ruta {RutaId}.", targetRutaId);
+                                    }
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
                             }
                             break;
                         }
@@ -513,6 +530,33 @@ public class SyncService : ISyncService, IDisposable
                                     {
                                         await _localDatabaseService.MarcarEventoGeocercaSincronizadoAsync(payload.EventoLocalId.Value);
                                     }
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
+                        case TiposOperacionOffline.IniciarRecorrido:
+                        {
+                            var payload = JsonSerializer.Deserialize<IniciarRecorridoOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                var targetRutaId = payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : rutaActivaId;
+                                var req = new
+                                {
+                                    IdempotencyKey = payload.IdempotencyKey
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{targetRutaId}/iniciar-recorrido";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "IniciarRecorrido", detallesErrores, cancellationToken);
+                                if (ok)
+                                {
+                                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnTransito");
                                     exitosas++;
                                 }
                                 else

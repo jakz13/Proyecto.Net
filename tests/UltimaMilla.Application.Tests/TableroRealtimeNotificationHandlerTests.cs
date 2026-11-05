@@ -103,18 +103,23 @@ public class TableroRealtimeNotificationHandlerTests
         }
 
         ruta.Liberar();
-        if (estado is "EnCarga" or "Despachada")
+        if (estado is "EnCarga" or "Despachada" or "EnTransito")
         {
             ruta.RegistrarCargaEscaneada(envios.SelectMany(e => e.Bultos).Select(b => b.Id));
         }
 
-        if (estado == "Despachada")
+        if (estado is "Despachada" or "EnTransito")
         {
             ruta.Despachar();
             foreach (var envio in envios)
             {
                 envio.DespacharEnRuta(ruta.Id, Guid.NewGuid());
             }
+        }
+
+        if (estado == "EnTransito")
+        {
+            ruta.IniciarRecorrido();
         }
 
         _rutas.Rutas.Add(ruta);
@@ -242,7 +247,7 @@ public class TableroRealtimeNotificationHandlerTests
     public async Task RegistrarEntregaExitosa_NotificaHitoParadaYFinalizacionDeRutaDespuesDeGuardar()
     {
         var envio = CrearEnvioClasificado();
-        var ruta = CrearRutaEnEstado("Despachada", envio);
+        var ruta = CrearRutaEnEstado("EnTransito", envio);
         var parada = ruta.Paradas.Single();
         var handler = new RegistrarEntregaExitosaCommandHandler(_envios, _rutas, _uow, _outbox, _cache, _tenant, _clock, _notifier);
 
@@ -283,7 +288,7 @@ public class TableroRealtimeNotificationHandlerTests
     public async Task RegistrarEntregaExitosa_CuandoSignalRFalla_NoRevierteLaEntregaPersistida()
     {
         var envio = CrearEnvioClasificado();
-        var ruta = CrearRutaEnEstado("Despachada", envio);
+        var ruta = CrearRutaEnEstado("EnTransito", envio);
         var parada = ruta.Paradas.Single();
         _notifier.LanzarExcepcion = true;
         var handler = new RegistrarEntregaExitosaCommandHandler(_envios, _rutas, _uow, _outbox, _cache, _tenant, _clock, _notifier);

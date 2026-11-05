@@ -9,7 +9,7 @@ namespace UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 
 public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRutaActivaRepartidorQuery, RutaActivaRepartidorDto>
 {
-    private static readonly string[] EstadosRutaActiva = { "Despachada", "EnTransito" };
+    private static readonly string[] EstadosRutaActiva = { "Liberada", "EnCarga", "Despachada", "EnTransito" };
 
     private readonly IRutaRepository _rutaRepository;
     private readonly IEnvioRepository _envioRepository;
@@ -64,8 +64,18 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
             estados: EstadosRutaActiva,
             cancellationToken);
 
-        var rutaResumen = rutasActivas.FirstOrDefault()
-            ?? throw new NotFoundException("El repartidor autenticado no posee ninguna hoja de ruta activa (Despachada o EnTransito) asignada.");
+        var rutaResumen = rutasActivas
+            .OrderBy(r => r.Estado switch
+            {
+                "EnTransito" => 0,
+                "Despachada" => 1,
+                "EnCarga" => 2,
+                "Liberada" => 3,
+                _ => 4
+            })
+            .ThenByDescending(r => r.Fecha)
+            .FirstOrDefault()
+            ?? throw new NotFoundException("El repartidor autenticado no posee ninguna hoja de ruta asignada (Liberada, Despachada o EnTransito).");
 
         var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(rutaResumen.Id, cancellationToken)
             ?? throw new NotFoundException($"Hoja de ruta '{rutaResumen.Id}' no encontrada.");

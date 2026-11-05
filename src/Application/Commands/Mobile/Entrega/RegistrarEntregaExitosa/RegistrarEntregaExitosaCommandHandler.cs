@@ -95,6 +95,12 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
+        // Validación de máquina de estados: la hoja de ruta debe estar despachada o en tránsito (UC-09 / UC-18 / UC-20)
+        if (ruta.Estado is not ("Despachada" or "EnTransito"))
+        {
+            throw new DomainValidationException($"No se puede registrar la entrega porque la hoja de ruta no se encuentra en tránsito (Estado actual: '{ruta.Estado}'). Debe escanear y despachar la carga previamente.");
+        }
+
         // 5. Obtención y evaluación de la Regla Operativa vigente del operador
         var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(ruta.OperadorId, cancellationToken)
             ?? new ReglaOperativa(

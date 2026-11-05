@@ -22,10 +22,10 @@
                                TextColor="{StaticResource Primary}" />
                     </HorizontalStackLayout>
 
-                    <Label Text="{Binding ParadaSeleccionada.Direccion, FallbackValue='Bvar. España 2678, Pocitos'}"
+                    <Label Text="{Binding ParadaSeleccionada.Direccion, FallbackValue='Dirección de destino'}"
                            Style="{StaticResource H3Label}" />
 
-                    <Label Text="{Binding ParadaSeleccionada.Destinatario, FallbackValue='Destinatario: Lucía Fernández'}"
+                    <Label Text="{Binding ParadaSeleccionada.Destinatario, FallbackValue='Destinatario del envío'}"
                            Style="{StaticResource CaptionLabel}" />
                 </VerticalStackLayout>
             </Border>
@@ -46,7 +46,7 @@
 
                         <Border Style="{StaticResource InputContainer}">
                             <Entry Text="{Binding NombreReceptor}"
-                                   Placeholder="Ej. María López"
+                                   Placeholder="Nombre completo del receptor"
                                    ClearButtonVisibility="WhileEditing" />
                         </Border>
                     </VerticalStackLayout>

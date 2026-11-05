@@ -170,6 +170,22 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     }
 
     /// <summary>
+    /// Inicia el recorrido de la hoja de ruta en calle (UC-18 / UC-19).
+    /// Requiere que la ruta esté en estado 'Despachada'. Pasa a 'EnTransito'.
+    /// </summary>
+    public void IniciarRecorrido()
+    {
+        if (Estado == "EnTransito")
+            return;
+
+        if (Estado != "Despachada")
+            throw new DomainValidationException($"Solo se puede iniciar el recorrido de una hoja de ruta en estado 'Despachada' (Estado actual: '{Estado}').");
+
+        Estado = "EnTransito";
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
     /// Cierra la hoja de ruta tras la rendición del repartidor en depósito (UC-16). Libera sus asignaciones
     /// para que los envíos que vuelven a depósito puedan incluirse en otra ruta.
     /// </summary>

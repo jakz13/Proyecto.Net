@@ -8,6 +8,14 @@ public static class TiposOperacionOffline
     public const string FalloEntrega = "FALLO_ENTREGA";
     public const string RetiroDevolucion = "RETIRO_DEVOLUCION";
     public const string EventoGeocerca = "EVENTO_GEOCERCA";
+    public const string IniciarRecorrido = "INICIAR_RECORRIDO";
+}
+
+public class IniciarRecorridoOfflinePayload
+{
+    public Guid HojaDeRutaId { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime FechaInicioUtc { get; set; } = DateTime.UtcNow;
 }
 
 public class ConfirmarCargaOfflinePayload

@@ -10,6 +10,11 @@ using UltimaMilla.Mobile.ViewModels.Ruta;
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
 
 [QueryProperty(nameof(ParadaSeleccionada), "Parada")]
+[QueryProperty(nameof(ParadaIdParam), "ParadaId")]
+[QueryProperty(nameof(EnvioIdParam), "EnvioId")]
+[QueryProperty(nameof(CodigoSeguimientoParam), "CodigoSeguimiento")]
+[QueryProperty(nameof(NombreDestinatarioParam), "NombreDestinatario")]
+[QueryProperty(nameof(DireccionParam), "Direccion")]
 public partial class RegistroEntregaViewModel : ObservableObject
 {
     public const string OpcionTomarFoto = "Tomar Foto con Cámara";
@@ -21,6 +26,21 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
     [ObservableProperty]
     private ParadaItemViewModel? _paradaSeleccionada;
+
+    [ObservableProperty]
+    private string? _paradaIdParam;
+
+    [ObservableProperty]
+    private string? _envioIdParam;
+
+    [ObservableProperty]
+    private string? _codigoSeguimientoParam;
+
+    [ObservableProperty]
+    private string? _nombreDestinatarioParam;
+
+    [ObservableProperty]
+    private string? _direccionParam;
 
     [ObservableProperty]
     private string _nombreReceptor = string.Empty;
@@ -64,8 +84,32 @@ public partial class RegistroEntregaViewModel : ObservableObject
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
 
-        _nombreReceptor = "Lucía Fernández";
-        _documentoReceptor = "4.567.890-1";
+        _nombreReceptor = string.Empty;
+        _documentoReceptor = "4.123.456-7"; // Valor numérico demo por defecto
+    }
+
+    partial void OnParadaSeleccionadaChanged(ParadaItemViewModel? value)
+    {
+        if (value is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(value.Destinatario))
+            {
+                NombreReceptor = value.Destinatario.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(DocumentoReceptor))
+            {
+                DocumentoReceptor = "4.123.456-7";
+            }
+        }
+    }
+
+    partial void OnNombreDestinatarioParamChanged(string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(NombreReceptor))
+        {
+            NombreReceptor = value.Trim();
+        }
     }
 
     [RelayCommand]
@@ -593,8 +637,8 @@ public partial class RegistroEntregaViewModel : ObservableObject
                     : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Confirmar Entrega",
-                    $"La entrega a {NombreReceptor.Trim()} fue registrada exitosamente.\n\n{infoRed}",
+                    "Entrega Registrada",
+                    $"Comprobante de entrega registrado exitosamente para {NombreReceptor.Trim()}.\n\n{infoRed}",
                     "Finalizar");
 
                 await Shell.Current.GoToAsync("//RutaDiaPage");
