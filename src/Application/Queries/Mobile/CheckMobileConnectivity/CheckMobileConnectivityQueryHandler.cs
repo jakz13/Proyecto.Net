@@ -8,11 +8,9 @@ public class CheckMobileConnectivityQueryHandler : IRequestHandler<CheckMobileCo
     public Task<MobileConnectivityDto> Handle(CheckMobileConnectivityQuery request, CancellationToken cancellationToken)
     {
         var response = new MobileConnectivityDto(
-            Status: "Online",
-            Message: "Conexión exitosa entre la App Móvil MAUI y la Web API de Última Milla",
-            TimestampUtc: DateTime.UtcNow,
-            Environment: Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development",
-            Version: "1.0.0"
+            Status: "ok",
+            Message: "Servicio operativo",
+            TimestampUtc: DateTime.UtcNow
         );
 
         return Task.FromResult(response);

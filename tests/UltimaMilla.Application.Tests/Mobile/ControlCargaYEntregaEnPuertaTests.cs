@@ -1,5 +1,6 @@
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
+using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
@@ -245,6 +246,78 @@ public class ControlCargaYEntregaEnPuertaTests
         Assert.NotNull(resultIdempotente);
         Assert.True(resultIdempotente.Idempotente);
         Assert.Contains("idempotente", resultIdempotente.Mensaje);
+    }
+
+    [Fact]
+    public async Task ConfirmarEntrega_ConflictoConServidor_PrevaleceEntregaFisicaConEvidencia()
+    {
+        // Arrange: el envio fue retirado en servidor a NoEntregado mientras el repartidor estuvo offline
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "EnTransito");
+        var motivoInterno = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "REASIG_SISTEMA", "Reasignado por despachador", esInterno: true);
+        envio.RegistrarRetiroEnCalle(motivoInterno, Guid.NewGuid(), "Retiro concurrente");
+
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-ENTREGA-CONFLICTO-001",
+            "Martín Rodríguez",
+            "4.123.456-7",
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: "foto_base_64",
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.ConflictoResuelto);
+        Assert.Equal("Entregado", result.EstadoEnvio);
+        Assert.Equal(EstadoEnvio.Entregado, envio.EstadoActual);
+        Assert.Single(envioRepo.Conflictos);
+        Assert.Equal("PrevaleceEntregaFisicaConEvidencia", envioRepo.Conflictos[0].PoliticaAplicada);
+    }
+
+    [Fact]
+    public async Task IntentoFallido_ConflictoConServidor_PrevaleceEstadoServidor()
+    {
+        // Arrange: el envio ya fue cancelado/reprogramado en servidor
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "EnTransito");
+        var motivoInterno = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "REASIG_SISTEMA", "Reasignado por despachador", esInterno: true);
+        envio.RegistrarRetiroEnCalle(motivoInterno, Guid.NewGuid(), "Retiro concurrente");
+
+        var motivoCliente = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "CLI_AUSENTE", "Cliente ausente", esInterno: false);
+        envioRepo.Motivos.Add(motivoCliente);
+
+        var handler = new RegistrarIntentoFallidoCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarIntentoFallidoCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-FALLO-CONFLICTO-001",
+            MotivoNoEntregaId: motivoCliente.Id,
+            MotivoCodigo: "CLI_AUSENTE",
+            Observaciones: "No atiende timbre",
+            FotoEvidenciaBase64: null,
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.ConflictoResuelto);
+        Assert.Equal(EstadoEnvio.NoEntregado, envio.EstadoActual);
+        Assert.Single(envioRepo.Conflictos);
+        Assert.Equal("PrevaleceEstadoServidor", envioRepo.Conflictos[0].PoliticaAplicada);
     }
 
     private sealed class FakeCacheService : IDistributedCacheService

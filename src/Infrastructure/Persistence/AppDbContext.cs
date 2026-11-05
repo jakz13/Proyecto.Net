@@ -56,6 +56,7 @@ public class AppDbContext : DbContext
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
     public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
     public DbSet<PosicionVehiculo> PosicionesVehiculo => Set<PosicionVehiculo>();
+    public DbSet<ConflictoSincronizacion> ConflictosSincronizacion => Set<ConflictoSincronizacion>();
     public DbSet<Liquidacion> Liquidaciones => Set<Liquidacion>();
     public DbSet<CuentaCorriente> CuentasCorrientes => Set<CuentaCorriente>();
     public DbSet<MovimientoCuentaCorriente> MovimientosCuentaCorriente => Set<MovimientoCuentaCorriente>();
@@ -337,6 +338,18 @@ public class AppDbContext : DbContext
             builder.Property(p => p.Origen).IsRequired().HasMaxLength(30);
             // La consulta del tablero pide la última posición de cada vehículo del operador
             builder.HasIndex(p => new { p.OperadorId, p.VehiculoId, p.Timestamp });
+        });
+
+        modelBuilder.Entity<ConflictoSincronizacion>(builder =>
+        {
+            builder.ToTable("ConflictosSincronizacion");
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.EntidadAfectada).IsRequired().HasMaxLength(50);
+            builder.Property(c => c.EstadoServidor).HasMaxLength(50);
+            builder.Property(c => c.EstadoDispositivo).HasMaxLength(50);
+            builder.Property(c => c.PoliticaAplicada).HasMaxLength(100);
+            builder.Property(c => c.Resolucion).IsRequired().HasMaxLength(500);
+            builder.HasIndex(c => new { c.EntidadAfectada, c.EntidadId });
         });
 
         modelBuilder.Entity<AsignacionEnvioRuta>(builder =>

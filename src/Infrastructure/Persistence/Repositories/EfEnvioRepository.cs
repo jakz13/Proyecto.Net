@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -176,5 +177,11 @@ public class EfEnvioRepository : IEnvioRepository
         }
 
         return null;
+    }
+
+    public async Task RegistrarConflictoAsync(ConflictoSincronizacion conflicto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(conflicto);
+        await _dbContext.ConflictosSincronizacion.AddAsync(conflicto, cancellationToken);
     }
 }

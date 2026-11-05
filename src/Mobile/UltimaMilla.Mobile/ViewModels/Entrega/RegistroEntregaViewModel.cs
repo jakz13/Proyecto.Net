@@ -19,7 +19,9 @@ public partial class RegistroEntregaViewModel : ObservableObject
 {
     public const string OpcionTomarFoto = "Tomar Foto con Cámara";
     public const string OpcionSeleccionarGaleria = "Seleccionar de la Galería";
+#if DEBUG
     public const string OpcionGenerarDemo = "Generar Evidencia de Prueba (Demo)";
+#endif
 
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
@@ -193,10 +195,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
 
         if (Shell.Current is null)
         {
+#if DEBUG
             await AplicarEvidenciaDemoAsync();
+#endif
             return;
         }
 
+#if DEBUG
         var opcion = await Shell.Current.DisplayActionSheetAsync(
             "Adjuntar Evidencia Fotográfica",
             "Cancelar",
@@ -204,6 +209,14 @@ public partial class RegistroEntregaViewModel : ObservableObject
             OpcionTomarFoto,
             OpcionSeleccionarGaleria,
             OpcionGenerarDemo);
+#else
+        var opcion = await Shell.Current.DisplayActionSheetAsync(
+            "Adjuntar Evidencia Fotográfica",
+            "Cancelar",
+            null,
+            OpcionTomarFoto,
+            OpcionSeleccionarGaleria);
+#endif
 
         if (string.IsNullOrWhiteSpace(opcion) || opcion == "Cancelar")
             return;
@@ -218,9 +231,11 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 await SeleccionarFotoDeGaleriaAsync();
                 break;
 
+#if DEBUG
             case OpcionGenerarDemo:
                 await AplicarEvidenciaDemoAsync();
                 break;
+#endif
         }
     }
 
@@ -330,6 +345,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
             System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en SeleccionarFotoDeGaleriaAsync: {ex.Message}");
             if (Shell.Current is not null)
             {
+#if DEBUG
                 bool usarDemo = await Shell.Current.DisplayAlertAsync(
                     "Error al Abrir Galería",
                     "No se pudo cargar la imagen desde el selector de archivos. ¿Desea generar una evidencia de prueba (Demo)?",
@@ -340,6 +356,12 @@ public partial class RegistroEntregaViewModel : ObservableObject
                 {
                     await AplicarEvidenciaDemoAsync();
                 }
+#else
+                await Shell.Current.DisplayAlertAsync(
+                    "Error al Abrir Galería",
+                    "No se pudo cargar la imagen desde el selector de archivos del dispositivo.",
+                    "Entendido");
+#endif
             }
         }
     }
@@ -348,10 +370,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
     {
         if (Shell.Current is null)
         {
+#if DEBUG
             await AplicarEvidenciaDemoAsync();
+#endif
             return;
         }
 
+#if DEBUG
         string accion = await Shell.Current.DisplayActionSheetAsync(
             motivo,
             "Cancelar",
@@ -367,6 +392,18 @@ public partial class RegistroEntregaViewModel : ObservableObject
         {
             await AplicarEvidenciaDemoAsync();
         }
+#else
+        bool seleccionarGaleria = await Shell.Current.DisplayAlertAsync(
+            "Cámara No Disponible",
+            $"{motivo}\n\n¿Desea seleccionar una imagen desde la galería?",
+            "Seleccionar de Galería",
+            "Cancelar");
+
+        if (seleccionarGaleria)
+        {
+            await SeleccionarFotoDeGaleriaAsync();
+        }
+#endif
     }
 
     private async Task ProcesarArchivoFotoAsync(FileResult photo)
@@ -396,6 +433,10 @@ public partial class RegistroEntregaViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error al procesar fotografía: {ex.Message}");
+            FotoEvidenciaBase64 = null;
+            FotoPreviewSource = null;
+            TieneFoto = false;
+            FotoStatusText = "Error al procesar la fotografía";
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
@@ -406,6 +447,7 @@ public partial class RegistroEntregaViewModel : ObservableObject
         }
     }
 
+#if DEBUG
     private async Task AplicarEvidenciaDemoAsync()
     {
         try
@@ -419,10 +461,13 @@ public partial class RegistroEntregaViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en AplicarEvidenciaDemoAsync: {ex.Message}");
-            TieneFoto = true;
-            FotoStatusText = "Fotografía de prueba adjuntada";
+            FotoEvidenciaBase64 = null;
+            FotoPreviewSource = null;
+            TieneFoto = false;
+            FotoStatusText = "Error al generar fotografía de prueba";
         }
     }
+#endif
 
     [RelayCommand]
     private void SimularFirma()

@@ -97,9 +97,9 @@ public partial class DiagnosticViewModel : BaseViewModel
             if (result != null)
             {
                 Status = result.Status;
-                StatusMessage = result.Message;
-                ServerTimestamp = result.TimestampUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
-                ServerEnvironment = $"{result.Environment} (v{result.Version})";
+                StatusMessage = result.Message ?? "Servicio operativo";
+                ServerTimestamp = result.TimestampUtc.HasValue ? result.TimestampUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+                ServerEnvironment = "Conectado";
                 HasSuccess = true;
             }
             else

@@ -9,5 +9,6 @@ public record EntregaExitosaResultDto(
     string EstadoParada,
     DateTime FechaHoraEntregaUtc,
     bool Idempotente,
-    string Mensaje
+    string Mensaje,
+    bool ConflictoResuelto = false
 );

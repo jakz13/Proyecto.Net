@@ -283,7 +283,90 @@ public class SyncService : ISyncService, IDisposable
             var client = _httpClientFactory.CreateClient("BackendApi");
             client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
-            foreach (var op in pendientes)
+            var operacionesGps = pendientes
+                .Where(o => o.TipoOperacion == TiposOperacionOffline.TelemetriaGps)
+                .ToList();
+            var otrasOperaciones = pendientes
+                .Where(o => o.TipoOperacion != TiposOperacionOffline.TelemetriaGps)
+                .ToList();
+
+            // 1. Envío por lotes (batch) de hasta 500 lecturas GPS a POST /api/mobile/v1/posiciones
+            if (operacionesGps.Count > 0 && IsOnline)
+            {
+                _logger.LogInformation("Agrupando {Count} lecturas GPS en lotes de hasta 500...", operacionesGps.Count);
+
+                foreach (var lote in operacionesGps.Chunk(500))
+                {
+                    if (!IsOnline)
+                    {
+                        detenidoPorCorteDeRed = true;
+                        break;
+                    }
+
+                    procesadas += lote.Length;
+                    var listaPosiciones = new List<object>();
+                    var idsLote = new List<int>();
+
+                    foreach (var opGps in lote)
+                    {
+                        idsLote.Add(opGps.Id);
+                        var payload = JsonSerializer.Deserialize<TelemetriaGpsOfflinePayload>(opGps.PayloadJson, JsonOptions);
+                        if (payload != null)
+                        {
+                            var targetRutaId = payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : rutaActivaId;
+                            listaPosiciones.Add(new
+                            {
+                                Latitud = payload.Latitud,
+                                Longitud = payload.Longitud,
+                                TomadaEn = (DateTime?)payload.TimestampUtc,
+                                BateriaPct = payload.BateriaPct,
+                                HojaDeRutaId = targetRutaId != Guid.Empty ? (Guid?)targetRutaId : null
+                            });
+                        }
+                    }
+
+                    if (listaPosiciones.Count > 0)
+                    {
+                        try
+                        {
+                            var reqBatch = new { Posiciones = listaPosiciones };
+                            var response = await client.PostAsJsonAsync("/api/mobile/v1/posiciones", reqBatch, cancellationToken);
+                            if (response.IsSuccessStatusCode)
+                            {
+                                await _localDatabaseService.MarcarComoSincronizadosAsync(idsLote);
+                                exitosas += lote.Length;
+                            }
+                            else
+                            {
+                                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                                var detalle = $"TelemetriaGpsBatch ({lote.Length} pts): HTTP {(int)response.StatusCode} - {error}";
+                                _logger.LogWarning("Error sincronizando lote de telemetría GPS: {Detalle}", detalle);
+                                foreach (var id in idsLote)
+                                {
+                                    await _localDatabaseService.RegistrarErrorAsync(id, detalle);
+                                }
+                                detallesErrores.Add(detalle);
+                                erroresNegocio += lote.Length;
+                            }
+                        }
+                        catch (HttpRequestException ex)
+                        {
+                            detallesErrores.Add($"Lote GPS: Corte de conexión ({ex.Message})");
+                            detenidoPorCorteDeRed = true;
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error al sincronizar lote de telemetría GPS.");
+                            detallesErrores.Add($"Lote GPS: Excepción local - {ex.Message}");
+                            erroresNegocio += lote.Length;
+                        }
+                    }
+                }
+            }
+
+            // 2. Procesar el resto de operaciones de negocio en orden FIFO
+            foreach (var op in otrasOperaciones)
             {
                 if (!IsOnline)
                 {
@@ -386,6 +469,14 @@ public class SyncService : ISyncService, IDisposable
                                     await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Entregado");
                                     exitosas++;
                                 }
+                                else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                                {
+                                    var detalle = $"Entrega Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): Conflicto resuelto por el servidor (409 Conflict).";
+                                    _logger.LogInformation("Conflicto 409 resuelto en EntregaExitosa: {Detalle}", detalle);
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Entregado");
+                                    exitosas++;
+                                }
                                 else
                                 {
                                     var error = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -434,6 +525,10 @@ public class SyncService : ISyncService, IDisposable
                                         if (resultDto != null && !string.IsNullOrWhiteSpace(resultDto.EstadoFinalResuelto))
                                         {
                                             await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, resultDto.EstadoFinalResuelto);
+                                            if (resultDto.ConflictoResuelto)
+                                            {
+                                                _logger.LogInformation("Conflicto resuelto por el servidor para parada {ParadaId}: {Mensaje}", payload.ParadaId, resultDto.Mensaje);
+                                            }
                                         }
                                         else
                                         {
@@ -445,6 +540,14 @@ public class SyncService : ISyncService, IDisposable
                                         await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Fallido");
                                     }
 
+                                    exitosas++;
+                                }
+                                else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                                {
+                                    var detalle = $"Incidencia Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): Conflicto 409 resuelto por el servidor.";
+                                    _logger.LogInformation("Conflicto 409 resuelto en IntentoFallido: {Detalle}", detalle);
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Reasignado");
                                     exitosas++;
                                 }
                                 else

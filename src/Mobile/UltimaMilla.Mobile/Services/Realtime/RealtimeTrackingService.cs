@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Notifications;
 
 namespace UltimaMilla.Mobile.Services.Realtime;
 
@@ -12,6 +13,7 @@ namespace UltimaMilla.Mobile.Services.Realtime;
 public class RealtimeTrackingService : IRealtimeTrackingService
 {
     private readonly ILogger<RealtimeTrackingService> _logger;
+    private readonly INotificacionLocalService? _notificacionService;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private HubConnection? _hubConnection;
     private string? _currentHubUrl;
@@ -22,9 +24,10 @@ public class RealtimeTrackingService : IRealtimeTrackingService
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
     public HubConnectionState State => _hubConnection?.State ?? HubConnectionState.Disconnected;
 
-    public RealtimeTrackingService(ILogger<RealtimeTrackingService> logger)
+    public RealtimeTrackingService(ILogger<RealtimeTrackingService> logger, INotificacionLocalService? notificacionService = null)
     {
         _logger = logger;
+        _notificacionService = notificacionService;
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
     }
 
@@ -80,6 +83,38 @@ public class RealtimeTrackingService : IRealtimeTrackingService
                 TimeSpan.FromSeconds(30)
             })
             .Build();
+
+        _hubConnection.On<string>("ReasignacionRecibida", (mensaje) =>
+        {
+            _logger.LogInformation("SignalR: Evento de reasignacion urgente recibido: {Mensaje}", mensaje);
+            _notificacionService?.MostrarAlertaOperativa("Reasignacion Urgente", mensaje);
+            if (Shell.Current != null)
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Shell.Current.DisplayAlertAsync("Reasignacion Urgente", mensaje, "Aceptar");
+                });
+            }
+        });
+
+        _hubConnection.On<string, string>("NotificacionOperativa", (titulo, mensaje) =>
+        {
+            _logger.LogInformation("SignalR: Notificacion operativa recibida: {Titulo} - {Mensaje}", titulo, mensaje);
+            _notificacionService?.MostrarAlertaOperativa(titulo, mensaje);
+            if (Shell.Current != null)
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Shell.Current.DisplayAlertAsync(titulo, mensaje, "Aceptar");
+                });
+            }
+        });
+
+        _hubConnection.On<object>("RutaActualizada", (datos) =>
+        {
+            _logger.LogInformation("SignalR: Evento de actualizacion de ruta recibido.");
+            _notificacionService?.MostrarAlertaOperativa("Hoja de Ruta Actualizada", "Se registraron modificaciones en las paradas asignadas.");
+        });
 
         _hubConnection.Reconnecting += error =>
         {

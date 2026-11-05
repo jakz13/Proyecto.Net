@@ -6,6 +6,7 @@ using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Security;
@@ -51,6 +52,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
         builder.Services.AddSingleton<IAuthService, AuthService>();
         builder.Services.AddSingleton<IBiometricAuthService, BiometricAuthService>();
+        builder.Services.AddSingleton<INotificacionLocalService, NotificacionLocalService>();
 
         // 1b. Motor de Sincronizacion Resiliente Offline-First
         builder.Services.AddSingleton<ISyncService, SyncService>();

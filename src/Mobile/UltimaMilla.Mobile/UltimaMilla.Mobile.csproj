@@ -34,6 +34,19 @@
 		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
 	</PropertyGroup>
 
+	<!-- Configuración de empaquetado y firma de APK para Release en Android -->
+	<PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
+		<AndroidPackageFormat>apk</AndroidPackageFormat>
+		<AndroidUseAapt2>true</AndroidUseAapt2>
+		<RunAOTCompilation>false</RunAOTCompilation>
+		<PublishTrimmed>false</PublishTrimmed>
+		<AndroidKeyStore>true</AndroidKeyStore>
+		<AndroidSigningKeyStore>$(MSBuildThisFileDirectory)ultimamilla-release.keystore</AndroidSigningKeyStore>
+		<AndroidSigningKeyAlias>ultimamilla</AndroidSigningKeyAlias>
+		<AndroidSigningKeyPass>UltimaMilla2026!</AndroidSigningKeyPass>
+		<AndroidSigningStorePass>UltimaMilla2026!</AndroidSigningStorePass>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0D6EFD" />

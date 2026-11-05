@@ -107,6 +107,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
     private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly IBiometricAuthService? _biometricAuthService;
 
     [ObservableProperty]
     private string _titulo = "Control de Carga en Vehículo";
@@ -182,11 +183,6 @@ public partial class CargaVehiculoViewModel : ObservableObject
             return "No hay bultos pendientes de escaneo. Carga completada.";
         }
     }
-
-    private readonly ILocalDatabaseService? _localDatabaseService;
-    private readonly ISyncService? _syncService;
-    private readonly IHttpClientFactory? _httpClientFactory;
-    private readonly IBiometricAuthService? _biometricAuthService;
 
     public CargaVehiculoViewModel() : this(null, null, null, null)
     {

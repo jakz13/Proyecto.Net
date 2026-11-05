@@ -255,12 +255,12 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
-    public Parada RegistrarEntregaExitosaEnParada(Guid paradaId)
+    public Parada RegistrarEntregaExitosaEnParada(Guid paradaId, bool resolverConflicto = false)
     {
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
             ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
 
-        parada.RegistrarEntregaExitosa();
+        parada.RegistrarEntregaExitosa(resolverConflicto);
         SelloModificacion = Guid.NewGuid();
 
         VerificarYActualizarFinDeRuta();

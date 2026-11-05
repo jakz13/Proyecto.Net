@@ -24,6 +24,7 @@ public interface ILocalDatabaseService
     Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson);
     Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync();
     Task MarcarComoSincronizadoAsync(int id);
+    Task MarcarComoSincronizadosAsync(IEnumerable<int> ids);
     Task RegistrarErrorAsync(int id, string error);
     Task<int> ObtenerCantidadPendientesAsync();
 
@@ -149,15 +150,17 @@ public class LocalDatabaseService : ILocalDatabaseService
             {
                 await CrearTablasAsync(_database);
             }
-            catch (SQLiteException)
+            catch (SQLiteException ex) when (ex.Result == SQLite3.Result.NonDBFile || ex.Result == SQLite3.Result.Corrupt)
             {
-                // Si la base en disco es incompatible (ej. base previa en texto plano o clave corrupta), se recrea limpia
+                // Si la base en disco es incompatible (ej. base previa en texto plano o clave corrupta),
+                // resguardamos el archivo corrupto como respaldo antes de recrear para no destruir datos de forma silenciosa.
                 try
                 {
                     await _database.CloseAsync();
                     if (File.Exists(dbPath))
                     {
-                        File.Delete(dbPath);
+                        var backupCorruptPath = $"{dbPath}.corrupt.bak";
+                        File.Move(dbPath, backupCorruptPath, overwrite: true);
                     }
 
                     _database = new SQLiteAsyncConnection(connectionString);
@@ -265,6 +268,32 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson)
     {
         await InitAsync();
+
+        // Control de tope máximo para telemetría GPS (1000 posiciones pendientes como máximo)
+        // para evitar crecimiento desmedido en jornadas largas sin conexión, sin afectar operaciones de negocio.
+        if (tipoOperacion == TiposOperacionOffline.TelemetriaGps)
+        {
+            const int maxGpsPendientes = 1000;
+            var conteoGps = await Db.Table<OperacionOfflineLocal>()
+                .Where(o => !o.Sincronizado && o.TipoOperacion == TiposOperacionOffline.TelemetriaGps)
+                .CountAsync();
+
+            if (conteoGps >= maxGpsPendientes)
+            {
+                int aEliminar = (conteoGps - maxGpsPendientes) + 1;
+                var viejos = await Db.Table<OperacionOfflineLocal>()
+                    .Where(o => !o.Sincronizado && o.TipoOperacion == TiposOperacionOffline.TelemetriaGps)
+                    .OrderBy(o => o.FechaCreacionUtc)
+                    .Take(aEliminar)
+                    .ToListAsync();
+
+                foreach (var viejo in viejos)
+                {
+                    await Db.DeleteAsync(viejo);
+                }
+            }
+        }
+
         var operacion = new OperacionOfflineLocal
         {
             TipoOperacion = tipoOperacion,
@@ -293,6 +322,20 @@ public class LocalDatabaseService : ILocalDatabaseService
         {
             op.Sincronizado = true;
             await Db.UpdateAsync(op);
+        }
+    }
+
+    public async Task MarcarComoSincronizadosAsync(IEnumerable<int> ids)
+    {
+        await InitAsync();
+        foreach (var id in ids)
+        {
+            var op = await Db.FindAsync<OperacionOfflineLocal>(id);
+            if (op != null)
+            {
+                op.Sincronizado = true;
+                await Db.UpdateAsync(op);
+            }
         }
     }
 

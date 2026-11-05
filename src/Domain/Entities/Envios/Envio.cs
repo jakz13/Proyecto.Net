@@ -421,13 +421,14 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         string? origen = null,
         double? latitud = null,
         double? longitud = null,
-        string? payload = null)
+        string? payload = null,
+        bool forzarPorConflicto = false)
     {
         if (string.IsNullOrWhiteSpace(tipoEvento))
             throw new DomainValidationException("El tipo de evento no puede ser vacío.");
 
         // UC-39: toda transición se valida contra la máquina de estados declarativa
-        if (!MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
+        if (!forzarPorConflicto && !MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
             throw new DomainValidationException(
                 $"Transición de estado inválida para el envío {CodigoSeguimientoPublico}: '{EstadoActual}' -> '{nuevoEstado}'.");
 
@@ -644,7 +645,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         double? latitud,
         double? longitud,
         DateTime fechaHoraDispositivoUtc,
-        Guid? responsableUsuarioId = null)
+        Guid? responsableUsuarioId = null,
+        bool resolverConflictoReasignacion = false)
     {
         if (paradaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la parada no puede ser vacío.");
@@ -652,7 +654,16 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         ArgumentNullException.ThrowIfNull(reglaOperativa);
 
         if (EstadoActual != EstadoEnvio.EnTransito)
-            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede entregar porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}').");
+        {
+            if (resolverConflictoReasignacion && EstadoActual is EstadoEnvio.NoEntregado or EstadoEnvio.Reprogramado or EstadoEnvio.EnDevolucion)
+            {
+                // En conflicto de sincronizacion offline-first, prevalece la entrega fisica real con prueba POD
+            }
+            else
+            {
+                throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede entregar porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}').");
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(nombreReceptor))
             throw new DomainValidationException("El nombre del receptor es requerido para registrar la entrega exitosa.");
@@ -693,7 +704,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "MobileApp",
             latitud,
             longitud,
-            payload: $"Receptor: {nombreReceptor.Trim()} (Doc: {documentoReceptor?.Trim()}). DispositivoUtc: {fechaHoraDispositivoUtc:O}");
+            payload: $"Receptor: {nombreReceptor.Trim()} (Doc: {documentoReceptor?.Trim()}). DispositivoUtc: {fechaHoraDispositivoUtc:O}",
+            forzarPorConflicto: resolverConflictoReasignacion);
 
         return intento;
     }
@@ -855,6 +867,31 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         SelloModificacion = Guid.NewGuid();
 
         return (nuevoEvento, false);
+    }
+
+    public EventoEnvio RegistrarEventoAuditoria(
+        string tipoEvento,
+        Guid? responsableUsuarioId,
+        string origen,
+        double? latitud,
+        double? longitud,
+        string descripcion)
+    {
+        var nuevoEvento = new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            tipoEvento,
+            EstadoActual,
+            EstadoActual,
+            origen,
+            responsableUsuarioId,
+            latitud,
+            longitud,
+            descripcion);
+
+        _eventos.Add(nuevoEvento);
+        SelloModificacion = Guid.NewGuid();
+        return nuevoEvento;
     }
 
     public void ReiniciarParaDemoEnTransito(Guid hojaDeRutaId)

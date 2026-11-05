@@ -3,6 +3,7 @@ using MediatR;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -95,8 +96,27 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
+        // Manejo explícito de conflictos de sincronización (Punto 7):
+        // Si el repartidor completó la entrega física offline pero el servidor la había retirado/reasignado (UC-10),
+        // prevalece la entrega física real con prueba POD y se asienta el conflicto en ConflictoSincronizacion e historial (UC-39).
+        bool huboConflicto = false;
+        if (envio.EstadoActual != EstadoEnvio.EnTransito || parada.Estado == "Cancelada")
+        {
+            huboConflicto = true;
+            var conflicto = new ConflictoSincronizacion(
+                Guid.NewGuid(),
+                nameof(Domain.Entities.Envios.Envio),
+                envio.Id,
+                estadoServidor: envio.EstadoActual.ToString(),
+                estadoDispositivo: EstadoEnvio.Entregado.ToString(),
+                politicaAplicada: "PrevaleceEntregaFisicaConEvidencia",
+                resolucion: $"Entrega física completada offline con prueba POD por el repartidor mientras el servidor mantenía el envío en estado '{envio.EstadoActual}'. Prevalece la entrega real.");
+
+            await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
+        }
+
         // Validación de máquina de estados: la hoja de ruta debe estar despachada o en tránsito (UC-09 / UC-18 / UC-20)
-        if (ruta.Estado is not ("Despachada" or "EnTransito"))
+        if (ruta.Estado is not ("Despachada" or "EnTransito") && !huboConflicto)
         {
             throw new DomainValidationException($"No se puede registrar la entrega porque la hoja de ruta no se encuentra en tránsito (Estado actual: '{ruta.Estado}'). Debe escanear y despachar la carga previamente.");
         }
@@ -128,9 +148,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             request.Latitud,
             request.Longitud,
             fechaDispositivoUtc,
-            _currentTenant.UsuarioId);
+            _currentTenant.UsuarioId,
+            resolverConflictoReasignacion: huboConflicto);
 
-        ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+        ruta.RegistrarEntregaExitosaEnParada(parada.Id, resolverConflicto: huboConflicto);
 
         // 7. Generación del Integration Event en Outbox dentro de la misma transacción atómica
         var payloadEvento = JsonSerializer.Serialize(new
@@ -194,7 +215,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             parada.Estado,
             fechaDispositivoUtc,
             false,
-            "Entrega exitosa registrada correctamente."
+            huboConflicto
+                ? "Entrega registrada resolviendo conflicto: prevaleció la entrega física con evidencia POD sobre la reasignación previa en servidor."
+                : "Entrega exitosa registrada correctamente.",
+            ConflictoResuelto: huboConflicto
         );
     }
 }

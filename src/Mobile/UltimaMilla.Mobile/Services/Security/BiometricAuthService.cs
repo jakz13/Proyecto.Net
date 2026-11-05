@@ -1,15 +1,18 @@
 #if ANDROID
+using System.Security.Cryptography;
+using System.Text;
 using Android.App;
 using Android.Content;
 using Android.Hardware.Biometrics;
 using Android.OS;
 using Microsoft.Maui.ApplicationModel;
+using UltimaMilla.Mobile.Services.Auth;
 
 namespace UltimaMilla.Mobile.Services.Security;
 
 /// <summary>
 /// Implementación nativa de autenticación biométrica en Android mediante BiometricPrompt.
-/// Incluye soporte para PIN/Patrón/Credencial del dispositivo y fallback seguro.
+/// Incluye soporte para PIN/Patrón/Credencial del dispositivo y validación con contraseña en producción.
 /// </summary>
 public class BiometricAuthService : IBiometricAuthService
 {
@@ -33,12 +36,18 @@ public class BiometricAuthService : IBiometricAuthService
 
     public async Task<bool> ValidarIdentidadAsync(string titulo, string motivo)
     {
+        if (Shell.Current is null)
+            return false;
+
+        var activity = Platform.CurrentActivity;
+        if (activity == null)
+            return false;
+
         try
         {
             var soporta = await DispositivoSoportaBiometriaAsync();
-            var activity = Platform.CurrentActivity;
 
-            if (soporta && activity != null && OperatingSystem.IsAndroidVersionAtLeast(28))
+            if (soporta && OperatingSystem.IsAndroidVersionAtLeast(28))
             {
                 var tcs = new TaskCompletionSource<bool>();
                 var mainExecutor = activity.MainExecutor;
@@ -69,7 +78,9 @@ public class BiometricAuthService : IBiometricAuthService
 
                     prompt.Authenticate(cancellationSignal, mainExecutor, callback);
 
-                    return await tcs.Task;
+                    var resultadoPrompt = await tcs.Task;
+                    if (resultadoPrompt)
+                        return true;
                 }
             }
         }
@@ -78,20 +89,54 @@ public class BiometricAuthService : IBiometricAuthService
             System.Diagnostics.Debug.WriteLine($"[BiometricAuthService] Error al solicitar prompt biométrico: {ex.Message}");
         }
 
-        // Fallback seguro para emulador, dispositivos sin huella registrada o cancelación
+        // Si el hardware biométrico no está disponible, no hay huella registrada o falló el prompt:
+#if DEBUG
         return await SolicitarConfirmacionSeguridadEnPantallaAsync(titulo, motivo);
+#else
+        return await SolicitarPasswordRespaldoAsync(titulo, motivo);
+#endif
     }
 
+#if DEBUG
     private static async Task<bool> SolicitarConfirmacionSeguridadEnPantallaAsync(string titulo, string motivo)
     {
         if (Shell.Current is null)
-            return true;
+            return false;
 
         return await Shell.Current.DisplayAlertAsync(
             "Verificación de Seguridad",
             $"{motivo}\n\nConfirme su identidad operativa para autorizar esta acción.",
             "Autorizar",
             "Cancelar");
+    }
+#endif
+
+    private static async Task<bool> SolicitarPasswordRespaldoAsync(string titulo, string motivo)
+    {
+        if (Shell.Current is null)
+            return false;
+
+        var storedHash = await SecureStorage.Default.GetAsync(AuthService.PasswordHashKey);
+        if (string.IsNullOrWhiteSpace(storedHash))
+        {
+            return false;
+        }
+
+        string? passwordIngresada = await Shell.Current.DisplayPromptAsync(
+            titulo,
+            $"{motivo}\n\nIngrese la contraseña de su cuenta para autorizar:",
+            accept: "Validar",
+            cancel: "Cancelar",
+            placeholder: "Contraseña",
+            maxLength: 64,
+            keyboard: Keyboard.Text);
+
+        if (string.IsNullOrWhiteSpace(passwordIngresada))
+            return false;
+
+        using var sha = SHA256.Create();
+        var inputHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(passwordIngresada)));
+        return string.Equals(storedHash, inputHash, StringComparison.Ordinal);
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("android28.0")]
@@ -139,6 +184,10 @@ public class BiometricAuthService : IBiometricAuthService
     }
 }
 #else
+using System.Security.Cryptography;
+using System.Text;
+using UltimaMilla.Mobile.Services.Auth;
+
 namespace UltimaMilla.Mobile.Services.Security;
 
 /// <summary>
@@ -154,14 +203,45 @@ public class BiometricAuthService : IBiometricAuthService
     public async Task<bool> ValidarIdentidadAsync(string titulo, string motivo)
     {
         if (Shell.Current is null)
-            return true;
+            return false;
 
+#if DEBUG
         return await Shell.Current.DisplayAlertAsync(
             "Verificación de Seguridad",
             $"{motivo}\n\nConfirme su identidad operativa para autorizar esta acción.",
             "Autorizar",
             "Cancelar");
+#else
+        return await SolicitarPasswordRespaldoAsync(titulo, motivo);
+#endif
+    }
+
+    private static async Task<bool> SolicitarPasswordRespaldoAsync(string titulo, string motivo)
+    {
+        if (Shell.Current is null)
+            return false;
+
+        var storedHash = await SecureStorage.Default.GetAsync(AuthService.PasswordHashKey);
+        if (string.IsNullOrWhiteSpace(storedHash))
+        {
+            return false;
+        }
+
+        string? passwordIngresada = await Shell.Current.DisplayPromptAsync(
+            titulo,
+            $"{motivo}\n\nIngrese la contraseña de su cuenta para autorizar:",
+            accept: "Validar",
+            cancel: "Cancelar",
+            placeholder: "Contraseña",
+            maxLength: 64,
+            keyboard: Keyboard.Text);
+
+        if (string.IsNullOrWhiteSpace(passwordIngresada))
+            return false;
+
+        using var sha = SHA256.Create();
+        var inputHash = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(passwordIngresada)));
+        return string.Equals(storedHash, inputHash, StringComparison.Ordinal);
     }
 }
 #endif
-

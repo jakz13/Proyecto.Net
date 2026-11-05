@@ -387,6 +387,7 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status409Conflict)
         .WithOpenApi();
 
         // =========================================================================
@@ -437,6 +438,7 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status409Conflict)
         .WithOpenApi();
 
         // =========================================================================

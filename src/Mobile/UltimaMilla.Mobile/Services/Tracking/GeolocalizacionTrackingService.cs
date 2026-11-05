@@ -142,6 +142,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             _logger.LogWarning(ex, "Fallo temporal al consultar GPS nativo.");
         }
 
+#if DEBUG
         // Posición inicial en tránsito por Centro (~645m de Parada 1) cuando el emulador/PC no provee GPS físico
         _ultimaUbicacion ??= new Location(-34.9000, DemoDataDefaults.Parada1Longitud)
         {
@@ -150,6 +151,9 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         };
 
         return _ultimaUbicacion;
+#else
+        return null;
+#endif
     }
 
     public async Task IniciarTrackingAsync(Guid hojaDeRutaId, Guid repartidorId, CancellationToken cancellationToken = default)

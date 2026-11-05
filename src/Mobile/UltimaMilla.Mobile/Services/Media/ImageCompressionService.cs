@@ -51,6 +51,33 @@ public static class ImageCompressionService
             {
                 compressedBytes = originalBytes;
             }
+
+            // Si tras la compresión inicial el payload supera los 100 KB, realizar una segunda pasada (800px, 50% calidad)
+            const int maxBytesObjetivo = 100 * 1024;
+            if (compressedBytes.Length > maxBytesObjetivo)
+            {
+                try
+                {
+                    using var secondStream = new MemoryStream(originalBytes);
+                    var secondImage = PlatformImage.FromStream(secondStream);
+                    if (secondImage != null)
+                    {
+                        var downsizedSecond = secondImage.Downsize(800, disposeOriginal: true);
+                        using var outStreamSecond = downsizedSecond.AsStream(ImageFormat.Jpeg, 0.50f);
+                        using var msSecond = new MemoryStream();
+                        await outStreamSecond.CopyToAsync(msSecond);
+                        var secondBytes = msSecond.ToArray();
+                        if (secondBytes.Length < compressedBytes.Length)
+                        {
+                            compressedBytes = secondBytes;
+                        }
+                    }
+                }
+                catch (Exception exSecond)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ImageCompressionService] Advertencia en segunda pasada: {exSecond.Message}");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -72,6 +99,7 @@ public static class ImageCompressionService
         };
     }
 
+#if DEBUG
     /// <summary>
     /// Genera una imagen de prueba (Demo) válida en formato JPEG comprimido
     /// para demostraciones y pruebas en PC sin cámara física.
@@ -229,4 +257,5 @@ public static class ImageCompressionService
         }
         return table;
     }
+#endif
 }

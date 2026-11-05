@@ -16,7 +16,7 @@ public partial class EscanerCodigoPage : ContentPage
 
         BarcodeReader.Options = new BarcodeReaderOptions
         {
-            Formats = BarcodeFormats.All,
+            Formats = BarcodeFormat.QrCode | BarcodeFormat.Code128 | BarcodeFormat.Code39 | BarcodeFormat.Ean13,
             AutoRotate = true,
             Multiple = false
         };
