@@ -65,7 +65,8 @@ public class TokenJwtService : ITokenJwtService
         Usuario usuario,
         Perfil perfil,
         IReadOnlyCollection<string> codigosPermisos,
-        TimeSpan? tiempoExpiracion = null)
+        TimeSpan? tiempoExpiracion = null,
+        Guid? comercioOperadorId = null)
     {
         ArgumentNullException.ThrowIfNull(usuario);
         ArgumentNullException.ThrowIfNull(perfil);
@@ -100,9 +101,12 @@ public class TokenJwtService : ITokenJwtService
             payload["tenant_id"] = usuario.OperadorId.Value.ToString();
         }
 
-        if (usuario.ComercioId.HasValue)
+        // El sistema identifica al comercio por su relación con el operador (ComercioOperador), no por el comercio a secas.
+        // Si el login la resolvió, ese es el valor del claim; si no, se mantiene el comportamiento anterior.
+        var comercioDelToken = comercioOperadorId ?? usuario.ComercioId;
+        if (comercioDelToken.HasValue)
         {
-            payload["comercio_id"] = usuario.ComercioId.Value.ToString();
+            payload["comercio_id"] = comercioDelToken.Value.ToString();
         }
 
         var headerJson = JsonSerializer.Serialize(header);

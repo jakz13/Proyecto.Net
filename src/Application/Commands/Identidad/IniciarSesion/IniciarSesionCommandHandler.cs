@@ -18,6 +18,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
     private readonly ITokenJwtService _tokenJwtService;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public const int MaximoIntentosPermitidos = 5;
     public static readonly TimeSpan DuracionBloqueoTemporal = TimeSpan.FromMinutes(15);
@@ -27,8 +28,10 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         IPasswordHasherService passwordHasher,
         ITokenJwtService tokenJwtService,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
+        _comercioOperadorRepository = comercioOperadorRepository;
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _tokenJwtService = tokenJwtService ?? throw new ArgumentNullException(nameof(tokenJwtService));
@@ -100,8 +103,21 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         var permisos = await _usuarioRepository.ObtenerPermisosDePerfilAsync(usuario.PerfilId, cancellationToken);
         var codigosPermisos = permisos.Select(p => p.Codigo).ToList();
 
+        // Un usuario de comercio opera a través de la relación comercio-operador: esa es la identidad que viaja en el token
+        Guid? comercioOperadorId = null;
+        if (usuario.ComercioId.HasValue && usuario.OperadorId.HasValue && _comercioOperadorRepository is not null)
+        {
+            var relacion = await _comercioOperadorRepository.ObtenerPorComercioYOperadorAsync(
+                usuario.ComercioId.Value, usuario.OperadorId.Value, cancellationToken);
+            comercioOperadorId = relacion?.Id;
+        }
+
         // Generar token JWT con los claims requeridos
-        var tokenGenerado = _tokenJwtService.GenerarToken(usuario, perfil ?? new Perfil(usuario.PerfilId, nombrePerfil, string.Empty), codigosPermisos);
+        var tokenGenerado = _tokenJwtService.GenerarToken(
+            usuario,
+            perfil ?? new Perfil(usuario.PerfilId, nombrePerfil, string.Empty),
+            codigosPermisos,
+            comercioOperadorId: comercioOperadorId);
 
         return new IniciarSesionResultadoDto(
             tokenGenerado.Token,
