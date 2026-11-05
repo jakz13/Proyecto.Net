@@ -107,7 +107,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         Guid? comercioOperadorId = null;
         if (usuario.ComercioId.HasValue && usuario.OperadorId.HasValue && _comercioOperadorRepository is not null)
         {
-            var relacion = await _comercioOperadorRepository.ObtenerPorComercioYOperadorAsync(
+            var relacion = await _comercioOperadorRepository.ObtenerRelacionParaSesionAsync(
                 usuario.ComercioId.Value, usuario.OperadorId.Value, cancellationToken);
             comercioOperadorId = relacion?.Id;
         }

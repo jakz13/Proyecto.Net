@@ -30,6 +30,11 @@ public interface IComercioOperadorRepository
     /// <summary>Busca la relación por la huella SHA-256 de su clave de API.</summary>
     Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default);
     Task<ComercioOperador?> ObtenerPorComercioYOperadorAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Igual que <see cref="ObtenerPorComercioYOperadorAsync"/> pero sin el filtro de operador activo: se usa al iniciar sesión,
+    /// cuando todavía no hay operador en contexto. Solo debe consultarse con el par comercio-operador del propio usuario.
+    /// </summary>
+    Task<ComercioOperador?> ObtenerRelacionParaSesionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
     Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
     Task AgregarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);
     Task ActualizarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);
