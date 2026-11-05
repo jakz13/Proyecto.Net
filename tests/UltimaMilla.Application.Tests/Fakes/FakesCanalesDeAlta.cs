@@ -18,6 +18,9 @@ public class FakeComercioOperadorRepository : IComercioOperadorRepository
     public Task<ComercioOperador?> ObtenerPorComercioYOperadorAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Relaciones.FirstOrDefault(c => c.ComercioId == comercioId && c.OperadorId == operadorId));
 
+    public Task<ComercioOperador?> ObtenerRelacionParaSesionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default) =>
+        ObtenerPorComercioYOperadorAsync(comercioId, operadorId, cancellationToken);
+
     public Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Relaciones.Any(c => c.ComercioId == comercioId && c.OperadorId == operadorId));
 

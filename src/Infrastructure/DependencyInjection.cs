@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Messaging;
+using UltimaMilla.Infrastructure.Observabilidad;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Infrastructure.Persistence.Repositories;
 using UltimaMilla.Infrastructure.Services;
@@ -70,6 +71,9 @@ public static class DependencyInjection
         services.AddScoped<INotificacionDestinatarioService, RegistroNotificacionDestinatarioService>();
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+
+        // Observabilidad (UC-44): métricas de negocio expuestas a Prometheus
+        services.AddSingleton<IMetricasNegocio, MetricasNegocio>();
 
         // Servicios transversales y caché distribuido (Redis en despliegue, memoria compartida en pruebas sin Redis)
         var redisConnection = configuration.GetConnectionString("Redis")

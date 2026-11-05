@@ -10,5 +10,6 @@ public interface ITokenJwtService
         Usuario usuario,
         Perfil perfil,
         IReadOnlyCollection<string> codigosPermisos,
-        TimeSpan? tiempoExpiracion = null);
+        TimeSpan? tiempoExpiracion = null,
+        Guid? comercioOperadorId = null);
 }

@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text;
 using MediatR;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Serilog.Context;
 using UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 using UltimaMilla.Application.Commands.Mensajeria.RegistrarMensajeFallido;
 using UltimaMilla.Application.Messaging;
@@ -108,25 +110,46 @@ public class EventConsumerBackgroundService : BackgroundService
         _ = Guid.TryParse(LeerTexto(propiedades, RabbitMqTopology.CabeceraAgregadoId), out var agregadoId);
         var payload = Encoding.UTF8.GetString(entrega.Body.Span);
 
+        // Correlación de extremo a extremo (UC-44, §6.12): toma el CorrelationId del mensaje o del payload
+        var correlationId = ContextoCorrelacion.NormalizarOGenerar(
+            !string.IsNullOrWhiteSpace(propiedades.CorrelationId)
+                ? propiedades.CorrelationId
+                : PayloadMensaje.CorrelationIdDe(payload));
+        var operadorDelEvento = PayloadMensaje.OperadorIdDe(payload);
+        var tenantId = operadorDelEvento?.ToString();
+
+        using var actividad = ContextoCorrelacion.FuenteActividades.StartActivity("ProcesarEventoCola", ActivityKind.Consumer);
+        actividad?.SetTag(ContextoCorrelacion.EtiquetaActividad, correlationId);
+        if (!string.IsNullOrWhiteSpace(tenantId))
+            actividad?.SetTag("tenant_id", tenantId);
+
+        using var alcanceCorrelacion = ContextoCorrelacion.IniciarAlcance(correlationId, tenantId);
+        using var propCorrelacion = LogContext.PushProperty("CorrelationId", correlationId);
+        using var propTraza = LogContext.PushProperty("TraceId", actividad?.TraceId.ToString() ?? Activity.Current?.TraceId.ToString());
+        using var propTenant = !string.IsNullOrWhiteSpace(tenantId) ? LogContext.PushProperty("TenantId", tenantId) : null;
+        using var propMensaje = LogContext.PushProperty("MessageId", messageId);
+        using var propTipo = LogContext.PushProperty("TipoEvento", tipoEvento);
+
         using var traza = _logger.BeginScope(new Dictionary<string, object?>
         {
             ["MessageId"] = messageId,
-            ["CorrelationId"] = propiedades.CorrelationId,
-            ["TipoEvento"] = tipoEvento
+            ["CorrelationId"] = correlationId,
+            ["TipoEvento"] = tipoEvento,
+            ["TenantId"] = tenantId
         });
 
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            if (PayloadMensaje.OperadorIdDe(payload) is { } operadorDelEvento)
-                scope.ServiceProvider.GetRequiredService<ICurrentTenant>().EstablecerOperadorDeProceso(operadorDelEvento);
+            if (operadorDelEvento is { } idOperador)
+                scope.ServiceProvider.GetRequiredService<ICurrentTenant>().EstablecerOperadorDeProceso(idOperador);
 
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
             var resultado = await mediator.Send(new ProcesarMensajeCommand(messageId, agregadoOrigen, agregadoId, tipoEvento, payload), cancellationToken);
 
             _logger.LogInformation(
-                "Mensaje {Estado} (intento {Intento}): {Notificaciones} notificación(es), {Avisos} aviso(s) a comercios.",
-                resultado.Estado, intento, resultado.NotificacionesEnviadas, resultado.AvisosGenerados);
+                "Mensaje {Estado} (intento {Intento}, CorrelationId {CorrelationId}): {Notificaciones} notificación(es), {Avisos} aviso(s) a comercios.",
+                resultado.Estado, intento, correlationId, resultado.NotificacionesEnviadas, resultado.AvisosGenerados);
 
             await canal.BasicAckAsync(entrega.DeliveryTag, false, cancellationToken);
         }

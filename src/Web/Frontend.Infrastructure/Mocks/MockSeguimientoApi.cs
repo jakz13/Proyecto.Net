@@ -72,6 +72,46 @@ public class MockSeguimientoApi : ISeguimientoApi
                 new() { Fecha = DateTime.UtcNow.AddHours(-5), Estado = EstadoEnvioDto.NoEntregado, DescripcionPublica = "No fue posible concretar la entrega (destinatario no respondió)." }
             }
         },
+        ["TRK-2026-0003"] = new SeguimientoPublicoDto
+        {
+            CodigoSeguimiento = "TRK-2026-0003",
+            EstadoActual = EstadoEnvioDto.Admitido,
+            VentanaHorariaEstimada = "Fecha estimada de entrega en coordinación",
+            FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-2),
+            PermiteReprogramacion = false,
+            HistorialEventos = new List<HitoSeguimientoDto>
+            {
+                new() { Fecha = DateTime.UtcNow.AddHours(-2), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Paquete admitido y registrado en la tienda emisora." }
+            }
+        },
+        ["TRK-2026-0004"] = new SeguimientoPublicoDto
+        {
+            CodigoSeguimiento = "TRK-2026-0004",
+            EstadoActual = EstadoEnvioDto.EnDeposito,
+            VentanaHorariaEstimada = "Mañana entre 09:00 y 13:00 hs",
+            FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-1),
+            PermiteReprogramacion = false,
+            HistorialEventos = new List<HitoSeguimientoDto>
+            {
+                new() { Fecha = DateTime.UtcNow.AddHours(-6), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema." },
+                new() { Fecha = DateTime.UtcNow.AddHours(-1), Estado = EstadoEnvioDto.EnDeposito, DescripcionPublica = "Paquete ingresado y clasificado en centro logístico central." }
+            }
+        },
+        ["TRK-2026-0005"] = new SeguimientoPublicoDto
+        {
+            CodigoSeguimiento = "TRK-2026-0005",
+            EstadoActual = EstadoEnvioDto.EnDevolucion,
+            VentanaHorariaEstimada = "Devolución en curso hacia el comercio de origen",
+            FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-3),
+            PermiteReprogramacion = false,
+            HistorialEventos = new List<HitoSeguimientoDto>
+            {
+                new() { Fecha = DateTime.UtcNow.AddDays(-3), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden admitida en el sistema." },
+                new() { Fecha = DateTime.UtcNow.AddDays(-2), Estado = EstadoEnvioDto.EnDeposito, DescripcionPublica = "Procesado en centro logístico." },
+                new() { Fecha = DateTime.UtcNow.AddDays(-1), Estado = EstadoEnvioDto.NoEntregado, DescripcionPublica = "Intentos de entrega agotados sin respuesta del destinatario." },
+                new() { Fecha = DateTime.UtcNow.AddHours(-3), Estado = EstadoEnvioDto.EnDevolucion, DescripcionPublica = "Paquete reasignado a devolución hacia el remitente." }
+            }
+        },
         ["ENV-2026-00108"] = new SeguimientoPublicoDto
         {
             CodigoSeguimiento = "ENV-2026-00108",
@@ -133,6 +173,78 @@ public class MockSeguimientoApi : ISeguimientoApi
         }
 
         return Task.FromResult<SeguimientoPublicoDto?>(null);
+    }
+
+    private static readonly List<FranjaDisponibleDto> FranjasMock = new()
+    {
+        new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Mañana", "09:00", "13:00", false),
+        new(Guid.Parse("22222222-2222-2222-2222-222222222222"), "Mañana", "14:00", "18:00", false),
+        new(Guid.Parse("33333333-3333-3333-3333-333333333333"), "Pasado mañana", "09:00", "13:00", false),
+        new(Guid.Parse("44444444-4444-4444-4444-444444444444"), "Pasado mañana", "14:00", "18:00", false)
+    };
+
+    public Task<FranjasDisponiblesDto?> ObtenerFranjasDisponiblesAsync(string codigoSeguimiento, CancellationToken cancelacion = default)
+    {
+        var codigoLimpio = codigoSeguimiento?.Trim().ToUpperInvariant() ?? string.Empty;
+
+        if (EnviosPublicos.TryGetValue(codigoLimpio, out var seguimiento))
+        {
+            var puede = seguimiento.PermiteReprogramacion || seguimiento.EstadoActual == EstadoEnvioDto.NoEntregado;
+            return Task.FromResult<FranjasDisponiblesDto?>(new FranjasDisponiblesDto(puede, FranjasMock));
+        }
+
+        return Task.FromResult<FranjasDisponiblesDto?>(null);
+    }
+
+    public Task<ResultadoReprogramacionDto> SolicitarReprogramacionAsync(string codigoSeguimiento, Guid franjaHorariaId, CancellationToken cancelacion = default)
+    {
+        var codigoLimpio = codigoSeguimiento?.Trim().ToUpperInvariant() ?? string.Empty;
+
+        if (!EnviosPublicos.TryGetValue(codigoLimpio, out var seguimiento))
+        {
+            return Task.FromResult(new ResultadoReprogramacionDto(false, "Rechazada", "No se encontró el envío indicado.", null));
+        }
+
+        if (seguimiento.EstadoActual == EstadoEnvioDto.EnTransito || seguimiento.EstadoActual == EstadoEnvioDto.AsignadoARuta)
+        {
+            return Task.FromResult(new ResultadoReprogramacionDto(
+                false,
+                "Rechazada",
+                "El envío ya se encuentra en hoja de ruta despachada: no admite cambios en este momento.",
+                null));
+        }
+
+        var franjaElegida = FranjasMock.FirstOrDefault(f => f.Id == franjaHorariaId)
+            ?? new FranjaDisponibleDto(franjaHorariaId, "Próximo día hábil", "14:00", "18:00", false);
+
+        var descripcionFranja = $"{franjaElegida.DiaSemana} de {franjaElegida.HoraInicio} a {franjaElegida.HoraFin} hs";
+
+        var nuevosHitos = new List<HitoSeguimientoDto>(seguimiento.HistorialEventos)
+        {
+            new()
+            {
+                Fecha = DateTime.UtcNow,
+                Estado = EstadoEnvioDto.Reprogramado,
+                DescripcionPublica = $"Entrega reprogramada para {descripcionFranja} a solicitud del destinatario."
+            }
+        };
+
+        var actualizado = seguimiento with
+        {
+            EstadoActual = EstadoEnvioDto.Reprogramado,
+            VentanaHorariaEstimada = $"Reprogramado: {descripcionFranja}",
+            FechaUltimaActualizacion = DateTime.UtcNow,
+            PermiteReprogramacion = false,
+            HistorialEventos = nuevosHitos
+        };
+
+        EnviosPublicos[codigoLimpio] = actualizado;
+
+        return Task.FromResult(new ResultadoReprogramacionDto(
+            true,
+            "Aprobada",
+            null,
+            descripcionFranja));
     }
 
     public Task<bool> SolicitarReprogramacionAsync(string codigoSeguimiento, DateTime nuevaFecha, CancellationToken cancelacion = default)

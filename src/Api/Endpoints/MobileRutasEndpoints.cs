@@ -100,7 +100,16 @@ public static class MobileRutasEndpoints
 
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .AddEndpointFilter(async (contexto, siguiente) =>
+            {
+                if (HttpMethods.IsPost(contexto.HttpContext.Request.Method))
+                {
+                    contexto.HttpContext.RequestServices.GetService<IMetricasNegocio>()?.RegistrarEventoSincronizacion(1);
+                }
+
+                return await siguiente(contexto);
+            });
 
         // =========================================================================
         // UC-18: ESCANEAR BULTOS AL CARGAR EL VEHÍCULO (RF-19)

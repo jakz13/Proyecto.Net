@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using UltimaMilla.Application.Common;
@@ -107,11 +106,11 @@ public class EfUnitOfWork : IUnitOfWork
             .Where(e => e.EstadoAnterior != e.EstadoNuevo || e.TipoEvento == "EntregaParcial")
             .ToList();
 
+        // Toma el identificador de correlación fijado por el middleware (X-Correlation-Id) o la traza actual (UC-44)
+        var correlationId = ContextoCorrelacion.ObtenerCorrelationIdActual();
+
         if (eventosCambioEstado.Count > 0)
         {
-            // El identificador de traza W3C de la solicitud original permite seguir la operación hasta el worker
-            var correlationId = Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
-
             foreach (var evento in eventosCambioEstado)
             {
                 if (!enviosRastreados.TryGetValue(evento.EnvioId, out var datos))

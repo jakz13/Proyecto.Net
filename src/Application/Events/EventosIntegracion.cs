@@ -1,4 +1,5 @@
 using System.Text.Json;
+using UltimaMilla.Application.Messaging;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
@@ -49,6 +50,7 @@ public static class EventosIntegracion
             CodigoSeguimiento = envio.CodigoSeguimientoPublico,
             Estado = envio.EstadoActual.ToString(),
             OcurridoEn = DateTime.UtcNow,
+            CorrelationId = ContextoCorrelacion.ObtenerCorrelationIdActual(),
             Detalle = detalle
         });
     }
@@ -66,6 +68,7 @@ public static class EventosIntegracion
             VehiculoId = ruta.VehiculoId,
             Estado = ruta.Estado,
             OcurridoEn = DateTime.UtcNow,
+            CorrelationId = ContextoCorrelacion.ObtenerCorrelationIdActual(),
             Detalle = detalle
         });
     }
@@ -85,6 +88,7 @@ public static class EventosIntegracion
             Severidad = incidencia.Severidad,
             Estado = incidencia.Estado,
             OcurridoEn = DateTime.UtcNow,
+            CorrelationId = ContextoCorrelacion.ObtenerCorrelationIdActual(),
             Detalle = detalle
         });
     }

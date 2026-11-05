@@ -46,6 +46,40 @@ public class AutenticacionApiTests
     }
 
     [FactPostgres]
+    public async Task Login_UsuarioDeComercio_EmiteTokenConLaRelacionComercioOperadorYPermiteAltaDeEnvio()
+    {
+        var cliente = _factory.CreateClient();
+
+        var respuesta = await cliente.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest("comercio@gmail.com", "Comercio.2026!"));
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var resultado = await respuesta.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>();
+        Assert.NotNull(resultado);
+
+        // El claim comercio_id debe ser la relación comercio-operador sembrada (33333333-...), no el comercio a secas (22222222-...)
+        var cargaUtil = resultado.Token.Split('.')[1].Replace('-', '+').Replace('_', '/');
+        cargaUtil = cargaUtil.PadRight(cargaUtil.Length + (4 - cargaUtil.Length % 4) % 4, '=');
+        using var json = JsonDocument.Parse(Convert.FromBase64String(cargaUtil));
+        Assert.Equal("33333333-3333-3333-3333-333333333333", json.RootElement.GetProperty("comercio_id").GetString());
+
+        // Con ese token el comercio puede dar de alta un envío (antes fallaba con 500 por el aislamiento entre operadores)
+        var alta = new HttpRequestMessage(HttpMethod.Post, "/api/envios")
+        {
+            Content = JsonContent.Create(new
+            {
+                nombreDestinatario = "Cliente de Prueba",
+                calle = "Av. Italia",
+                numero = "3456",
+                ciudad = "Montevideo",
+                bultos = new[] { new { peso = 1.5, alto = 20, ancho = 20, profundo = 20 } }
+            })
+        };
+        alta.Headers.Authorization = new AuthenticationHeaderValue("Bearer", resultado.Token);
+        var respuestaAlta = await cliente.SendAsync(alta);
+
+        Assert.Equal(HttpStatusCode.Created, respuestaAlta.StatusCode);
+    }
+
+    [FactPostgres]
     public async Task Login_OperadorDos_Retorna200ConOperadorCorrespondiente()
     {
         var cliente = _factory.CreateClient();

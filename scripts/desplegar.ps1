@@ -19,13 +19,14 @@
 #>
 param(
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
-    [ValidateSet('api', 'worker', 'backoffice', 'portal')]
-    [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal'),
+    [ValidateSet('api', 'worker', 'backoffice', 'portal', 'panel')]
+    [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'panel'),
 
     [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '152.70.219.103' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\oracle_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
-    [string]$DominioComercio = 'shippingbox-comercio.duckdns.org'
+    [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
+    [string]$DominioPanel = 'panel.shippingbox.duckdns.org'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,18 +63,22 @@ Write-Host 'Docker listo.'
 
 # ---------------------------------------------------------------- Construcción
 # api -> servicio de compose api1; portal -> portal-comercio (api1 y api2 comparten la misma imagen)
-$mapaServicio = @{ api = 'api1'; worker = 'worker'; backoffice = 'backoffice'; portal = 'portal-comercio' }
-$serviciosCompose = $Servicios | ForEach-Object { $mapaServicio[$_] }
-$imagenes = $serviciosCompose | ForEach-Object { if ($_ -eq 'api1') { 'ultimamilla/api:latest' } else { "ultimamilla/${_}:latest" } }
+$mapaServicio = @{ api = @('api1'); worker = @('worker'); backoffice = @('backoffice'); portal = @('portal-comercio'); panel = @('prometheus', 'grafana') }
+$serviciosCompose = @($Servicios | ForEach-Object { $mapaServicio[$_] })
+# Prometheus y Grafana usan imágenes públicas: no se construyen ni se envían desde esta PC
+$construibles = @($serviciosCompose | Where-Object { $_ -notin 'prometheus', 'grafana' })
+$imagenes = @($construibles | ForEach-Object { if ($_ -eq 'api1') { 'ultimamilla/api:latest' } else { "ultimamilla/${_}:latest" } })
 
-Paso "Construyendo imágenes: $($Servicios -join ', ')"
+Paso "Construyendo imágenes: $($construibles -join ', ')"
 # El compose exige estas variables al interpolarse; para construir sus valores no importan
 $respaldo = @{}
-foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
-$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'
+foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO', 'DOMINIO_PANEL', 'GRAFANA_PASSWORD') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
+$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'; $env:DOMINIO_PANEL = 'x'; $env:GRAFANA_PASSWORD = 'x'
 try {
-    docker compose -f docker-compose.prod.yml build @serviciosCompose
-    Verificar 'docker compose build'
+    if ($construibles.Count -gt 0) {
+        docker compose -f docker-compose.prod.yml build @construibles
+        Verificar 'docker compose build'
+    }
 }
 finally {
     foreach ($v in $respaldo.Keys) { [Environment]::SetEnvironmentVariable($v, $respaldo[$v]) }
@@ -84,42 +89,26 @@ Paso 'Enviando archivos de configuración a la VM'
 ssh @opcionesSsh $destino 'mkdir -p ~/shippingbox/docker'; Verificar 'ssh mkdir'
 scp @opcionesSsh docker-compose.prod.yml "${destino}:shippingbox/docker-compose.prod.yml"; Verificar 'scp compose'
 scp @opcionesSsh docker/Caddyfile.prod "${destino}:shippingbox/docker/Caddyfile.prod"; Verificar 'scp Caddyfile'
+# Configuración de observabilidad y del plugin de métricas de RabbitMQ
+foreach ($carpeta in 'prometheus', 'grafana', 'rabbitmq') {
+    scp -r @opcionesSsh "docker/$carpeta" "${destino}:shippingbox/docker/"; Verificar "scp docker/$carpeta"
+}
 
-Paso 'Enviando imágenes a la VM (comprimidas; la primera vez son unos 350 MB)'
-# El pipe se hace con cmd.exe: el de PowerShell 5 corrompe los datos binarios
-$claveCmd = '"' + $Clave + '"'
-cmd /c "docker save $($imagenes -join ' ') | ssh -C -i $claveCmd -o ConnectTimeout=20 $destino docker load"
-Verificar 'docker save | ssh docker load'
+if ($imagenes.Count -gt 0) {
+    Paso 'Enviando imágenes a la VM (comprimidas; la primera vez son unos 350 MB)'
+    # El pipe se hace con cmd.exe: el de PowerShell 5 corrompe los datos binarios
+    $claveCmd = '"' + $Clave + '"'
+    cmd /c "docker save $($imagenes -join ' ') | ssh -C -i $claveCmd -o ConnectTimeout=20 $destino docker load"
+    Verificar 'docker save | ssh docker load'
+}
 
 # ---------------------------------------------------------------- Reinicio por turnos
 Paso 'Reiniciando servicios en la VM'
-$remoto = @'
-set -e
-cd ~/shippingbox
-C="docker compose -f docker-compose.prod.yml --env-file .env.prod"
-esperar() {
-  for i in $(seq 1 36); do
-    h=$(docker inspect -f '{{.State.Health.Status}}' "shippingbox-$1-1" 2>/dev/null || echo none)
-    [ "$h" = healthy ] && { echo "  $1: sano"; return 0; }
-    sleep 5
-  done
-  echo "ERROR: $1 no quedó sano"; docker logs --tail 30 "shippingbox-$1-1"; return 1
-}
-$C up -d --no-build --no-deps postgres redis rabbitmq caddy
-for s in __SERVICIOS__; do
-  case "$s" in
-    api1) for n in api1 api2; do $C up -d --no-build --no-deps $n; esperar $n; done ;;
-    *)    $C up -d --no-build --no-deps $s ;;
-  esac
-done
-$C up -d --no-build
-docker exec shippingbox-caddy-1 caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || echo "  (aviso) Caddy no pudo recargar su configuración"
-$C ps --format 'table {{.Service}}\t{{.Status}}'
-'@
-$remoto = $remoto.Replace('__SERVICIOS__', ($serviciosCompose -join ' ')).Replace("`r", '')
+# La lógica de reinicio por turnos vive en scripts/reiniciar-remoto.sh (la comparte el pipeline de CI)
+$remoto = (Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'reiniciar-remoto.sh')).Replace("`r", '')
 # Se envía en base64 para evitar problemas de saltos de línea entre Windows y Linux
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoto))
-ssh @opcionesSsh $destino "echo $b64 | base64 -d | bash"
+ssh @opcionesSsh $destino "echo $b64 | base64 -d | bash -s -- '$($serviciosCompose -join ' ')'"
 Verificar 'reinicio en la VM'
 
 # ---------------------------------------------------------------- Verificación
@@ -135,6 +124,7 @@ function Esperar200($url) {
 }
 $sitios = @("https://$Dominio/ready")
 if ($Servicios -contains 'portal') { $sitios += "https://$DominioComercio/" }
+if ($Servicios -contains 'panel') { $sitios += "https://$DominioPanel/api/health" }
 foreach ($url in $sitios) {
     Paso "Verificando $url"
     $codigo = Esperar200 $url

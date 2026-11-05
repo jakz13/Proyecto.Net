@@ -1,11 +1,13 @@
+@using UltimaMilla.Frontend.Contracts.Enums
+
 @if (!string.IsNullOrWhiteSpace(Ventana))
 {
-    <div class="ventana-horaria" role="region" aria-label="Ventana horaria estimada de entrega">
+    <div class="ventana-horaria @ClaseVariante" role="region" aria-label="@EtiquetaVentana">
         <div class="ventana-horaria__icono-wrapper">
-            <Icono Nombre="calendario" Tamano="20" />
+            <Icono Nombre="@NombreIcono" Tamano="20" />
         </div>
         <div class="ventana-horaria__texto">
-            <div class="ventana-horaria__etiqueta">Ventana horaria estimada de entrega</div>
+            <div class="ventana-horaria__etiqueta">@EtiquetaVentana</div>
             <div class="ventana-horaria__valor">@Ventana</div>
         </div>
     </div>
@@ -14,4 +16,33 @@
 @code {
     [Parameter]
     public string? Ventana { get; set; }
+
+    [Parameter]
+    public EstadoEnvioDto? Estado { get; set; }
+
+    private string NombreIcono => Estado switch
+    {
+        EstadoEnvioDto.Entregado => "check",
+        EstadoEnvioDto.EnTransito => "camion",
+        EstadoEnvioDto.NoEntregado => "alerta",
+        EstadoEnvioDto.Reprogramado => "reloj",
+        _ => "calendario"
+    };
+
+    private string EtiquetaVentana => Estado switch
+    {
+        EstadoEnvioDto.Entregado => "Entrega confirmada",
+        EstadoEnvioDto.EnTransito => "Ventana horaria estimada para hoy",
+        EstadoEnvioDto.NoEntregado => "Próximo intento de entrega",
+        EstadoEnvioDto.Reprogramado => "Nueva ventana coordinada",
+        _ => "Ventana horaria estimada de entrega"
+    };
+
+    private string ClaseVariante => Estado switch
+    {
+        EstadoEnvioDto.Entregado => "ventana-horaria--entregado",
+        EstadoEnvioDto.NoEntregado => "ventana-horaria--alerta",
+        EstadoEnvioDto.EnTransito => "ventana-horaria--transito",
+        _ => ""
+    };
 }

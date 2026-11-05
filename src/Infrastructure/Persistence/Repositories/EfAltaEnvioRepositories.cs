@@ -78,6 +78,17 @@ public class EfComercioOperadorRepository : IComercioOperadorRepository
             .FirstOrDefaultAsync(co => co.ComercioId == comercioId && co.OperadorId == operadorId, cancellationToken);
     }
 
+    public async Task<ComercioOperador?> ObtenerRelacionParaSesionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        if (comercioId == Guid.Empty || operadorId == Guid.Empty)
+            return null;
+
+        return await _dbContext.ComerciosOperadores
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(co => co.ComercioId == comercioId && co.OperadorId == operadorId, cancellationToken);
+    }
+
     public async Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default)
     {
         if (comercioId == Guid.Empty || operadorId == Guid.Empty)

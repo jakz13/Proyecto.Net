@@ -15,9 +15,17 @@ public interface ISeguimientoApi
     Task<SeguimientoPublicoDto?> ConsultarSeguimientoAsync(string codigoSeguimiento, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Registra una solicitud de reprogramación de entrega iniciada por el destinatario (UC-34).
+    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío (UC-34).
+    /// </summary>
+    Task<FranjasDisponiblesDto?> ObtenerFranjasDisponiblesAsync(string codigoSeguimiento, CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Envía la solicitud de cambio de franja horaria a evaluación del operador (UC-34, RF-26).
+    /// </summary>
+    Task<ResultadoReprogramacionDto> SolicitarReprogramacionAsync(string codigoSeguimiento, Guid franjaHorariaId, CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Registra una solicitud de reprogramación de entrega iniciada por el destinatario (compatibilidad previa).
     /// </summary>
     Task<bool> SolicitarReprogramacionAsync(string codigoSeguimiento, DateTime nuevaFecha, CancellationToken cancelacion = default);
-
-    // TODO: Confirmar con backend si la reprogramación requiere validar franja horaria disponible provista por el endpoint.
 }

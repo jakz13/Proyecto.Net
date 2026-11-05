@@ -15,12 +15,17 @@ public class DistributedCacheService : IDistributedCacheService
 {
     private readonly IDistributedCache _cache;
     private readonly ILogger<DistributedCacheService>? _logger;
+    private readonly IMetricasNegocio? _metricas;
 
-    public DistributedCacheService(IDistributedCache cache, ILogger<DistributedCacheService>? logger = null)
+    public DistributedCacheService(
+        IDistributedCache cache,
+        ILogger<DistributedCacheService>? logger = null,
+        IMetricasNegocio? metricas = null)
     {
         ArgumentNullException.ThrowIfNull(cache);
         _cache = cache;
         _logger = logger;
+        _metricas = metricas;
     }
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
@@ -34,6 +39,7 @@ public class DistributedCacheService : IDistributedCacheService
             if (string.IsNullOrEmpty(data))
             {
                 MedidorCache.RegistrarFallo(key);
+                _metricas?.RegistrarFalloCache();
                 return default;
             }
 
@@ -41,10 +47,12 @@ public class DistributedCacheService : IDistributedCacheService
             if (resultado is null)
             {
                 MedidorCache.RegistrarFallo(key);
+                _metricas?.RegistrarFalloCache();
                 return default;
             }
 
             MedidorCache.RegistrarAcierto(key);
+            _metricas?.RegistrarAciertoCache();
             return resultado;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -55,6 +63,7 @@ public class DistributedCacheService : IDistributedCacheService
         {
             MedidorCache.RegistrarError(key);
             MedidorCache.RegistrarFallo(key);
+            _metricas?.RegistrarFalloCache();
             _logger?.LogWarning(
                 ex,
                 "Almacén de caché distribuido no disponible al consultar el caso de uso {CasoDeUso}. Se continúa contra la base de datos.",

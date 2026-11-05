@@ -3,6 +3,7 @@
 @inject ISeguimientoApi SeguimientoApi
 @inject NavigationManager Navegador
 @inject TiempoRealSeguimientoServicio TiempoReal
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>LittleBox Envíos — Seguimiento de Envíos</PageTitle>
@@ -11,6 +12,7 @@
     <!-- Componente Modular: Buscador con Validación y Pills Demo -->
     <BuscadorEnvio CodigoInicial="@codigoBuscado"
                    EstaCargando="@estaCargando"
+                   EsModoCompacto="@(seguimiento != null)"
                    AlBuscar="EjecutarConsulta" />
 
     <!-- Notificaciones y Alertas (Anti-enumeración 404 y Límite de Tasa 429) -->
@@ -27,20 +29,62 @@
         <!-- Stepper de Etapas del Viaje -->
         <StepperEnvio Estado="@seguimiento.EstadoActual" />
 
+        <!-- Banner de Estado Hero -->
+        @if (seguimiento.EstadoActual == EstadoEnvioDto.EnTransito)
+        {
+            <div class="alert alert-primary border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
+                <div class="p-2 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                    <Icono Nombre="camion" Tamano="20" />
+                </div>
+                <div>
+                    <div class="fw-bold fs-6 text-primary">¡Tu paquete está en camino!</div>
+                    <div class="small text-secondary">El repartidor se encuentra en ruta realizando las entregas del día en tu zona.</div>
+                </div>
+            </div>
+        }
+        else if (seguimiento.EstadoActual == EstadoEnvioDto.Entregado)
+        {
+            <div class="alert alert-success border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
+                <div class="p-2 bg-success text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                    <Icono Nombre="check" Tamano="20" />
+                </div>
+                <div>
+                    <div class="fw-bold fs-6 text-success">¡Paquete entregado con éxito!</div>
+                    <div class="small text-secondary">La entrega fue completada y confirmada en el domicilio.</div>
+                </div>
+            </div>
+        }
+        else if (seguimiento.EstadoActual == EstadoEnvioDto.NoEntregado)
+        {
+            <div class="alert alert-warning border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
+                <div class="p-2 bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                    <Icono Nombre="alerta" Tamano="20" />
+                </div>
+                <div>
+                    <div class="fw-bold fs-6 text-dark">No fue posible concretar la entrega</div>
+                    <div class="small text-secondary">No pudimos contactarte en el último intento. Podés coordinar una nueva fecha de entrega debajo.</div>
+                </div>
+            </div>
+        }
+
         <div class="tarjeta-envio">
             <header class="tarjeta-envio__cabecera">
                 <div class="tarjeta-envio__codigo-bloque">
                     <span class="tarjeta-envio__codigo-label">Código de Seguimiento</span>
                     <h2 class="tarjeta-envio__codigo-valor mb-0">@seguimiento.CodigoSeguimiento</h2>
                 </div>
-                <div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs" @onclick="CopiarEnlace" title="Copiar enlace directo de seguimiento">
+                        <Icono Nombre="copiar" Tamano="13" />
+                        <span style="font-size: 0.75rem;">@(enlaceCopiado ? "¡Copiado!" : "Copiar enlace")</span>
+                    </button>
                     <BadgeEstadoEnvio Estado="@seguimiento.EstadoActual" EsGrande="true" />
                 </div>
             </header>
 
             <div class="tarjeta-envio__cuerpo">
                 <!-- Ventana Horaria Estimada -->
-                <VentanaHoraria Ventana="@seguimiento.VentanaHorariaEstimada" />
+                <VentanaHoraria Ventana="@seguimiento.VentanaHorariaEstimada" Estado="@seguimiento.EstadoActual" />
 
                 @if (seguimiento.TotalBultos > 0)
                 {
@@ -73,6 +117,14 @@
 
                 <!-- Línea de Tiempo de Hitos Históricos -->
                 <LineaTiempoEventos Eventos="@seguimiento.HistorialEventos" />
+
+                <!-- Garantía de Privacidad Explícita (RF-25) -->
+                <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
+                    <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
+                    <div class="small text-secondary" style="font-size: 0.775rem;">
+                        <strong>Privacidad garantizada (RF-25):</strong> Este seguimiento público protege tu privacidad y la de terceros. No se exhiben datos personales, direcciones completas ni contactos en este enlace.
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -87,6 +139,7 @@
     private bool estaCargando = false;
     private string? mensajeError;
     private bool esErrorLimiteTasa = false;
+    private bool enlaceCopiado = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -94,6 +147,24 @@
         {
             codigoBuscado = CodigoUrl;
             await EjecutarConsulta(CodigoUrl);
+        }
+    }
+
+    private async Task CopiarEnlace()
+    {
+        try
+        {
+            var url = Navegador.Uri;
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            enlaceCopiado = true;
+            StateHasChanged();
+            await Task.Delay(2500);
+            enlaceCopiado = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Continuar en caso de bloqueo de permisos de portapapeles
         }
     }
 

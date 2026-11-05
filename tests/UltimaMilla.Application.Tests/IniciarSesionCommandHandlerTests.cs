@@ -113,6 +113,23 @@ public class IniciarSesionCommandHandlerTests
     }
 
     [Fact]
+    public async Task IniciarSesion_UsuarioDeComercio_EmiteTokenConLaRelacionComercioOperador()
+    {
+        // Arrange: el comercio del usuario (ComercioId) se relaciona con su operador mediante una relación con id propio
+        var relacionId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var relaciones = new FakeComercioOperadorRepository();
+        relaciones.Relaciones.Add(new UltimaMilla.Domain.Entities.Comercio.ComercioOperador(relacionId, ComercioId, Operador1Id, "clave-api-demo"));
+        var tokens = new FakeTokenJwtService();
+        var handler = new IniciarSesionCommandHandler(_usuarioRepository, _passwordHasher, tokens, _clock, _unitOfWork, relaciones);
+
+        // Act
+        await handler.Handle(new IniciarSesionCommand("comercio@gmail.com", "Password.123!"), CancellationToken.None);
+
+        // Assert: el sistema identifica al comercio por la relación (no por el comercio a secas)
+        Assert.Equal(relacionId, tokens.UltimoComercioOperadorId);
+    }
+
+    [Fact]
     public async Task IniciarSesion_Multitenancy_EmiteTokenConOperadorCorrespondiente()
     {
         // Act: Login para el usuario del segundo operador
