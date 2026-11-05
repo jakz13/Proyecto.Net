@@ -72,6 +72,8 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit vm_memory_high_watermark 0.25"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      # Habilita el plugin que expone las métricas de la cola a Prometheus (puerto 15692)
+      - ./docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     mem_limit: 320m
     networks: [interna]
 
@@ -167,6 +169,43 @@ services:
     mem_limit: 128m
     networks: [interna]
 
+  # Observabilidad: Prometheus recolecta métricas y Grafana las muestra (UC-44). Solo accesible por Caddy.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=24h
+      - --storage.tsdb.retention.size=300MB
+      - --storage.tsdb.wal-compression
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    mem_limit: 96m
+    networks: [interna]
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?definir GRAFANA_PASSWORD}
+      GF_SERVER_ROOT_URL: https://${DOMINIO_PANEL:?definir DOMINIO_PANEL}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ultima-milla-tecnico.json
+      GOMEMLIMIT: 140MiB
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    mem_limit: 192m
+    networks: [interna]
+
   # Proxy inverso y balanceador: HTTPS automático (Let's Encrypt) y reparto entre api1 y api2.
   caddy:
     image: caddy:2-alpine
@@ -174,6 +213,7 @@ services:
     environment:
       DOMINIO: ${DOMINIO}
       DOMINIO_COMERCIO: ${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
+      DOMINIO_PANEL: ${DOMINIO_PANEL:?definir DOMINIO_PANEL}
     ports:
       - "80:80"
       - "443:443"
@@ -191,6 +231,8 @@ volumes:
   backoffice_keys:
   caddy_data:
   caddy_config:
+  prometheus_data:
+  grafana_data:
 
 networks:
   interna:

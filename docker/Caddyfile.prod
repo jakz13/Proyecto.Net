@@ -53,3 +53,9 @@
 		reverse_proxy portal-comercio:8080
 	}
 }
+
+# Panel de observabilidad (Grafana). Prometheus no se publica: solo Grafana lo consulta por la red interna.
+{$DOMINIO_PANEL} {
+	encode gzip
+	reverse_proxy grafana:3000
+}
