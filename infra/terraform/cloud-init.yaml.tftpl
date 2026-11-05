@@ -1,0 +1,57 @@
+#cloud-config
+# Arranque de la VM: Docker, swap, firewall del sistema y carpeta de la aplicación.
+# Los secretos de la aplicación NO están en este archivo: se generan al azar en la propia VM.
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - iptables-persistent
+  - openssl
+  - curl
+
+write_files:
+  - path: /usr/local/bin/preparar-servidor.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Swap: la VM tiene 1 GB de RAM y corre unos 11 contenedores
+      if [ ! -f /swapfile ]; then
+        fallocate -l ${tamano_swap_gb}G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo "/swapfile none swap sw 0 0" >> /etc/fstab
+      fi
+      echo "vm.swappiness=20" > /etc/sysctl.d/99-swap.conf
+      sysctl -p /etc/sysctl.d/99-swap.conf
+
+      # Las imágenes de Oracle traen reglas iptables que bloquean 80/443 aunque la red las permita
+      iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 6 -p tcp --dport 80 -j ACCEPT
+      iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 6 -p tcp --dport 443 -j ACCEPT
+      iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 6 -p udp --dport 443 -j ACCEPT
+      netfilter-persistent save
+
+      systemctl enable --now docker
+      usermod -aG docker ubuntu
+
+      # Variables de la aplicación: dominios (públicos) y secretos generados al azar
+      install -d -o ubuntu -g ubuntu /home/ubuntu/shippingbox
+      ENV=/home/ubuntu/shippingbox/.env.prod
+      if [ ! -f "$ENV" ]; then
+        {
+          echo "DOMINIO=${dominio}"
+          echo "DOMINIO_COMERCIO=${dominio_comercio}"
+          echo "DOMINIO_PANEL=${dominio_panel}"
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+          echo "RABBITMQ_PASSWORD=$(openssl rand -hex 16)"
+          echo "JWT_SECRET=$(openssl rand -hex 32)"
+          echo "GRAFANA_PASSWORD=$(openssl rand -hex 12)"
+        } > "$ENV"
+        chown ubuntu:ubuntu "$ENV"
+        chmod 600 "$ENV"
+      fi
+
+runcmd:
+  - [bash, /usr/local/bin/preparar-servidor.sh]
