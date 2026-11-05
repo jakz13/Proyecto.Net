@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Indicadores.EjecutarCierreDiario;
 using UltimaMilla.Application.Commands.Indicadores.RecalcularIndicadoresCumplimiento;
 using UltimaMilla.Application.Commands.Mensajeria.GestionarWebhooks;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
@@ -15,8 +16,9 @@ namespace UltimaMilla.Api.Endpoints;
 
 /// <summary>
 /// Endpoints de soporte para demostrar y verificar los procesos del worker y avisos a comercios:
-/// receptor de prueba de avisos a comercios con verificación de firma HMAC y simulación de fallas (§6.9),
+/// receptor de prueba de avisos a comercios con verificación de firma HMAC y simulación de fallas (RNF 6.9),
 /// gestión de suscripciones de webhook por comercio (UC-36), historial y reenvío manual de avisos (UC-30),
+/// métricas de aciertos y fallos del caché distribuido por caso de uso (RNF 6.7),
 /// y ejecución bajo demanda del recálculo de indicadores (UC-37) y cierre diario (UC-38) del operador autenticado.
 /// </summary>
 public static class WorkerProcesosEndpoints
@@ -256,6 +258,19 @@ public static class WorkerProcesosEndpoints
         })
         .WithName("EjecutarCierreDiarioOperacion")
         .WithSummary("Ejecutar el cierre diario consolidado de la operación (UC-38)");
+
+        app.MapGet("/api/operacion/cache/metricas", (IConfiguration configuration) =>
+        {
+            var redisConfigurado = !string.IsNullOrWhiteSpace(
+                configuration.GetConnectionString("Redis") ?? configuration["Redis:Configuration"]);
+            var proveedor = redisConfigurado ? "Redis" : "MemoriaDistribuida";
+            return Results.Ok(MedidorCache.ObtenerResumen(proveedor));
+        })
+        .RequireAuthorization()
+        .WithTags("Caché distribuido (RNF 6.7)")
+        .WithName("ObtenerMetricasCacheDistribuido")
+        .WithSummary("Consultar las métricas de aciertos, fallos e invalidaciones del caché distribuido por caso de uso")
+        .Produces<ResumenMetricasCacheDto>(StatusCodes.Status200OK);
 
         return app;
     }

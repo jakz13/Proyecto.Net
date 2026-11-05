@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Mensajeria;
@@ -26,6 +27,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
+    private readonly IDistributedCacheService? _cacheService;
 
     public SolicitarReprogramacionCommandHandler(
         IEnvioRepository envioRepository,
@@ -35,7 +37,8 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         IOutboxStorage outboxStorage,
         IClock clock,
         IUnitOfWork unitOfWork,
-        ICurrentTenant? currentTenant = null)
+        ICurrentTenant? currentTenant = null,
+        IDistributedCacheService? cacheService = null)
     {
         _envioRepository = envioRepository;
         _direccionRepository = direccionRepository;
@@ -45,6 +48,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         _clock = clock;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
+        _cacheService = cacheService;
     }
 
     public async Task<ResultadoReprogramacionDto> Handle(SolicitarReprogramacionCommand request, CancellationToken cancellationToken)
@@ -95,6 +99,13 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
             await _solicitudRepository.AddAsync(solicitud, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (evaluacion.Motivo is null && _cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
+        }
 
         return evaluacion.Motivo is null
             ? new ResultadoReprogramacionDto(true, solicitud.Estado, null, Describir(evaluacion.Franja!))

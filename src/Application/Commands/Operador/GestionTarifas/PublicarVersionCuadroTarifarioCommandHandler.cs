@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Operador;
@@ -7,7 +8,8 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Commands.Operador.GestionTarifas;
 
 /// <summary>
-/// Manejador que publica una nueva versión del cuadro tarifario, cerrando la vigencia de las versiones previas.
+/// Manejador que publica una nueva versión del cuadro tarifario, cerrando la vigencia de las versiones previas
+/// e invalidando de inmediato las entradas del operador en el caché distribuido (UC-03, RNF 6.7).
 /// </summary>
 public class PublicarVersionCuadroTarifarioCommandHandler : IRequestHandler<PublicarVersionCuadroTarifarioCommand, CuadroTarifarioDetalleDto>
 {
@@ -15,17 +17,20 @@ public class PublicarVersionCuadroTarifarioCommandHandler : IRequestHandler<Publ
     private readonly IZonaCoberturaRepository _zonaRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
+    private readonly IDistributedCacheService? _cacheService;
 
     public PublicarVersionCuadroTarifarioCommandHandler(
         ICuadroTarifarioRepository cuadroRepositorio,
         IZonaCoberturaRepository zonaRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        IDistributedCacheService? cacheService = null)
     {
         _cuadroRepositorio = cuadroRepositorio;
         _zonaRepositorio = zonaRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
+        _cacheService = cacheService;
     }
 
     public async Task<CuadroTarifarioDetalleDto> Handle(PublicarVersionCuadroTarifarioCommand solicitud, CancellationToken cancellationToken)
@@ -104,7 +109,20 @@ public class PublicarVersionCuadroTarifarioCommandHandler : IRequestHandler<Publ
         await _cuadroRepositorio.AgregarAsync(nuevoCuadro, cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
 
-        return MapearADto(nuevoCuadro, mapaNombresZonas);
+        var dto = MapearADto(nuevoCuadro, mapaNombresZonas);
+
+        // 5. Invalidar las entradas del operador en el caché distribuido para que todas las instancias de la API respondan de inmediato con la nueva versión
+        if (_cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioVigente(operadorId), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioHistorial(operadorId), cancellationToken);
+            foreach (var abierta in versionesAbiertas)
+            {
+                await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioPorId(operadorId, abierta.Id), cancellationToken);
+            }
+        }
+
+        return dto;
     }
 
     private static CuadroTarifarioDetalleDto MapearADto(CuadroTarifario cuadro, IReadOnlyDictionary<Guid, string> nombresZonas)

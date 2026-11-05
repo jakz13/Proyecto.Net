@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Enums;
@@ -11,17 +12,21 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     private readonly IEnvioRepository _envioRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
+    private readonly IDistributedCacheService? _cacheService;
 
     public ConsultarSeguimientoPublicoQueryHandler(
         IEnvioRepository envioRepository,
-        IFranjaHorariaRepository franjaHorariaRepository)
+        IFranjaHorariaRepository franjaHorariaRepository,
+        IDistributedCacheService? cacheService = null)
     {
         _envioRepository = envioRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
+        _cacheService = cacheService;
     }
 
     /// <summary>
     /// Devuelve null cuando el código es inválido o no existe, sin distinguir ambos casos, para no permitir la enumeración de envíos.
+    /// Utiliza el caché distribuido con expiración corta (5 minutos) e invalidación ante eventos del envío (RNF 6.7).
     /// </summary>
     public async Task<SeguimientoPublicoDto?> Handle(ConsultarSeguimientoPublicoQuery request, CancellationToken cancellationToken)
     {
@@ -30,6 +35,14 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         var codigo = request.CodigoSeguimiento?.Trim().ToUpperInvariant();
         if (string.IsNullOrEmpty(codigo) || codigo.Length > LargoMaximoCodigo)
             return null;
+
+        var claveCache = ClavesCache.SeguimientoPorCodigo(codigo);
+        if (_cacheService is not null)
+        {
+            var enCache = await _cacheService.GetAsync<SeguimientoPublicoDto>(claveCache, cancellationToken);
+            if (enCache is not null)
+                return enCache;
+        }
 
         var envio = await _envioRepository.GetByCodigoSeguimientoAsync(codigo, cancellationToken);
         if (envio is null)
@@ -45,13 +58,25 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             ? envio.Eventos.Max(e => e.Timestamp)
             : envio.FechaAlta;
 
-        return new SeguimientoPublicoDto(
+        var resultado = new SeguimientoPublicoDto(
             envio.CodigoSeguimientoPublico,
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
             envio.EstadoActual == EstadoEnvio.Reprogramado,
             hitos);
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
+            await _cacheService.SetAsync(
+                ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico),
+                resultado,
+                ClavesCache.ExpiracionSeguimientoPublico,
+                cancellationToken);
+        }
+
+        return resultado;
     }
 
     /// <summary>Solo los cambios de estado (y el alta) forman parte de la línea de tiempo pública.</summary>

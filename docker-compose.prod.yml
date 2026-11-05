@@ -109,6 +109,7 @@ services:
     environment:
       DOTNET_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Redis: redis:6379
       RabbitMq__HostName: rabbitmq
       RabbitMq__Port: "5672"
       RabbitMq__UserName: ultimamilla
@@ -117,6 +118,8 @@ services:
     depends_on:
       api1:
         condition: service_healthy
+      redis:
+        condition: service_started
       rabbitmq:
         condition: service_started
     mem_limit: 192m

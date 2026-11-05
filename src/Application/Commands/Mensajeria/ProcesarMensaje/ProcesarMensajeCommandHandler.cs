@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
@@ -34,6 +35,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private readonly AvisoComercioEntregador _entregador;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
+    private readonly IDistributedCacheService? _cacheService;
 
     public ProcesarMensajeCommandHandler(
         IIdempotenciaConsumidorRepository idempotenciaRepository,
@@ -44,7 +46,8 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         IAvisoComercioRepository avisoRepository,
         AvisoComercioEntregador entregador,
         IUnitOfWork unitOfWork,
-        ICurrentTenant? currentTenant = null)
+        ICurrentTenant? currentTenant = null,
+        IDistributedCacheService? cacheService = null)
     {
         _idempotenciaRepository = idempotenciaRepository;
         _envioRepository = envioRepository;
@@ -55,6 +58,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         _entregador = entregador;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
+        _cacheService = cacheService;
     }
 
     public async Task<ResultadoProcesamientoMensaje> Handle(ProcesarMensajeCommand request, CancellationToken cancellationToken)
@@ -92,6 +96,14 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         // Defensa de aislamiento: el operador declarado por el evento debe ser el dueño real del envío
         if (envio.OperadorId != evento.OperadorId)
             throw new MensajeInvalidoException($"El envío '{evento.EnvioId}' no pertenece al operador del evento.");
+
+        // Invalidación del caché de seguimiento público al procesar un evento del envío (RNF 6.7)
+        if (_cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
+        }
 
         var notificaciones = await NotificarDestinatarioAsync(evento, envio, cancellationToken);
         var avisos = await GenerarAvisosAsync(evento, envio.ComercioOperadorId, cancellationToken);

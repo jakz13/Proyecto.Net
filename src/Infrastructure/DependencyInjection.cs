@@ -71,8 +71,28 @@ public static class DependencyInjection
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
-        // Servicios transversales
-        services.AddDistributedMemoryCache();
+        // Servicios transversales y caché distribuido (Redis en despliegue, memoria compartida en pruebas sin Redis)
+        var redisConnection = configuration.GetConnectionString("Redis")
+            ?? configuration["Redis:Configuration"];
+        if (!string.IsNullOrWhiteSpace(redisConnection))
+        {
+            services.AddStackExchangeRedisCache(opciones =>
+            {
+                var configRedis = StackExchange.Redis.ConfigurationOptions.Parse(redisConnection);
+                configRedis.AbortOnConnectFail = false;
+                configRedis.ConnectTimeout = 1000;
+                configRedis.SyncTimeout = 1000;
+                configRedis.AsyncTimeout = 1000;
+                configRedis.ConnectRetry = 1;
+                opciones.ConfigurationOptions = configRedis;
+                opciones.InstanceName = "UltimaMilla:";
+            });
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
+
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
