@@ -311,6 +311,80 @@ body {
     color: var(--color-texto);
 }
 
+@keyframes pulsoPasoActivo {
+    0% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.45); }
+    70% { box-shadow: 0 0 0 8px rgba(29, 78, 216, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0); }
+}
+
+.stepper-seguimiento__paso--activo .stepper-seguimiento__nodo {
+    animation: pulsoPasoActivo 2.2s infinite ease-in-out;
+}
+
+.stepper-seguimiento__paso--alerta .stepper-seguimiento__nodo {
+    background-color: var(--color-error);
+    color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(185, 28, 28, 0.2);
+}
+
+.stepper-seguimiento__paso--alerta .stepper-seguimiento__etiqueta {
+    color: var(--color-error);
+    font-weight: 700;
+}
+
+.stepper-seguimiento__paso--reprogramado .stepper-seguimiento__nodo {
+    background-color: var(--badge-reprogramado-bg);
+    color: #ffffff;
+}
+
+.stepper-seguimiento__paso--reprogramado .stepper-seguimiento__etiqueta {
+    color: var(--badge-reprogramado-bg);
+    font-weight: 700;
+}
+
+.shadow-xs {
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.ventana-horaria--entregado {
+    background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+    border-color: #86EFAC;
+}
+
+.ventana-horaria--entregado .ventana-horaria__etiqueta {
+    color: #15803D;
+}
+
+.ventana-horaria--entregado .ventana-horaria__icono-wrapper {
+    color: #16A34A;
+}
+
+.ventana-horaria--alerta {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border-color: #FDE68A;
+}
+
+.ventana-horaria--alerta .ventana-horaria__etiqueta {
+    color: #B45309;
+}
+
+.ventana-horaria--alerta .ventana-horaria__icono-wrapper {
+    color: #D97706;
+}
+
+.ventana-horaria--transito {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+    border-color: #BFDBFE;
+}
+
+.ventana-horaria--transito .ventana-horaria__etiqueta {
+    color: #1D4ED8;
+}
+
+.ventana-horaria--transito .ventana-horaria__icono-wrapper {
+    color: #2563EB;
+}
+
 /* ==========================================================================
    Bloque: Tarjeta de Envío y Ventana (.tarjeta-envio)
    ========================================================================== */

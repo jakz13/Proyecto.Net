@@ -1,9 +1,17 @@
+# Provisioning automático de tableros de Grafana desde archivos JSON (UC-44, §8.3)
+# Montar ./docker/grafana/dashboards en /var/lib/grafana/dashboards:ro
 apiVersion: 1
+
 providers:
-  - name: ultima-milla
-    folder: Última Milla
+  - name: 'UltimaMilla'
+    orgId: 1
+    folder: ''
     type: file
-    disableDeletion: true
-    allowUiUpdates: false
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+

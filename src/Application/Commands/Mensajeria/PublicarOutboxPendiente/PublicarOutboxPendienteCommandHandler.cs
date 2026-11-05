@@ -36,6 +36,12 @@ public class PublicarOutboxPendienteCommandHandler : IRequestHandler<PublicarOut
 
         foreach (var mensaje in pendientes)
         {
+            var correlationId = PayloadMensaje.CorrelationIdDe(mensaje.Payload);
+            var operadorId = PayloadMensaje.OperadorIdDe(mensaje.Payload)?.ToString();
+            using var alcance = !string.IsNullOrWhiteSpace(correlationId)
+                ? ContextoCorrelacion.IniciarAlcance(correlationId, operadorId)
+                : null;
+
             try
             {
                 await _publisher.PublicarAsync(
@@ -45,7 +51,7 @@ public class PublicarOutboxPendienteCommandHandler : IRequestHandler<PublicarOut
                         mensaje.AgregadoId,
                         mensaje.TipoEvento,
                         mensaje.Payload,
-                        PayloadMensaje.CorrelationIdDe(mensaje.Payload)),
+                        correlationId),
                     cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

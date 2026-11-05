@@ -1,28 +1,33 @@
-# Prometheus: lee las métricas de cada servicio cada 15 segundos (red interna de Docker).
+# Configuración de recolección de métricas de Prometheus (UC-44, §8.2)
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
-  # API: dos instancias con etiqueta propia para comparar el reparto del balanceador
-  - job_name: api
+  # Balanceo de carga de la API: etiquetas instance diferenciadas para comparar api1 y api2
+  - job_name: 'api'
     metrics_path: /metrics
     static_configs:
-      - targets: ["api1:8080"]
-        labels: { instancia: api1 }
-      - targets: ["api2:8080"]
-        labels: { instancia: api2 }
+      - targets: ['api1:8080']
+        labels:
+          instance: 'api1'
+      - targets: ['api2:8080']
+        labels:
+          instance: 'api2'
 
-  - job_name: worker
+  # Servicio en segundo plano (Worker): expone /metrics en el puerto 9464
+  - job_name: 'worker'
     metrics_path: /metrics
     static_configs:
-      - targets: ["worker:9464"]
+      - targets: ['worker:9464']
+        labels:
+          instance: 'worker'
 
-  # Cola de mensajes (plugin rabbitmq_prometheus)
-  - job_name: rabbitmq
+  # Broker de mensajería RabbitMQ (plugin rabbitmq_prometheus en puerto 15692)
+  - job_name: 'rabbitmq'
+    metrics_path: /metrics
     static_configs:
-      - targets: ["rabbitmq:15692"]
+      - targets: ['rabbitmq:15692']
+        labels:
+          instance: 'rabbitmq'
 
-  - job_name: prometheus
-    static_configs:
-      - targets: ["localhost:9090"]

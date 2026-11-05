@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Api.Endpoints;
@@ -14,10 +15,13 @@ public static class MobilePosicionEndpoints
         app.MapPost("/api/mobile/v1/posiciones", async (
             [FromBody] RegistrarPosicionesCommand comando,
             [FromServices] IMediator mediator,
+            [FromServices] IMetricasNegocio metricas,
             CancellationToken ct) =>
         {
             try
             {
+                var cantidadEventos = comando.Posiciones is { Count: > 0 } ? comando.Posiciones.Count : 1;
+                metricas.RegistrarEventoSincronizacion(cantidadEventos);
                 return Results.Ok(await mediator.Send(comando, ct));
             }
             catch (DomainValidationException ex)

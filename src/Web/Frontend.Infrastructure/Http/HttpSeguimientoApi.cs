@@ -103,7 +103,64 @@ public class HttpSeguimientoApi : ISeguimientoApi
     }
 
     /// <summary>
-    /// Envía la solicitud de reprogramación de entrega iniciada por el destinatario (UC-34).
+    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío (UC-34).
+    /// </summary>
+    public async Task<FranjasDisponiblesDto?> ObtenerFranjasDisponiblesAsync(string codigoSeguimiento, CancellationToken cancelacion = default)
+    {
+        if (string.IsNullOrWhiteSpace(codigoSeguimiento)) return null;
+
+        var codigoLimpio = codigoSeguimiento.Trim().ToUpperInvariant();
+        var rutaUrl = $"/api/seguimiento/{Uri.EscapeDataString(codigoLimpio)}/franjas";
+
+        try
+        {
+            var respuesta = await _clienteHttp.GetAsync(rutaUrl, cancelacion);
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await respuesta.Content.ReadFromJsonAsync<FranjasDisponiblesDto>(OpcionesJson, cancelacion);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Envía la solicitud de cambio de franja horaria a evaluación del operador (UC-34, RF-26).
+    /// </summary>
+    public async Task<ResultadoReprogramacionDto> SolicitarReprogramacionAsync(string codigoSeguimiento, Guid franjaHorariaId, CancellationToken cancelacion = default)
+    {
+        if (string.IsNullOrWhiteSpace(codigoSeguimiento))
+        {
+            return new ResultadoReprogramacionDto(false, "Rechazada", "Código de seguimiento inválido.", null);
+        }
+
+        var codigoLimpio = codigoSeguimiento.Trim().ToUpperInvariant();
+        var rutaUrl = $"/api/seguimiento/{Uri.EscapeDataString(codigoLimpio)}/reprogramacion";
+        var cargaUtil = new { FranjaHorariaId = franjaHorariaId };
+
+        try
+        {
+            var respuesta = await _clienteHttp.PostAsJsonAsync(rutaUrl, cargaUtil, OpcionesJson, cancelacion);
+            if (respuesta.IsSuccessStatusCode)
+            {
+                var resultado = await respuesta.Content.ReadFromJsonAsync<ResultadoReprogramacionDto>(OpcionesJson, cancelacion);
+                return resultado ?? new ResultadoReprogramacionDto(true, "Aprobada", null, null);
+            }
+
+            return new ResultadoReprogramacionDto(false, "Rechazada", "La solicitud no pudo ser aceptada por las reglas del operador.", null);
+        }
+        catch (Exception ex)
+        {
+            return new ResultadoReprogramacionDto(false, "Error", $"Error de comunicación: {ex.Message}", null);
+        }
+    }
+
+    /// <summary>
+    /// Envía la solicitud de reprogramación de entrega iniciada por el destinatario (compatibilidad previa).
     /// </summary>
     public async Task<bool> SolicitarReprogramacionAsync(string codigoSeguimiento, DateTime nuevaFecha, CancellationToken cancelacion = default)
     {

@@ -21,9 +21,56 @@ using UltimaMilla.Application.Queries.Mobile.CheckMobileConnectivity;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Infrastructure;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
+using UltimaMilla.Api.Observabilidad;
+using UltimaMilla.Application.Messaging;
+using UltimaMilla.Infrastructure.Observabilidad;
 using UltimaMilla.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Logs estructurados en JSON compacto con Serilog (UC-44, §6.12)
+builder.Host.UseSerilog((contexto, servicios, configuracion) =>
+{
+    configuracion
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .Enrich.With(new EnriquecedorObservabilidad("ultimamilla-api"))
+        .WriteTo.Console(new CompactJsonFormatter());
+});
+
+// Métricas y trazas distribuidas con OpenTelemetry (UC-44, §6.12)
+var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(recurso => recurso.AddService("ultimamilla-api"))
+    .WithMetrics(metricas =>
+    {
+        metricas
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddMeter(MetricasNegocio.NombreMeter)
+            .AddPrometheusExporter();
+    })
+    .WithTracing(trazas =>
+    {
+        trazas
+            .AddSource(ContextoCorrelacion.FuenteActividades.Name)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+        {
+            trazas.AddOtlpExporter();
+        }
+    });
 
 // El validador de tokens usa la misma clave configurada (Jwt:SecretKey) con la que se firman al iniciar sesión
 UltimaMilla.Infrastructure.Services.TokenJwtService.InicializarClaveGlobal(builder.Configuration);
@@ -149,6 +196,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Inicializar instrumentos del Meter UltimaMilla para exponer contadores y gauges desde el arranque
+_ = app.Services.GetRequiredService<IMetricasNegocio>();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+
 // Configure the HTTP request pipeline
 // Swagger enabled in both Development and Production for intermediate milestone testing
 app.UseSwagger();
@@ -200,6 +252,9 @@ await ApplyMigrationsAsync(app);
 app.MapHealthChecks("/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/ready", new HealthCheckOptions { Predicate = verificacion => verificacion.Tags.Contains("ready") });
 app.MapHealthChecks("/health");
+
+// Endpoint de métricas para Prometheus (UC-44, §6.12)
+app.MapPrometheusScrapingEndpoint("/metrics").AllowAnonymous();
 
 // Custom CSS for modern Swagger UI
 app.MapGet("/swagger-custom.css", () =>
@@ -442,6 +497,11 @@ await app.RunAsync();
 
 static async Task ApplyMigrationsAsync(WebApplication app)
 {
+    if (app.Configuration.GetValue<bool>("Database:SkipMigrationsOnStartup"))
+    {
+        return;
+    }
+
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
     const int maxRetries = 10;
