@@ -1,12 +1,12 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Ports;
-using UltimaMilla.Domain.Entities.Operador;
 
 namespace UltimaMilla.Application.Queries.Operador.GestionTarifas;
 
 /// <summary>
-/// Consulta para obtener la versión actualmente vigente del cuadro tarifario del operador (UC-03).
+/// Consulta para obtener la versión actualmente vigente del cuadro tarifario del operador (UC-03, RNF 6.7).
 /// </summary>
 public record ObtenerCuadroTarifarioVigenteQuery : IRequest<CuadroTarifarioDetalleDto?>;
 
@@ -15,15 +15,18 @@ public class ObtenerCuadroTarifarioVigenteQueryHandler : IRequestHandler<Obtener
     private readonly ICuadroTarifarioRepository _cuadroRepositorio;
     private readonly IZonaCoberturaRepository _zonaRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
+    private readonly IDistributedCacheService? _cacheService;
 
     public ObtenerCuadroTarifarioVigenteQueryHandler(
         ICuadroTarifarioRepository cuadroRepositorio,
         IZonaCoberturaRepository zonaRepositorio,
-        ICurrentTenant inquilinoActual)
+        ICurrentTenant inquilinoActual,
+        IDistributedCacheService? cacheService = null)
     {
         _cuadroRepositorio = cuadroRepositorio;
         _zonaRepositorio = zonaRepositorio;
         _inquilinoActual = inquilinoActual;
+        _cacheService = cacheService;
     }
 
     public async Task<CuadroTarifarioDetalleDto?> Handle(ObtenerCuadroTarifarioVigenteQuery solicitud, CancellationToken cancellationToken)
@@ -34,7 +37,22 @@ public class ObtenerCuadroTarifarioVigenteQueryHandler : IRequestHandler<Obtener
         }
 
         var operadorId = _inquilinoActual.OperadorId;
-        var vigente = await _cuadroRepositorio.ObtenerVigenteAsync(operadorId, DateTime.UtcNow, cancellationToken);
+        var ahoraUtc = DateTime.UtcNow;
+        var claveCache = ClavesCache.CuadroTarifarioVigente(operadorId);
+
+        if (_cacheService is not null)
+        {
+            var enCache = await _cacheService.GetAsync<CuadroTarifarioDetalleDto>(claveCache, cancellationToken);
+            if (enCache is not null
+                && enCache.OperadorId == operadorId
+                && enCache.VigenteDesde <= ahoraUtc
+                && (!enCache.VigenteHasta.HasValue || enCache.VigenteHasta.Value >= ahoraUtc))
+            {
+                return enCache;
+            }
+        }
+
+        var vigente = await _cuadroRepositorio.ObtenerVigenteAsync(operadorId, ahoraUtc, cancellationToken);
         if (vigente == null)
         {
             return null;
@@ -43,7 +61,7 @@ public class ObtenerCuadroTarifarioVigenteQueryHandler : IRequestHandler<Obtener
         var zonas = await _zonaRepositorio.ListarZonasDelOperadorAsync(operadorId, null, null, cancellationToken);
         var mapaNombresZonas = zonas.ToDictionary(z => z.Id, z => z.Nombre);
 
-        return new CuadroTarifarioDetalleDto(
+        var resultado = new CuadroTarifarioDetalleDto(
             vigente.Id,
             vigente.OperadorId,
             vigente.Version,
@@ -67,5 +85,12 @@ public class ObtenerCuadroTarifarioVigenteQueryHandler : IRequestHandler<Obtener
                 r.CalcularPrecioFinal()
             )).ToList()
         );
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionCuadroTarifarioVigente, cancellationToken);
+        }
+
+        return resultado;
     }
 }

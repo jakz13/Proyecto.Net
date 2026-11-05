@@ -1,32 +1,37 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
+using UltimaMilla.Domain.Entities.Operador;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
 public class EfUnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _dbContext;
+    private readonly IDistributedCacheService? _cacheService;
 
-    public EfUnitOfWork(AppDbContext dbContext)
+    public EfUnitOfWork(AppDbContext dbContext, IDistributedCacheService? cacheService = null)
     {
         _dbContext = dbContext;
+        _cacheService = cacheService;
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         // Patrón outbox: el evento se guarda en la misma transacción que el cambio de estado que lo origina,
         // de modo que no puede persistirse uno sin el otro.
-        await EncolarCambiosDeEstadoEnOutboxAsync(cancellationToken);
+        var (enviosAfectados, cuadrosAfectados) = await EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(cancellationToken);
 
+        int filasAfectadas;
         try
         {
-            return await _dbContext.SaveChangesAsync(cancellationToken);
+            filasAfectadas = await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException ex)
         {
@@ -38,25 +43,51 @@ public class EfUnitOfWork : IUnitOfWork
             throw new ConflictoDeConcurrenciaException(
                 "Otra operación simultánea ya registró los mismos datos (por ejemplo, el envío ya fue asignado a otra hoja de ruta).", ex);
         }
+
+        // Una vez confirmada la transacción en base de datos, se invalidan las entradas correspondientes en el caché distribuido
+        if (_cacheService is not null)
+        {
+            foreach (var envio in enviosAfectados)
+            {
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
+            }
+
+            foreach (var grupoOperador in cuadrosAfectados.GroupBy(c => c.OperadorId))
+            {
+                await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioVigente(grupoOperador.Key), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioHistorial(grupoOperador.Key), cancellationToken);
+                foreach (var cuadro in grupoOperador)
+                {
+                    await _cacheService.RemoveAsync(ClavesCache.CuadroTarifarioPorId(cuadro.OperadorId, cuadro.Id), cancellationToken);
+                }
+            }
+        }
+
+        return filasAfectadas;
     }
 
-    /// <summary>Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado (UC-39).</summary>
-    private async Task EncolarCambiosDeEstadoEnOutboxAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado (UC-39)
+    /// y recopila los envíos y cuadros tarifarios modificados para invalidar su caché tras confirmar la transacción.
+    /// </summary>
+    private async Task<(List<(Guid Id, Guid OperadorId, string CodigoSeguimientoPublico)> Envios, List<(Guid Id, Guid OperadorId)> Cuadros)>
+        EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(CancellationToken cancellationToken)
     {
         _dbContext.ChangeTracker.DetectChanges();
 
-        var eventosNuevos = _dbContext.ChangeTracker.Entries<EventoEnvio>()
-            .Where(e => e.State == EntityState.Added && e.Entity.EstadoAnterior != e.Entity.EstadoNuevo)
+        var enviosRastreados = _dbContext.ChangeTracker.Entries<Envio>()
+            .ToDictionary(
+                e => e.Entity.Id,
+                e => (e.Entity.Id, e.Entity.OperadorId, e.Entity.ComercioOperadorId, e.Entity.CodigoSeguimientoPublico, e.State));
+
+        var todosEventosNuevos = _dbContext.ChangeTracker.Entries<EventoEnvio>()
+            .Where(e => e.State == EntityState.Added)
             .Select(e => e.Entity)
             .ToList();
 
-        if (eventosNuevos.Count == 0)
-            return;
-
-        var envios = _dbContext.ChangeTracker.Entries<Envio>()
-            .ToDictionary(e => e.Entity.Id, e => (e.Entity.OperadorId, e.Entity.ComercioOperadorId, e.Entity.CodigoSeguimientoPublico));
-
-        var faltantes = eventosNuevos.Select(e => e.EnvioId).Where(id => !envios.ContainsKey(id)).Distinct().ToList();
+        var faltantes = todosEventosNuevos.Select(e => e.EnvioId).Where(id => !enviosRastreados.ContainsKey(id)).Distinct().ToList();
         if (faltantes.Count > 0)
         {
             var cargados = await _dbContext.Envios
@@ -66,31 +97,53 @@ public class EfUnitOfWork : IUnitOfWork
                 .ToListAsync(cancellationToken);
 
             foreach (var envio in cargados)
-                envios[envio.Id] = (envio.OperadorId, envio.ComercioOperadorId, envio.CodigoSeguimientoPublico);
+                enviosRastreados[envio.Id] = (envio.Id, envio.OperadorId, envio.ComercioOperadorId, envio.CodigoSeguimientoPublico, EntityState.Modified);
         }
 
-        // El identificador de traza W3C de la solicitud original permite seguir la operación hasta el worker
-        var correlationId = Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
+        var eventosCambioEstado = todosEventosNuevos
+            .Where(e => e.EstadoAnterior != e.EstadoNuevo)
+            .ToList();
 
-        foreach (var evento in eventosNuevos)
+        if (eventosCambioEstado.Count > 0)
         {
-            if (!envios.TryGetValue(evento.EnvioId, out var datos))
-                continue;
+            // El identificador de traza W3C de la solicitud original permite seguir la operación hasta el worker
+            var correlationId = Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
 
-            var publicado = new EventoEnvioPublicado(
-                datos.OperadorId,
-                evento.EnvioId,
-                datos.ComercioOperadorId,
-                datos.CodigoSeguimientoPublico,
-                evento.TipoEvento,
-                evento.EstadoAnterior?.ToString(),
-                evento.EstadoNuevo.ToString(),
-                evento.Timestamp,
-                correlationId);
+            foreach (var evento in eventosCambioEstado)
+            {
+                if (!enviosRastreados.TryGetValue(evento.EnvioId, out var datos))
+                    continue;
 
-            await _dbContext.OutboxMessages.AddAsync(
-                new OutboxMessage(Guid.NewGuid(), nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),
-                cancellationToken);
+                var publicado = new EventoEnvioPublicado(
+                    datos.OperadorId,
+                    evento.EnvioId,
+                    datos.ComercioOperadorId,
+                    datos.CodigoSeguimientoPublico,
+                    evento.TipoEvento,
+                    evento.EstadoAnterior?.ToString(),
+                    evento.EstadoNuevo.ToString(),
+                    evento.Timestamp,
+                    correlationId);
+
+                await _dbContext.OutboxMessages.AddAsync(
+                    new OutboxMessage(Guid.NewGuid(), nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),
+                    cancellationToken);
+            }
         }
+
+        var idsEnviosConEventos = todosEventosNuevos.Select(e => e.EnvioId).ToHashSet();
+        var enviosAfectados = enviosRastreados.Values
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted || idsEnviosConEventos.Contains(e.Id))
+            .Select(e => (e.Id, e.OperadorId, e.CodigoSeguimientoPublico))
+            .Distinct()
+            .ToList();
+
+        var cuadrosAfectados = _dbContext.ChangeTracker.Entries<CuadroTarifario>()
+            .Where(c => c.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(c => (c.Entity.Id, c.Entity.OperadorId))
+            .Distinct()
+            .ToList();
+
+        return (enviosAfectados, cuadrosAfectados);
     }
 }

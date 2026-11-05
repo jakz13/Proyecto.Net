@@ -1,12 +1,12 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Ports;
-using UltimaMilla.Domain.Entities.Operador;
 
 namespace UltimaMilla.Application.Queries.Operador.GestionTarifas;
 
 /// <summary>
-/// Consulta para listar el historial completo de versiones de cuadros tarifarios del operador (UC-03).
+/// Consulta para listar el historial completo de versiones de cuadros tarifarios del operador (UC-03, RNF 6.7).
 /// </summary>
 public record ListarVersionesCuadroTarifarioQuery : IRequest<IReadOnlyList<CuadroTarifarioDetalleDto>>;
 
@@ -15,15 +15,18 @@ public class ListarVersionesCuadroTarifarioQueryHandler : IRequestHandler<Listar
     private readonly ICuadroTarifarioRepository _cuadroRepositorio;
     private readonly IZonaCoberturaRepository _zonaRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
+    private readonly IDistributedCacheService? _cacheService;
 
     public ListarVersionesCuadroTarifarioQueryHandler(
         ICuadroTarifarioRepository cuadroRepositorio,
         IZonaCoberturaRepository zonaRepositorio,
-        ICurrentTenant inquilinoActual)
+        ICurrentTenant inquilinoActual,
+        IDistributedCacheService? cacheService = null)
     {
         _cuadroRepositorio = cuadroRepositorio;
         _zonaRepositorio = zonaRepositorio;
         _inquilinoActual = inquilinoActual;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<CuadroTarifarioDetalleDto>> Handle(ListarVersionesCuadroTarifarioQuery solicitud, CancellationToken cancellationToken)
@@ -34,12 +37,23 @@ public class ListarVersionesCuadroTarifarioQueryHandler : IRequestHandler<Listar
         }
 
         var operadorId = _inquilinoActual.OperadorId;
+        var claveCache = ClavesCache.CuadroTarifarioHistorial(operadorId);
+
+        if (_cacheService is not null)
+        {
+            var enCache = await _cacheService.GetAsync<List<CuadroTarifarioDetalleDto>>(claveCache, cancellationToken);
+            if (enCache is not null && enCache.All(c => c.OperadorId == operadorId))
+            {
+                return enCache;
+            }
+        }
+
         var cuadros = await _cuadroRepositorio.ListarVersionesAsync(operadorId, cancellationToken);
         var zonas = await _zonaRepositorio.ListarZonasDelOperadorAsync(operadorId, null, null, cancellationToken);
         var mapaNombresZonas = zonas.ToDictionary(z => z.Id, z => z.Nombre);
         var ahoraUtc = DateTime.UtcNow;
 
-        return cuadros.Select(c => new CuadroTarifarioDetalleDto(
+        var resultado = cuadros.Select(c => new CuadroTarifarioDetalleDto(
             c.Id,
             c.OperadorId,
             c.Version,
@@ -63,5 +77,12 @@ public class ListarVersionesCuadroTarifarioQueryHandler : IRequestHandler<Listar
                 r.CalcularPrecioFinal()
             )).ToList()
         )).ToList();
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionCuadroTarifarioVigente, cancellationToken);
+        }
+
+        return resultado;
     }
 }
