@@ -54,8 +54,20 @@ Write-Host ($resp.Content | ConvertFrom-Json | Select-Object codigoSeguimiento, 
 Paso 'Esperando a que el Worker procese el evento (20 s)'
 Start-Sleep 20
 
+# Los comandos se envían en base64 para evitar problemas de comillas y codificación entre PowerShell y bash.
+# De cada línea de log se muestra solo la hora, el inicio del mensaje y el identificador de correlación.
+function Rastro($comando) {
+    $script = ($comando.Replace('__CORR__', $Correlacion)).Replace("`r", '')
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($script))
+    ssh @ssh $destino "echo $b64 | base64 -d | bash"
+}
+
 Paso "Rastro de '$Correlacion' en los logs de la API"
-ssh @ssh $destino "for c in api1 api2; do docker logs shippingbox-`$c-1 2>&1 | grep '$Correlacion' | head -2 | cut -c1-200; done"
+Rastro @'
+for c in api1 api2; do docker logs shippingbox-$c-1 2>&1 | grep '__CORR__' | head -2 | sed -E 's/.*"@t":"([^"]+)".*"@mt":"([^"]{1,70}).*"CorrelationId":"([^"]+)".*/  \1  \2...  CorrelationId=\3/'; done
+'@
 
 Paso "Rastro de '$Correlacion' en los logs del Worker (el evento pasó por RabbitMQ)"
-ssh @ssh $destino "docker logs shippingbox-worker-1 2>&1 | grep '$Correlacion' | head -2 | cut -c1-300"
+Rastro @'
+docker logs shippingbox-worker-1 2>&1 | grep '__CORR__' | head -2 | sed -E 's/.*"@t":"([^"]+)".*"@mt":"([^"]{1,70}).*"CorrelationId":"([^"]+)".*/  \1  \2...  CorrelationId=\3/'
+'@

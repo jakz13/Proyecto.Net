@@ -201,6 +201,23 @@ _ = app.Services.GetRequiredService<IMetricasNegocio>();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 
+// Una línea de log por solicitud (método, ruta, código y duración) con el CorrelationId del middleware anterior.
+// Las rutas de salud y de métricas se registran en nivel Verbose para no llenar el log con los chequeos periódicos.
+app.UseSerilogRequestLogging(opciones =>
+{
+    opciones.GetLevel = (contexto, _, excepcion) =>
+    {
+        var ruta = contexto.Request.Path.Value ?? string.Empty;
+        var esRutaTecnica = ruta.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase)
+            || ruta.StartsWith("/health", StringComparison.OrdinalIgnoreCase)
+            || ruta.StartsWith("/ready", StringComparison.OrdinalIgnoreCase)
+            || ruta.StartsWith("/live", StringComparison.OrdinalIgnoreCase);
+        if (esRutaTecnica && excepcion is null && contexto.Response.StatusCode < 500)
+            return LogEventLevel.Verbose;
+        return contexto.Response.StatusCode >= 500 || excepcion is not null ? LogEventLevel.Error : LogEventLevel.Information;
+    };
+});
+
 // Configure the HTTP request pipeline
 // Swagger enabled in both Development and Production for intermediate milestone testing
 app.UseSwagger();
