@@ -183,15 +183,15 @@
                                    Margin="0,0,0,2" />
                         </FlexLayout>
 
-                        <!-- Lista de bultos declarados -->
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Parada.Bultos}"
+                        <!-- Lista de bultos declarados con verificación interactiva -->
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bultos}"
                                              Spacing="8">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:BultoItemViewModel">
                                     <Border Stroke="{StaticResource CardBorder}"
                                             StrokeThickness="1"
                                             StrokeShape="RoundRectangle 8"
-                                            BackgroundColor="#F8FAFC"
+                                            BackgroundColor="#FFFFFF"
                                             Padding="12,10">
                                         <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
                                             <!-- Tag de bulto corporativo -->
@@ -217,23 +217,20 @@
                                                        Style="{StaticResource CaptionLabel}" />
                                             </VerticalStackLayout>
 
-                                            <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="End" VerticalOptions="Center">
-                                                <Label Text="{Binding PesoKg, StringFormat='{0:F1} kg'}"
-                                                       FontAttributes="Bold"
-                                                       FontSize="13"
-                                                       TextColor="{StaticResource TextSecondary}"
-                                                       HorizontalOptions="End" />
-                                                <Label Text="{Binding Icono}"
-                                                       FontSize="11"
-                                                       FontAttributes="Bold"
-                                                       TextColor="{StaticResource WarningText}"
-                                                       HorizontalOptions="End" />
-                                            </VerticalStackLayout>
+                                            <!-- Peso de referencia -->
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding PesoKg, StringFormat='{0:F1} kg'}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{StaticResource TextSecondary}"
+                                                   VerticalOptions="Center" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
+
+
                     </VerticalStackLayout>
                 </Border>
 
@@ -254,11 +251,24 @@
                      Color="{StaticResource CardBorder}" />
 
             <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="{DynamicResource PaddingBarraAcciones}">
-                <!-- 1. Acción Principal de Éxito: Entrega Exitosa (Arriba) -->
-                <Button Text="Entrega Exitosa"
+                <!-- Alerta Preventiva: Motivo de bloqueo de entrega -->
+                <Border IsVisible="{Binding MostrarAvisoBloqueo}"
+                        BackgroundColor="#FEF3C7"
+                        Stroke="#F59E0B"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="10,8">
+                    <Label Text="{Binding MensajeBloqueoEntrega}"
+                           FontSize="11.5"
+                           FontAttributes="Bold"
+                           TextColor="#92400E" />
+                </Border>
+
+                <!-- 1. Acción Principal de Éxito: Confirmar Entrega (Arriba) -->
+                <Button Text="Confirmar Entrega"
                         Style="{StaticResource SuccessButton}"
                         Command="{Binding IrAConfirmarEntregaCommand}"
-                        IsEnabled="{Binding PuedeAccionar}"
+                        IsEnabled="{Binding PuedeConfirmarEntrega}"
                         HeightRequest="46"
                         FontSize="14.5" />
 

@@ -208,6 +208,7 @@ public class RegistrarEventoGeocercaCommandHandlerTests
         public Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken ct = default) => Task.FromResult<ReglaOperativa?>(null);
         public Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken ct = default) => Task.FromResult(new List<MotivoNoEntrega>());
         public Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken ct = default) => Task.FromResult<MotivoNoEntrega?>(null);
+        public Task RegistrarConflictoAsync(UltimaMilla.Domain.Entities.Ejecucion.ConflictoSincronizacion conflicto, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class FakeFranjaHorariaRepository : IFranjaHorariaRepository

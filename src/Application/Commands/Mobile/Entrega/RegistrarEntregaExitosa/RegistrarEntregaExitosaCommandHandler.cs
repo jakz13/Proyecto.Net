@@ -4,6 +4,7 @@ using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
@@ -96,6 +97,32 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
+        // Manejo explícito de conflictos de sincronización (RF 24):
+        // si el repartidor completó la entrega física offline pero el servidor ya había retirado o reasignado el envío (UC-10),
+        // prevalece la entrega física real con su prueba y se asienta el conflicto en ConflictoSincronizacion y en el historial (UC-39).
+        // Una segunda visita sobre un envío ya entregado parcialmente es el flujo normal de la entrega por bultos, no un conflicto.
+        bool huboConflicto = (envio.EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
+            || parada.Estado == "Cancelada";
+        if (huboConflicto)
+        {
+            var conflicto = new ConflictoSincronizacion(
+                Guid.NewGuid(),
+                nameof(Envio),
+                envio.Id,
+                estadoServidor: envio.EstadoActual.ToString(),
+                estadoDispositivo: EstadoEnvio.Entregado.ToString(),
+                politicaAplicada: "PrevaleceEntregaFisicaConEvidencia",
+                resolucion: $"Entrega física completada offline con prueba por el repartidor mientras el servidor mantenía el envío en estado '{envio.EstadoActual}'. Prevalece la entrega real.");
+
+            await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
+        }
+
+        // La hoja de ruta debe estar despachada o en tránsito, salvo que se esté resolviendo un conflicto offline (UC-09 / UC-18 / UC-20)
+        if (ruta.Estado is not ("Despachada" or "EnTransito") && !huboConflicto)
+        {
+            throw new DomainValidationException($"No se puede registrar la entrega porque la hoja de ruta no se encuentra en tránsito (Estado actual: '{ruta.Estado}'). Debe escanear y despachar la carga previamente.");
+        }
+
         var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(ruta.OperadorId, cancellationToken)
             ?? new ReglaOperativa(
                 Guid.NewGuid(),
@@ -169,9 +196,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
                 request.Latitud,
                 request.Longitud,
                 fechaDispositivoUtc,
-                _currentTenant.UsuarioId);
+                _currentTenant.UsuarioId,
+                resolverConflictoReasignacion: huboConflicto);
 
-            ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+            ruta.RegistrarEntregaExitosaEnParada(parada.Id, resolverConflicto: huboConflicto);
             codigosEntregadosResult = envio.Bultos.Where(b => b.EstaEntregado).Select(b => b.Identificacion).ToList();
         }
 
@@ -236,9 +264,11 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         int bultosEntregados = envio.Bultos.Count(b => b.EstaEntregado);
         int bultosPendientes = Math.Max(0, totalBultos - bultosEntregados);
 
-        string mensajeResultado = envio.EstadoActual == EstadoEnvio.EntregadoParcialmente
-            ? $"Entrega parcial registrada correctamente ({bultosEntregados} de {totalBultos} bultos entregados)."
-            : "Entrega exitosa registrada correctamente.";
+        string mensajeResultado = huboConflicto
+            ? "Entrega registrada resolviendo conflicto: prevaleció la entrega física con evidencia sobre la reasignación previa en servidor."
+            : envio.EstadoActual == EstadoEnvio.EntregadoParcialmente
+                ? $"Entrega parcial registrada correctamente ({bultosEntregados} de {totalBultos} bultos entregados)."
+                : "Entrega exitosa registrada correctamente.";
 
         return new EntregaExitosaResultDto(
             envio.Id,
@@ -255,7 +285,8 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             bultosPendientes,
             codigosEntregadosResult,
             codigosNoEntregadosResult,
-            conflictosResueltosResult
+            conflictosResueltosResult,
+            ConflictoResuelto: huboConflicto
         );
     }
 }

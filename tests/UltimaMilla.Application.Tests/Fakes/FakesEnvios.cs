@@ -1,4 +1,5 @@
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -90,6 +91,13 @@ public class FakeEnvioRepository : IEnvioRepository
 
     public Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(Motivos.FirstOrDefault(m => (motivoId.HasValue && m.Id == motivoId) || (codigo != null && m.Codigo == codigo)));
+
+    public List<ConflictoSincronizacion> Conflictos { get; } = new();
+    public Task RegistrarConflictoAsync(ConflictoSincronizacion conflicto, CancellationToken cancellationToken = default)
+    {
+        Conflictos.Add(conflicto);
+        return Task.CompletedTask;
+    }
 }
 
 public class FakeDestinatarioRepository : IDestinatarioRepository

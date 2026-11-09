@@ -78,9 +78,9 @@ public class Parada : Entity
         Estado = "EnSitio";
     }
 
-    public void RegistrarEntregaExitosa()
+    public void RegistrarEntregaExitosa(bool forzarPorConflicto = false)
     {
-        if (Estado == "Cancelada")
+        if (Estado == "Cancelada" && !forzarPorConflicto)
             throw new DomainValidationException("No se puede registrar entrega exitosa en una parada cancelada.");
 
         Estado = "Entregada";

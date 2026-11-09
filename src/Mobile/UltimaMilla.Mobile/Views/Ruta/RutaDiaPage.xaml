@@ -22,6 +22,25 @@
                 Padding="{DynamicResource PaddingCabeceraRuta}">
 
             <VerticalStackLayout Spacing="12">
+                <!-- Banner Informativo: Ruta en precarga (Liberada) -->
+                <Border IsVisible="{Binding RecorridoNoIniciado}"
+                        BackgroundColor="#FEF3C7"
+                        Stroke="#F59E0B"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="12,10"
+                        Margin="0,0,0,2">
+                    <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8" VerticalOptions="Center">
+                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#D97706" VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="Pendiente de Carga en Depósito: La hoja de ruta está en estado Liberada. Escanee y confirme los bultos en la pestaña Carga para pasar los envíos a En Tránsito."
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="#92400E"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
                 <!-- Fila Superior: Título institucional y badges.
                      FlexLayout con Wrap: si los badges no entran al lado del título (pantallas angostas)
                      bajan a la línea siguiente en vez de aplastar el texto. -->

@@ -368,6 +368,8 @@ public class EntregaParcialBultosTests
                 (!string.IsNullOrWhiteSpace(codigo) && string.Equals(_motivo.Codigo, codigo.Trim(), StringComparison.OrdinalIgnoreCase)))
                 ? _motivo
                 : null);
+        public Task RegistrarConflictoAsync(UltimaMilla.Domain.Entities.Ejecucion.ConflictoSincronizacion conflicto, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private sealed class FakeRutaParcialRepo : IRutaRepository

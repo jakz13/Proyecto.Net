@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.Maui.Controls"
+             x:Class="UltimaMilla.Mobile.Views.Carga.EscanerCodigoPage"
+             Title="Lector de Código"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#0F172A">
+
+    <Grid RowDefinitions="Auto, *, Auto">
+
+        <!-- Barra Superior: Indicación y Linterna -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*, Auto"
+              Padding="16,20,16,12"
+              BackgroundColor="#1E293B">
+            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                <Label Text="Lector de Códigos"
+                       FontAttributes="Bold"
+                       FontSize="16"
+                       TextColor="#FFFFFF" />
+                <Label Text="Apunte la cámara al código de barras o QR del bulto"
+                       FontSize="12"
+                       TextColor="#94A3B8" />
+            </VerticalStackLayout>
+
+            <Button Grid.Column="1"
+                    x:Name="BtnLinterna"
+                    Text="Alternar Linterna"
+                    Clicked="OnAlternarLinternaClicked"
+                    BackgroundColor="#334155"
+                    TextColor="#FFFFFF"
+                    CornerRadius="8"
+                    HeightRequest="38"
+                    Padding="12,0"
+                    FontSize="12" />
+        </Grid>
+
+        <!-- Vista de Cámara Central y Máscara con Cuadro Guía -->
+        <Grid Grid.Row="1" BackgroundColor="#000000">
+            <!-- Lector de Cámara ZXing -->
+            <zxing:CameraBarcodeReaderView
+                x:Name="BarcodeReader"
+                HorizontalOptions="Fill"
+                VerticalOptions="Fill"
+                IsDetecting="True"
+                BarcodesDetected="OnBarcodesDetected" />
+
+            <!-- Máscara Guía de Enfoque -->
+            <Grid RowDefinitions="*, 220, *" ColumnDefinitions="*, 280, *">
+                <BoxView Grid.Row="0" Grid.ColumnSpan="3" BackgroundColor="#80000000" />
+                <BoxView Grid.Row="2" Grid.ColumnSpan="3" BackgroundColor="#80000000" />
+                <BoxView Grid.Row="1" Grid.Column="0" BackgroundColor="#80000000" />
+                <BoxView Grid.Row="1" Grid.Column="2" BackgroundColor="#80000000" />
+
+                <!-- Cuadro Guía Central -->
+                <Border Grid.Row="1" Grid.Column="1"
+                        Stroke="#38BDF8"
+                        StrokeThickness="2"
+                        StrokeShape="RoundRectangle 12"
+                        BackgroundColor="Transparent">
+                    <!-- Línea Guía Láser Central -->
+                    <BoxView HeightRequest="2"
+                             Color="#38BDF8"
+                             Opacity="0.8"
+                             VerticalOptions="Center"
+                             HorizontalOptions="Fill"
+                             Margin="12,0" />
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Barra Inferior: Botón Cancelar -->
+        <VerticalStackLayout Grid.Row="2"
+                             Padding="20,16,20,24"
+                             BackgroundColor="#1E293B"
+                             Spacing="8">
+            <Button Text="Cancelar"
+                    Clicked="OnCancelarClicked"
+                    BackgroundColor="#334155"
+                    TextColor="#F1F5F9"
+                    CornerRadius="8"
+                    HeightRequest="48"
+                    FontSize="14" />
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>
+

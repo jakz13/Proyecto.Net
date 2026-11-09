@@ -1,3 +1,4 @@
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -25,6 +26,7 @@ public interface IEnvioRepository
     Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default);
     Task<List<MotivoNoEntrega>> ListarMotivosNoEntregaActivosAsync(Guid operadorId, CancellationToken cancellationToken = default);
     Task<MotivoNoEntrega?> GetMotivoNoEntregaAsync(Guid operadorId, Guid? motivoId, string? codigo = null, CancellationToken cancellationToken = default);
+    Task RegistrarConflictoAsync(ConflictoSincronizacion conflicto, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Criterios de búsqueda de los envíos de un comercio (UC-28). El texto busca por destinatario o código de seguimiento.</summary>

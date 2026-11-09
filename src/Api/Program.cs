@@ -449,6 +449,7 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
     var status = await mediator.Send(new CheckMobileConnectivityQuery());
     return Results.Ok(status);
 })
+.RequireAuthorization()
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
 

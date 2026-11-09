@@ -12,5 +12,6 @@ public record ResultadoIntentoFallidoDto(
     string Motivo,
     DateTime TimestampUtc,
     bool Idempotente,
-    string Mensaje
+    string Mensaje,
+    bool ConflictoResuelto = false
 );

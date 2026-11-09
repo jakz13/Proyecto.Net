@@ -23,4 +23,15 @@ public class BultoLocal
     public decimal Peso { get; set; }
 
     public bool EsFragil { get; set; }
+
+    public bool VerificadoEnCarga { get; set; }
+
+    [Ignore]
+    public bool Cargado
+    {
+        get => VerificadoEnCarga;
+        set => VerificadoEnCarga = value;
+    }
+
+    public bool VerificadoEnEntrega { get; set; }
 }

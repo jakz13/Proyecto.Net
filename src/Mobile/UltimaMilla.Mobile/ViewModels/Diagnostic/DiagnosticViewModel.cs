@@ -39,6 +39,38 @@ public partial class DiagnosticViewModel : BaseViewModel
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoCifradoTexto))]
+    [NotifyPropertyChangedFor(nameof(ArchivoEnDiscoTexto))]
+    [NotifyPropertyChangedFor(nameof(CifradoConFallo))]
+    private bool _cifradoActivo;
+
+    [ObservableProperty]
+    private string _cipherVersion = "-";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ArchivoEnDiscoTexto))]
+    private bool _archivoEsCifradoEnDisco;
+
+    [ObservableProperty]
+    private string _mensajeDiagnosticoCifrado = "Presione el botón para verificar el estado de SQLCipher.";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoCifradoTexto))]
+    [NotifyPropertyChangedFor(nameof(ArchivoEnDiscoTexto))]
+    [NotifyPropertyChangedFor(nameof(CifradoConFallo))]
+    private bool _cifradoVerificado;
+
+    public string EstadoCifradoTexto => CifradoVerificado
+        ? (CifradoActivo ? "Activo (AES-256)" : "Inactivo / Error")
+        : "Sin verificar";
+
+    public string ArchivoEnDiscoTexto => CifradoVerificado
+        ? (ArchivoEsCifradoEnDisco ? "Cifrado (Sin cabecera plaintext)" : "Texto plano o no disponible")
+        : "Sin verificar";
+
+    public bool CifradoConFallo => CifradoVerificado && !CifradoActivo;
+
     public DiagnosticViewModel(IApiClient apiClient, ILocalDatabaseService databaseService)
     {
         _apiClient = apiClient;
@@ -65,9 +97,9 @@ public partial class DiagnosticViewModel : BaseViewModel
             if (result != null)
             {
                 Status = result.Status;
-                StatusMessage = result.Message;
-                ServerTimestamp = result.TimestampUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
-                ServerEnvironment = $"{result.Environment} (v{result.Version})";
+                StatusMessage = result.Message ?? "Servicio operativo";
+                ServerTimestamp = result.TimestampUtc.HasValue ? result.TimestampUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+                ServerEnvironment = "Conectado";
                 HasSuccess = true;
             }
             else
@@ -88,6 +120,29 @@ public partial class DiagnosticViewModel : BaseViewModel
         {
             IsBusy = false;
             await RefreshOfflineCountAsync();
+            await VerificarCifradoAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task VerificarCifradoAsync()
+    {
+        try
+        {
+            var res = await _databaseService.VerificarCifradoActivoAsync();
+            CifradoActivo = res.CifradoActivo;
+            CipherVersion = !string.IsNullOrWhiteSpace(res.CipherVersion) ? res.CipherVersion : "No disponible";
+            ArchivoEsCifradoEnDisco = res.ArchivoEsCifradoEnDisco;
+            MensajeDiagnosticoCifrado = res.MensajeDiagnostico;
+            CifradoVerificado = true;
+        }
+        catch (Exception ex)
+        {
+            CifradoActivo = false;
+            CipherVersion = "Error";
+            ArchivoEsCifradoEnDisco = false;
+            MensajeDiagnosticoCifrado = $"Error al verificar cifrado: {ex.Message}";
+            CifradoVerificado = true;
         }
     }
 

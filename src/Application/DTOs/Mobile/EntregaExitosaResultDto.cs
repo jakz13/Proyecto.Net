@@ -22,7 +22,8 @@ public record EntregaExitosaResultDto(
     int BultosPendientes = 0,
     IReadOnlyList<string>? CodigosBultosEntregados = null,
     IReadOnlyList<string>? CodigosBultosNoEntregados = null,
-    IReadOnlyList<string>? ConflictosResueltos = null
+    IReadOnlyList<string>? ConflictosResueltos = null,
+    bool ConflictoResuelto = false
 );
 
 /// <summary>Resultado detallado del registro de una entrega parcial o por bultos en una parada (RF-31 a RF-34).</summary>

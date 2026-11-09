@@ -3,6 +3,7 @@ using MediatR;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -95,6 +96,51 @@ public class RegistrarIntentoFallidoCommandHandler : IRequestHandler<RegistrarIn
                 _clock.UtcNow,
                 true,
                 "El intento fallido ya se encontraba registrado previamente (Operación idempotente)."
+            );
+        }
+
+        // Manejo explícito de conflictos de sincronización (Punto 7):
+        // Si el envío ya fue retirado o reasignado en el servidor por el despachador (parada cancelada o envío no en tránsito),
+        // prevalece el estado del servidor; se registra el intento fallido en la bitácora de auditoría (UC-39) y en ConflictoSincronizacion,
+        // devolviendo un resultado de conflicto resuelto para no bloquear la cola FIFO del repartidor.
+        if (parada.Estado == "Cancelada" || (envio.EstadoActual != EstadoEnvio.EnTransito && envio.EstadoActual != EstadoEnvio.Reprogramado && envio.EstadoActual != EstadoEnvio.EnDevolucion))
+        {
+            var conflicto = new ConflictoSincronizacion(
+                Guid.NewGuid(),
+                nameof(Domain.Entities.Envios.Envio),
+                envio.Id,
+                estadoServidor: envio.EstadoActual.ToString(),
+                estadoDispositivo: "Fallido",
+                politicaAplicada: "PrevaleceEstadoServidor",
+                resolucion: $"El repartidor reportó intento fallido en calle pero el envío ya había sido retirado o reasignado en el servidor a estado '{envio.EstadoActual}'. Se preserva el estado del servidor y se audita el intento.");
+
+            await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
+
+            envio.RegistrarEventoAuditoria(
+                "IntentoFallidoEnConflicto",
+                _currentTenant.UsuarioId,
+                "MobileApp",
+                request.Latitud,
+                request.Longitud,
+                $"Intento fallido offline reportado cuando el envío ya estaba en '{envio.EstadoActual}'. Motivo: {request.MotivoCodigo}. Observaciones: {request.Observaciones}");
+
+            await _envioRepository.UpdateAsync(envio, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return new ResultadoIntentoFallidoDto(
+                envio.Id,
+                ruta.Id,
+                parada.Id,
+                envio.CodigoSeguimientoPublico,
+                envio.EstadoActual.ToString(),
+                envio.CantidadIntentos,
+                0,
+                3,
+                request.MotivoCodigo ?? "INCIDENCIA",
+                _clock.UtcNow,
+                true,
+                $"Conflicto resuelto: El envío ya se encontraba en estado '{envio.EstadoActual}' en el servidor. Se auditó el intento sin revertir la reasignación.",
+                ConflictoResuelto: true
             );
         }
 

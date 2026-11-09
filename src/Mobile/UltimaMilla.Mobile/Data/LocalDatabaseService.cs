@@ -24,13 +24,19 @@ public interface ILocalDatabaseService
     Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson);
     Task<List<OperacionOfflineLocal>> ObtenerOperacionesPendientesAsync();
     Task MarcarComoSincronizadoAsync(int id);
+    Task MarcarComoSincronizadosAsync(IEnumerable<int> ids);
     Task RegistrarErrorAsync(int id, string error);
     Task<int> ObtenerCantidadPendientesAsync();
 
     // Persistencia y consulta de hoja de ruta local (UC-17, UC-18, UC-19, UC-20, UC-21)
-    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null);
+    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync();
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
+    Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado);
+    Task MarcarBultoVerificadoCargaAsync(Guid bultoId, bool verificado);
+    Task MarcarBultoVerificadoEntregaAsync(Guid bultoId, bool verificado);
+    Task MarcarBultosParadaVerificadosEntregaAsync(Guid paradaId, bool verificado);
+    Task ConfirmarCargaYDespacharLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados);
     Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas);
     Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
     Task SeedRutaDemoSiEstaVaciaAsync();
@@ -38,12 +44,23 @@ public interface ILocalDatabaseService
     Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento);
     Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50);
     Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
+    Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync();
 }
+
+public record EstadoCifradoDiagnosticoDto(
+    bool CifradoActivo,
+    string CipherVersion,
+    bool ArchivoEsCifradoEnDisco,
+    string MensajeDiagnostico);
 
 public class LocalDatabaseService : ILocalDatabaseService
 {
     private const string KeyStorageAlias = "sqlite_db_encryption_key";
+    private const string DatabaseFileName = "ultimamilla_cipher_v1.db3";
+
+#if DEBUG
     private const string FallbackDeterministicKey = "SuperSecretKey2026_DeterministicFallbackKey";
+#endif
 
     private SQLiteAsyncConnection? _database;
     private SQLiteAsyncConnection Db => _database!;
@@ -70,7 +87,8 @@ public class LocalDatabaseService : ILocalDatabaseService
     /// <summary>
     /// Obtiene la clave criptográfica desde SecureStorage del dispositivo (RNF 6.3 y RNF 6.11).
     /// Si aún no existe, genera una clave aleatoria de 32 bytes (256 bits), la almacena de forma segura y la retorna.
-    /// Incluye fallback determinista únicamente por si el entorno de ejecución (ej. runner) no soporta SecureStorage.
+    /// En modo DEBUG incluye fallback determinista si el entorno de ejecución no soporta SecureStorage.
+    /// En modo RELEASE se elimina la clave fija y se exige SecureStorage bajo excepción explícita impidiendo claves débiles.
     /// </summary>
     private static async Task<string> GetOrGenerateEncryptionKeyAsync()
     {
@@ -82,28 +100,32 @@ public class LocalDatabaseService : ILocalDatabaseService
                 return existingKey;
             }
 
-            var keyBytes = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(keyBytes);
-            }
-
+            var keyBytes = RandomNumberGenerator.GetBytes(32);
             var newKey = Convert.ToBase64String(keyBytes);
             await SecureStorage.Default.SetAsync(KeyStorageAlias, newKey);
             return newKey;
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback determinista para entornos sin soporte de KeyStore nativo
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[LocalDatabaseService] SecureStorage no disponible en DEBUG, usando fallback determinista: {ex.Message}");
             return FallbackDeterministicKey;
+#else
+            throw new InvalidOperationException(
+                "Fallo crítico de seguridad: No se pudo acceder a SecureStorage para obtener o almacenar la clave de cifrado de la base de datos local en producción.",
+                ex);
+#endif
         }
     }
 
     /// <summary>
-    /// Crea la conexión cifrada y las tablas locales necesarias para la operativa offline si aún no existen.
+    /// Crea la conexión cifrada con SQLCipher y las tablas locales necesarias para la operativa offline si aún no existen.
     /// </summary>
     public async Task InitAsync()
     {
+        // Inicializar proveedor nativo de SQLCipher antes de abrir cualquier conexión SQLite
+        SQLitePCL.Batteries_V2.Init();
+
         if (_initialized && _database != null)
             return;
 
@@ -113,7 +135,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             if (_initialized && _database != null)
                 return;
 
-            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "ultimamilla_encrypted.db3");
+            var dbPath = Path.Combine(FileSystem.AppDataDirectory, DatabaseFileName);
             var encryptionKey = await GetOrGenerateEncryptionKeyAsync();
 
             var connectionString = new SQLiteConnectionString(
@@ -126,33 +148,23 @@ public class LocalDatabaseService : ILocalDatabaseService
 
             try
             {
-                await _database.CreateTableAsync<HojaDeRutaLocal>();
-                await _database.CreateTableAsync<ParadaLocal>();
-                await _database.CreateTableAsync<EnvioLocal>();
-                await _database.CreateTableAsync<BultoLocal>();
-                await _database.CreateTableAsync<MotivoNoEntregaLocal>();
-                await _database.CreateTableAsync<OperacionOfflineLocal>();
-                await _database.CreateTableAsync<EventoGeocercaLocal>();
+                await CrearTablasAsync(_database);
             }
-            catch (SQLiteException)
+            catch (SQLiteException ex) when (ex.Result == SQLite3.Result.NonDBFile || ex.Result == SQLite3.Result.Corrupt)
             {
-                // Si la clave criptográfica cambió y no coincide con un archivo local antiguo, se recrea el archivo
+                // Si la base en disco es incompatible (ej. base previa en texto plano o clave corrupta),
+                // resguardamos el archivo corrupto como respaldo antes de recrear para no destruir datos de forma silenciosa.
                 try
                 {
                     await _database.CloseAsync();
                     if (File.Exists(dbPath))
                     {
-                        File.Delete(dbPath);
+                        var backupCorruptPath = $"{dbPath}.corrupt.bak";
+                        File.Move(dbPath, backupCorruptPath, overwrite: true);
                     }
 
                     _database = new SQLiteAsyncConnection(connectionString);
-                    await _database.CreateTableAsync<HojaDeRutaLocal>();
-                    await _database.CreateTableAsync<ParadaLocal>();
-                    await _database.CreateTableAsync<EnvioLocal>();
-                    await _database.CreateTableAsync<BultoLocal>();
-                    await _database.CreateTableAsync<MotivoNoEntregaLocal>();
-                    await _database.CreateTableAsync<OperacionOfflineLocal>();
-                await _database.CreateTableAsync<EventoGeocercaLocal>();
+                    await CrearTablasAsync(_database);
                 }
                 catch
                 {
@@ -168,9 +180,120 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
+    private static async Task CrearTablasAsync(SQLiteAsyncConnection database)
+    {
+        await database.CreateTableAsync<HojaDeRutaLocal>();
+        await database.CreateTableAsync<ParadaLocal>();
+        await database.CreateTableAsync<EnvioLocal>();
+        await database.CreateTableAsync<BultoLocal>();
+        await database.CreateTableAsync<MotivoNoEntregaLocal>();
+        await database.CreateTableAsync<OperacionOfflineLocal>();
+        await database.CreateTableAsync<EventoGeocercaLocal>();
+    }
+
+    /// <summary>
+    /// Verifica que SQLCipher esté activo mediante PRAGMA cipher_version y que el archivo .db3 en disco
+    /// no contenga la cabecera estándar en texto plano 'SQLite format 3'.
+    /// </summary>
+    public async Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync()
+    {
+        await InitAsync();
+
+        string cipherVersion = string.Empty;
+        bool cipherActivo = false;
+        string mensaje;
+        bool archivoEsCifradoEnDisco = false;
+
+        try
+        {
+            cipherVersion = await Db.ExecuteScalarAsync<string>("PRAGMA cipher_version;") ?? string.Empty;
+            cipherActivo = !string.IsNullOrWhiteSpace(cipherVersion);
+        }
+        catch (Exception ex)
+        {
+            cipherActivo = false;
+            cipherVersion = string.Empty;
+            mensaje = $"Fallo al consultar PRAGMA cipher_version: {ex.Message}";
+        }
+
+        var dbPath = Path.Combine(FileSystem.AppDataDirectory, DatabaseFileName);
+        if (File.Exists(dbPath))
+        {
+            try
+            {
+                using var stream = File.OpenRead(dbPath);
+                var headerBytes = new byte[16];
+                int bytesRead = stream.Read(headerBytes, 0, headerBytes.Length);
+
+                // La cabecera estándar de SQLite en texto plano es "SQLite format 3\0"
+                var sqlitePlaintextHeader = "SQLite format 3\0"u8.ToArray();
+                bool tieneCabeceraTextoPlano = bytesRead >= 16 && headerBytes.SequenceEqual(sqlitePlaintextHeader);
+
+                archivoEsCifradoEnDisco = bytesRead > 0 && !tieneCabeceraTextoPlano;
+
+                if (cipherActivo && archivoEsCifradoEnDisco)
+                {
+                    mensaje = $"Cifrado activo con SQLCipher v{cipherVersion}. Base de datos cifrada en disco (sin cabecera de texto plano).";
+                }
+                else if (tieneCabeceraTextoPlano)
+                {
+                    mensaje = "Advertencia de seguridad: El archivo contiene cabecera en texto plano 'SQLite format 3'.";
+                }
+                else if (!cipherActivo)
+                {
+                    mensaje = "Advertencia de seguridad: PRAGMA cipher_version no devolvió versión de SQLCipher.";
+                }
+                else
+                {
+                    mensaje = "Estado de cifrado verificado con observaciones.";
+                }
+            }
+            catch (Exception ex)
+            {
+                mensaje = $"Error al leer cabecera del archivo en disco: {ex.Message}";
+            }
+        }
+        else
+        {
+            mensaje = "El archivo de base de datos aún no ha sido creado en disco.";
+        }
+
+        return new EstadoCifradoDiagnosticoDto(
+            CifradoActivo: cipherActivo && archivoEsCifradoEnDisco,
+            CipherVersion: cipherVersion,
+            ArchivoEsCifradoEnDisco: archivoEsCifradoEnDisco,
+            MensajeDiagnostico: mensaje);
+    }
+
     public async Task<int> EncolarOperacionAsync(string tipoOperacion, string payloadJson)
     {
         await InitAsync();
+
+        // Control de tope máximo para telemetría GPS (1000 posiciones pendientes como máximo)
+        // para evitar crecimiento desmedido en jornadas largas sin conexión, sin afectar operaciones de negocio.
+        if (tipoOperacion == TiposOperacionOffline.TelemetriaGps)
+        {
+            const int maxGpsPendientes = 1000;
+            var conteoGps = await Db.Table<OperacionOfflineLocal>()
+                .Where(o => !o.Sincronizado && o.TipoOperacion == TiposOperacionOffline.TelemetriaGps)
+                .CountAsync();
+
+            if (conteoGps >= maxGpsPendientes)
+            {
+                int aEliminar = (conteoGps - maxGpsPendientes) + 1;
+                var viejos = await Db.Table<OperacionOfflineLocal>()
+                    .Where(o => !o.Sincronizado && o.TipoOperacion == TiposOperacionOffline.TelemetriaGps)
+                    .OrderBy(o => o.FechaCreacionUtc)
+                    .Take(aEliminar)
+                    .ToListAsync();
+
+                foreach (var viejo in viejos)
+                {
+                    await Db.DeleteAsync(viejo);
+                }
+            }
+        }
+
         var operacion = new OperacionOfflineLocal
         {
             TipoOperacion = tipoOperacion,
@@ -202,6 +325,20 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
+    public async Task MarcarComoSincronizadosAsync(IEnumerable<int> ids)
+    {
+        await InitAsync();
+        foreach (var id in ids)
+        {
+            var op = await Db.FindAsync<OperacionOfflineLocal>(id);
+            if (op != null)
+            {
+                op.Sincronizado = true;
+                await Db.UpdateAsync(op);
+            }
+        }
+    }
+
     public async Task RegistrarErrorAsync(int id, string error)
     {
         await InitAsync();
@@ -222,7 +359,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             .CountAsync();
     }
 
-    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null)
+    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null)
     {
         await InitAsync();
 
@@ -236,7 +373,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 {
                     Id = hojaDeRutaId,
                     Fecha = DateTime.Today,
-                    Estado = "EnTransito",
+                    Estado = !string.IsNullOrWhiteSpace(estadoRuta) ? estadoRuta : "Despachada",
                     NumeroRuta = $"HR-{DateTime.Today:yyyyMMdd}-01",
                     TotalParadas = paradas.Count,
                     FechaDescargaUtc = DateTime.UtcNow
@@ -245,6 +382,10 @@ public class LocalDatabaseService : ILocalDatabaseService
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(estadoRuta))
+                {
+                    ruta.Estado = estadoRuta;
+                }
                 ruta.TotalParadas = paradas.Count;
                 ruta.FechaDescargaUtc = DateTime.UtcNow;
                 conn.Update(ruta);
@@ -305,6 +446,9 @@ public class LocalDatabaseService : ILocalDatabaseService
                 else
                     conn.Update(paradaLocal);
 
+                bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
+                bool bultoYaCargado = rutaYaDespachada || paradaLocal.Estado is "Entregado" or "Fallido" or "EnDevolucion";
+
                 // Envio
                 var envioLocal = conn.Find<EnvioLocal>(envioId);
                 if (envioLocal == null)
@@ -317,13 +461,21 @@ public class LocalDatabaseService : ILocalDatabaseService
                         Destinatario = paradaLocal.DestinatarioNombre,
                         Direccion = paradaLocal.Direccion,
                         Modalidad = "Estandar",
-                        Estado = paradaLocal.Estado
+                        Estado = paradaLocal.Estado != "Pendiente"
+                            ? paradaLocal.Estado
+                            : (rutaYaDespachada ? "EnTransito" : "AsignadoARuta")
                     };
                     conn.Insert(envioLocal);
                 }
                 else
                 {
                     envioLocal.ParadaId = paradaId;
+                    if (paradaLocal.Estado != "Pendiente")
+                        envioLocal.Estado = paradaLocal.Estado;
+                    else if (rutaYaDespachada)
+                        envioLocal.Estado = "EnTransito";
+                    else if (ruta.Estado == "Liberada")
+                        envioLocal.Estado = "AsignadoARuta";
                     conn.Update(envioLocal);
                 }
 
@@ -333,7 +485,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     foreach (var codBulto in p.ResumenBultos.CodigosBultos)
                     {
                         var bultoExistente = conn.Table<BultoLocal>()
-                            .Where(b => b.EnvioId == p.EnvioId && b.Codigo == codBulto)
+                            .Where(b => (b.EnvioId == envioId || b.ParadaId == paradaId) && b.Codigo == codBulto)
                             .FirstOrDefault();
 
                         if (bultoExistente == null)
@@ -341,15 +493,31 @@ public class LocalDatabaseService : ILocalDatabaseService
                             var bultoLocal = new BultoLocal
                             {
                                 Id = Guid.NewGuid(),
-                                EnvioId = p.EnvioId,
-                                ParadaId = p.ParadaId,
+                                EnvioId = envioId,
+                                ParadaId = paradaId,
                                 Codigo = codBulto,
                                 Identificacion = codBulto,
                                 Descripcion = $"Bulto {codBulto}",
                                 Peso = p.ResumenBultos.PesoTotalKg > 0 ? (p.ResumenBultos.PesoTotalKg / p.ResumenBultos.CantidadBultos) : 1.5m,
-                                EsFragil = false
+                                EsFragil = false,
+                                VerificadoEnCarga = bultoYaCargado,
+                                VerificadoEnEntrega = paradaLocal.Estado == "Entregado"
                             };
                             conn.Insert(bultoLocal);
+                        }
+                        else
+                        {
+                            bultoExistente.EnvioId = envioId;
+                            bultoExistente.ParadaId = paradaId;
+                            if (bultoYaCargado)
+                            {
+                                bultoExistente.VerificadoEnCarga = true;
+                            }
+                            else if (ruta.Estado == "Liberada" && isNew)
+                            {
+                                bultoExistente.VerificadoEnCarga = false;
+                            }
+                            conn.Update(bultoExistente);
                         }
                     }
                 }
@@ -386,8 +554,11 @@ public class LocalDatabaseService : ILocalDatabaseService
         if (ruta == null)
             return null;
 
+        bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
+        bool enPrecarga = ruta.Estado is "Liberada" or "EnCarga" or "Borrador";
+
         var paradas = await Db.Table<ParadaLocal>()
-            .Where(p => p.HojaDeRutaId == ruta.Id)
+            .Where(p => p.HojaDeRutaId == ruta.Id && p.Estado != "Cancelada")
             .OrderBy(p => p.Orden)
             .ToListAsync();
 
@@ -399,12 +570,28 @@ public class LocalDatabaseService : ILocalDatabaseService
                 .Where(b => b.ParadaId == p.Id || b.EnvioId == p.EnvioId)
                 .ToListAsync();
 
+            bool bultoDebeEstarCargado = rutaYaDespachada || p.Estado is "Entregado" or "Fallido" or "EnDevolucion";
+
+            foreach (var b in bultos)
+            {
+                if (bultoDebeEstarCargado && !b.VerificadoEnCarga)
+                {
+                    b.VerificadoEnCarga = true;
+                    await Db.UpdateAsync(b);
+                }
+            }
+
             var bultoItems = bultos.Select(b => new BultoItemViewModel
             {
+                Id = b.Id,
+                ParadaId = p.Id,
+                EnvioId = p.EnvioId,
                 Codigo = b.Codigo,
                 Descripcion = b.Descripcion,
                 PesoKg = b.Peso,
-                EsFragil = b.EsFragil
+                EsFragil = b.EsFragil,
+                VerificadoEnCarga = b.VerificadoEnCarga,
+                VerificadoEnEntrega = b.VerificadoEnEntrega
             }).ToList();
 
             if (bultoItems.Count == 0 && p.CantidadBultos > 0)
@@ -413,10 +600,15 @@ public class LocalDatabaseService : ILocalDatabaseService
                 {
                     bultoItems.Add(new BultoItemViewModel
                     {
+                        Id = Guid.NewGuid(),
+                        ParadaId = p.Id,
+                        EnvioId = p.EnvioId,
                         Codigo = $"{p.CodigoSeguimiento}-B{i}",
                         Descripcion = $"Bulto {i}",
                         PesoKg = 1.5m,
-                        EsFragil = false
+                        EsFragil = false,
+                        VerificadoEnCarga = bultoDebeEstarCargado,
+                        VerificadoEnEntrega = p.Estado == "Entregado"
                     });
                 }
             }
@@ -467,6 +659,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 Telefono = p.DestinatarioTelefono ?? string.Empty,
                 CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
                 Estado = p.Estado,
+                EnPrecarga = enPrecarga,
                 HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
                 VentanaHoraria = !string.IsNullOrWhiteSpace(p.VentanaHoraria) ? p.VentanaHoraria : "09:00 - 13:00",
                 CodigoSeguimiento = codigoSeguimientoReal,
@@ -504,7 +697,140 @@ public class LocalDatabaseService : ILocalDatabaseService
                 envio.Estado = parada.Estado;
                 await Db.UpdateAsync(envio);
             }
+
+            // Al confirmarse la entrega, se consideran implícitamente entregados todos los bultos asociados
+            if (parada.Estado == "Entregado")
+            {
+                var bultos = await Db.Table<BultoLocal>()
+                    .Where(b => b.ParadaId == paradaId)
+                    .ToListAsync();
+
+                foreach (var b in bultos)
+                {
+                    b.VerificadoEnEntrega = true;
+                    await Db.UpdateAsync(b);
+                }
+            }
         }
+    }
+
+    public async Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado)
+    {
+        await InitAsync();
+        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
+        if (ruta == null)
+        {
+            ruta = await Db.Table<HojaDeRutaLocal>().OrderByDescending(r => r.FechaDescargaUtc).FirstOrDefaultAsync();
+        }
+        if (ruta != null)
+        {
+            ruta.Estado = nuevoEstado;
+            await Db.UpdateAsync(ruta);
+        }
+    }
+
+    public async Task MarcarBultoVerificadoCargaAsync(Guid bultoId, bool verificado)
+    {
+        await InitAsync();
+        var bulto = await Db.FindAsync<BultoLocal>(bultoId);
+        if (bulto != null)
+        {
+            bulto.VerificadoEnCarga = verificado;
+            await Db.UpdateAsync(bulto);
+        }
+    }
+
+    public async Task MarcarBultoVerificadoEntregaAsync(Guid bultoId, bool verificado)
+    {
+        await InitAsync();
+        var bulto = await Db.FindAsync<BultoLocal>(bultoId);
+        if (bulto != null)
+        {
+            bulto.VerificadoEnEntrega = verificado;
+            await Db.UpdateAsync(bulto);
+        }
+    }
+
+    public async Task MarcarBultosParadaVerificadosEntregaAsync(Guid paradaId, bool verificado)
+    {
+        await InitAsync();
+        var bultos = await Db.Table<BultoLocal>()
+            .Where(b => b.ParadaId == paradaId)
+            .ToListAsync();
+
+        foreach (var b in bultos)
+        {
+            b.VerificadoEnEntrega = verificado;
+            await Db.UpdateAsync(b);
+        }
+    }
+
+    public async Task ConfirmarCargaYDespacharLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados)
+    {
+        await InitAsync();
+
+        var setCodigos = new HashSet<string>(
+            (codigosCargados ?? Array.Empty<string>()).Select(c => c.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId)
+            ?? await Db.Table<HojaDeRutaLocal>().OrderByDescending(r => r.FechaDescargaUtc).FirstOrDefaultAsync();
+
+        if (ruta == null)
+            return;
+
+        var paradas = await Db.Table<ParadaLocal>()
+            .Where(p => p.HojaDeRutaId == ruta.Id)
+            .OrderBy(p => p.Orden)
+            .ToListAsync();
+
+        foreach (var parada in paradas)
+        {
+            var bultosParada = await Db.Table<BultoLocal>()
+                .Where(b => b.ParadaId == parada.Id)
+                .ToListAsync();
+
+            foreach (var b in bultosParada)
+            {
+                b.VerificadoEnCarga = setCodigos.Contains(b.Codigo.Trim());
+                await Db.UpdateAsync(b);
+            }
+
+            bool todosBultosCargados = bultosParada.Count > 0 && bultosParada.All(b => b.VerificadoEnCarga);
+
+            var envio = await Db.Table<EnvioLocal>()
+                .Where(e => e.ParadaId == parada.Id)
+                .FirstOrDefaultAsync();
+
+            if (todosBultosCargados)
+            {
+                if (parada.Estado is "AsignadoARuta" or "Cancelada" or "EnDeposito")
+                {
+                    parada.Estado = "Pendiente";
+                    await Db.UpdateAsync(parada);
+                }
+                if (envio != null && envio.Estado is "AsignadoARuta" or "EnDeposito")
+                {
+                    envio.Estado = "EnTransito";
+                    await Db.UpdateAsync(envio);
+                }
+            }
+            else
+            {
+                // UC-09 / UC-18: Envíos cuyos bultos no se escanearon en su totalidad no pasan a la ruta activa y quedan En Depósito
+                parada.Estado = "Cancelada";
+                await Db.UpdateAsync(parada);
+
+                if (envio != null)
+                {
+                    envio.Estado = "EnDeposito";
+                    await Db.UpdateAsync(envio);
+                }
+            }
+        }
+
+        ruta.Estado = "Despachada";
+        await Db.UpdateAsync(ruta);
     }
 
     public async Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas)
@@ -607,7 +933,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             )
         };
 
-        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo);
+        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo, estadoRuta: "Despachada");
     }
 
     private static string MapearEstadoParada(string estado)
@@ -740,6 +1066,6 @@ public class LocalDatabaseService : ILocalDatabaseService
             )
         };
 
-        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo);
+        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo, estadoRuta: "Despachada");
     }
 }
