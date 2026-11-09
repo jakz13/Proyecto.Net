@@ -4,6 +4,8 @@ using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Mobile.DescargarHojasDeRuta;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Domain.Entities.Retiros;
 
 namespace UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 
@@ -19,6 +21,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
     private readonly IDireccionRepository _direccionRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public ObtenerRutaActivaRepartidorQueryHandler(
         IRutaRepository rutaRepository,
@@ -28,7 +31,8 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
         IDestinatarioRepository destinatarioRepository,
         IDireccionRepository direccionRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IRetiroRepository? retiroRepository = null)
     {
         _rutaRepository = rutaRepository ?? throw new ArgumentNullException(nameof(rutaRepository));
         _envioRepository = envioRepository ?? throw new ArgumentNullException(nameof(envioRepository));
@@ -38,6 +42,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
         _direccionRepository = direccionRepository ?? throw new ArgumentNullException(nameof(direccionRepository));
         _franjaHorariaRepository = franjaHorariaRepository ?? throw new ArgumentNullException(nameof(franjaHorariaRepository));
         _currentTenant = currentTenant ?? throw new ArgumentNullException(nameof(currentTenant));
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<RutaActivaRepartidorDto> Handle(ObtenerRutaActivaRepartidorQuery request, CancellationToken cancellationToken)
@@ -87,7 +92,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
 
         var enviosPorRuta = await _envioRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
         var enviosPorIds = paradasVigentes.Count > 0
-            ? await _envioRepository.GetByIdsAsync(paradasVigentes.Select(p => p.EnvioId), cancellationToken)
+            ? await _envioRepository.GetByIdsAsync(paradasVigentes.IdsDeEnvios(), cancellationToken)
             : new List<Envio>();
 
         var enviosDict = enviosPorRuta
@@ -134,9 +139,22 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
 
         var paradasDto = new List<ParadaNavegacionDto>();
 
+        // Las paradas de retiro de una hoja de ruta mixta (RF 39) se muestran junto a las de entrega
+        var retirosDict = _retiroRepository is null
+            ? new Dictionary<Guid, Retiro>()
+            : (await _retiroRepository.GetByIdsAsync(paradasVigentes.IdsDeRetiros(), cancellationToken))
+                .Where(r => r.OperadorId == _currentTenant.OperadorId)
+                .ToDictionary(r => r.Id);
+
         foreach (var parada in paradasVigentes)
         {
-            enviosDict.TryGetValue(parada.EnvioId, out var envio);
+            Retiro? retiro = null;
+            if (parada.RetiroId.HasValue)
+                retirosDict.TryGetValue(parada.RetiroId.Value, out retiro);
+
+            Envio? envio = null;
+            if (parada.EnvioId.HasValue)
+                enviosDict.TryGetValue(parada.EnvioId.Value, out envio);
 
             Destinatario? destinatario = null;
             if (envio is not null && envio.DestinatarioId != Guid.Empty)
@@ -154,10 +172,10 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
                 direccionesDict.TryGetValue(parada.DireccionId, out direccion);
             }
 
-            var codigoSeguimiento = envio?.CodigoSeguimientoPublico ?? $"PAR-{parada.Orden:D2}";
+            var codigoSeguimiento = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? $"PAR-{parada.Orden:D2}";
             var direccionFormateada = !string.IsNullOrWhiteSpace(envio?.DireccionDestino)
                 ? envio.DireccionDestino
-                : (direccion?.ToString() ?? "Dirección sin especificar");
+                : (direccion?.ToString() ?? retiro?.DireccionRetiro ?? "Dirección sin especificar");
 
             (double? lat, double? lon) = (direccion?.Latitud, direccion?.Longitud);
             if (!lat.HasValue || !lon.HasValue)
@@ -178,9 +196,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
             }
 
             var contacto = new DestinatarioContactoDto(
-                Nombre: destinatario?.Nombre ?? envio?.NombreDestinatario ?? "Destinatario no especificado",
-                Telefono: destinatario?.Telefono ?? "+598 99 123 456",
-                Email: destinatario?.Email,
+                Nombre: destinatario?.Nombre ?? envio?.NombreDestinatario ?? retiro?.NombreContacto ?? "Destinatario no especificado",
+                Telefono: destinatario?.Telefono ?? retiro?.TelefonoContacto ?? "+598 99 123 456",
+                Email: destinatario?.Email ?? retiro?.EmailContacto,
                 ReferenciaEntrega: direccion?.Referencia
             );
 
@@ -189,17 +207,22 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
                 .OrderBy(b => b.Identificacion)
                 .ToList();
 
-            var resumenBultos = new ResumenBultosParadaDto(
-                CantidadBultos: bultosVigentes?.Count ?? 0,
-                CodigosBultos: bultosVigentes?.Select(b => b.Identificacion).ToList() ?? new List<string>(),
-                PesoTotalKg: bultosVigentes?.Sum(b => b.Peso) ?? 0m
-            );
+            var resumenBultos = retiro is not null
+                ? new ResumenBultosParadaDto(
+                    CantidadBultos: retiro.Bultos.Count,
+                    CodigosBultos: retiro.Bultos.OrderBy(b => b.Identificacion, StringComparer.Ordinal).Select(b => b.Identificacion).ToList(),
+                    PesoTotalKg: retiro.PesoTotal)
+                : new ResumenBultosParadaDto(
+                    CantidadBultos: bultosVigentes?.Count ?? 0,
+                    CodigosBultos: bultosVigentes?.Select(b => b.Identificacion).ToList() ?? new List<string>(),
+                    PesoTotalKg: bultosVigentes?.Sum(b => b.Peso) ?? 0m
+                );
 
             bool esParadaActual = parada.Estado == "EnCamino" || parada.Estado == "EnSitio";
 
             paradasDto.Add(new ParadaNavegacionDto(
                 ParadaId: parada.Id,
-                EnvioId: parada.EnvioId,
+                EnvioId: parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
                 Orden: parada.Orden,
                 EstadoParada: parada.Estado,
                 CodigoSeguimiento: codigoSeguimiento,
@@ -209,7 +232,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
                 VentanaHoraria: ventanaHoraria,
                 Destinatario: contacto,
                 ResumenBultos: resumenBultos,
-                EsParadaActual: esParadaActual
+                EsParadaActual: esParadaActual,
+                Tipo: parada.Tipo,
+                RetiroId: parada.RetiroId
             ));
         }
 

@@ -66,7 +66,12 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
                 "La hoja de ruta ya se encontraba despachada (operación idempotente).");
         }
 
-        if (ruta.Estado != "EnCarga")
+        // Una hoja de ruta con solo retiros no tiene bultos que cargar en el depósito (RF 39): puede salir sin escaneo de carga
+        var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
+        var tieneRetiros = paradasVigentes.Any(p => p.EsRetiro);
+
+        if (ruta.Estado != "EnCarga" && !(ruta.Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"La hoja de ruta está en estado '{ruta.Estado}': la carga del vehículo debe estar escaneada y sincronizada antes de despachar.");
 
         if (await _rutaRepository.ExisteRutaSinRendirAsync(ruta.RepartidorId!.Value, ruta.Id, cancellationToken))
@@ -84,7 +89,8 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
                 aRetirar.Add(envio);
         }
 
-        if (aDespachar.Count == 0)
+        // Sin entregas cargadas, la ruta solo puede salir si tiene retiros que hacer
+        if (aDespachar.Count == 0 && !tieneRetiros)
             throw new DomainValidationException("Ningún envío de la hoja de ruta tiene todos sus bultos cargados: no se puede despachar.");
 
         var mensajes = new List<OutboxMessage>();

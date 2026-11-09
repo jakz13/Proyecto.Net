@@ -11,4 +11,7 @@ public record HitoSeguimientoDto
     public DateTime Fecha { get; init; }
     public EstadoEnvioDto Estado { get; init; }
     public string DescripcionPublica { get; init; } = string.Empty;
+
+    /// <summary>Estado del retiro asociado al hito; solo se informa para retiros, cuyo <see cref="Estado"/> no aplica.</summary>
+    public string? EstadoTexto { get; init; }
 }

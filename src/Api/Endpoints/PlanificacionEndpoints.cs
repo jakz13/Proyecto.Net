@@ -28,7 +28,8 @@ public static class PlanificacionEndpoints
                     request.RepartidorId,
                     request.VehiculoId,
                     request.Fecha,
-                    request.EnviosIds ?? new List<Guid>());
+                    request.EnviosIds ?? new List<Guid>(),
+                    RetirosIds: request.RetirosIds);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Created($"/api/planificacion/hojas-de-ruta/{resultado.HojaDeRutaId}", resultado);
@@ -52,7 +53,7 @@ public static class PlanificacionEndpoints
         })
         .WithName("ArmarHojaDeRuta")
         .WithSummary("Armar y liberar una hoja de ruta")
-        .WithDescription("Asigna los envíos en depósito a un repartidor y un vehículo validando paradas máximas, capacidad y franjas. Los envíos que no cumplen se excluyen y se informa el motivo. La ruta queda liberada para su descarga.")
+        .WithDescription("Asigna los envíos en depósito y los retiros en domicilio solicitados a un repartidor y un vehículo (hoja de ruta mixta), validando paradas máximas, franjas y la capacidad del vehículo a lo largo del recorrido: los retiros suman carga desde la parada en que se suben. Lo que no cumple se excluye y se informa el motivo. La ruta queda liberada para su descarga.")
         .Produces<ArmarHojaDeRutaResultDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -68,7 +69,8 @@ public static class PlanificacionEndpoints
             try
             {
                 var command = new ArmarHojaDeRutaCommand(
-                    request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true);
+                    request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true,
+                    RetirosIds: request.RetirosIds);
                 return Results.Ok(await mediator.Send(command, ct));
             }
             catch (DomainValidationException ex)
@@ -280,4 +282,5 @@ public record ArmarHojaDeRutaRequest(
     Guid RepartidorId,
     Guid VehiculoId,
     DateOnly Fecha,
-    List<Guid>? EnviosIds);
+    List<Guid>? EnviosIds,
+    List<Guid>? RetirosIds = null);

@@ -72,6 +72,15 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
+    /// <summary>Agrega una parada de retiro en domicilio: la ruta pasa a ser mixta (RF 39).</summary>
+    public Parada AgregarParadaRetiro(Guid retiroId, int orden, Guid direccionId, Guid? franjaHorariaId = null)
+    {
+        var parada = Parada.ParaRetiro(Guid.NewGuid(), Id, retiroId, orden, direccionId, franjaHorariaId);
+        _paradas.Add(parada);
+        SelloModificacion = Guid.NewGuid();
+        return parada;
+    }
+
     /// <summary>Orden que le corresponde a una parada agregada al final de la ruta.</summary>
     public int SiguienteOrden => _paradas.Count == 0 ? 1 : _paradas.Max(p => p.Orden) + 1;
 
@@ -161,7 +170,9 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (Estado is "Despachada" or "EnTransito" or "Finalizada")
             throw new DomainValidationException($"La hoja de ruta ya se encuentra en estado '{Estado}'.");
 
-        if (Estado != "EnCarga")
+        // Una ruta con solo retiros no tiene bultos que cargar en el depósito, así que puede salir directamente
+        var soloRetiros = _paradas.Where(p => p.Estado != "Cancelada").All(p => p.EsRetiro);
+        if (Estado != "EnCarga" && !(Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"No se puede despachar una hoja de ruta en estado '{Estado}': la carga del vehículo debe estar escaneada y sincronizada.");
 
         Estado = "Despachada";
@@ -290,9 +301,47 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         return parada;
     }
 
+    /// <summary>Saca un retiro de la ruta antes de la salida: su parada se cancela (RF 39).</summary>
+    public void RetirarRetiro(Guid retiroId)
+    {
+        if (Estado is not ("Liberada" or "EnCarga"))
+            throw new DomainValidationException($"Solo se puede sacar un retiro de una hoja de ruta que todavía no salió (estado '{Estado}').");
+
+        var parada = _paradas.FirstOrDefault(p => p.RetiroId == retiroId && p.Estado != "Cancelada")
+            ?? throw new DomainValidationException("El retiro no tiene una parada vigente en esta hoja de ruta.");
+
+        parada.CancelarPorFaltante("Retiro sacado de la ruta por el despachador.");
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    public Parada RegistrarRetiroRealizadoEnParada(Guid paradaId, bool resolverConflicto = false)
+    {
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
+            ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarRetiroRealizado(resolverConflicto);
+        SelloModificacion = Guid.NewGuid();
+
+        VerificarYActualizarFinDeRuta();
+        return parada;
+    }
+
+    public Parada RegistrarRetiroNoRealizadoEnParada(Guid paradaId, bool resolverConflicto = false)
+    {
+        var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
+            ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        parada.RegistrarRetiroNoRealizado(resolverConflicto);
+        SelloModificacion = Guid.NewGuid();
+
+        VerificarYActualizarFinDeRuta();
+        return parada;
+    }
+
     private void VerificarYActualizarFinDeRuta()
     {
-        bool todasCompletadas = _paradas.Count > 0 && _paradas.All(p => p.Estado is "Entregada" or "EntregadaParcialmente" or "Fallida" or "Cancelada");
+        bool todasCompletadas = _paradas.Count > 0 && _paradas.All(p =>
+            p.Estado is "Entregada" or "EntregadaParcialmente" or "Retirada" or "NoRetirada" or "Fallida" or "Cancelada");
         if (todasCompletadas)
         {
             Estado = "Finalizada";

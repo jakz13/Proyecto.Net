@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Application.Tablero;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
@@ -143,7 +144,9 @@ internal static class ConstructorTablero
             var paradasDto = new List<ParadaEnVivoDto>();
             foreach (var parada in vigentes)
             {
-                envios.TryGetValue(parada.EnvioId, out var envio);
+                Envio? envio = null;
+                if (parada.EnvioId.HasValue)
+                    envios.TryGetValue(parada.EnvioId.Value, out envio);
                 direcciones.TryGetValue(parada.DireccionId, out var direccion);
                 var franja = parada.FranjaHorariaId.HasValue ? franjas.GetValueOrDefault(parada.FranjaHorariaId.Value) : null;
                 var zona = direccion?.ZonaCoberturaId is { } zid ? zonas.GetValueOrDefault(zid) ?? string.Empty : string.Empty;
@@ -162,7 +165,7 @@ internal static class ConstructorTablero
                     {
                         enRiesgo.Add(new EnvioRiesgoDto
                         {
-                            EnvioId = parada.EnvioId,
+                            EnvioId = parada.EnvioId ?? Guid.Empty,
                             HojaDeRutaId = ruta.Id,
                             NumeroRuta = numero,
                             CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
@@ -187,7 +190,7 @@ internal static class ConstructorTablero
 
                 paradasDto.Add(new ParadaEnVivoDto
                 {
-                    EnvioId = parada.EnvioId,
+                    EnvioId = parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
                     CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
                     Orden = parada.Orden,
                     Destinatario = envio?.NombreDestinatario ?? string.Empty,
@@ -202,7 +205,7 @@ internal static class ConstructorTablero
             }
 
             var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault();
-            var actualEnvio = actual is null ? null : envios.GetValueOrDefault(actual.EnvioId);
+            var actualEnvio = actual?.EnvioId is { } actualEnvioId ? envios.GetValueOrDefault(actualEnvioId) : null;
             var actualDireccion = actual is null ? null : direcciones.GetValueOrDefault(actual.DireccionId);
 
             resultado.Add(new VehiculoEnVivoDto

@@ -1,6 +1,7 @@
 using MediatR;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Queries.Planificacion;
@@ -45,7 +46,7 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
             throw new UnauthorizedAccessException("Acceso denegado: la hoja de ruta no corresponde al operador actual.");
 
         var paradas = HojaDeRutaMapper.ParadasVigentes(ruta).ToList();
-        var envios = (await _envioRepository.GetByIdsAsync(paradas.Select(p => p.EnvioId), cancellationToken))
+        var envios = (await _envioRepository.GetByIdsAsync(paradas.IdsDeEnvios(), cancellationToken))
             .Where(e => e.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(e => e.Id);
         var vehiculos = (await _vehiculoRepository.GetByIdsAsync(
@@ -59,10 +60,10 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
             .ToDictionary(f => f.Id);
 
         var detalleParadas = paradas
-            .Where(p => envios.ContainsKey(p.EnvioId))
+            .Where(p => p.EnvioId.HasValue && envios.ContainsKey(p.EnvioId.Value))
             .Select(p =>
             {
-                var envio = envios[p.EnvioId];
+                var envio = envios[p.EnvioId!.Value];
                 string? ventana = null;
                 if (p.FranjaHorariaId.HasValue && franjas.TryGetValue(p.FranjaHorariaId.Value, out var franja))
                     ventana = HojaDeRutaMapper.FormatearVentana(franja);

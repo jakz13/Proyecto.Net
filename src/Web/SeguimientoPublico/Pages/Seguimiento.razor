@@ -23,8 +23,72 @@
                        Tipo="@(esErrorLimiteTasa ? MensajeEstado.TipoAlerta.Aviso : MensajeEstado.TipoAlerta.Error)" />
     }
 
-    <!-- Información del Envío y Flujo Completo (UC-33) -->
-    @if (seguimiento != null)
+    <!-- Retiro en domicilio (RF 41): el comprador lo sigue por el mismo enlace que un envío -->
+    @if (seguimiento != null && seguimiento.EsRetiro)
+    {
+        <div class="tarjeta-envio" data-tipo="retiro">
+            <header class="tarjeta-envio__cabecera">
+                <div class="tarjeta-envio__codigo-bloque">
+                    <span class="tarjeta-envio__codigo-label">Código de seguimiento del retiro</span>
+                    <h2 class="tarjeta-envio__codigo-valor mb-0">@seguimiento.CodigoSeguimiento</h2>
+                </div>
+                <span class="badge bg-dark align-self-center">@seguimiento.EstadoRetiro</span>
+            </header>
+
+            <div class="tarjeta-envio__cuerpo">
+                <div class="alert @ClaseAlertaRetiro() border-0 shadow-xs rounded-3 p-3 mb-3" role="status">
+                    <div class="fw-bold">@seguimiento.DescripcionEstado</div>
+                    @if (!string.IsNullOrWhiteSpace(seguimiento.VentanaHorariaEstimada))
+                    {
+                        <div class="small text-secondary mt-1">Ventana estimada de la visita: @seguimiento.VentanaHorariaEstimada</div>
+                    }
+                </div>
+
+                @if (seguimiento.TotalBultos > 0)
+                {
+                    <div class="alert alert-light border d-flex align-items-center justify-content-between py-2 px-3 mb-3">
+                        <div class="d-flex align-items-center gap-2 small fw-semibold">
+                            <Icono Nombre="paquete" Tamano="16" />
+                            <span>Avance del retiro: @seguimiento.AvanceEntregaBultos</span>
+                        </div>
+                        <span class="badge bg-dark">@seguimiento.BultosEntregados / @seguimiento.TotalBultos retirados</span>
+                    </div>
+                }
+
+                <div class="tarjeta-envio__actualizacion">
+                    <Icono Nombre="reloj" Tamano="14" />
+                    <span>Última actualización: @seguimiento.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs.</span>
+                </div>
+
+                <div class="linea-tiempo-bloque">
+                    <h3 class="h6 fw-bold text-uppercase text-secondary mb-3">Historial del retiro</h3>
+                    <ol class="linea-tiempo">
+                        @foreach (var hito in seguimiento.HistorialEventos.OrderByDescending(h => h.Fecha))
+                        {
+                            <li class="linea-tiempo__item">
+                                <span class="linea-tiempo__marcador"><Icono Nombre="paquete" Tamano="12" /></span>
+                                <div class="linea-tiempo__cuerpo">
+                                    <div class="linea-tiempo__encabezado">
+                                        <span class="badge bg-secondary-subtle text-secondary border">@hito.EstadoTexto</span>
+                                        <time class="linea-tiempo__fecha" datetime="@hito.Fecha.ToString("o")">@hito.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs</time>
+                                    </div>
+                                    <p class="linea-tiempo__descripcion">@hito.DescripcionPublica</p>
+                                </div>
+                            </li>
+                        }
+                    </ol>
+                </div>
+
+                <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
+                    <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
+                    <div class="small text-secondary" style="font-size: 0.775rem;">
+                        <strong>Privacidad garantizada:</strong> este seguimiento no muestra datos personales, domicilios ni contactos.
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (seguimiento != null)
     {
         <!-- Stepper de Etapas del Viaje -->
         <StepperEnvio Estado="@seguimiento.EstadoActual" />
@@ -140,6 +204,13 @@
     private string? mensajeError;
     private bool esErrorLimiteTasa = false;
     private bool enlaceCopiado = false;
+
+    private string ClaseAlertaRetiro() => seguimiento?.EstadoRetiro switch
+    {
+        "EntregadoAlComercio" or "Retirado" or "EnDeposito" => "alert-success",
+        "NoRetirado" or "Cancelado" => "alert-warning",
+        _ => "alert-primary"
+    };
 
     protected override async Task OnParametersSetAsync()
     {

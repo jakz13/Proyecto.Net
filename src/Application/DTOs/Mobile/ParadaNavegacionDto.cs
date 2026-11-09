@@ -25,5 +25,7 @@ public record ParadaNavegacionDto(
     string? VentanaHoraria,
     DestinatarioContactoDto Destinatario,
     ResumenBultosParadaDto ResumenBultos,
-    bool EsParadaActual
+    bool EsParadaActual,
+    string Tipo = "Entrega",
+    Guid? RetiroId = null
 );

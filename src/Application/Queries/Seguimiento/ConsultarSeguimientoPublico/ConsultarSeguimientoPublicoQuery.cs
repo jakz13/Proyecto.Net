@@ -20,6 +20,12 @@ public record SeguimientoPublicoDto(
     int TotalBultos = 0,
     int BultosEntregados = 0,
     int BultosPendientes = 0,
-    string? AvanceEntregaBultos = null);
+    string? AvanceEntregaBultos = null,
+    string Tipo = "Envio",
+    string? EstadoRetiro = null,
+    string? DescripcionEstado = null);
 
-public record HitoSeguimientoDto(DateTime Fecha, EstadoEnvio Estado, string DescripcionPublica);
+/// <summary>
+/// Hito de la línea de tiempo pública. Para un retiro, <c>Estado</c> no aplica y el estado se informa en <c>EstadoTexto</c>.
+/// </summary>
+public record HitoSeguimientoDto(DateTime Fecha, EstadoEnvio Estado, string DescripcionPublica, string? EstadoTexto = null);

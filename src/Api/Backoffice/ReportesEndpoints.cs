@@ -188,7 +188,8 @@ internal sealed class ConstructorReportes
         var filas = new Dictionary<string, (string? Detalle, int Asignados, int EnPlazo, int Demora, int NoEntregados)>();
         foreach (var parada in ultimaParada)
         {
-            if (!envios.TryGetValue(parada.EnvioId, out var envio))
+            // El cumplimiento por zona, repartidor y comercio se mide sobre entregas; los retiros tienen su propio reporte
+            if (parada.EnvioId is not { } envioDeLaParada || !envios.TryGetValue(envioDeLaParada, out var envio))
                 continue;
 
             var zona = direcciones.GetValueOrDefault(parada.DireccionId) is { } zid ? zonas.GetValueOrDefault(zid) ?? "Sin zona" : "Sin zona";
@@ -196,7 +197,7 @@ internal sealed class ConstructorReportes
                 continue;
 
             var ruta = rutaPorId[parada.HojaDeRutaId];
-            var delEnvio = intentos[parada.EnvioId].ToList();
+            var delEnvio = intentos[envioDeLaParada].ToList();
             var exitoso = delEnvio.Where(i => i.Resultado == "Exitoso").OrderByDescending(i => i.Timestamp).FirstOrDefault();
 
             var enPlazo = false;

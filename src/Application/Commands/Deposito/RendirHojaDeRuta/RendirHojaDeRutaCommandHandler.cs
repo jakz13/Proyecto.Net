@@ -6,6 +6,7 @@ using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 
@@ -21,6 +22,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public RendirHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -30,7 +32,8 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IRetiroRepository? retiroRepository = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -40,6 +43,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
         _currentTenant = currentTenant;
         _clock = clock;
         _tableroNotifier = tableroNotifier;
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<RendicionResultDto> Handle(RendirHojaDeRutaCommand request, CancellationToken cancellationToken)
@@ -172,6 +176,10 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             }
         }
 
+        // Hoja de ruta mixta (RF 39): los bultos retirados en domicilio llegan al depósito con el repartidor, y un retiro
+        // que nunca se visitó vuelve a quedar pendiente de asignación. Se resuelve antes de cerrar la ruta, que marca las paradas no visitadas.
+        var retirosRecibidos = await ProcesarRetirosAlRendirAsync(ruta, usuarioId, cancellationToken);
+
         ruta.Rendir();
 
         var rendicion = new RendicionDeposito(
@@ -205,12 +213,48 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             }
         }
 
+        var sufijoRetiros = retirosRecibidos > 0 ? $" Se recibieron {retirosRecibidos} retiro(s) en depósito." : string.Empty;
+
         return new RendicionResultDto(
             ruta.Id, ruta.Estado, entregados, devueltos, pendientes,
             reintegrados, enDevolucion, enviosPendientes, sobrantes, false,
-            pendientes == 0 && sobrantes.Count == 0
+            (pendientes == 0 && sobrantes.Count == 0
                 ? "Rendición registrada sin diferencias. El repartidor puede despachar otra hoja de ruta."
-                : $"Rendición registrada con diferencias: {pendientes} bulto(s) pendiente(s) y {sobrantes.Count} código(s) sobrante(s).");
+                : $"Rendición registrada con diferencias: {pendientes} bulto(s) pendiente(s) y {sobrantes.Count} código(s) sobrante(s).") + sufijoRetiros);
+    }
+
+    /// <summary>Devuelve la cantidad de retiros que quedaron recibidos en depósito.</summary>
+    private async Task<int> ProcesarRetirosAlRendirAsync(HojaDeRuta ruta, Guid usuarioId, CancellationToken cancellationToken)
+    {
+        if (_retiroRepository is null)
+            return 0;
+
+        var idsRetiros = ruta.Paradas.Where(p => p.Estado != "Cancelada").IdsDeRetiros().Distinct().ToList();
+        if (idsRetiros.Count == 0)
+            return 0;
+
+        var recibidos = 0;
+        var retiros = (await _retiroRepository.GetByIdsAsync(idsRetiros, cancellationToken))
+            .Where(r => r.OperadorId == _currentTenant.OperadorId);
+
+        foreach (var retiro in retiros)
+        {
+            switch (retiro.EstadoActual)
+            {
+                case EstadoRetiro.Retirado:
+                    retiro.RecibirEnDeposito(usuarioId);
+                    recibidos++;
+                    break;
+
+                case EstadoRetiro.AsignadoARuta:
+                    retiro.LiberarDeRuta("La hoja de ruta se rindió sin visitar el domicilio de retiro.", usuarioId);
+                    break;
+            }
+
+            await _retiroRepository.UpdateAsync(retiro, cancellationToken);
+        }
+
+        return recibidos;
     }
 
     /// <summary>Bultos que salieron en el vehículo con esta ruta (entregados, en tránsito, pendientes o en retorno).</summary>

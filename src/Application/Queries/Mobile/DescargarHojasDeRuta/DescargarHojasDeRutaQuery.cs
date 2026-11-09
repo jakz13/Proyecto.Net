@@ -40,7 +40,10 @@ public record ParadaDescargaDto(
     string? VentanaHoraria,
     DireccionDescargaDto Direccion,
     DestinatarioDescargaDto Destinatario,
-    IReadOnlyList<BultoDescargaDto> Bultos);
+    IReadOnlyList<BultoDescargaDto> Bultos,
+    string Tipo = "Entrega",
+    Guid? RetiroId = null,
+    string? MotivoRetiro = null);
 
 public record DireccionDescargaDto(
     string Texto,

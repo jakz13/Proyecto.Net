@@ -26,6 +26,10 @@ public static class DatabaseSeederAdministracion
 
     public static readonly Guid IdentidadVisualId = Guid.Parse("a4000000-0000-0000-0000-000000000001");
 
+    /// <summary>Reglas de la tarifa propia del retiro en domicilio (RF 41), una por operador y con precios distintos.</summary>
+    public static readonly Guid ReglaRetiroOperador1Id = Guid.Parse("99999999-0003-0000-0000-000000000001");
+    public static readonly Guid ReglaRetiroOperador2Id = Guid.Parse("99999999-0003-0000-0000-000000000002");
+
     public static async Task SembrarAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
         using var _ = context.HabilitarEscrituraAdministrativa();
@@ -33,12 +37,38 @@ public static class DatabaseSeederAdministracion
         await SembrarZonasAsync(context, cancellationToken);
         await SembrarIdentidadVisualAsync(context, cancellationToken);
         await SembrarMensajesFallidosAsync(context, cancellationToken);
+        await SembrarTarifaDeRetiroAsync(context, cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("DatabaseSeeder: datos de administración del operador verificados (zonas, identidad visual, cola de fallidos).");
 
         // Segundo operador con configuración propia, para demostrar el aislamiento entre inquilinos
         await DatabaseSeederSegundoOperador.SembrarAsync(context, logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// El retiro en domicilio tiene su propia tarifa dentro del cuadro tarifario (RF 41). Se agrega al cuadro vigente de cada operador
+    /// de la demo si todavía no existe, de modo que también quede disponible en bases creadas antes de este módulo.
+    /// </summary>
+    private static async Task SembrarTarifaDeRetiroAsync(AppDbContext context, CancellationToken ct)
+    {
+        var tarifas = new[]
+        {
+            (Cuadro: DatabaseSeeder.DefaultCuadroTarifarioId, Regla: ReglaRetiroOperador1Id, Precio: 120m),
+            (Cuadro: DatabaseSeeder.CuadroTarifario2Id, Regla: ReglaRetiroOperador2Id, Precio: 160m)
+        };
+
+        foreach (var tarifa in tarifas)
+        {
+            if (!await context.CuadrosTarifarios.IgnoreQueryFilters().AnyAsync(c => c.Id == tarifa.Cuadro, ct))
+                continue;
+
+            if (await context.ReglasTarifa.AnyAsync(r => r.Id == tarifa.Regla, ct))
+                continue;
+
+            await context.ReglasTarifa.AddAsync(
+                new ReglaTarifa(tarifa.Regla, tarifa.Cuadro, "Retiro", 0m, 1000m, 0m, 1000000000m, tarifa.Precio), ct);
+        }
     }
 
     /// <summary>Completa los datos de contacto del comercio demo, que se sembró antes de existir nombre de fantasía y dirección.</summary>

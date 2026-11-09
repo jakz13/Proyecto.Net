@@ -1,5 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Planificacion;
 
 namespace UltimaMilla.Application.Queries.Planificacion;
 
@@ -36,7 +37,7 @@ public class ListarHojasDeRutaQueryHandler : IRequestHandler<ListarHojasDeRutaQu
         if (rutas.Count == 0)
             return Array.Empty<HojaDeRutaResumenDto>();
 
-        var envios = (await _envioRepository.GetByIdsAsync(rutas.SelectMany(r => r.Paradas).Select(p => p.EnvioId), cancellationToken))
+        var envios = (await _envioRepository.GetByIdsAsync(rutas.SelectMany(r => r.Paradas).IdsDeEnvios(), cancellationToken))
             .Where(e => e.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(e => e.Id);
         var vehiculos = (await _vehiculoRepository.GetByIdsAsync(

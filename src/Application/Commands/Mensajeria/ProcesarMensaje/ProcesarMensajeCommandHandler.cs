@@ -6,6 +6,7 @@ using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Entities.Seguimiento;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
@@ -38,6 +39,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
     private readonly IDistributedCacheService? _cacheService;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public ProcesarMensajeCommandHandler(
         IIdempotenciaConsumidorRepository idempotenciaRepository,
@@ -49,7 +51,8 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         AvisoComercioEntregador entregador,
         IUnitOfWork unitOfWork,
         ICurrentTenant? currentTenant = null,
-        IDistributedCacheService? cacheService = null)
+        IDistributedCacheService? cacheService = null,
+        IRetiroRepository? retiroRepository = null)
     {
         _idempotenciaRepository = idempotenciaRepository;
         _envioRepository = envioRepository;
@@ -61,6 +64,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _cacheService = cacheService;
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<ResultadoProcesamientoMensaje> Handle(ProcesarMensajeCommand request, CancellationToken cancellationToken)
@@ -76,6 +80,10 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         var claveMensaje = request.MessageId.ToString();
         if (await _idempotenciaRepository.ExisteAsync(claveMensaje, cancellationToken))
             return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Duplicado, 0, 0);
+
+        // Eventos del retiro en domicilio (RF 41): su propio mensaje, con el mismo patrón de idempotencia y entrega
+        if (string.Equals(request.TipoEvento, EventoRetiroPublicado.TipoMensaje, StringComparison.Ordinal))
+            return await ProcesarRetiroAsync(request, claveMensaje, cancellationToken);
 
         if (!string.Equals(request.TipoEvento, EventoEnvioPublicado.TipoMensaje, StringComparison.Ordinal))
         {
@@ -120,6 +128,96 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         await _entregador.EntregarAsync(avisos, cancellationToken);
 
         return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, notificaciones, avisos.Count);
+    }
+
+    /// <summary>
+    /// Procesa el cambio de estado de un retiro: invalida el caché del seguimiento público y genera los avisos a los comercios suscriptos.
+    /// El contrato de los avisos está versionado (RF 36): los retiros solo viajan en el contrato v2, de modo que las integraciones que ya
+    /// recibían avisos con el formato original (v1) no se ven afectadas por esta funcionalidad nueva.
+    /// </summary>
+    private async Task<ResultadoProcesamientoMensaje> ProcesarRetiroAsync(
+        ProcesarMensajeCommand request, string claveMensaje, CancellationToken cancellationToken)
+    {
+        if (_retiroRepository is null)
+            return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.SinConsumidor, 0, 0);
+
+        var evento = EventoRetiroPublicado.Deserializar(request.Payload)
+            ?? throw new MensajeInvalidoException($"El payload del mensaje {claveMensaje} no es un evento de retiro válido.");
+
+        // Fija el operador declarado por el evento en el alcance actual antes de consultar la base
+        _currentTenant?.EstablecerOperadorDeProceso(evento.OperadorId);
+
+        var retiro = await _retiroRepository.GetByIdAsync(evento.RetiroId, cancellationToken)
+            ?? throw new NotFoundException($"No se encontró el retiro '{evento.RetiroId}' del evento.");
+
+        // Defensa de aislamiento: el operador declarado por el evento debe ser el dueño real del retiro
+        if (retiro.OperadorId != evento.OperadorId)
+            throw new MensajeInvalidoException($"El retiro '{evento.RetiroId}' no pertenece al operador del evento.");
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(retiro.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico), cancellationToken);
+        }
+
+        var avisos = await GenerarAvisosDeRetiroAsync(evento, retiro, cancellationToken);
+
+        await _idempotenciaRepository.AddAsync(
+            new ClaveIdempotenciaConsumidor(Guid.NewGuid(), claveMensaje, $"retiro;avisos={avisos.Count}"),
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _entregador.EntregarAsync(avisos, cancellationToken);
+
+        return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, 0, avisos.Count);
+    }
+
+    private async Task<List<AvisoComercio>> GenerarAvisosDeRetiroAsync(
+        EventoRetiroPublicado evento, Retiro retiro, CancellationToken cancellationToken)
+    {
+        var suscripciones = await _avisoRepository.ListarSuscripcionesActivasAsync(retiro.ComercioOperadorId, cancellationToken);
+        var avisos = new List<AvisoComercio>();
+
+        foreach (var suscripcion in suscripciones.Where(s =>
+                     string.Equals(s.VersionContrato, SuscripcionAviso.ContratoV2, StringComparison.OrdinalIgnoreCase)
+                     && CoincideConEventoDeRetiro(s, evento)))
+        {
+            var avisoId = Guid.NewGuid();
+            var identificaciones = retiro.Bultos.Select(b => b.Identificacion).OrderBy(i => i, StringComparer.Ordinal).ToList();
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                versionContrato = SuscripcionAviso.ContratoV2,
+                avisoId,
+                evento = EventoRetiroPublicado.TipoMensaje,
+                tipoEventoDominio = evento.TipoEventoDominio,
+                retiroId = evento.RetiroId,
+                codigoSeguimiento = evento.CodigoSeguimiento,
+                referenciaExterna = retiro.ReferenciaExterna,
+                estadoAnterior = evento.EstadoAnterior,
+                estado = evento.EstadoNuevo,
+                ocurridoEn = evento.OcurridoEnUtc,
+                resumenBultos = new { totalBultos = identificaciones.Count },
+                bultos = identificaciones.Select(i => new { identificacion = i }).ToList()
+            }, EventoEnvioPublicado.OpcionesJson);
+
+            var aviso = new AvisoComercio(avisoId, suscripcion.Id, evento.RetiroId, payload, FirmaWebhook.Calcular(suscripcion.ClaveFirma, payload));
+            await _avisoRepository.AddAsync(aviso, cancellationToken);
+            avisos.Add(aviso);
+        }
+
+        return avisos;
+    }
+
+    /// <summary>Una suscripción recibe el evento de retiro si pide todo ("*"), todos los retiros ("Retiro"), el estado o el tipo de evento.</summary>
+    private static bool CoincideConEventoDeRetiro(SuscripcionAviso suscripcion, EventoRetiroPublicado evento)
+    {
+        var tipoSuscripto = NormalizarTipoEventoSuscripto(suscripcion.TipoEvento);
+
+        return string.Equals(tipoSuscripto, TodosLosEventos, StringComparison.Ordinal)
+            || string.Equals(tipoSuscripto, "Retiro", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tipoSuscripto, evento.EstadoNuevo, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tipoSuscripto, evento.TipoEventoDominio, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<int> NotificarDestinatarioAsync(EventoEnvioPublicado evento, Envio envio, CancellationToken cancellationToken)

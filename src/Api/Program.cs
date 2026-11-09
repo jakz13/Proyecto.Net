@@ -87,7 +87,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddScheme<AuthenticationSchemeOptions, DevMobileAuthHandler>(DevMobileAuthHandler.SchemeName, _ => { });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(UltimaMilla.Api.Auth.PoliticasApi.Configurar);
 
 // Límite de tasa para la consulta pública de seguimiento (evita la enumeración de códigos y el abuso)
 builder.Services.AddRateLimiter(opciones =>
@@ -488,6 +488,9 @@ app.MapIncidenciasEndpoints();
 
 // Registrar reglas operativas y motivos de no entrega (UC-04, UC-05)
 app.MapOperadorConfiguracionEndpoints();
+
+// Retiro en domicilio (cambio de requerimientos 2.2): portal, API por clave, backoffice y repartidor
+app.MapRetirosEndpoints();
 
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
