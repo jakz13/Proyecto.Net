@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Common;
@@ -128,8 +129,7 @@ public class AppDbContext : DbContext
             builder.Ignore(b => b.EstaClasificado);
             builder.Ignore(b => b.EstaEntregado);
             builder.Ignore(b => b.EstaDisponibleParaRuta);
-            builder.Ignore(b => b.MotivoNoEntregaCodigo);
-            builder.Ignore(b => b.PruebaDeEntregaId);
+            builder.Property(b => b.MotivoNoEntregaCodigo).HasMaxLength(50);
             builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
             builder.Property(b => b.EstadoBulto).IsRequired().HasMaxLength(50);
             builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
@@ -207,7 +207,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PruebaDeEntrega>(builder =>
         {
             builder.ToTable("PruebasDeEntrega");
-            builder.Ignore(p => p.CodigosBultosEntregados);
+            builder.Property(p => p.CodigosBultosEntregados)
+                .HasMaxLength(2000)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => string.IsNullOrEmpty(v) ? Array.Empty<string>() : v.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                    new ValueComparer<IReadOnlyList<string>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        a => a.Aggregate(0, (h, x) => HashCode.Combine(h, x.GetHashCode())),
+                        a => a.ToList()));
             builder.HasKey(p => p.Id);
             builder.Property(p => p.Tipo).IsRequired().HasMaxLength(100);
         });
@@ -215,8 +223,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ReglaOperativa>(builder =>
         {
             builder.ToTable("ReglasOperativas");
-            builder.Ignore(r => r.AdmiteEntregaParcial);
-            builder.Ignore(r => r.PoliticaEntregaParcial);
+            builder.Property(r => r.AdmiteEntregaParcial).HasDefaultValue(true);
+            builder.Property(r => r.PoliticaEntregaParcial).IsRequired().HasMaxLength(50).HasDefaultValue(ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
             builder.HasKey(r => r.Id);
             builder.Property(r => r.TipoPruebaEntregaExigida).IsRequired().HasMaxLength(200);
             builder.Property(r => r.PoliticaDevolucion).IsRequired().HasMaxLength(500);
@@ -530,7 +538,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SuscripcionAviso>(builder =>
         {
             builder.ToTable("SuscripcionesAviso");
-            builder.Ignore(s => s.VersionContrato);
+            builder.Property(s => s.VersionContrato).IsRequired().HasMaxLength(10).HasDefaultValue(SuscripcionAviso.ContratoV1);
             builder.HasKey(s => s.Id);
             builder.Property(s => s.TipoEvento).IsRequired().HasMaxLength(100);
             builder.Property(s => s.UrlWebhook).IsRequired().HasMaxLength(500);

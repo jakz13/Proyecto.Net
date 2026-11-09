@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Exceptions;
 
@@ -9,34 +8,18 @@ public class SuscripcionAviso : Entity, IMustHaveComercioTenant
     public const string ContratoV1 = "v1";
     public const string ContratoV2 = "v2";
 
-    private static readonly ConcurrentDictionary<Guid, string> VersionContratoPorSuscripcion = new();
-
     public Guid ComercioOperadorId { get; private set; }
     public string TipoEvento { get; private set; } = string.Empty;
     public string UrlWebhook { get; private set; } = string.Empty;
     public string ClaveFirma { get; private set; } = string.Empty;
     public bool Activa { get; private set; }
 
-    private string _versionContrato = ContratoV1;
-
     /// <summary>
-    /// Versión del contrato de avisos a comercios (RF-36).
-    /// 'v1' mantiene el formato original por compatibilidad hacia atrás; 'v2' incorpora el detalle y resumen de eventos a nivel de bulto.
+    /// Versión del contrato de avisos a comercios (RF 36). Se persiste por suscripción.
+    /// 'v1' mantiene el formato original por compatibilidad hacia atrás; 'v2' incorpora el detalle y resumen de eventos a nivel de bulto
+    /// y los eventos de retiro en domicilio.
     /// </summary>
-    public string VersionContrato
-    {
-        get
-        {
-            if (VersionContratoPorSuscripcion.TryGetValue(Id, out var version))
-                return version;
-
-            if (TipoEvento.StartsWith("v2:", StringComparison.OrdinalIgnoreCase))
-                return ContratoV2;
-
-            return _versionContrato;
-        }
-        private set => _versionContrato = value;
-    }
+    public string VersionContrato { get; private set; } = ContratoV1;
 
     protected SuscripcionAviso() { }
 
@@ -70,15 +53,13 @@ public class SuscripcionAviso : Entity, IMustHaveComercioTenant
         UrlWebhook = urlWebhook.Trim();
         ClaveFirma = claveFirma.Trim();
         Activa = true;
-        _versionContrato = versionNormalizada;
-        VersionContratoPorSuscripcion[Id] = versionNormalizada;
+        VersionContrato = versionNormalizada;
     }
 
     public void ConfigurarVersionContrato(string versionContrato)
     {
         var normalizada = NormalizarVersionContrato(versionContrato, TipoEvento);
-        _versionContrato = normalizada;
-        VersionContratoPorSuscripcion[Id] = normalizada;
+        VersionContrato = normalizada;
     }
 
     private static string NormalizarVersionContrato(string? versionContrato, string? tipoEvento)

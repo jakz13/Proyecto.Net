@@ -198,6 +198,49 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("MovimientosCuentaCorriente", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.ConflictoSincronizacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntidadAfectada")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("EntidadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EstadoDispositivo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("EstadoServidor")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PoliticaAplicada")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Resolucion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntidadAfectada", "EntidadId");
+
+                    b.ToTable("ConflictosSincronizacion", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.Devolucion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -343,6 +386,11 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CodigosBultosEntregados")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("DocumentoReceptor")
                         .HasColumnType("text");
 
@@ -442,6 +490,10 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("MotivoNoEntregaCodigo")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<decimal>("Peso")
                         .HasColumnType("numeric");
 
@@ -451,6 +503,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Profundo")
                         .HasColumnType("numeric");
+
+                    b.Property<Guid?>("PruebaDeEntregaId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("TipoClasificacion")
                         .HasMaxLength(50)
@@ -1269,6 +1324,11 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AdmiteEntregaParcial")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Comentario")
                         .HasColumnType("text");
 
@@ -1294,6 +1354,13 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PoliticaEntregaParcial")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("NuevaVisitaSinRecargo");
 
                     b.Property<string>("TipoPruebaEntregaExigida")
                         .IsRequired()
@@ -1724,6 +1791,13 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("VersionContrato")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("v1");
 
                     b.HasKey("Id");
 

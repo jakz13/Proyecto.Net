@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Exceptions;
 
@@ -18,8 +17,6 @@ public class ReglaOperativa : Entity, IMustHaveTenant
             PoliticaDevolucionAlComercio
         };
 
-    private static readonly ConcurrentDictionary<Guid, (bool Admite, string Politica)> ConfiguracionEntregaParcialPorRegla = new();
-
     public Guid OperadorId { get; private set; }
     public int Version { get; private set; }
     public DateTime VigenteDesde { get; private set; }
@@ -33,25 +30,14 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public int MaxParadasPorRuta { get; private set; }
     public string? Comentario { get; private set; }
 
-    private bool _admiteEntregaParcial = true;
-    private string _politicaEntregaParcial = PoliticaNuevaVisitaSinRecargo;
-
-    /// <summary>Indica si el operador admite entregas parciales a nivel de bulto (RF-33).</summary>
-    public bool AdmiteEntregaParcial
-    {
-        get => ConfiguracionEntregaParcialPorRegla.TryGetValue(Id, out var cfg) ? cfg.Admite : _admiteEntregaParcial;
-        private set => _admiteEntregaParcial = value;
-    }
+    /// <summary>Indica si el operador admite entregas parciales a nivel de bulto (RF 33). Forma parte de la versión de la regla y se persiste.</summary>
+    public bool AdmiteEntregaParcial { get; private set; } = true;
 
     /// <summary>
-    /// Define qué sucede con los bultos pendientes tras una entrega parcial (RF-33):
-    /// NuevaVisitaSinRecargo, NuevaVisitaConRecargo o DevolucionAlComercio.
+    /// Define qué sucede con los bultos pendientes tras una entrega parcial (RF 33):
+    /// NuevaVisitaSinRecargo, NuevaVisitaConRecargo o DevolucionAlComercio. Se persiste.
     /// </summary>
-    public string PoliticaEntregaParcial
-    {
-        get => ConfiguracionEntregaParcialPorRegla.TryGetValue(Id, out var cfg) ? cfg.Politica : _politicaEntregaParcial;
-        private set => _politicaEntregaParcial = value;
-    }
+    public string PoliticaEntregaParcial { get; private set; } = PoliticaNuevaVisitaSinRecargo;
 
     protected ReglaOperativa() { }
 
@@ -105,17 +91,15 @@ public class ReglaOperativa : Entity, IMustHaveTenant
         PlazoComprometidoEstandar = plazoComprometidoEstandar;
         PlazoComprometidoUrgente = plazoComprometidoUrgente;
         MaxParadasPorRuta = maxParadasPorRuta;
-        _admiteEntregaParcial = admiteEntregaParcial;
-        _politicaEntregaParcial = politicaParcialNormalizada;
-        ConfiguracionEntregaParcialPorRegla[Id] = (admiteEntregaParcial, politicaParcialNormalizada);
+        AdmiteEntregaParcial = admiteEntregaParcial;
+        PoliticaEntregaParcial = politicaParcialNormalizada;
     }
 
     public void ConfigurarEntregaParcial(bool admiteEntregaParcial, string? politicaEntregaParcial = null)
     {
-        var politicaNormalizada = NormalizarPoliticaEntregaParcial(politicaEntregaParcial ?? _politicaEntregaParcial);
-        _admiteEntregaParcial = admiteEntregaParcial;
-        _politicaEntregaParcial = politicaNormalizada;
-        ConfiguracionEntregaParcialPorRegla[Id] = (admiteEntregaParcial, politicaNormalizada);
+        var politicaNormalizada = NormalizarPoliticaEntregaParcial(politicaEntregaParcial ?? PoliticaEntregaParcial);
+        AdmiteEntregaParcial = admiteEntregaParcial;
+        PoliticaEntregaParcial = politicaNormalizada;
     }
 
     private static string NormalizarPoliticaEntregaParcial(string? politica)

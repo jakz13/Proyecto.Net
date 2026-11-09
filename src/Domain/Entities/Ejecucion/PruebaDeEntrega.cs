@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Exceptions;
 
@@ -6,8 +5,6 @@ namespace UltimaMilla.Domain.Entities.Ejecucion;
 
 public class PruebaDeEntrega : Entity
 {
-    private static readonly ConcurrentDictionary<Guid, IReadOnlyList<string>> BultosPorPrueba = new();
-
     public Guid IntentoEntregaId { get; private set; }
     public string Tipo { get; private set; } = string.Empty;
     public string? FirmaImagenUrl { get; private set; }
@@ -18,13 +15,8 @@ public class PruebaDeEntrega : Entity
     public double? Longitud { get; private set; }
     public DateTime TimestampDispositivo { get; private set; }
 
-    private IReadOnlyList<string> _codigosBultosEntregados = Array.Empty<string>();
-
-    /// <summary>Códigos de los bultos efectivamente entregados respaldados por esta prueba de entrega (RF-32).</summary>
-    public IReadOnlyList<string> CodigosBultosEntregados =>
-        _codigosBultosEntregados.Count > 0
-            ? _codigosBultosEntregados
-            : (BultosPorPrueba.TryGetValue(Id, out var guardados) ? guardados : Array.Empty<string>());
+    /// <summary>Códigos de los bultos efectivamente entregados respaldados por esta prueba de entrega (RF-32). Se persiste.</summary>
+    public IReadOnlyList<string> CodigosBultosEntregados { get; private set; } = Array.Empty<string>();
 
     protected PruebaDeEntrega() { }
 
@@ -69,8 +61,6 @@ public class PruebaDeEntrega : Entity
             .ToList()
             .AsReadOnly();
 
-        _codigosBultosEntregados = normalizados;
-        if (Id != Guid.Empty)
-            BultosPorPrueba[Id] = normalizados;
+        CodigosBultosEntregados = normalizados;
     }
 }

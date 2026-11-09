@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using UltimaMilla.Domain.Common;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
@@ -7,8 +6,6 @@ namespace UltimaMilla.Domain.Entities.Envios;
 
 public class Bulto : Entity
 {
-    private static readonly ConcurrentDictionary<Guid, (string? MotivoCodigo, Guid? PruebaId)> MetadatosPorBulto = new();
-
     public Guid EnvioId { get; private set; }
     public string Identificacion { get; private set; } = string.Empty;
     public decimal Peso { get; private set; }
@@ -27,30 +24,11 @@ public class Bulto : Entity
 
     public bool EstaClasificado => FechaClasificacion.HasValue;
 
-    private string? _motivoNoEntregaCodigo;
-    private Guid? _pruebaDeEntregaId;
+    /// <summary>Código del motivo de no entrega registrado para este bulto cuando no pudo entregarse en la parada (RF-32). Se persiste.</summary>
+    public string? MotivoNoEntregaCodigo { get; private set; }
 
-    /// <summary>Código del motivo de no entrega registrado para este bulto cuando no pudo entregarse en la parada (RF-32).</summary>
-    public string? MotivoNoEntregaCodigo
-    {
-        get => _motivoNoEntregaCodigo ?? (MetadatosPorBulto.TryGetValue(Id, out var meta) ? meta.MotivoCodigo : null);
-        private set
-        {
-            _motivoNoEntregaCodigo = value;
-            SincronizarMetadatos();
-        }
-    }
-
-    /// <summary>Identificador de la prueba de entrega asociada cuando el bulto fue efectivamente entregado (RF-32).</summary>
-    public Guid? PruebaDeEntregaId
-    {
-        get => _pruebaDeEntregaId ?? (MetadatosPorBulto.TryGetValue(Id, out var meta) ? meta.PruebaId : null);
-        private set
-        {
-            _pruebaDeEntregaId = value;
-            SincronizarMetadatos();
-        }
-    }
+    /// <summary>Identificador de la prueba de entrega asociada cuando el bulto fue efectivamente entregado (RF-32). Se persiste.</summary>
+    public Guid? PruebaDeEntregaId { get; private set; }
 
     /// <summary>Indica si el bulto ya fue entregado al destinatario.</summary>
     public bool EstaEntregado => string.Equals(EstadoBulto, MaquinaEstadosBulto.Entregado, StringComparison.Ordinal);
@@ -187,7 +165,6 @@ public class Bulto : Entity
         EstadoBulto = MaquinaEstadosBulto.CargadoEnVehiculo;
         MotivoNoEntregaCodigo = null;
         PruebaDeEntregaId = null;
-        MetadatosPorBulto.TryRemove(Id, out _);
     }
 
     /// <summary>Valida que el bulto admita la clasificación indicada y devuelve el tipo normalizado.</summary>
@@ -232,16 +209,5 @@ public class Bulto : Entity
         Alto = alto;
         Ancho = ancho;
         Profundo = profundo;
-    }
-
-    private void SincronizarMetadatos()
-    {
-        if (Id == Guid.Empty)
-            return;
-
-        if (_motivoNoEntregaCodigo is null && _pruebaDeEntregaId is null)
-            MetadatosPorBulto.TryRemove(Id, out _);
-        else
-            MetadatosPorBulto[Id] = (_motivoNoEntregaCodigo, _pruebaDeEntregaId);
     }
 }
