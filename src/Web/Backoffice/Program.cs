@@ -40,6 +40,8 @@ builder.Services.AddRazorPages(opciones =>
     opciones.Conventions.AuthorizeFolder("/IdentidadVisual", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Flota", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Mensajeria", "SoloAdministradores");
+    opciones.Conventions.AuthorizeFolder("/Observabilidad", "SoloAdministradores");
+    opciones.Conventions.AuthorizeFolder("/Tablero", "Operaciones");
     opciones.Conventions.AuthorizeFolder("/Deposito", "Deposito");
     opciones.Conventions.AuthorizeFolder("/Retiros", "Deposito");
     opciones.Conventions.AllowAnonymousToPage("/Login");
@@ -57,7 +59,7 @@ var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", true);
 builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
 {
     opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    opciones.KnownNetworks.Clear();
+    opciones.KnownIPNetworks.Clear();
     opciones.KnownProxies.Clear();
 });
 

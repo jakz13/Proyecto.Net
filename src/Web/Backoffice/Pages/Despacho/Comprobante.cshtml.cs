@@ -9,7 +9,7 @@ namespace UltimaMilla.Backoffice.Pages.Despacho;
 /// <summary>
 /// Modelo de página para el comprobante y resumen post-despacho de una hoja de ruta (UC-09).
 /// </summary>
-[Authorize(Roles = "Operario,Administrador")]
+[Authorize(Roles = "Despachador,Operario,Administrador")]
 public class ComprobanteModel : PageModel
 {
     private readonly IRutasApi _rutasApi;

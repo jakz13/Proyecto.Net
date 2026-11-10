@@ -43,7 +43,23 @@ public class IndexModel : PageModel
 
     public async Task OnGetAsync()
     {
-        await CargarIdentidadAsync();
+        try
+        {
+            await CargarIdentidadAsync();
+        }
+        catch (Exception ex)
+        {
+            // Resiliencia ante recargas forzadas o desconexión temporal del backend: mantiene valores seguros
+            IdentidadActual = new IdentidadVisualDto
+            {
+                NombreComercial = "TransLogística Express",
+                ColorPrimario = "#1D4ED8",
+                ColorSecundario = "#F97316",
+                EmailContacto = "contacto@translogistica.uy",
+                TelefonoContacto = "+598 2900 1122"
+            };
+            MensajeError = $"No se pudo sincronizar la identidad en línea ({ex.Message}). Mostrando valores de respaldo.";
+        }
 
         // Inicializar el formulario con los valores actuales
         Modelo = new ActualizarIdentidadVisualDto
@@ -82,6 +98,29 @@ public class IndexModel : PageModel
                 using (var stream = new FileStream(rutaDestino, FileMode.Create))
                 {
                     await ArchivoLogo.CopyToAsync(stream);
+                }
+
+                // En entorno local de desarrollo, replica el logo en los otros portales para que se visualice sin errores 404
+                try
+                {
+                    var rutasOtrosPortales = new[]
+                    {
+                        Path.Combine(_entorno.ContentRootPath, "..", "PortalComercio", "wwwroot", "uploads", "logos"),
+                        Path.Combine(_entorno.ContentRootPath, "..", "SeguimientoPublico", "wwwroot", "uploads", "logos")
+                    };
+
+                    foreach (var carpetaDestino in rutasOtrosPortales)
+                    {
+                        if (Directory.Exists(Path.GetDirectoryName(carpetaDestino)))
+                        {
+                            Directory.CreateDirectory(carpetaDestino);
+                            System.IO.File.Copy(rutaDestino, Path.Combine(carpetaDestino, nombreArchivo), overwrite: true);
+                        }
+                    }
+                }
+                catch
+                {
+                    // La réplica local es oportunista; no debe bloquear si los otros portales están ausentes
                 }
 
                 Modelo.LogoUrl = $"/uploads/logos/{nombreArchivo}";

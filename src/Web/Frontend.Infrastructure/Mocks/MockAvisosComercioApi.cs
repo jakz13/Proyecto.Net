@@ -273,4 +273,34 @@ public class MockAvisosComercioApi : IAvisosComercioApi
 
         return Task.FromResult(respuesta);
     }
+
+    /// <summary>
+    /// Registra en la bitácora de avisos del comercio el evento de extravío de un paquete (RF-11).
+    /// </summary>
+    public static void RegistrarAvisoExtraviado(Guid envioId, string codigoSeguimiento, string motivo)
+    {
+        var aviso = new AvisoHistorialDetalleDto(
+            Id: Guid.NewGuid(),
+            SuscripcionAvisoId: Guid.Parse("aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"),
+            EnvioId: envioId,
+            CodigoSeguimiento: codigoSeguimiento,
+            TipoEvento: "Extraviado",
+            UrlWebhook: _urlWebhookActual,
+            Payload: JsonSerializer.Serialize(new
+            {
+                evento = "Extraviado",
+                codigoSeguimiento,
+                motivo,
+                fecha = DateTime.UtcNow
+            }),
+            FirmaEnviada: "sha256=" + Guid.NewGuid().ToString("N"),
+            Estado: "Entregado",
+            Intentos: 1,
+            UltimaRespuestaHttp: "HTTP 200 OK - Webhook recibido y procesado por el comercio",
+            CodigoRespuestaHttp: 200,
+            Timestamp: DateTime.UtcNow,
+            ProximoReintento: null);
+
+        HistorialDetalleEnMemoria.Insert(0, aviso);
+    }
 }

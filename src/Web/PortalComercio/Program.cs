@@ -141,6 +141,18 @@ app.Use(async (contexto, siguiente) =>
     await siguiente();
 });
 
+app.UseStaticFiles();
+
+var rutaUploadsBackoffice = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "Backoffice", "wwwroot", "uploads"));
+if (Directory.Exists(rutaUploadsBackoffice))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(rutaUploadsBackoffice),
+        RequestPath = "/uploads"
+    });
+}
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

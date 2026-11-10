@@ -1071,12 +1071,15 @@
             {
                 try
                 {
+                    var esExtravio = string.Equals(estado, "Extraviado", StringComparison.OrdinalIgnoreCase);
                     await JS.InvokeVoidAsync("SistemaNotificaciones.mostrar", new
                     {
-                        tipo = "info",
-                        titulo = "Envío actualizado",
-                        mensajeBreve = $"{codigoSeguimiento} pasó a: {estado}",
-                        duracionMs = 4000
+                        tipo = esExtravio ? "error" : "info",
+                        titulo = esExtravio ? "Alerta: Paquete Extraviado" : "Envío actualizado",
+                        mensajeBreve = esExtravio
+                            ? $"El envío {codigoSeguimiento} fue reportado como extraviado. Se registró una incidencia."
+                            : $"{codigoSeguimiento} pasó a: {estado}",
+                        duracionMs = esExtravio ? 8000 : 4000
                     });
                 }
                 catch

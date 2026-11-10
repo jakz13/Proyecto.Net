@@ -36,7 +36,8 @@ public static partial class IdentidadVisualEndpoints
             return Results.Ok(identidades);
         }))
         .WithName("ListarOperadoresDemo")
-        .WithSummary("Identidad visual de todos los operadores (selector de la demo)");
+        .WithSummary("Identidad visual de todos los operadores (selector de la demo)")
+        .AllowAnonymous();
 
         grupo.MapGet("/operadores-demo/{operadorId}", (string operadorId, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>
             RespuestasBackoffice.Ejecutar(async () =>
@@ -45,7 +46,43 @@ public static partial class IdentidadVisualEndpoints
                 return Results.Ok(await ObtenerAsync(db, id, ct));
             }))
         .WithName("ObtenerIdentidadOperadorDemo")
-        .WithSummary("Identidad visual de un operador puntual");
+        .WithSummary("Identidad visual de un operador puntual")
+        .AllowAnonymous();
+
+        grupo.MapGet("/logos/{nombreArchivo}", (string nombreArchivo, IWebHostEnvironment env) =>
+        {
+            if (string.IsNullOrWhiteSpace(nombreArchivo) || nombreArchivo.Contains(".."))
+                return Results.BadRequest();
+
+            var rutasPosibles = new[]
+            {
+                Path.Combine(env.ContentRootPath, "..", "Web", "Backoffice", "wwwroot", "uploads", "logos", nombreArchivo),
+                Path.Combine(env.ContentRootPath, "uploads", "logos", nombreArchivo),
+                Path.Combine(AppContext.BaseDirectory, "uploads", "logos", nombreArchivo)
+            };
+
+            foreach (var ruta in rutasPosibles)
+            {
+                if (File.Exists(ruta))
+                {
+                    var extension = Path.GetExtension(ruta).ToLowerInvariant();
+                    var tipoMime = extension switch
+                    {
+                        ".png" => "image/png",
+                        ".jpg" or ".jpeg" => "image/jpeg",
+                        ".svg" => "image/svg+xml",
+                        ".webp" => "image/webp",
+                        _ => "application/octet-stream"
+                    };
+                    return Results.File(ruta, tipoMime);
+                }
+            }
+
+            return Results.NotFound();
+        })
+        .WithName("ObtenerLogoOperador")
+        .WithSummary("Servicio público de imagen o logotipo corporativo del operador")
+        .AllowAnonymous();
 
         grupo.MapPut("/", (
             [FromBody] ActualizarIdentidadVisualDto dto,
