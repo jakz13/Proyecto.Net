@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Módulo de Mapas Interactivos con Leaflet adaptado a la identidad visual de Última Milla.
  * Soporta renderizado de paradas de entrega, depósito central y camiones de reparto en vivo
  * tanto en el Portal del Comercio (Blazor WASM) como en el Backoffice (Razor Pages).
@@ -474,6 +474,95 @@
         }
     }
 
+    // Caché en memoria de geometrías OSRM para evitar parpadeos en refrescos en tiempo real
+    var cacheRutasOSRM = {};
+
+    /**
+     * Obtiene un punto a una fracción (0..1) a lo largo de una polilínea de coordenadas [[lat, lng], ...].
+     */
+    function interpolarEnPolilinea(puntos, fraccion) {
+        if (!puntos || puntos.length === 0) return null;
+        if (puntos.length === 1) return { lat: puntos[0][0], lng: puntos[0][1] };
+        var f = Math.max(0, Math.min(1, fraccion));
+        var distancias = [0];
+        var total = 0;
+        for (var i = 1; i < puntos.length; i++) {
+            var dLat = puntos[i][0] - puntos[i - 1][0];
+            var dLng = puntos[i][1] - puntos[i - 1][1];
+            total += Math.sqrt(dLat * dLat + dLng * dLng);
+            distancias.push(total);
+        }
+        if (total === 0) return { lat: puntos[0][0], lng: puntos[0][1] };
+        var objetivo = total * f;
+        for (var j = 1; j < distancias.length; j++) {
+            if (distancias[j] >= objetivo) {
+                var segInicio = distancias[j - 1];
+                var segLongitud = distancias[j] - segInicio;
+                var t = segLongitud > 0 ? (objetivo - segInicio) / segLongitud : 0;
+                return {
+                    lat: puntos[j - 1][0] + (puntos[j][0] - puntos[j - 1][0]) * t,
+                    lng: puntos[j - 1][1] + (puntos[j][1] - puntos[j - 1][1]) * t
+                };
+            }
+        }
+        var ultimo = puntos[puntos.length - 1];
+        return { lat: ultimo[0], lng: ultimo[1] };
+    }
+
+    /**
+     * Traza una ruta siguiendo calles reales usando la API pública de OSRM.
+     * Si OSRM no responde (offline/error), dibuja la polilínea recta como fallback.
+     * @param {L.Map} mapa - Instancia del mapa Leaflet
+     * @param {Array} puntos - Array de [lat, lng] en orden
+     * @param {Object} opciones - Opciones de estilo (color, weight, dashArray, opacity)
+     * @param {Function} [alResolverGeometria] - Callback opcional que recibe el array de puntos [lat, lng] de la calle
+     * @returns {Promise<L.Polyline>} La capa añadida al mapa
+     */
+    async function trazarRutaOSRM(mapa, puntos, opciones, alResolverGeometria) {
+        if (!puntos || puntos.length < 2) return null;
+
+        var coordenadasUrl = puntos.map(function (p) {
+            return p[1].toFixed(5) + ',' + p[0].toFixed(5);
+        }).join(';');
+
+        if (cacheRutasOSRM[coordenadasUrl]) {
+            var rutaCache = cacheRutasOSRM[coordenadasUrl];
+            if (typeof alResolverGeometria === 'function') alResolverGeometria(rutaCache);
+            if (mapa && mapa._container) {
+                return L.polyline(rutaCache, opciones).addTo(mapa);
+            }
+            return null;
+        }
+
+        var url = 'https://router.project-osrm.org/route/v1/driving/' + coordenadasUrl +
+                  '?overview=full&geometries=geojson&steps=false';
+
+        try {
+            var respuesta = await fetch(url, { signal: AbortSignal.timeout(6000) });
+            if (respuesta.ok) {
+                var datos = await respuesta.json();
+                if (datos && datos.code === 'Ok' && datos.routes && datos.routes.length > 0) {
+                    var coordsGeojson = datos.routes[0].geometry.coordinates;
+                    var puntosRuta = coordsGeojson.map(function (c) { return [c[1], c[0]]; });
+                    cacheRutasOSRM[coordenadasUrl] = puntosRuta;
+                    if (typeof alResolverGeometria === 'function') alResolverGeometria(puntosRuta);
+                    if (mapa && mapa._container) {
+                        return L.polyline(puntosRuta, opciones).addTo(mapa);
+                    }
+                    return null;
+                }
+            }
+        } catch (e) {
+            // Sin conexión o timeout: fallback silencioso
+        }
+
+        if (typeof alResolverGeometria === 'function') alResolverGeometria(puntos);
+        if (mapa && mapa._container) {
+            return L.polyline(puntos, opciones).addTo(mapa);
+        }
+        return null;
+    }
+
     /**
      * 1. Renderiza el mapa de seguimiento individual de un envío (Portal del Comercio UC-28 y Backoffice Trazabilidad).
      */
@@ -555,7 +644,7 @@
                 '</div>'
             );
 
-            L.polyline([
+            trazarRutaOSRM(mapa, [
                 [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],
                 [paradaIntermedia1.lat, paradaIntermedia1.lng],
                 [paradaIntermedia2.lat, paradaIntermedia2.lng],
@@ -564,9 +653,9 @@
                 color: '#1D4ED8',
                 weight: 3.5,
                 opacity: 0.85
-            }).addTo(mapa);
+            });
 
-            L.polyline([
+            trazarRutaOSRM(mapa, [
                 [coordCamion.lat, coordCamion.lng],
                 [coordDestino.lat, coordDestino.lng]
             ], {
@@ -574,7 +663,7 @@
                 weight: 3,
                 dashArray: '6, 6',
                 opacity: 0.75
-            }).addTo(mapa);
+            });
 
             var etiquetaCamion = numeroRuta || 'En Reparto';
             var markerCamion = L.marker([coordCamion.lat, coordCamion.lng], {
@@ -598,7 +687,7 @@
                 ? '#15803D'
                 : (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado' ? '#B91C1C' : '#64748B');
 
-            L.polyline([
+            trazarRutaOSRM(mapa, [
                 [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],
                 [coordDestino.lat, coordDestino.lng]
             ], {
@@ -606,7 +695,7 @@
                 weight: 2.8,
                 dashArray: estadoNorm === 'Entregado' ? null : '6, 6',
                 opacity: 0.75
-            }).addTo(mapa);
+            });
         }
 
         // 3. Marcador de la Parada de Destino del Envío
@@ -697,7 +786,7 @@
 
             puntosTotales.push([latVeh, lngVeh]);
             var puntosRutaVehiculo = [[latVeh, lngVeh]];
-            var coordenadasPolilinea = [];
+            var coordenadasPolilinea = [[DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng]];
 
             paradas.forEach(function (par, idxPar) {
                 var orden = par.orden || par.Orden || (idxPar + 1);
@@ -745,14 +834,14 @@
                 });
             });
 
-            if (coordenadasPolilinea.length > 0) {
+            if (coordenadasPolilinea.length > 1) {
                 var colorRuta = tieneRiesgo ? '#B91C1C' : (estadoOp === 'EnMovimiento' ? '#1D4ED8' : '#64748B');
-                L.polyline(coordenadasPolilinea, {
+                trazarRutaOSRM(mapa, coordenadasPolilinea, {
                     color: colorRuta,
                     weight: 2.6,
                     dashArray: '5, 6',
                     opacity: 0.65
-                }).addTo(mapa);
+                });
             }
 
             var varianteCamion = tieneRiesgo
@@ -913,12 +1002,12 @@
 
         if (puntosPolilinea.length > 1) {
             var enCalle = (estadoRuta === 'Despachada' || estadoRuta === 'EnTransito');
-            L.polyline(puntosPolilinea, {
+            trazarRutaOSRM(mapa, puntosPolilinea, {
                 color: enCalle ? '#1D4ED8' : '#475569',
                 weight: 3,
                 dashArray: enCalle ? null : '6, 6',
                 opacity: 0.78
-            }).addTo(mapa);
+            });
         }
 
         if (estadoRuta !== 'Finalizada' && estadoRuta !== 'Cancelada') {
@@ -947,6 +1036,19 @@
                 icon: crearIconoCamion(matricula, enCirculacion ? 'movimiento' : 'ruta', true),
                 zIndexOffset: 600
             }).addTo(mapa);
+
+            if (enCirculacion && primeraPendienteCoord) {
+                var origenRutaCamion = ultimaEntregadaCoord || DEPOSITO_CENTRAL;
+                trazarRutaOSRM(null, [
+                    [origenRutaCamion.lat, origenRutaCamion.lng],
+                    [primeraPendienteCoord.lat, primeraPendienteCoord.lng]
+                ], {}, function (geometriaTramo) {
+                    var posEnCalle = interpolarEnPolilinea(geometriaTramo, 0.55);
+                    if (posEnCalle && markerCamion) {
+                        markerCamion.setLatLng([posEnCalle.lat, posEnCalle.lng]);
+                    }
+                });
+            }
 
             markerCamion.bindPopup(
                 '<div class="um-popup">' +
