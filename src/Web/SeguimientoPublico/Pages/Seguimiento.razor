@@ -148,6 +148,24 @@
                     <span>Última actualización: @seguimiento.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs.</span>
                 </div>
 
+                <!-- Devolución al comercio: el comprador ve qué pasó y qué hacer. No se ofrece una acción pública que cambie el estado del envío -->
+                @if (seguimiento.EstadoActual == UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnDevolucion)
+                {
+                    <div class="mb-4">
+                        <MensajeEstado Titulo="Tu envío está siendo devuelto al comercio"
+                                       Mensaje="No fue posible entregarlo y vuelve al comercio que lo envió. Para coordinar una nueva entrega o consultar el reembolso, comunicate con el comercio indicando este código de seguimiento."
+                                       Tipo="MensajeEstado.TipoAlerta.Aviso" />
+                    </div>
+                }
+                else if (seguimiento.EstadoActual == UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Devuelto)
+                {
+                    <div class="mb-4">
+                        <MensajeEstado Titulo="Tu envío fue devuelto al comercio"
+                                       Mensaje="El envío ya está en poder del comercio. Para coordinar una nueva entrega o consultar el reembolso, comunicate con el comercio indicando este código de seguimiento."
+                                       Tipo="MensajeEstado.TipoAlerta.Exito" />
+                    </div>
+                }
+
                 <!-- Reprogramación de Entrega (UC-34) -->
                 @if (seguimiento.PermiteReprogramacion)
                 {
