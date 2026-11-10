@@ -1153,6 +1153,40 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.ToTable("OutboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.BanderaFuncionalidad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("Habilitada")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ModificadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModificadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("ModificadaPorUsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId", "Clave")
+                        .IsUnique();
+
+                    b.ToTable("BanderasFuncionalidad", (string)null);
+                });
+
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.CuadroTarifario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1209,6 +1243,42 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasIndex("ZonaCoberturaId");
 
                     b.ToTable("FranjasHorarias", (string)null);
+                });
+
+            modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.HistorialBandera", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperadorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UsuarioNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("ValorAnterior")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ValorNuevo")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperadorId", "Fecha");
+
+                    b.ToTable("HistorialBanderas", (string)null);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Operador.IdentidadVisual", b =>

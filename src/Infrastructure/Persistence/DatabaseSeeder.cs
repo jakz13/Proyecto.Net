@@ -33,6 +33,11 @@ public static class DatabaseSeeder
     public static readonly Guid DefaultPerfilRepartidorId = Guid.Parse("10000000-0000-0000-0000-000000000004");
     public static readonly Guid DefaultPerfilComercioId = Guid.Parse("10000000-0000-0000-0000-000000000005");
 
+    /// <summary>Perfil de quien ofrece el servicio: activa y desactiva funcionalidades por operador. No pertenece a ningún operador del negocio.</summary>
+    public static readonly Guid PerfilAdministradorPlataformaId = Guid.Parse("10000000-0000-0000-0000-000000000006");
+    public static readonly Guid UsuarioAdministradorPlataformaId = Guid.Parse("70000000-0000-0000-0000-000000000007");
+    public const string EmailAdministradorPlataforma = "plataforma@gmail.com";
+
     // Segundo operador para demostrar multitenancy con configuración distinta (15/10)
     public static readonly Guid Operador2Id = Guid.Parse("22222222-0000-0000-0000-000000000002");
     public static readonly Guid ReglaOperativa2Id = Guid.Parse("44444444-0000-0000-0000-000000000002");
@@ -476,6 +481,24 @@ public static class DatabaseSeeder
         }
 
         await context.SaveChangesAsync(cancellationToken);
+
+        // 4. Administrador de la plataforma (quien ofrece el servicio): también se agrega a bases creadas antes de existir este perfil
+        if (!await context.Perfiles.AnyAsync(p => p.Id == PerfilAdministradorPlataformaId, cancellationToken))
+        {
+            await context.Perfiles.AddAsync(
+                new Perfil(PerfilAdministradorPlataformaId, "AdministradorPlataforma", "Activa y desactiva funcionalidades por operador"), cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await context.Usuarios.AnyAsync(u => u.Email == EmailAdministradorPlataforma, cancellationToken))
+        {
+            await context.Usuarios.AddAsync(
+                new Usuario(UsuarioAdministradorPlataformaId, "Administrador de la Plataforma", EmailAdministradorPlataforma,
+                    hasher.HashearPassword("Plataforma.2026!"), PerfilAdministradorPlataformaId, operadorId: DefaultOperadorId),
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
         logger.LogInformation("DatabaseSeeder: Perfiles, segundo operador y usuarios sembrados con éxito.");
     }
 }

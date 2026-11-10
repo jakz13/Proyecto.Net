@@ -14,6 +14,7 @@ public static class PoliticasApi
     public const string RolOperario = "Operario";
     public const string RolRepartidor = "Repartidor";
     public const string RolComercio = "Comercio";
+    public const string RolPlataforma = "AdministradorPlataforma";
 
     /// <summary>Solo el administrador del operador: usuarios, zonas, tarifas, reglas, identidad visual.</summary>
     public const string Administracion = "Administracion";
@@ -33,6 +34,9 @@ public static class PoliticasApi
     /// <summary>Usuario de un comercio cliente: ve y opera únicamente sobre lo suyo.</summary>
     public const string Comercio = "Comercio";
 
+    /// <summary>Quien ofrece el servicio: activa y desactiva funcionalidades por operador. No es un perfil del operador.</summary>
+    public const string Plataforma = "Plataforma";
+
     public static void Configurar(AuthorizationOptions opciones)
     {
         opciones.AddPolicy(Administracion, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador));
@@ -42,6 +46,7 @@ public static class PoliticasApi
             .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolRepartidor));
         opciones.AddPolicy(Repartidor, p => p.RequireAuthenticatedUser().RequireRole(RolRepartidor));
         opciones.AddPolicy(Comercio, p => p.RequireAuthenticatedUser().RequireRole(RolComercio));
+        opciones.AddPolicy(Plataforma, p => p.RequireAuthenticatedUser().RequireRole(RolPlataforma));
     }
 }
 

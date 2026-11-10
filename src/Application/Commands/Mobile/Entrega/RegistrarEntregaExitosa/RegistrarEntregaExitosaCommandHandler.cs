@@ -23,6 +23,7 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public RegistrarEntregaExitosaCommandHandler(
         IEnvioRepository envioRepository,
@@ -32,8 +33,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         IDistributedCacheService cacheService,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
@@ -147,6 +150,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
 
         if (tieneEscaneoPorBultos)
         {
+            // Dejar bultos sin entregar es entrega parcial: solo si la funcionalidad está habilitada para el operador
+            if (request.BultosNoEntregados is { Count: > 0 })
+                await _funcionalidades.ExigirAsync(ruta.OperadorId, Domain.Entities.Operador.Funcionalidad.EntregaParcial, cancellationToken);
+
             var inputsNoEntregados = new List<BultoNoEntregadoInput>();
             foreach (var item in request.BultosNoEntregados ?? Array.Empty<BultoNoEntregadoRequestDto>())
             {

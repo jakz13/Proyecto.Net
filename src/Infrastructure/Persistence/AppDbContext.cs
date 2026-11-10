@@ -42,6 +42,8 @@ public class AppDbContext : DbContext
 
     public DbSet<Envio> Envios => Set<Envio>();
     public DbSet<Retiro> Retiros => Set<Retiro>();
+    public DbSet<BanderaFuncionalidad> BanderasFuncionalidad => Set<BanderaFuncionalidad>();
+    public DbSet<HistorialBandera> HistorialBanderas => Set<HistorialBandera>();
     public DbSet<BultoRetiro> BultosRetiro => Set<BultoRetiro>();
     public DbSet<EventoRetiro> EventosRetiro => Set<EventoRetiro>();
     public DbSet<Bulto> Bultos => Set<Bulto>();
@@ -162,6 +164,25 @@ public class AppDbContext : DbContext
             // Las hojas de ruta son mixtas (RF 39): una parada entrega un envío o retira un retiro
             builder.Property(p => p.Tipo).IsRequired().HasMaxLength(20).HasDefaultValue(Parada.TipoEntrega);
             builder.HasIndex(p => p.RetiroId);
+        });
+
+        // Banderas de funcionalidad por operador: las escribe el administrador de la plataforma sobre cualquier operador
+        modelBuilder.Entity<BanderaFuncionalidad>(builder =>
+        {
+            builder.ToTable("BanderasFuncionalidad");
+            builder.HasKey(b => b.Id);
+            builder.Property(b => b.Clave).IsRequired().HasMaxLength(50);
+            builder.Property(b => b.ModificadaPorNombre).HasMaxLength(200);
+            builder.HasIndex(b => new { b.OperadorId, b.Clave }).IsUnique();
+        });
+
+        modelBuilder.Entity<HistorialBandera>(builder =>
+        {
+            builder.ToTable("HistorialBanderas");
+            builder.HasKey(h => h.Id);
+            builder.Property(h => h.Clave).IsRequired().HasMaxLength(50);
+            builder.Property(h => h.UsuarioNombre).HasMaxLength(200);
+            builder.HasIndex(h => new { h.OperadorId, h.Fecha });
         });
 
         // Retiro en domicilio (cambio de requerimientos 2.2, RF 37 a RF 41)

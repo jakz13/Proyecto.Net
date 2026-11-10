@@ -15,6 +15,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly IDistributedCacheService? _cacheService;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     /// <summary>Prefijo de los códigos de retiro: el comprador usa el mismo enlace público que para los envíos (RF 41).</summary>
     public const string PrefijoCodigoRetiro = "RET-";
@@ -23,8 +24,10 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         IEnvioRepository envioRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         IDistributedCacheService? cacheService = null,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _cacheService = cacheService;
@@ -86,7 +89,8 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
-            envio.EstadoActual == EstadoEnvio.Reprogramado,
+            envio.EstadoActual == EstadoEnvio.Reprogramado
+                && (_funcionalidades is null || await _funcionalidades.EstaHabilitadaAsync(envio.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken)),
             hitos,
             totalBultos,
             bultosEntregados,

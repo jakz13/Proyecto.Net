@@ -1,5 +1,6 @@
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Exceptions;
 
@@ -21,13 +22,16 @@ public class SolicitarRetiroProcesador
     private readonly IDireccionRepository _direccionRepository;
     private readonly ICuadroTarifarioRepository _cuadroTarifarioRepository;
     private readonly IClock _clock;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public SolicitarRetiroProcesador(
         IRetiroRepository retiroRepository,
         IDireccionRepository direccionRepository,
         ICuadroTarifarioRepository cuadroTarifarioRepository,
-        IClock clock)
+        IClock clock,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _retiroRepository = retiroRepository;
         _direccionRepository = direccionRepository;
         _cuadroTarifarioRepository = cuadroTarifarioRepository;
@@ -40,6 +44,9 @@ public class SolicitarRetiroProcesador
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // Funcionalidad activable por operador: si no la tiene, no se aceptan solicitudes nuevas
+        await _funcionalidades.ExigirAsync(operadorId, Funcionalidad.RetiroEnDomicilio, cancellationToken);
 
         if (request.Contacto is null)
             throw new DomainValidationException("Los datos de contacto de quien entrega los bultos son obligatorios.");

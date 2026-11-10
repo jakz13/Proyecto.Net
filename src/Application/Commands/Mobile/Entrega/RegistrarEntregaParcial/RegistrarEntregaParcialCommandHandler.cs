@@ -22,6 +22,7 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public RegistrarEntregaParcialCommandHandler(
         IEnvioRepository envioRepository,
@@ -31,8 +32,10 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
         IDistributedCacheService cacheService,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
@@ -46,6 +49,8 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
     public async Task<EntregaParcialResultDto> Handle(RegistrarEntregaParcialCommand request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        await _funcionalidades.ExigirAsync(_currentTenant.OperadorId, Domain.Entities.Operador.Funcionalidad.EntregaParcial, cancellationToken);
 
         if (request.HojaDeRutaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la hoja de ruta es inválido.");

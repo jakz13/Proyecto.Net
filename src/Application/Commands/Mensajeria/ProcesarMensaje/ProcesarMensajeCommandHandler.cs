@@ -40,6 +40,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private readonly ICurrentTenant? _currentTenant;
     private readonly IDistributedCacheService? _cacheService;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public ProcesarMensajeCommandHandler(
         IIdempotenciaConsumidorRepository idempotenciaRepository,
@@ -52,8 +53,10 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         IUnitOfWork unitOfWork,
         ICurrentTenant? currentTenant = null,
         IDistributedCacheService? cacheService = null,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _idempotenciaRepository = idempotenciaRepository;
         _envioRepository = envioRepository;
         _destinatarioRepository = destinatarioRepository;
@@ -160,7 +163,12 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
             await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico), cancellationToken);
         }
 
-        var avisos = await GenerarAvisosDeRetiroAsync(evento, retiro, cancellationToken);
+        // El worker respeta la bandera: sin la funcionalidad habilitada para el operador no se avisa a los comercios por retiros
+        var habilitado = _funcionalidades is null
+            || await _funcionalidades.EstaHabilitadaAsync(evento.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);
+        var avisos = habilitado
+            ? await GenerarAvisosDeRetiroAsync(evento, retiro, cancellationToken)
+            : new List<AvisoComercio>();
 
         await _idempotenciaRepository.AddAsync(
             new ClaveIdempotenciaConsumidor(Guid.NewGuid(), claveMensaje, $"retiro;avisos={avisos.Count}"),

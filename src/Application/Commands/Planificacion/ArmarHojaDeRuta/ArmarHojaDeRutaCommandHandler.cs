@@ -22,6 +22,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
     private readonly IClock _clock;
     private readonly IOutboxStorage _outboxStorage;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public ArmarHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -33,8 +34,10 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         ICurrentTenant currentTenant,
         IClock clock,
         IOutboxStorage outboxStorage,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _repartidorRepository = repartidorRepository;
@@ -80,6 +83,9 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
 
         if (retirosIds.Count > 0 && _retiroRepository is null)
             throw new DomainValidationException("La planificación de retiros no está disponible.");
+
+        if (retirosIds.Count > 0)
+            await _funcionalidades.ExigirAsync(_currentTenant.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);
 
         var hoy = DateOnly.FromDateTime(_clock.UtcNow);
         if (request.Fecha < hoy.AddDays(-1))

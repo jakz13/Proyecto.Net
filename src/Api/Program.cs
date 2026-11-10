@@ -493,6 +493,9 @@ app.MapOperadorConfiguracionEndpoints();
 // Retiro en domicilio (cambio de requerimientos 2.2): portal, API por clave, backoffice y repartidor
 app.MapRetirosEndpoints();
 
+// Banderas de funcionalidad por operador (activables por el administrador de la plataforma)
+app.MapFuncionalidadesEndpoints();
+
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
 app.MapAvisosComercioEndpoints();

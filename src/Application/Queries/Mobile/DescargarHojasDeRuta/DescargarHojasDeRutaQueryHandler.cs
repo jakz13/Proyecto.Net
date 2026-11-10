@@ -22,6 +22,7 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public DescargarHojasDeRutaQueryHandler(
         IRutaRepository rutaRepository,
@@ -32,8 +33,10 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
         IFranjaHorariaRepository franjaHorariaRepository,
         ICurrentTenant currentTenant,
         IClock clock,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _repartidorRepository = repartidorRepository;
@@ -77,7 +80,10 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
             .ToDictionary(e => e.Id);
 
         // Hoja de ruta mixta (RF 39): las paradas de retiro llegan al dispositivo con sus bultos, para operar sin conexión (RF 40)
-        var retiros = _retiroRepository is null
+        // Si el operador no tiene habilitado el retiro en domicilio, la app no recibe paradas de retiro
+        var retiroHabilitado = _funcionalidades is null
+            || await _funcionalidades.EstaHabilitadaAsync(_currentTenant.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);
+        var retiros = _retiroRepository is null || !retiroHabilitado
             ? new Dictionary<Guid, Retiro>()
             : (await _retiroRepository.GetByIdsAsync(paradasVigentes.IdsDeRetiros(), cancellationToken))
                 .Where(r => r.OperadorId == _currentTenant.OperadorId)
