@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos.Flota;
+using UltimaMilla.Frontend.Contracts.Modelos.Retiros;
 using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 
 namespace UltimaMilla.Backoffice.Pages.Rutas;
@@ -12,12 +13,17 @@ public class ArmarModel : PageModel
 {
     private readonly IRutasApi _rutasApi;
     private readonly IFlotaApi _flotaApi;
+    private readonly IRetirosApi _retirosApi;
 
-    public ArmarModel(IRutasApi rutasApi, IFlotaApi flotaApi)
+    public ArmarModel(IRutasApi rutasApi, IFlotaApi flotaApi, IRetirosApi retirosApi)
     {
         _rutasApi = rutasApi;
         _flotaApi = flotaApi;
+        _retirosApi = retirosApi;
     }
+
+    /// <summary>Retiros en domicilio pendientes de asignar: pueden sumarse a la ruta, que pasa a ser mixta (RF 39).</summary>
+    public IReadOnlyList<RetiroResumenDto> RetirosPendientes { get; private set; } = new List<RetiroResumenDto>();
 
     [BindProperty]
     public ArmarRutaFormInput Formulario { get; set; } = new();
@@ -58,9 +64,9 @@ public class ArmarModel : PageModel
     {
         await CargarCatalogosAsync();
 
-        if (Formulario.EnviosSeleccionados.Count == 0)
+        if (Formulario.EnviosSeleccionados.Count == 0 && Formulario.RetirosSeleccionados.Count == 0)
         {
-            ModelState.AddModelError("", "Debe seleccionar al menos un envío para incluir en la hoja de ruta.");
+            ModelState.AddModelError("", "Debe seleccionar al menos un envío o un retiro para incluir en la hoja de ruta.");
             return Page();
         }
 
@@ -73,6 +79,7 @@ public class ArmarModel : PageModel
             Turno = Formulario.Turno,
             CriterioOrdenamiento = Formulario.CriterioOrdenamiento,
             EnviosIds = Formulario.EnviosSeleccionados,
+            RetirosIds = Formulario.RetirosSeleccionados,
             SimularColision = Formulario.SimularColision
         };
 
@@ -101,6 +108,7 @@ public class ArmarModel : PageModel
         RepartidoresDisponibles = await _flotaApi.ListarRepartidoresAsync(estado: "Disponible");
         VehiculosDisponibles = await _flotaApi.ListarVehiculosAsync(soloActivos: true);
         EnviosEnDeposito = await _rutasApi.ListarEnviosPendientesAsync();
+        RetirosPendientes = (await _retirosApi.ListarDelOperadorAsync("Solicitado")).Items;
     }
 
     public class ArmarRutaFormInput
@@ -112,6 +120,7 @@ public class ArmarModel : PageModel
         public string Turno { get; set; } = "Mañana";
         public string CriterioOrdenamiento { get; set; } = "FranjaHoraria";
         public List<Guid> EnviosSeleccionados { get; set; } = new();
+        public List<Guid> RetirosSeleccionados { get; set; } = new();
         public bool SimularColision { get; set; } = false;
     }
 }

@@ -1,0 +1,102 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Retiros.IndexModel
+@{
+    ViewData["Title"] = "Retiros en domicilio";
+    var estados = new[] { "Solicitado", "AsignadoARuta", "Retirado", "NoRetirado", "EnDeposito", "EntregadoAlComercio", "Cancelado" };
+    string Clase(string e) => e switch
+    {
+        "Solicitado" => "bg-primary-subtle text-primary border-primary-subtle",
+        "AsignadoARuta" => "bg-info-subtle text-info-emphasis border-info-subtle",
+        "Retirado" or "EnDeposito" => "bg-warning-subtle text-warning-emphasis border-warning-subtle",
+        "EntregadoAlComercio" => "bg-success-subtle text-success border-success-subtle",
+        "NoRetirado" => "bg-danger-subtle text-danger border-danger-subtle",
+        _ => "bg-secondary-subtle text-secondary border"
+    };
+}
+
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 fw-bold text-dark mb-0">Retiros en domicilio</h1>
+        <partial name="_BotonAyuda" model='"A pedido del comercio, el operador retira bultos en el domicilio del comprador y los hace llegar al comercio. Los retiros se planifican en hojas de ruta mixtas junto con las entregas."' />
+    </div>
+    <a class="btn btn-dark btn-sm px-3 py-2" asp-page="/Rutas/Armar">Armar hoja de ruta</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">@Model.MensajeExito<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button></div>
+}
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">@Model.MensajeError<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button></div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Total</div><div class="h3 mb-0">@Model.Resumen.Total</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">En curso</div><div class="h3 mb-0">@Model.Resumen.EnCurso</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Pendientes de asignar</div><div class="h3 mb-0">@(Model.Resumen.PorEstado.GetValueOrDefault("Solicitado"))</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">En depósito</div><div class="h3 mb-0">@(Model.Resumen.PorEstado.GetValueOrDefault("EnDeposito"))</div></div></div></div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="btn btn-sm @(string.IsNullOrEmpty(Model.Estado) ? "btn-dark" : "btn-outline-secondary")" asp-page="Index">Todos</a>
+    @foreach (var e in estados)
+    {
+        <a class="btn btn-sm @(Model.Estado == e ? "btn-dark" : "btn-outline-secondary")" asp-page="Index" asp-route-estado="@e">
+            @e <span class="badge text-bg-light ms-1">@(Model.Resumen.PorEstado.GetValueOrDefault(e))</span>
+        </a>
+    }
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Código</th><th>Contacto / Domicilio</th><th>Motivo</th><th class="text-end">Bultos</th><th class="text-end">Tarifa</th><th>Estado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                @if (Model.Resumen.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No hay retiros en este estado.</td></tr>
+                }
+                @foreach (var r in Model.Resumen.Items)
+                {
+                    <tr>
+                        <td><span class="badge bg-light text-secondary border font-monospace">@r.CodigoSeguimiento</span></td>
+                        <td><div class="fw-semibold small">@r.NombreContacto</div><div class="text-muted small">@r.DireccionRetiro</div></td>
+                        <td class="small">@r.Motivo</td>
+                        <td class="text-end">@r.CantidadBultos <span class="text-muted small">(@r.PesoTotal kg)</span></td>
+                        <td class="text-end">$ @r.Tarifa.ToString("N2")</td>
+                        <td><span class="badge border @Clase(r.Estado)">@r.Estado</span></td>
+                        <td>
+                            <form method="post" class="d-flex flex-wrap gap-1">
+                                <input type="hidden" name="id" value="@r.Id" />
+                                @if (r.Estado == "Retirado")
+                                {
+                                    <button class="btn btn-sm btn-outline-dark" asp-page-handler="Recibir">Recibir en depósito</button>
+                                }
+                                @if (r.Estado == "EnDeposito")
+                                {
+                                    <button class="btn btn-sm btn-success" asp-page-handler="Entregar">Entregar al comercio</button>
+                                }
+                                @if (r.Estado == "NoRetirado")
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" asp-page-handler="Reprogramar">Nueva visita</button>
+                                }
+                                @if (r.Estado == "AsignadoARuta")
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" asp-page-handler="SacarDeRuta">Sacar de la ruta</button>
+                                }
+                                @if (r.Estado is "Solicitado" or "NoRetirado")
+                                {
+                                    <input type="hidden" name="motivo" value="Cancelado por el operador" />
+                                    <button class="btn btn-sm btn-outline-danger" asp-page-handler="Cancelar" onclick="return confirm('¿Cancelar este retiro?');">Cancelar</button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

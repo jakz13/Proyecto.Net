@@ -1,0 +1,220 @@
+@page "/retiros"
+@using UltimaMilla.Frontend.Contracts.Modelos.Retiros
+@inject IRetirosApi RetirosApi
+
+<PageTitle>Portal del Comercio — Retiros en domicilio</PageTitle>
+
+<div class="mb-4">
+    <h1 class="h4 fw-bold mb-1">Retiros en domicilio</h1>
+    <p class="text-muted small mb-0">
+        Pida que el operador retire uno o más bultos en el domicilio de su comprador (cambios y devoluciones) y los haga llegar a su comercio.
+        El comprador puede seguir el retiro con el mismo enlace público que usa para sus envíos.
+    </p>
+</div>
+
+@if (!string.IsNullOrEmpty(mensajeExito))
+{
+    <div class="alert alert-success d-flex justify-content-between align-items-center" role="status">
+        <span>@mensajeExito</span>
+        <button type="button" class="btn-close" aria-label="Cerrar" @onclick="() => mensajeExito = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(mensajeError))
+{
+    <div class="alert alert-danger d-flex justify-content-between align-items-center" role="alert">
+        <span>@mensajeError</span>
+        <button type="button" class="btn-close" aria-label="Cerrar" @onclick="() => mensajeError = null"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-12 col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">Solicitar un retiro</div>
+            <div class="card-body">
+                <EditForm Model="solicitud" OnValidSubmit="SolicitarAsync">
+                    <DataAnnotationsValidator />
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Quién entrega los bultos</label>
+                        <InputText class="form-control form-control-sm" @bind-Value="solicitud.NombreContacto" placeholder="Nombre y apellido" />
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Teléfono</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="solicitud.TelefonoContacto" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Correo</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="solicitud.EmailContacto" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-7">
+                            <label class="form-label small fw-semibold">Calle</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="solicitud.Calle" />
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small fw-semibold">Número</label>
+                            <InputText class="form-control form-control-sm" @bind-Value="solicitud.Numero" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Ciudad</label>
+                        <InputText class="form-control form-control-sm" @bind-Value="solicitud.Ciudad" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Motivo del retiro</label>
+                        <InputText class="form-control form-control-sm" @bind-Value="solicitud.Motivo" placeholder="Cambio de talle, producto defectuoso..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Fecha pedida (opcional)</label>
+                        <InputDate class="form-control form-control-sm" @bind-Value="solicitud.FechaSolicitada" />
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-semibold">Bultos a retirar</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="AgregarBulto">Agregar bulto</button>
+                    </div>
+                    @for (var i = 0; i < solicitud.Bultos.Count; i++)
+                    {
+                        var bulto = solicitud.Bultos[i];
+                        var indice = i;
+                        <div class="border rounded-3 p-2 mb-2 bg-light">
+                            <div class="d-flex gap-2 mb-1">
+                                <InputText class="form-control form-control-sm" @bind-Value="bulto.Descripcion" placeholder="Descripción" />
+                                @if (solicitud.Bultos.Count > 1)
+                                {
+                                    <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Quitar bulto" @onclick="() => QuitarBulto(indice)">×</button>
+                                }
+                            </div>
+                            <div class="row g-1">
+                                <div class="col-3"><InputNumber class="form-control form-control-sm" @bind-Value="bulto.Peso" placeholder="kg" /></div>
+                                <div class="col-3"><InputNumber class="form-control form-control-sm" @bind-Value="bulto.Alto" placeholder="alto cm" /></div>
+                                <div class="col-3"><InputNumber class="form-control form-control-sm" @bind-Value="bulto.Ancho" placeholder="ancho cm" /></div>
+                                <div class="col-3"><InputNumber class="form-control form-control-sm" @bind-Value="bulto.Profundo" placeholder="prof. cm" /></div>
+                            </div>
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-marca w-100 mt-2" disabled="@enviando">
+                        @(enviando ? "Enviando..." : "Solicitar retiro")
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-bold">Mis retiros (@retiros.Count)</span>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CargarAsync">Actualizar</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr><th>Código</th><th>Domicilio</th><th>Motivo</th><th class="text-end">Tarifa</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @if (cargando)
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
+                        }
+                        else if (retiros.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">Todavía no solicitó retiros.</td></tr>
+                        }
+                        @foreach (var retiro in retiros)
+                        {
+                            <tr>
+                                <td><span class="badge bg-light text-secondary border font-monospace">@retiro.CodigoSeguimiento</span></td>
+                                <td>@retiro.DireccionRetiro<div class="text-muted">@retiro.CantidadBultos bulto(s)</div></td>
+                                <td>@retiro.Motivo</td>
+                                <td class="text-end">$ @retiro.Tarifa.ToString("N2")</td>
+                                <td><span class="badge bg-dark">@retiro.Estado</span></td>
+                                <td class="text-end">
+                                    @if (retiro.Estado is "Solicitado" or "NoRetirado")
+                                    {
+                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => CancelarAsync(retiro.Id)">Cancelar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private SolicitarRetiroDto solicitud = new();
+    private List<RetiroResumenDto> retiros = new();
+    private bool cargando = true;
+    private bool enviando;
+    private string? mensajeExito;
+    private string? mensajeError;
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+        try
+        {
+            retiros = (await RetirosApi.ListarDelComercioAsync()).Items.ToList();
+        }
+        catch (ApiExcepcion ex)
+        {
+            mensajeError = ex.Message;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void AgregarBulto() => solicitud.Bultos.Add(new BultoRetiroSolicitudDto());
+
+    private void QuitarBulto(int indice)
+    {
+        if (solicitud.Bultos.Count > 1)
+            solicitud.Bultos.RemoveAt(indice);
+    }
+
+    private async Task SolicitarAsync()
+    {
+        enviando = true;
+        mensajeError = null;
+        try
+        {
+            var resultado = await RetirosApi.SolicitarAsync(solicitud);
+            mensajeExito = $"Retiro {resultado.CodigoSeguimiento} solicitado. Tarifa: $ {resultado.Tarifa:N2}. El comprador puede seguirlo con ese código en el enlace público de seguimiento.";
+            solicitud = new SolicitarRetiroDto();
+            await CargarAsync();
+        }
+        catch (ApiExcepcion ex)
+        {
+            mensajeError = ex.Message;
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+
+    private async Task CancelarAsync(Guid id)
+    {
+        mensajeError = null;
+        try
+        {
+            await RetirosApi.CancelarDelComercioAsync(id, "Cancelado por el comercio");
+            mensajeExito = "El retiro se canceló.";
+            await CargarAsync();
+        }
+        catch (ApiExcepcion ex)
+        {
+            mensajeError = ex.Message;
+        }
+    }
+}

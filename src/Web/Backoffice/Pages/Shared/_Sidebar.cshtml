@@ -270,6 +270,19 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Retiros") ? "active" : "")"
+                   asp-page="/Retiros/Index"
+                   title="Retiros en domicilio">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <polyline points="17 1 21 5 17 9"></polyline>
+                        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                        <polyline points="7 23 3 19 7 15"></polyline>
+                        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Retiros</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Incidencias") ? "active" : "")"
                    asp-page="/Incidencias/Index"
                    title="Gestión de Incidencias">

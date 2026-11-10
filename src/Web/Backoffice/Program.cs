@@ -41,6 +41,7 @@ builder.Services.AddRazorPages(opciones =>
     opciones.Conventions.AuthorizeFolder("/Flota", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Mensajeria", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Deposito", "Deposito");
+    opciones.Conventions.AuthorizeFolder("/Retiros", "Deposito");
     opciones.Conventions.AllowAnonymousToPage("/Login");
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
 });

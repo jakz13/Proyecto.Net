@@ -400,6 +400,38 @@ else if (Model.ErroresValidacion.Count > 0)
             </div>
         </div>
     </div>
+
+    <!-- Retiros en domicilio (cambio de requerimientos 2.2, RF 39): la hoja de ruta puede ser mixta, con entregas y retiros -->
+    <div class="card shadow-sm border-0 mt-3">
+        <div class="card-header bg-white fw-bold">Retiros en domicilio pendientes (@Model.RetirosPendientes.Count)</div>
+        <div class="card-body">
+            <p class="small text-muted mb-3">
+                Los retiros se suman a la ruta como paradas de retiro. La capacidad del vehículo se valida a lo largo del recorrido:
+                los bultos retirados ocupan lugar desde la parada en que se suben.
+            </p>
+            @if (Model.RetirosPendientes.Count == 0)
+            {
+                <div class="text-muted small">No hay retiros pendientes de asignar.</div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var retiro in Model.RetirosPendientes)
+                    {
+                        <label class="list-group-item d-flex align-items-start gap-2">
+                            <input class="form-check-input mt-1" type="checkbox" name="Formulario.RetirosSeleccionados" value="@retiro.Id"
+                                   checked="@Model.Formulario.RetirosSeleccionados.Contains(retiro.Id)" />
+                            <span>
+                                <span class="badge bg-light text-secondary border font-monospace">@retiro.CodigoSeguimiento</span>
+                                <span class="fw-semibold small ms-1">@retiro.NombreContacto</span>
+                                <span class="d-block text-muted small">@retiro.DireccionRetiro · @retiro.CantidadBultos bulto(s), @retiro.PesoTotal kg · @retiro.Motivo</span>
+                            </span>
+                        </label>
+                    }
+                </div>
+            }
+        </div>
+    </div>
 </form>
 
 @section Scripts {
