@@ -27,8 +27,8 @@ public class ReporteCsvTests
 
         var texto = Texto(ReporteCsv.Generar(reporte));
 
-        Assert.Contains("Entidad/Zona;Detalle;Asignados", texto);
-        Assert.Contains("\"Centro\";\"\";10;8;1;1;80%;90%", texto);
+        Assert.Contains("Entidad/Zona;Detalle;Total Asignados", texto);
+        Assert.Contains("\"Centro\";\"\";10;8;1;1;80%;90%;\"En Riesgo\"", texto);
     }
 
     [Fact]

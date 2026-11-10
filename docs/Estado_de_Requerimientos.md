@@ -34,9 +34,9 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | Cobertura superior al 70 % | 2 | Cumplido: 76 % medido y publicado por el pipeline |
 | Geocercas (Joaquín) | 3 | **Parcial**: implementado; falta el análisis del impacto en batería |
 | Optimización del orden de paradas (Joaquín) | 2 | **Parcial**: 2-opt implementado en la app; falta la comparación medida contra el criterio del RF 16 |
-| Banderas de funcionalidad | 2 | **Parcial**: backend, auditoría y prueba completos; falta la pantalla de administración |
+| Banderas de funcionalidad | 0 | **No se reclama**: se acordó no entregarlo (pocos puntos para lo que exige) y Joaquín lo compensó con otro opcional. El backend existe y funciona (`/api/plataforma/operadores`), pero sin pantalla de administración no cumple el requisito |
 | API pública para comercios | 3 | **Parcial**: claves por comercio, ruta versionada y alta idempotente; faltan límite de tasa por clave, ambiente de pruebas y documentación navegable |
 | Pruebas de resiliencia | 2 | Pendiente |
 | Pruebas de carga | 2 | Pendiente |
 
-Puntos que hoy se pueden defender sin trabajo adicional: **2** (cobertura). Con lo que falta cerrar en cada parcial, el total llega a los 16 acordados.
+Puntos que hoy se pueden defender sin trabajo adicional: **2** (cobertura). Los opcionales reclamados son: cobertura, geocercas, optimización de paradas, API pública, resiliencia y carga; hay que cerrar los parciales.

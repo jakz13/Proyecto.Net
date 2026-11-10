@@ -16,7 +16,7 @@ Rama de trabajo: `desarrollo-backend` (commits locales, **sin subir**). `main` s
 ## Pendiente, en orden de prioridad
 1. **Decidir si se sube** (`desarrollo-backend` y `main`) y desplegar. Al desplegar corren 3 migraciones (`PersistirEntregaParcial`, `RetiroEnDomicilio`, `BanderasDeFuncionalidad`). Verificar luego en producción: login de las 6 cuentas, alta de un retiro, `/api/funcionalidades`.
 2. **Aplicación móvil (Joaquín)**: paradas de retiro, registro con escaneo/foto/firma sin conexión, enviar `X-Correlation-Id`, ocultar según `GET /api/funcionalidades`. Contrato: `docs/UC-Retiro-Movil.md`.
-3. **Pantalla de administración de banderas** en el backoffice (solo `AdministradorPlataforma`); hoy se usa por API (`/api/plataforma/operadores`).
+3. ~~Pantalla de banderas~~: **descartado** (acordado con el docente/equipo; Joaquín compensó con otro opcional). El backend de banderas queda como está.
 4. **API pública (3 pts)**: falta límite de tasa por clave (hoy por IP), clave de pruebas/sandbox y documentación navegable.
 5. **Pruebas de resiliencia (2 pts)**: tests con Redis y RabbitMQ caídos + documento esperado vs observado.
 6. **Pruebas de carga (2 pts)**: scripts k6 y ejecución sobre el ambiente remoto (incluir sincronización simultánea de repartidores).
