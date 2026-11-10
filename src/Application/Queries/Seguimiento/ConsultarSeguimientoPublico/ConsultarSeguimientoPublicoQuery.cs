@@ -15,6 +15,10 @@ public record SeguimientoPublicoDto(
     string? VentanaHorariaEstimada,
     DateTime FechaUltimaActualizacion,
     bool PermiteReprogramacion,
-    IReadOnlyList<HitoSeguimientoDto> HistorialEventos);
+    IReadOnlyList<HitoSeguimientoDto> HistorialEventos,
+    string? OperadorNombre = null,
+    string? OperadorColorPrimario = null,
+    string? OperadorColorSecundario = null,
+    string? OperadorLogoUrl = null);
 
 public record HitoSeguimientoDto(DateTime Fecha, EstadoEnvio Estado, string DescripcionPublica);

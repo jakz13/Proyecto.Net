@@ -12,16 +12,19 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     private readonly IEnvioRepository _envioRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
+    private readonly IOperadorRepository? _operadorRepository;
     private readonly IDistributedCacheService? _cacheService;
 
     public ConsultarSeguimientoPublicoQueryHandler(
         IEnvioRepository envioRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
-        IDistributedCacheService? cacheService = null)
+        IDistributedCacheService? cacheService = null,
+        IOperadorRepository? operadorRepository = null)
     {
         _envioRepository = envioRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _cacheService = cacheService;
+        _operadorRepository = operadorRepository;
     }
 
     /// <summary>
@@ -58,13 +61,32 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             ? envio.Eventos.Max(e => e.Timestamp)
             : envio.FechaAlta;
 
+        string? operadorNombre = null;
+        string? colorPrimario = null;
+        string? colorSecundario = null;
+        string? logoUrl = null;
+
+        if (_operadorRepository is not null && envio.OperadorId != Guid.Empty)
+        {
+            var operador = await _operadorRepository.GetByIdAsync(envio.OperadorId, cancellationToken);
+            var identidad = await _operadorRepository.ObtenerIdentidadAsync(envio.OperadorId, cancellationToken);
+            operadorNombre = operador?.NombreComercial;
+            colorPrimario = identidad?.ColorPrimario;
+            colorSecundario = identidad?.ColorSecundario;
+            logoUrl = identidad?.LogoUrl;
+        }
+
         var resultado = new SeguimientoPublicoDto(
             envio.CodigoSeguimientoPublico,
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
             envio.EstadoActual == EstadoEnvio.Reprogramado,
-            hitos);
+            hitos,
+            operadorNombre,
+            colorPrimario,
+            colorSecundario,
+            logoUrl);
 
         if (_cacheService is not null)
         {

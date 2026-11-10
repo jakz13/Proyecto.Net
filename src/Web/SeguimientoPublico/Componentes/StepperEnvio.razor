@@ -8,7 +8,7 @@
                 <Icono Nombre="paquete" Tamano="16" />
             </div>
             <span class="stepper-seguimiento__etiqueta">Admitido</span>
-            <div class="stepper-seguimiento__linea"></div>
+            <div class="stepper-seguimiento__linea @(PasoActualNumero == 1 ? "stepper-seguimiento__linea--en-progreso" : "")"></div>
         </li>
 
         <!-- Paso 2: En Depósito -->
@@ -17,16 +17,16 @@
                 <Icono Nombre="deposito" Tamano="16" />
             </div>
             <span class="stepper-seguimiento__etiqueta">En depósito</span>
-            <div class="stepper-seguimiento__linea"></div>
+            <div class="stepper-seguimiento__linea @(PasoActualNumero == 2 ? "stepper-seguimiento__linea--en-progreso" : "")"></div>
         </li>
 
-        <!-- Paso 3: En Tránsito / Reparto / Intento -->
+        <!-- Paso 3: En Tránsito / Reparto -->
         <li class="stepper-seguimiento__paso @ObtenerClasePaso(3)">
             <div class="stepper-seguimiento__nodo">
                 <Icono Nombre="@IconoPaso3" Tamano="16" />
             </div>
             <span class="stepper-seguimiento__etiqueta">@EtiquetaPaso3</span>
-            <div class="stepper-seguimiento__linea"></div>
+            <div class="stepper-seguimiento__linea @(PasoActualNumero == 3 && Estado != EstadoEnvioDto.Entregado && Estado != EstadoEnvioDto.Devuelto ? "stepper-seguimiento__linea--en-progreso" : "")"></div>
         </li>
 
         <!-- Paso 4: Final (Entregado / Devuelto) -->
@@ -65,8 +65,8 @@
         EstadoEnvioDto.NoEntregado => "Intento fallido",
         EstadoEnvioDto.Reprogramado => "Reprogramado",
         EstadoEnvioDto.EnDevolucion => "En devolución",
-        EstadoEnvioDto.AsignadoARuta => "En hoja de ruta",
-        _ => "En reparto"
+        EstadoEnvioDto.AsignadoARuta => "En ruta",
+        _ => "En camino"
     };
 
     private string IconoPaso4 => Estado switch
@@ -85,22 +85,26 @@
 
     private string ObtenerClasePaso(int numeroPaso)
     {
-        if (numeroPaso < PasoActualNumero || (numeroPaso == 4 && (Estado == EstadoEnvioDto.Entregado || Estado == EstadoEnvioDto.Devuelto)))
+        var completado = numeroPaso < PasoActualNumero || (numeroPaso == 4 && (Estado == EstadoEnvioDto.Entregado || Estado == EstadoEnvioDto.Devuelto));
+
+        if (completado)
         {
             return "stepper-seguimiento__paso--completado";
         }
+
         if (numeroPaso == PasoActualNumero)
         {
-            if (Estado == EstadoEnvioDto.NoEntregado || Estado == EstadoEnvioDto.EnDevolucion)
+            if (Estado == EstadoEnvioDto.NoEntregado || Estado == EstadoEnvioDto.Extraviado)
             {
                 return "stepper-seguimiento__paso--alerta";
             }
-            if (Estado == EstadoEnvioDto.Reprogramado)
+            if (Estado == EstadoEnvioDto.Reprogramado || Estado == EstadoEnvioDto.EnDevolucion)
             {
                 return "stepper-seguimiento__paso--reprogramado";
             }
             return "stepper-seguimiento__paso--activo";
         }
+
         return string.Empty;
     }
 }

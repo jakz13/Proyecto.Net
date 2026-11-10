@@ -3,13 +3,14 @@
 @inject ISeguimientoApi SeguimientoApi
 @inject NavigationManager Navegador
 @inject TiempoRealSeguimientoServicio TiempoReal
+@inject ContextoSeguimientoOperador ContextoOperador
 @inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>LittleBox Envíos — Seguimiento de Envíos</PageTitle>
 
 <div class="container py-4 py-md-5" style="max-width: 720px;">
-    <!-- Componente Modular: Buscador con Validación y Pills Demo -->
+    <!-- Componente Modular: Buscador con Protección contra Código Malicioso y Pills Demo -->
     <BuscadorEnvio CodigoInicial="@codigoBuscado"
                    EstaCargando="@estaCargando"
                    EsModoCompacto="@(seguimiento != null)"
@@ -26,67 +27,42 @@
     <!-- Información del Envío y Flujo Completo (UC-33) -->
     @if (seguimiento != null)
     {
-        <!-- Stepper de Etapas del Viaje -->
+        <!-- Stepper de Etapas del Viaje con animación de progreso en tiempo real -->
         <StepperEnvio Estado="@seguimiento.EstadoActual" />
 
-        <!-- Banner de Estado Hero -->
-        @if (seguimiento.EstadoActual == EstadoEnvioDto.EnTransito)
-        {
-            <div class="alert alert-primary border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
-                <div class="p-2 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
-                    <Icono Nombre="camion" Tamano="20" />
-                </div>
-                <div>
-                    <div class="fw-bold fs-6 text-primary">¡Tu paquete está en camino!</div>
-                    <div class="small text-secondary">El repartidor se encuentra en ruta realizando las entregas del día en tu zona.</div>
-                </div>
-            </div>
-        }
-        else if (seguimiento.EstadoActual == EstadoEnvioDto.Entregado)
-        {
-            <div class="alert alert-success border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
-                <div class="p-2 bg-success text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
-                    <Icono Nombre="check" Tamano="20" />
-                </div>
-                <div>
-                    <div class="fw-bold fs-6 text-success">¡Paquete entregado con éxito!</div>
-                    <div class="small text-secondary">La entrega fue completada y confirmada en el domicilio.</div>
-                </div>
-            </div>
-        }
-        else if (seguimiento.EstadoActual == EstadoEnvioDto.NoEntregado)
-        {
-            <div class="alert alert-warning border-0 shadow-xs rounded-3 p-3 mb-3 d-flex align-items-center gap-3" role="status">
-                <div class="p-2 bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
-                    <Icono Nombre="alerta" Tamano="20" />
-                </div>
-                <div>
-                    <div class="fw-bold fs-6 text-dark">No fue posible concretar la entrega</div>
-                    <div class="small text-secondary">No pudimos contactarte en el último intento. Podés coordinar una nueva fecha de entrega debajo.</div>
-                </div>
-            </div>
-        }
-
-        <div class="tarjeta-envio">
-            <header class="tarjeta-envio__cabecera">
-                <div class="tarjeta-envio__codigo-bloque">
-                    <span class="tarjeta-envio__codigo-label">Código de Seguimiento</span>
-                    <h2 class="tarjeta-envio__codigo-valor mb-0">@seguimiento.CodigoSeguimiento</h2>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs" @onclick="CopiarEnlace" title="Copiar enlace directo de seguimiento">
+        <!-- Tarjeta Principal Unificada y Centralizada con Identidad Visual Dinámica -->
+        <div class="tarjeta-envio @(seActualizoEnVivo ? "tarjeta-envio--actualizada" : "")">
+            
+            <!-- Cabecera Hero Unificada -->
+            <header class="tarjeta-envio__cabecera-hero @ObtenerClaseHeroEstado(seguimiento.EstadoActual)">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <div class="tarjeta-envio__codigo-bloque">
+                        <span class="tarjeta-envio__codigo-label">Código de seguimiento</span>
+                        <h2 class="tarjeta-envio__codigo-valor mb-0">@seguimiento.CodigoSeguimiento</h2>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs bg-white" @onclick="CopiarEnlace" title="Copiar enlace directo de seguimiento">
                         <Icono Nombre="copiar" Tamano="13" />
                         <span style="font-size: 0.75rem;">@(enlaceCopiado ? "¡Copiado!" : "Copiar enlace")</span>
                     </button>
-                    <BadgeEstadoEnvio Estado="@seguimiento.EstadoActual" EsGrande="true" />
+                </div>
+
+                <div class="d-flex align-items-center gap-3 pt-2 border-top border-light-subtle">
+                    <div class="tarjeta-envio__icono-hero flex-shrink-0">
+                        <Icono Nombre="@ObtenerIconoEstadoPrincipal(seguimiento.EstadoActual)" Tamano="22" />
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-6 tarjeta-envio__titulo-hero">
+                            @ObtenerTituloEstadoPrincipal(seguimiento.EstadoActual)
+                        </div>
+                        <div class="small tarjeta-envio__subtitulo-hero">
+                            @ObtenerDetalleEstadoPrincipal(seguimiento)
+                        </div>
+                    </div>
                 </div>
             </header>
 
             <div class="tarjeta-envio__cuerpo">
-                <!-- Ventana Horaria Estimada -->
-                <VentanaHoraria Ventana="@seguimiento.VentanaHorariaEstimada" Estado="@seguimiento.EstadoActual" />
-
-                <div class="tarjeta-envio__actualizacion">
+                <div class="tarjeta-envio__actualizacion mb-4">
                     <Icono Nombre="reloj" Tamano="14" />
                     <span>Última actualización: @seguimiento.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs.</span>
                 </div>
@@ -98,14 +74,14 @@
                                          AlReprogramarExitoso="RefrescarEnvio" />
                 }
 
-                <!-- Línea de Tiempo de Hitos Históricos -->
+                <!-- Línea de Tiempo de Hitos Históricos (Diseño sobrio y limpio) -->
                 <LineaTiempoEventos Eventos="@seguimiento.HistorialEventos" />
 
-                <!-- Garantía de Privacidad Explícita (RF-25) -->
+                <!-- Garantía de Privacidad Explícita (Sin el texto RF-25) -->
                 <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
                     <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
                     <div class="small text-secondary" style="font-size: 0.775rem;">
-                        <strong>Privacidad garantizada (RF-25):</strong> Este seguimiento público protege tu privacidad y la de terceros. No se exhiben datos personales, direcciones completas ni contactos en este enlace.
+                        <strong>Privacidad garantizada:</strong> Este seguimiento público protege tu privacidad y la de terceros. No se exhiben datos personales, direcciones completas ni contactos en este enlace.
                     </div>
                 </div>
             </div>
@@ -123,6 +99,7 @@
     private string? mensajeError;
     private bool esErrorLimiteTasa = false;
     private bool enlaceCopiado = false;
+    private bool seActualizoEnVivo = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -167,22 +144,31 @@
             if (resultado != null)
             {
                 seguimiento = resultado;
+                // Al identificar el paquete se adopta suavemente la identidad del operador asignado
+                ContextoOperador.FijarOperador(
+                    resultado.OperadorNombre,
+                    resultado.OperadorColorPrimario,
+                    resultado.OperadorColorSecundario,
+                    resultado.OperadorLogoUrl);
+
                 await SeguirEnVivoAsync(codigoBuscado);
             }
             else
             {
+                ContextoOperador.RestablecerNeutral();
                 // Regla obligatoria: ante un código inexistente mostrar siempre el mismo mensaje genérico para evitar enumeración
                 mensajeError = "No encontramos un envío asociado a este código. Verifique que esté bien escrito e intente nuevamente.";
             }
         }
         catch (ApiExcepcion ex) when (ex.EsLimiteDeTasa)
         {
-            // Regla obligatoria: manejar 429 con mensaje claro
+            ContextoOperador.RestablecerNeutral();
             esErrorLimiteTasa = true;
             mensajeError = ex.Message;
         }
         catch (Exception)
         {
+            ContextoOperador.RestablecerNeutral();
             mensajeError = "No fue posible consultar el estado en este momento. Por favor reintente más tarde.";
         }
         finally
@@ -195,7 +181,7 @@
     private bool suscritoAlAviso;
     private CancellationTokenSource? _refrescoPendiente;
 
-    // El destinatario ve el cambio de estado sin recargar: la señal llega por SignalR y la página consulta de nuevo en silencio
+    // El destinatario ve el cambio de estado sin recargar: la señal llega por SignalR y la página consulta en silencio
     private async Task SeguirEnVivoAsync(string codigo)
     {
         if (!suscritoAlAviso)
@@ -228,10 +214,24 @@
         {
             try
             {
-                // Consulta silenciosa: no se limpia la pantalla ni se muestra el indicador de carga
                 var actualizado = await SeguimientoApi.ConsultarSeguimientoAsync(codigoEnVivo);
                 if (actualizado != null)
+                {
                     seguimiento = actualizado;
+                    ContextoOperador.FijarOperador(
+                        actualizado.OperadorNombre,
+                        actualizado.OperadorColorPrimario,
+                        actualizado.OperadorColorSecundario,
+                        actualizado.OperadorLogoUrl);
+
+                    // Animación visual de actualización en tiempo real
+                    seActualizoEnVivo = true;
+                    _ = Task.Delay(2500).ContinueWith(_ =>
+                    {
+                        seActualizoEnVivo = false;
+                        InvokeAsync(StateHasChanged);
+                    });
+                }
             }
             catch
             {
@@ -257,4 +257,54 @@
             await EjecutarConsulta(codigoBuscado);
         }
     }
+
+    private static string ObtenerIconoEstadoPrincipal(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "paquete",
+        EstadoEnvioDto.EnDeposito => "deposito",
+        EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito => "camion",
+        EstadoEnvioDto.Entregado => "check",
+        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Extraviado => "alerta",
+        EstadoEnvioDto.Reprogramado => "reloj",
+        EstadoEnvioDto.EnDevolucion or EstadoEnvioDto.Devuelto => "deposito",
+        _ => "info"
+    };
+
+    private static string ObtenerTituloEstadoPrincipal(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "Envío recibido y registrado",
+        EstadoEnvioDto.EnDeposito => "En centro logístico de distribución",
+        EstadoEnvioDto.AsignadoARuta => "Envío asignado a hoja de ruta",
+        EstadoEnvioDto.EnTransito => "¡Tu paquete está en camino!",
+        EstadoEnvioDto.Entregado => "¡Paquete entregado con éxito!",
+        EstadoEnvioDto.NoEntregado => "No fue posible concretar la entrega",
+        EstadoEnvioDto.Reprogramado => "Entrega reprogramada a nueva fecha",
+        EstadoEnvioDto.EnDevolucion => "Paquete en devolución hacia el remitente",
+        EstadoEnvioDto.Devuelto => "Paquete devuelto al comercio emisor",
+        EstadoEnvioDto.Extraviado => "Incidencia en gestión operativa",
+        _ => "Seguimiento en curso"
+    };
+
+    private static string ObtenerDetalleEstadoPrincipal(SeguimientoPublicoDto dto)
+    {
+        if (dto.EstadoActual == EstadoEnvioDto.Entregado)
+            return !string.IsNullOrEmpty(dto.VentanaHorariaEstimada) ? dto.VentanaHorariaEstimada : "Entrega completada y confirmada en el domicilio.";
+
+        if (!string.IsNullOrEmpty(dto.VentanaHorariaEstimada))
+            return $"Horario estimado: {dto.VentanaHorariaEstimada}";
+
+        return dto.EstadoActual switch
+        {
+            EstadoEnvioDto.EnTransito => "El repartidor se encuentra en ruta realizando las entregas del día en tu zona.",
+            EstadoEnvioDto.NoEntregado => "Podés coordinar una nueva fecha u horario de entrega más abajo.",
+            _ => "Seguimiento y actualizaciones automáticas del envío."
+        };
+    }
+
+    private static string ObtenerClaseHeroEstado(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Extraviado => "tarjeta-envio__cabecera-hero--error",
+        EstadoEnvioDto.Reprogramado or EstadoEnvioDto.EnDevolucion or EstadoEnvioDto.Devuelto => "tarjeta-envio__cabecera-hero--aviso",
+        _ => "tarjeta-envio__cabecera-hero--operador"
+    };
 }

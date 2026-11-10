@@ -36,4 +36,7 @@ builder.Services.AddScoped(sp => new TiempoRealSeguimientoServicio(
     sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>(),
     urlBaseApi));
 
+// Estado dinámico del operador que se adapta al ingresar el código del envío
+builder.Services.AddScoped<ContextoSeguimientoOperador>();
+
 await builder.Build().RunAsync();

@@ -2,25 +2,40 @@
 @using UltimaMilla.Frontend.Contracts.Enums
 
 <div class="linea-tiempo-bloque">
-    <h3 class="h6 fw-bold text-uppercase text-secondary mb-3">Historial detallado del envío</h3>
+    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+        <h3 class="h6 fw-bold text-uppercase text-secondary mb-0" style="letter-spacing: 0.04em;">Historial de movimientos</h3>
+        <span class="small text-muted" style="font-size: 0.75rem;">Actualización en tiempo real</span>
+    </div>
     
     <ol class="linea-tiempo">
         @if (Eventos != null)
         {
-            @foreach (var hito in Eventos.OrderByDescending(h => h.Fecha))
+            var hitosOrdenados = Eventos.OrderByDescending(h => h.Fecha).ToList();
+            var primerHito = hitosOrdenados.FirstOrDefault();
+
+            @foreach (var hito in hitosOrdenados)
             {
-                var esElMasReciente = hito == Eventos.OrderByDescending(h => h.Fecha).First();
-                <li class="linea-tiempo__item @(esElMasReciente ? "linea-tiempo__item--actual" : "")">
+                var esElMasReciente = hito == primerHito;
+                var claseModificador = ObtenerClaseModificador(hito.Estado, esElMasReciente);
+
+                <li class="linea-tiempo__item @(esElMasReciente ? "linea-tiempo__item--actual" : "") @claseModificador">
                     <span class="linea-tiempo__marcador">
-                        <Icono Nombre="@ObtenerIconoPorEstado(hito.Estado)" Tamano="12" />
+                        <Icono Nombre="@ObtenerIconoPorEstado(hito.Estado)" Tamano="13" />
                     </span>
                     <div class="linea-tiempo__cuerpo">
                         <div class="linea-tiempo__encabezado">
-                            <BadgeEstadoEnvio Estado="@hito.Estado" />
-                            @if (esElMasReciente)
-                            {
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.675rem; padding: 0.25rem 0.5rem;">Último movimiento</span>
-                            }
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold @(esElMasReciente ? "text-dark" : "text-secondary")" style="font-size: 0.925rem;">
+                                    @ObtenerTituloHito(hito.Estado)
+                                </span>
+                                @if (esElMasReciente)
+                                {
+                                    <span class="indicador-actual-pulso" title="Último estado registrado">
+                                        <span class="punto-pulso"></span>
+                                        <span>Actual</span>
+                                    </span>
+                                }
+                            </div>
                             <time class="linea-tiempo__fecha" datetime="@hito.Fecha.ToString("o")">
                                 @hito.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hs
                             </time>
@@ -46,6 +61,35 @@
         EstadoEnvioDto.Entregado => "check",
         EstadoEnvioDto.NoEntregado => "alerta",
         EstadoEnvioDto.Reprogramado => "reloj",
+        EstadoEnvioDto.EnDevolucion => "alerta",
+        EstadoEnvioDto.Devuelto => "deposito",
+        EstadoEnvioDto.Extraviado => "cerrar",
         _ => "info"
     };
+
+    private static string ObtenerTituloHito(EstadoEnvioDto estado) => estado switch
+    {
+        EstadoEnvioDto.Admitido => "Paquete Admitido",
+        EstadoEnvioDto.EnDeposito => "En Depósito",
+        EstadoEnvioDto.AsignadoARuta => "Asignado a Ruta",
+        EstadoEnvioDto.EnTransito => "En Camino",
+        EstadoEnvioDto.Entregado => "Entregado con Éxito",
+        EstadoEnvioDto.NoEntregado => "Intento No Concretado",
+        EstadoEnvioDto.Reprogramado => "Entrega Reprogramada",
+        EstadoEnvioDto.EnDevolucion => "En Proceso de Devolución",
+        EstadoEnvioDto.Devuelto => "Devuelto al Remitente",
+        EstadoEnvioDto.Extraviado => "Incidencia Registrada",
+        _ => estado.ToString()
+    };
+
+    private static string ObtenerClaseModificador(EstadoEnvioDto estado, bool esActual)
+    {
+        if (estado is EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Extraviado)
+            return "linea-tiempo__item--error";
+
+        if (estado is EstadoEnvioDto.Reprogramado or EstadoEnvioDto.EnDevolucion or EstadoEnvioDto.Devuelto)
+            return "linea-tiempo__item--aviso";
+
+        return esActual ? "linea-tiempo__item--operador" : string.Empty;
+    }
 }

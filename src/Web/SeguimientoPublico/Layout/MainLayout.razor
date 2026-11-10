@@ -1,56 +1,48 @@
 @inherits LayoutComponentBase
-@inject IIdentidadVisualApi IdentidadApi
-@inject MockContextoOperador ContextoOperador
+@inject ContextoSeguimientoOperador ContextoSeguimiento
 @implements IDisposable
 
-@* Inyección dinámica de variables CSS de identidad visual del operador *@
+@* Inyección dinámica de variables CSS con transición fluida para la identidad visual *@
 <style>
     :root {
-        --color-primario: @colorPrimarioValido;
-        --color-secundario: @colorSecundarioValido;
-        --color-texto-primario: @colorTextoPrimario;
-        --color-texto-secundario: @colorTextoSecundario;
+        --color-primario: @ContextoSeguimiento.ColorPrimario;
+        --color-secundario: @ContextoSeguimiento.ColorSecundario;
+        --color-texto-primario: @ContextoSeguimiento.ColorTextoPrimario;
+        --color-texto-secundario: @ContextoSeguimiento.ColorTextoSecundario;
     }
 </style>
 
 <div class="d-flex flex-column min-vh-100">
-    <SelectorOperadorDemo AlCambiar="CargarIdentidadVisual" />
-
-    <!-- Encabezado LittleBox Envíos -->
+    <!-- Encabezado LittleBox Envíos con transición suave de color e identidad -->
     <header class="littlebox-header">
         <div class="container littlebox-header__contenedor">
             <div class="d-flex justify-content-between align-items-center">
                 <a href="" class="littlebox-header__marca">
                     <div class="littlebox-header__logo-caja overflow-hidden">
-                        @if (!string.IsNullOrEmpty(identidad.LogoUrl))
-                        {
-                            <img src="@identidad.LogoUrl" alt="@identidad.NombreComercial" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" />
-                        }
-                        else
-                        {
-                            <Icono Nombre="caja" Tamano="22" />
-                        }
+                        <Icono Nombre="caja" Tamano="22" />
                     </div>
                     <div class="littlebox-header__titulos">
                         <span class="littlebox-header__nombre-app">LittleBox Envíos</span>
-                        <span class="littlebox-header__subtitulo">Sistema de Seguimiento de Envíos</span>
+                        <span class="littlebox-header__subtitulo">Portal de Seguimiento de Envíos</span>
                     </div>
                 </a>
 
-                <div class="d-flex align-items-center gap-3">
-                    <span class="littlebox-header__operador-tag">
-                        <span>Operador:</span>
-                        <strong>@identidad.NombreComercial</strong>
-                    </span>
-
-                    @if (!string.IsNullOrEmpty(identidad.TelefonoContacto))
-                    {
-                        <div class="d-none d-md-block text-end small" style="color: var(--color-texto-primario);">
-                            <div class="opacity-75">Atención:</div>
-                            <div class="fw-bold">@identidad.TelefonoContacto</div>
+                <!-- Datos del operador logístico (se muestran solo al ingresar el código del envío, fuera de etiquetas) -->
+                @if (ContextoSeguimiento.TieneOperadorAsignado)
+                {
+                    <div class="d-flex align-items-center gap-2 animacion-fade-in" style="color: var(--color-texto-primario);">
+                        @if (!string.IsNullOrEmpty(ContextoSeguimiento.LogoUrl))
+                        {
+                            <div class="bg-white p-1 rounded-2 shadow-xs d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
+                                <img src="@ContextoSeguimiento.LogoUrl" alt="@ContextoSeguimiento.NombreOperador" style="width: 100%; height: 100%; object-fit: contain;" />
+                            </div>
+                        }
+                        <div class="text-end lh-1">
+                            <div class="small opacity-75" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;">Operador</div>
+                            <div class="fw-bold" style="font-size: 0.95rem;">@ContextoSeguimiento.NombreOperador</div>
                         </div>
-                    }
-                </div>
+                    </div>
+                }
             </div>
         </div>
     </header>
@@ -59,65 +51,21 @@
     <main class="flex-grow-1">
         @Body
     </main>
-
-    <!-- Pie de Página -->
-    <footer class="bg-white border-top py-4 mt-auto">
-        <div class="container text-center text-muted small">
-            <p class="mb-1">
-                <strong>LittleBox Envíos</strong> · Servicio logístico provisto por <strong>@identidad.NombreComercial</strong>.
-                @if (!string.IsNullOrEmpty(identidad.EmailContacto))
-                {
-                    <span> · Contacto: <a href="mailto:@identidad.EmailContacto" class="text-decoration-none">@identidad.EmailContacto</a></span>
-                }
-            </p>
-            <p class="mb-0 text-secondary">
-                Plataforma de Distribución de Última Milla &copy; 2026. Todos los derechos reservados.
-            </p>
-        </div>
-    </footer>
 </div>
 
 @code {
-    private IdentidadVisualDto identidad = new();
-    private string colorPrimarioValido = "#1D4ED8";
-    private string colorSecundarioValido = "#F97316";
-    private string colorTextoPrimario = "#FFFFFF";
-    private string colorTextoSecundario = "#0F172A";
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
-        await CargarIdentidadVisual();
+        ContextoSeguimiento.OnCambioIdentidad += ManejarCambioIdentidad;
     }
 
-    private async Task CargarIdentidadVisual()
+    private void ManejarCambioIdentidad()
     {
-        try
-        {
-            identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
-        }
-        catch
-        {
-            identidad = new IdentidadVisualDto();
-        }
-
-        // Validar que el color sea hexadecimal antes de inyectarlo y calcular el contraste según luminancia
-        colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
-        colorSecundarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorSecundario, "#F97316");
-
-        colorTextoPrimario = ColorUtil.ObtenerColorTextoParaFondo(colorPrimarioValido);
-        colorTextoSecundario = ColorUtil.ObtenerColorTextoParaFondo(colorSecundarioValido);
-
-        StateHasChanged();
-    }
-
-    private void ManejarCambioOperador()
-    {
-        _ = InvokeAsync(CargarIdentidadVisual);
+        InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
-        ContextoOperador.AlCambiarOperador -= ManejarCambioOperador;
+        ContextoSeguimiento.OnCambioIdentidad -= ManejarCambioIdentidad;
     }
 }

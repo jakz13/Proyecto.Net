@@ -21,6 +21,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Entregado a las 11:20 hs",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-1),
             PermiteReprogramacion = false,
+            OperadorNombre = "LittleBox Operaciones",
+            OperadorColorPrimario = "#1D4ED8",
+            OperadorColorSecundario = "#F97316",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-36), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema logístico." },
@@ -37,6 +40,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Hoy entre 15:30 y 18:30 hs",
             FechaUltimaActualizacion = DateTime.UtcNow.AddMinutes(-30),
             PermiteReprogramacion = false,
+            OperadorNombre = "Uruguay Cargo Express",
+            OperadorColorPrimario = "#7C3AED",
+            OperadorColorSecundario = "#10B981",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-18), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema." },
@@ -52,6 +58,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Próximo intento coordinado para mañana",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-5),
             PermiteReprogramacion = true,
+            OperadorNombre = "LittleBox Operaciones",
+            OperadorColorPrimario = "#1D4ED8",
+            OperadorColorSecundario = "#F97316",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddDays(-2), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden registrada." },
@@ -67,6 +76,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Fecha estimada de entrega en coordinación",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-2),
             PermiteReprogramacion = false,
+            OperadorNombre = "Uruguay Cargo Express",
+            OperadorColorPrimario = "#7C3AED",
+            OperadorColorSecundario = "#10B981",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-2), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Paquete admitido y registrado en la tienda emisora." }
@@ -79,6 +91,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Mañana entre 09:00 y 13:00 hs",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-1),
             PermiteReprogramacion = false,
+            OperadorNombre = "LittleBox Operaciones",
+            OperadorColorPrimario = "#1D4ED8",
+            OperadorColorSecundario = "#F97316",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-6), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden recibida en el sistema." },
@@ -92,6 +107,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Devolución en curso hacia el comercio de origen",
             FechaUltimaActualizacion = DateTime.UtcNow.AddHours(-3),
             PermiteReprogramacion = false,
+            OperadorNombre = "Uruguay Cargo Express",
+            OperadorColorPrimario = "#7C3AED",
+            OperadorColorSecundario = "#10B981",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddDays(-3), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Orden admitida en el sistema." },
@@ -107,6 +125,9 @@ public class MockSeguimientoApi : ISeguimientoApi
             VentanaHorariaEstimada = "Entregado a las 10:45 hs",
             FechaUltimaActualizacion = DateTime.UtcNow,
             PermiteReprogramacion = false,
+            OperadorNombre = "LittleBox Operaciones",
+            OperadorColorPrimario = "#1D4ED8",
+            OperadorColorSecundario = "#F97316",
             HistorialEventos = new List<HitoSeguimientoDto>
             {
                 new() { Fecha = DateTime.UtcNow.AddHours(-4), Estado = EstadoEnvioDto.Admitido, DescripcionPublica = "Envío registrado y admitido" },

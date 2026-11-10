@@ -215,4 +215,12 @@ public class EfOperadorRepository : IOperadorRepository
     {
         return await _dbContext.Operadores.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
     }
+
+    public async Task<IdentidadVisual?> ObtenerIdentidadAsync(Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.IdentidadesVisuales
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.OperadorId == operadorId, cancellationToken);
+    }
 }

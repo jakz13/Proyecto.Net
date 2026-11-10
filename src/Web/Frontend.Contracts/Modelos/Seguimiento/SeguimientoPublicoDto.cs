@@ -14,4 +14,8 @@ public record SeguimientoPublicoDto
     public DateTime FechaUltimaActualizacion { get; init; }
     public bool PermiteReprogramacion { get; init; }
     public IReadOnlyList<HitoSeguimientoDto> HistorialEventos { get; init; } = Array.Empty<HitoSeguimientoDto>();
+    public string? OperadorNombre { get; init; }
+    public string? OperadorColorPrimario { get; init; }
+    public string? OperadorColorSecundario { get; init; }
+    public string? OperadorLogoUrl { get; init; }
 }
