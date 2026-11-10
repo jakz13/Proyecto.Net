@@ -18,4 +18,5 @@ public record ResultadoReporteDto
     public List<ItemReporteMotivosDto> ItemsMotivos { get; init; } = new();
     public List<ItemReporteVolumenDto> ItemsVolumen { get; init; } = new();
     public List<ItemReporteLiquidacionDto> ItemsLiquidacion { get; init; } = new();
+    public List<ItemReporteRetirosDto> ItemsRetiros { get; init; } = new();
 }

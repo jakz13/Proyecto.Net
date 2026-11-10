@@ -89,6 +89,15 @@
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Demoras estimadas sobre SLA</div>
         </div>
     </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <span class="text-secondary small fw-semibold mb-1">Retiros en domicilio</span>
+            <div id="metricaRetirosEnCurso" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.RetirosEnCurso</div>
+            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
+                @Model.Resumen.RetirosPendientes pendientes de asignar a una ruta · <a asp-page="/Retiros/Index">ver retiros</a>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Barra de Filtros y Búsqueda -->

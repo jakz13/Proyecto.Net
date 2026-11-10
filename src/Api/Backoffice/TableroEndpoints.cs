@@ -5,6 +5,7 @@ using UltimaMilla.Application.Tablero;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 using UltimaMilla.Infrastructure.Persistence;
 using UltimaMilla.Api.Auth;
@@ -35,6 +36,17 @@ public static class TableroEnVivoEndpoints
                 var enTransito = await db.Envios.AsNoTracking()
                     .CountAsync(e => e.OperadorId == tenant.OperadorId && e.EstadoActual == EstadoEnvio.EnTransito, ct);
 
+                // El retiro en domicilio se incorpora al tablero (RF 41): cuántos esperan una ruta y cuántos están en gestión
+                var retirosPorEstado = await db.Retiros.AsNoTracking().IgnoreAutoIncludes()
+                    .Where(r => r.OperadorId == tenant.OperadorId)
+                    .GroupBy(r => r.EstadoActual)
+                    .Select(g => new { Estado = g.Key, Cantidad = g.Count() })
+                    .ToListAsync(ct);
+                var retirosPendientes = retirosPorEstado.Where(r => r.Estado == EstadoRetiro.Solicitado).Sum(r => r.Cantidad);
+                var retirosEnCurso = retirosPorEstado
+                    .Where(r => r.Estado is EstadoRetiro.Solicitado or EstadoRetiro.AsignadoARuta or EstadoRetiro.Retirado or EstadoRetiro.NoRetirado or EstadoRetiro.EnDeposito)
+                    .Sum(r => r.Cantidad);
+
                 var alertas = vehiculos.SelectMany(v => v.EnviosEnRiesgo)
                     .OrderByDescending(a => ConstructorTablero.PesoNivel(a.NivelRiesgo))
                     .ThenByDescending(a => a.MinutosRetrasoEstimado)
@@ -47,6 +59,8 @@ public static class TableroEnVivoEndpoints
                     TotalEnviosEnTransito = enTransito,
                     TotalEnviosEntregadosHoy = entregadosHoy,
                     TotalEnviosEnRiesgo = alertas.Count,
+                    RetirosPendientes = retirosPendientes,
+                    RetirosEnCurso = retirosEnCurso,
                     UltimaSincronizacion = ahora,
                     Vehiculos = vehiculos,
                     AlertasRiesgo = alertas

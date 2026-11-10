@@ -509,6 +509,39 @@ public class RetiroEnDomicilioApiTests
     }
 
     [FactPostgres]
+    public async Task Retiro_SeIncorporaAlTableroDeOperacionYALosReportes()
+    {
+        var comercio = await ComercioAsync();
+        var admin = await AdminAsync();
+
+        var antes = await Json(await admin.GetAsync("/api/tablero/resumen"), HttpStatusCode.OK);
+        var pendientesAntes = antes.GetProperty("retirosPendientes").GetInt32();
+
+        var creado = await Json(await comercio.PostAsJsonAsync("/api/comercio/retiros", SolicitudDeRetiro(cantidadBultos: 2)), HttpStatusCode.Created);
+        Assert.Equal(120m, creado.GetProperty("tarifa").GetDecimal());
+
+        // Tablero de operación (RF 41): el retiro nuevo cuenta como pendiente de asignar y como retiro en gestión
+        var despues = await Json(await admin.GetAsync("/api/tablero/resumen"), HttpStatusCode.OK);
+        Assert.Equal(pendientesAntes + 1, despues.GetProperty("retirosPendientes").GetInt32());
+        Assert.True(despues.GetProperty("retirosEnCurso").GetInt32() >= 1);
+
+        // Reporte propio de retiros por comercio, con lo solicitado en el período
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var reporte = await Json(await admin.GetAsync($"/api/reportes?tipo=RetirosEnDomicilio&desde={hoy.AddDays(-1):yyyy-MM-dd}&hasta={hoy.AddDays(1):yyyy-MM-dd}"), HttpStatusCode.OK);
+        var filas = reporte.GetProperty("itemsRetiros").EnumerateArray().ToList();
+        Assert.NotEmpty(filas);
+        Assert.True(filas.Sum(f => f.GetProperty("solicitados").GetInt32()) >= 1);
+        // Cada fila es coherente: lo retirado, lo entregado al comercio y lo cancelado nunca supera lo solicitado
+        Assert.All(filas, f =>
+        {
+            var solicitados = f.GetProperty("solicitados").GetInt32();
+            Assert.True(f.GetProperty("entregadosAlComercio").GetInt32() <= f.GetProperty("retirados").GetInt32());
+            Assert.True(f.GetProperty("retirados").GetInt32() <= solicitados);
+            Assert.True(f.GetProperty("cancelados").GetInt32() <= solicitados);
+        });
+    }
+
+    [FactPostgres]
     public async Task Retiro_ElComercioPuedeCancelarloMientrasSigaSolicitado()
     {
         var comercio = await ComercioAsync();

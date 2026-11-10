@@ -57,6 +57,7 @@
                     <option value="MotivosNoEntrega" selected="@(tipo == "MotivosNoEntrega")">Distribución de Motivos de No Entrega</option>
                     <option value="VolumenPeriodo" selected="@(tipo == "VolumenPeriodo")">Volumen y Peso de Carga por Período</option>
                     <option value="LiquidacionComercio" selected="@(tipo == "LiquidacionComercio")">Liquidación y Facturación por Comercio</option>
+                    <option value="RetirosEnDomicilio" selected="@(tipo == "RetirosEnDomicilio")">Retiros en Domicilio por Comercio</option>
                 </select>
             </div>
 
@@ -371,6 +372,42 @@
                             <td class="text-end">
                                 <span class="text-secondary small">@m.ImpactoComun</span>
                             </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (tipo == "RetirosEnDomicilio")
+        {
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-dark">Comercio</th>
+                        <th class="text-end text-dark">Solicitados</th>
+                        <th class="text-end text-dark">Retirados</th>
+                        <th class="text-end text-dark">No retirados</th>
+                        <th class="text-end text-dark">Entregados al comercio</th>
+                        <th class="text-end text-dark">Cancelados</th>
+                        <th class="text-end text-dark">En curso</th>
+                        <th class="text-end text-dark">Facturado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Reporte.ItemsRetiros.Count == 0)
+                    {
+                        <tr><td colspan="8" class="text-center text-muted py-4">No hay retiros solicitados en el período.</td></tr>
+                    }
+                    @foreach (var fila in Model.Reporte.ItemsRetiros)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@fila.Comercio</td>
+                            <td class="text-end">@fila.Solicitados</td>
+                            <td class="text-end">@fila.Retirados</td>
+                            <td class="text-end">@fila.NoRetirados</td>
+                            <td class="text-end">@fila.EntregadosAlComercio</td>
+                            <td class="text-end">@fila.Cancelados</td>
+                            <td class="text-end">@fila.EnCurso</td>
+                            <td class="text-end">$ @fila.TotalFacturado.ToString("N2")</td>
                         </tr>
                     }
                 </tbody>
