@@ -53,3 +53,4 @@ Frontend
 | **Subtotal reclamado** | **14** | | |
 | Pruebas E2E con Playwright | 2 | Pendiente (evaluar) | Backend/Frontend |
 | Banderas de funcionalidad | 2 | Backend hecho; falta la pantalla. Decisión previa: no reclamar | Reevaluar si hace falta margen |
+- 10/11 — Despliegue manual terminado (api1, api2, worker, backoffice, portal, panel): `/ready` 200 en API y Portal; los endpoints nuevos responden 401 sin token (existen en producción). Falta: probar en vivo con la UI (firmas, selector de operadores, CSV) y la carga sobre el ambiente remoto.
