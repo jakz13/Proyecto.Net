@@ -13,16 +13,16 @@ Documento vivo. **Marcar cada casilla en cuanto se termine la tarea.** Si una co
 ## Checklist del equipo (notas de los compañeros)
 Backend
 - [x] Firmas de entrega visibles en Backoffice y en los roles que corresponda — `GET /api/envios/{id}/intentos/{intento}/evidencia/{firma|foto}` (política `ConsultaDeEnvios`: admin, despachador, operario y comercio dueño), modal de trazabilidad del Backoffice y detalle del Portal; pruebas `ObtenerEvidenciaEntregaTests` y `AutorizacionPorPerfilApiTests`
-- [ ] Extraviados llegan como notificación al Portal de Comercio (verificar de punta a punta)
+- [x] Extraviados llegan como notificación al Portal de Comercio — el handler emite `EnvioCambioEstado` al grupo del comercio (alerta "Paquete Extraviado" en `Envios.razor`) y el evento `EnvioExtraviado` al outbox (aviso webhook, configurable); cubierto por `MarcarEnvioExtraviadoCommandHandlerTests` y `TableroRealtimeNotificationHandlerTests`. No se probó en navegador
 - [x] Mismo RUT en dos operadores: el comercio ve a ambos en tiempo real — `GET /api/comercio/operadores` y `POST /api/comercio/operadores/{id}/sesion` (token acotado a un operador), aviso SignalR `OperadoresDelComercioCambiaron` al vincular/suspender, selector real en el Portal (antes era un selector de demo y en el servidor mostraba operadores inventados). Pruebas `ComercioConVariosOperadoresApiTests`
 - [x] Subida de imágenes de identidad visual (hecho por el equipo)
-- [ ] CSV del portal de comercio y webhooks: verificar con archivo real y definir receptor de prueba
-- [ ] Cuenta corriente del portal: revisar contenido
+- [x] CSV del portal: `ImportacionCsvApiTests` (archivo real, error por fila, reimportación idempotente, `;`, permisos). Webhooks: el receptor de prueba es `/api/testing/webhook-receiver` (en el servidor, host interno `http://api1:8080/api/testing/webhook-receiver` por `Avisos__HostsPermitidos`); falta solo probarlo en vivo con la UI
+- [x] Cuenta corriente del portal: ahora muestra el operador, subtotal e IVA por liquidación (antes solo el total); el retiro entregado no entra en la liquidación (la letra no lo exige)
 
 Frontend
 - [ ] Quitar etiquetas "Observabilidad" y "Tablero de Operaciones"
-- [ ] Botón de devolución en el seguimiento público
-- [ ] Cola de Fallidos: decisión (queda como pantalla; la letra pide gestión de fallidos)
+- [x] Seguimiento público: panel informativo de devolución (En devolución / Devuelto) con qué hacer. Decisión: NO hay acción pública que cambie el estado (la letra no la pide, el comercio solicita retiros desde el portal, y un endpoint anónimo que cambie estados es un vector de abuso)
+- [x] Cola de Fallidos: se mantiene como pantalla (la letra pide gestión de fallidos); ya tiene botón en el menú
 
 ## Pendientes del traspaso (no mobile)
 - [ ] Subir y desplegar lo local (9 commits sin subir)

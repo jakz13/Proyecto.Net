@@ -2,12 +2,13 @@
 @using System.Globalization
 @using UltimaMilla.Frontend.Contracts.Modelos.Liquidaciones
 @inject ICuentaCorrienteApi CuentaApi
+@inject IIdentidadVisualApi IdentidadApi
 
 <PageTitle>Portal del Comercio — Cuenta Corriente</PageTitle>
 
 <div class="mb-4">
     <h1 class="h4 fw-bold mb-1">Cuenta Corriente y Liquidaciones</h1>
-    <p class="text-muted small mb-0">Saldo con su operador, movimientos recientes y liquidaciones de los envíos entregados.</p>
+    <p class="text-muted small mb-0">Saldo con @(string.IsNullOrWhiteSpace(nombreOperador) ? "su operador" : nombreOperador), movimientos recientes y liquidaciones de los envíos entregados. Cada operador lleva su propia cuenta.</p>
 </div>
 
 @if (!string.IsNullOrEmpty(mensajeError))
@@ -67,11 +68,11 @@ else if (cuenta is not null)
                 <div class="card-header bg-white py-3 px-4 border-bottom"><h2 class="h6 fw-bold mb-0">Liquidaciones</h2></div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0 small">
-                        <thead class="table-light"><tr><th class="ps-4">Período</th><th>Envíos</th><th>Estado</th><th class="pe-4 text-end">Total</th></tr></thead>
+                        <thead class="table-light"><tr><th class="ps-4">Período</th><th>Envíos</th><th>Estado</th><th class="text-end">Subtotal</th><th class="text-end">IVA</th><th class="pe-4 text-end">Total</th></tr></thead>
                         <tbody>
                             @if (liquidaciones.Count == 0)
                             {
-                                <tr><td colspan="4" class="text-center text-secondary py-3">Todavía no hay liquidaciones.</td></tr>
+                                <tr><td colspan="6" class="text-center text-secondary py-3">Todavía no hay liquidaciones.</td></tr>
                             }
                             @foreach (var l in liquidaciones)
                             {
@@ -79,6 +80,8 @@ else if (cuenta is not null)
                                     <td class="ps-4">@l.PeriodoDesde.ToString("dd/MM") – @l.PeriodoHasta.ToString("dd/MM/yyyy")</td>
                                     <td>@l.CantidadEnvios</td>
                                     <td><span class="badge text-bg-secondary">@l.Estado</span></td>
+                                    <td class="text-end">@Formato(l.Subtotal)</td>
+                                    <td class="text-end">@Formato(l.Iva)</td>
                                     <td class="pe-4 text-end fw-semibold">@Formato(l.MontoTotal)</td>
                                 </tr>
                             }
@@ -95,6 +98,7 @@ else if (cuenta is not null)
     private List<LiquidacionDto> liquidaciones = new();
     private string? mensajeError;
     private bool cargando = true;
+    private string? nombreOperador;
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +106,14 @@ else if (cuenta is not null)
         {
             cuenta = await CuentaApi.ObtenerCuentaCorrienteAsync();
             liquidaciones = (await CuentaApi.ListarLiquidacionesAsync()).ToList();
+            try
+            {
+                nombreOperador = (await IdentidadApi.ObtenerIdentidadActualAsync()).NombreComercial;
+            }
+            catch
+            {
+                // El nombre del operador es informativo: sin él la cuenta se muestra igual
+            }
         }
         catch (Exception ex)
         {
