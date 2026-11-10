@@ -1,32 +1,32 @@
-# Traspaso: estado al 9/11 y pendientes (para retomar)
+# Traspaso: estado al 10/11 y pendientes (para retomar)
 
-Rama de trabajo: `desarrollo-backend` (commits locales, **sin subir**). `main` sigue en `71a3821`. Suite: 1017 pruebas del backend + 111 del frontend, todas en verde.
+Rama de trabajo: `desarrollo-backend`. **Hay commits locales sin subir** (el usuario retiró la autorización de subir en esta tanda). Lo último subido y desplegado en producción es `8193a0d` (retiros, entrega parcial, seguridad por perfil, banderas). Suite: 139 pruebas de integración + 908 de dominio, aplicación y arquitectura en el backend, y 111 del frontend, todas en verde.
 
-## Hecho en esta sesión (todo commiteado)
+## Hecho (todo commiteado)
 | Tema | Resultado |
 |---|---|
-| Merge de la rama `mobile` | Conflicto semántico resuelto (conflictos offline + entrega por bultos) |
-| Entrega parcial (2.1) | Estaba guardada en diccionarios estáticos: ahora son columnas con migración y prueba en Postgres real. La migración crea además la tabla `ConflictosSincronizacion` (faltaba) |
-| Retiro en domicilio (2.2) | Backend completo, pantallas de portal y backoffice, rutas mixtas con capacidad a lo largo del recorrido, conflictos offline, seguimiento público (`RET-`), avisos v2, tablero y reporte. 15 pruebas de integración + 48 de dominio |
-| Seguridad | Autorización por perfil en **toda** la API (antes un comercio podía listar usuarios/comercios/reglas), fuga entre comercios en el detalle de envío, endpoint anónimo de reinicio de demo, paquete con vulnerabilidad alta |
-| Arquitectura/calidad | Pruebas NetArchTest (10), cobertura 76 % medida y publicada por el CI con umbral 70 %, auditoría de paquetes, `CLAUDE.md` |
-| Documentación | `README.md`, ADR-003 a ADR-008 e índice en `docs/adr/` |
-| Banderas de funcionalidad | Backend completo + prueba. Usuario `plataforma@gmail.com` / `Plataforma.2026!` |
+| Entrega parcial (2.1) y retiro en domicilio (2.2) | Backend y web completos, con migraciones y pruebas. Producción verificada con un retiro real |
+| Auditoría de seguridad | SSRF en avisos, XSS en recepción, subida de logos, JWT sin vencimiento, clave por defecto de repartidores, cabeceras HTTP. `docs/Seguridad.md`, `SeguridadEndurecimientoTests` |
+| API pública (3 pts) | Clave de pruebas (sandbox), límite de tasa por clave, documentación navegable v1. `docs/API_Publica.md`, `ApiPublicaTests` |
+| Resiliencia (2 pts) | Redis, cola y base interrumpidos con tráfico real; dos defectos corregidos (19 s con Redis caído, 500 con excepción filtrada). `docs/Pruebas_de_Resiliencia.md` |
+| Carga (2 pts) | Guion k6 con SLO como umbrales y sincronización simultánea; medido en local, cumple. `docs/Plan_de_Carga.md` |
+| Merge de `frontend` (Felipe) | Rediseño del seguimiento público integrado con el soporte de retiro |
+| Documentación | `Plan_de_Pruebas.md`, `Estado_de_Requerimientos.md`, ADR-003 a 008, `README.md`, `CLAUDE.md` |
+
+## Decisiones tomadas por el usuario
+- **Banderas de funcionalidad: NO se reclaman** (Joaquín compensó con otro opcional). No construir la pantalla. El backend ya desplegado queda como está.
+- **No subir a `main` ni desplegar sin autorización explícita** (la de esta tanda fue retirada).
+- El CI de GitHub está bloqueado por un problema de la cuenta (`billing issue`, plan Free, sin deudas); se espera respuesta de soporte (~1 semana). Mientras tanto se despliega con `scripts\desplegar.bat`.
 
 ## Pendiente, en orden de prioridad
-1. **Decidir si se sube** (`desarrollo-backend` y `main`) y desplegar. Al desplegar corren 3 migraciones (`PersistirEntregaParcial`, `RetiroEnDomicilio`, `BanderasDeFuncionalidad`). Verificar luego en producción: login de las 6 cuentas, alta de un retiro, `/api/funcionalidades`.
-2. **Aplicación móvil (Joaquín)**: paradas de retiro, registro con escaneo/foto/firma sin conexión, enviar `X-Correlation-Id`, ocultar según `GET /api/funcionalidades`. Contrato: `docs/UC-Retiro-Movil.md`.
-3. ~~Pantalla de banderas~~: **descartado** (acordado con el docente/equipo; Joaquín compensó con otro opcional). El backend de banderas queda como está.
-4. **API pública (3 pts)**: falta límite de tasa por clave (hoy por IP), clave de pruebas/sandbox y documentación navegable.
-5. **Pruebas de resiliencia (2 pts)**: tests con Redis y RabbitMQ caídos + documento esperado vs observado.
-6. **Pruebas de carga (2 pts)**: scripts k6 y ejecución sobre el ambiente remoto (incluir sincronización simultánea de repartidores).
-7. **Optimización de paradas (2 pts)**: falta la comparación medida contra el criterio del RF 16.
-8. **Geocercas (3 pts)**: falta el análisis del impacto en batería.
-9. **Liquidación**: el retiro entregado todavía no entra en la liquidación por comercio (sí en el reporte de retiros).
-10. ~~`docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md`~~ escritos; revisar el estado de cada requerimiento cuando se cierren los parciales.
-11. Terraform: `import` + `plan` sin cambios (requiere sesión de Oracle) y captura de costos.
-12. Notificaciones con la app cerrada (letra 6.11, obligatorio): ADR-002 de Joaquín descarta FCM; riesgo de nota.
-13. Límite de tasa por instancia (con 2 instancias el límite real es el doble): decidir si se implementa distribuido o se documenta.
+1. **Aplicación móvil (Joaquín), riesgo para el monitoreo del 12/11**: la hoja de ruta mixta (escenario obligatorio para equipos de 4) necesita paradas de retiro en la app; hoy no están. Contrato: `docs/UC-Retiro-Movil.md`. También: entrega por bultos y enviar `X-Correlation-Id`. Decidir si lo implementa Joaquín o se hace en `desarrollo-backend` y se le avisa.
+2. **Subir y desplegar** lo de esta tanda (con autorización). El despliegue lleva el `Caddyfile.prod` nuevo (cabeceras de seguridad) y `Avisos__HostsPermitidos` en `docker-compose.prod.yml`. Verificar luego: el receptor de prueba de avisos sigue entregando (SSRF), el login del backoffice funciona (cookie `Secure`) y el alta de repartidores exige contraseña.
+3. **Carga sobre el ambiente remoto** (la letra lo pide) en una ventana acordada; repetir el corte de una instancia de producción.
+4. **Optimización de paradas (2 pts, Joaquín)**: la app compara distancia base vs optimizada en ejecución; falta una tabla medida contra el criterio del RF 16 (franja, prioridad, antigüedad).
+5. **Geocercas (3 pts, Joaquín)**: falta el análisis del impacto en batería.
+6. **Terraform**: `import` + `plan` sin cambios (requiere `oci session authenticate`) y captura de costos.
+7. Notificaciones con la app cerrada (letra 6.11, obligatorio): ADR-002 descarta FCM; riesgo de nota.
+8. Opcionales menores: el retiro entregado no entra en la liquidación por comercio (la letra no lo exige: el RF 41 pide tarifa, seguimiento, avisos, tablero y reportes, que sí están); purga del outbox; límite de tasa distribuido.
 
 ## Prompt para retomar
-> Estoy en `desarrollo-backend` con el trabajo descrito en `docs/Traspaso_Pendientes.md`. Retomá desde el punto 1: si te autorizo, subí a ambas ramas y desplegá, verificá producción; después escribí `docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md` con el estado real de cada requerimiento, y seguí con los puntos 3 a 6. Respondé en español, commits sin marcas, no toques la rama `mobile`.
+> Estoy en `desarrollo-backend` con el trabajo de `docs/Traspaso_Pendientes.md`. No subas ni despliegues sin que lo autorice. Retomá desde el punto 1 (aplicación móvil: retiro) o el que indique; respondé en español, commits sin marcas, no toques la rama `mobile`, no hagas la pantalla de banderas.
