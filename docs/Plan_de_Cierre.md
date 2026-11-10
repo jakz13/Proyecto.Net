@@ -22,7 +22,7 @@ Backend
 Frontend
 - [ ] Quitar etiquetas "Observabilidad" y "Tablero de Operaciones"
 - [x] Seguimiento público: panel informativo de devolución (En devolución / Devuelto) con qué hacer. Decisión: NO hay acción pública que cambie el estado (la letra no la pide, el comercio solicita retiros desde el portal, y un endpoint anónimo que cambie estados es un vector de abuso)
-- [x] Cola de Fallidos: se mantiene como pantalla (la letra pide gestión de fallidos); ya tiene botón en el menú
+- [ ] Cola de Fallidos: la implementa Felipe (frontend); backend no toca nada. Hoy existe como pantalla con botón en el menú
 
 ## Pendientes del traspaso (no mobile)
 - [x] Subir lo local: `main` y `desarrollo-backend` en `de0e986` (10/11). CI de GitHub probado una vez: sigue bloqueado (`billing issue`). Despliegue manual con `scripts\desplegar.ps1` (ver registro)
