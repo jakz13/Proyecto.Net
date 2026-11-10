@@ -25,7 +25,7 @@ Frontend
 - [x] Cola de Fallidos: se mantiene como pantalla (la letra pide gestión de fallidos); ya tiene botón en el menú
 
 ## Pendientes del traspaso (no mobile)
-- [ ] Subir y desplegar lo local (9 commits sin subir)
+- [x] Subir lo local: `main` y `desarrollo-backend` en `de0e986` (10/11). CI de GitHub probado una vez: sigue bloqueado (`billing issue`). Despliegue manual con `scripts\desplegar.ps1` (ver registro)
 - [ ] Carga y resiliencia sobre el ambiente remoto
 - [ ] Terraform: `import` + `plan` sin cambios y captura de costos (requiere `oci session authenticate`: lo hace el usuario)
 - [ ] Opcionales hasta 16 puntos (ver sección)
@@ -38,3 +38,18 @@ Frontend
 (Anotar aquí cada hito con fecha y commit.)
 - 10/11 — Firmas visibles (commit `cb307cd`).
 - 10/11 — Comercio con varios operadores + corrección del hash de la semilla.
+- 10/11 — Resumen para Joaquín: `docs/Pendientes_Mobile.md`.
+- 10/11 — `git push` a `main` (de0e986): el CI falló de inmediato por la cuenta (billing). Despliegue manual lanzado con `scripts/desplegar.ps1`.
+
+## Opcionales: meta 16 puntos
+| Opcional | Pts | Estado | Responsable |
+|---|---|---|---|
+| Cobertura > 70 % | 2 | Cumplido (76 %) | — |
+| API pública | 3 | Cumplido | — |
+| Resiliencia | 2 | Cumplido | — |
+| Carga | 2 | Falta ejecutarla sobre el ambiente remoto | Backend (tras el despliegue) |
+| Geocercas | 3 | Falta análisis de batería | Joaquín |
+| Optimización de paradas | 2 | Falta tabla medida | Joaquín |
+| **Subtotal reclamado** | **14** | | |
+| Pruebas E2E con Playwright | 2 | Pendiente (evaluar) | Backend/Frontend |
+| Banderas de funcionalidad | 2 | Backend hecho; falta la pantalla. Decisión previa: no reclamar | Reevaluar si hace falta margen |
