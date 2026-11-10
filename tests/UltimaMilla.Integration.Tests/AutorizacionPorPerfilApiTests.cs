@@ -203,6 +203,14 @@ public class AutorizacionPorPerfilApiTests
         // El comercio B no los ve, ni por detalle ni por listado, ni puede operar sobre ellos
         var comercioB = await ClienteComoAsync(emailB, "ComercioB.2026!");
         Assert.Equal(HttpStatusCode.NotFound, (await comercioB.GetAsync($"/api/envios/{envioId}/detalle")).StatusCode);
+        // La evidencia (firma/foto) sigue la misma regla: otro comercio recibe 404 y el repartidor no entra a esa consulta
+        var intentoCualquiera = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.NotFound, (await comercioB.GetAsync($"/api/envios/{envioId}/intentos/{intentoCualquiera}/evidencia/firma")).StatusCode);
+        var repartidor = await ClienteComoAsync("repartidor@gmail.com", "Repartidor.2026!");
+        Assert.Equal(HttpStatusCode.Forbidden, (await repartidor.GetAsync($"/api/envios/{envioId}/intentos/{intentoCualquiera}/evidencia/firma")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await repartidor.GetAsync($"/api/envios/{envioId}/detalle")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await comercioA.GetAsync($"/api/envios/{envioId}/intentos/{intentoCualquiera}/evidencia/firma")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await comercioA.GetAsync($"/api/envios/{envioId}/intentos/{intentoCualquiera}/evidencia/otra")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await comercioB.GetAsync($"/api/comercio/retiros/{retiroId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await comercioB.PostAsJsonAsync($"/api/comercio/retiros/{retiroId}/cancelar", new { motivo = "x" })).StatusCode);
 

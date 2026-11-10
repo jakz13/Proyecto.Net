@@ -36,6 +36,16 @@ public interface IEnviosApi
     Task<IReadOnlyList<EventoHistorialEnvioDto>> ObtenerHistorialEnvioAsync(Guid envioId, CancellationToken cancelacion = default);
 
     /// <summary>
+    /// Evidencias (receptor, firma y foto disponibles) de los intentos de entrega de un envío con prueba registrada.
+    /// </summary>
+    Task<IReadOnlyList<EvidenciaEntregaDto>> ObtenerEvidenciasEnvioAsync(Guid envioId, CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Imagen de la firma ("firma") o de la foto ("foto") de un intento de entrega; nulo si no existe.
+    /// </summary>
+    Task<ImagenEvidenciaDto?> ObtenerImagenEvidenciaAsync(Guid envioId, Guid intentoId, string tipo, CancellationToken cancelacion = default);
+
+    /// <summary>
     /// Importa masivamente órdenes de envío a partir de un archivo CSV con cálculo de tarifas e idempotencia (UC-25, RF-07).
     /// </summary>
     Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(

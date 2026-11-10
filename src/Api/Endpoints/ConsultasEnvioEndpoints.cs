@@ -7,6 +7,7 @@ using UltimaMilla.Application.Queries.Comercio.GenerarEtiquetasEnvios;
 using UltimaMilla.Application.Queries.Comercio.ListarDevolucionesDelComercio;
 using UltimaMilla.Application.Queries.Comercio.ListarEnviosDelComercio;
 using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
+using UltimaMilla.Application.Queries.Envios.ObtenerEvidenciaEntrega;
 using UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
 using UltimaMilla.Application.Queries.Seguimiento.ListarFranjasDisponibles;
 using UltimaMilla.Domain.Exceptions;
@@ -125,11 +126,50 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.ConsultaDeEnvios)
         .WithTags("Envíos (Backoffice)")
         .WithName("ObtenerDetalleEnvio")
         .WithSummary("Detalle interno del envío con eventos, intentos y prueba de entrega")
         .Produces<DetalleEnvioDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        // Firma y foto de un intento de entrega, servidas como imagen. Mismo aislamiento que el detalle (operador y comercio).
+        app.MapGet("/api/envios/{envioId:guid}/intentos/{intentoId:guid}/evidencia/{tipo}", async (
+            [FromRoute] Guid envioId,
+            [FromRoute] Guid intentoId,
+            [FromRoute] string tipo,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (!Enum.TryParse<TipoEvidenciaEntrega>(tipo, ignoreCase: true, out var tipoEvidencia) || !Enum.IsDefined(tipoEvidencia))
+                return Results.BadRequest(new { error = "El tipo de evidencia debe ser 'firma' o 'foto'." });
+
+            try
+            {
+                var evidencia = await mediator.Send(new ObtenerEvidenciaEntregaQuery(envioId, intentoId, tipoEvidencia), ct);
+                return Results.File(evidencia.Contenido, evidencia.TipoContenido);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .RequireAuthorization(PoliticasApi.ConsultaDeEnvios)
+        .WithTags("Envíos (Backoffice)")
+        .WithName("ObtenerEvidenciaEntrega")
+        .WithSummary("Imagen de la firma o de la foto de un intento de entrega")
+        .Produces(StatusCodes.Status200OK, contentType: "image/png")
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden)

@@ -28,6 +28,9 @@ public static class PoliticasApi
     /// <summary>Cualquier persona del operador logístico, nunca un usuario de comercio.</summary>
     public const string PersonalDelOperador = "PersonalDelOperador";
 
+    /// <summary>Consulta de un envío y su evidencia: personal del depósito y la administración, y el comercio dueño del envío (el handler lo acota).</summary>
+    public const string ConsultaDeEnvios = "ConsultaDeEnvios";
+
     /// <summary>El repartidor en la calle (aplicación móvil).</summary>
     public const string Repartidor = "Repartidor";
 
@@ -44,6 +47,8 @@ public static class PoliticasApi
         opciones.AddPolicy(Deposito, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador, RolDespachador, RolOperario));
         opciones.AddPolicy(PersonalDelOperador, p => p.RequireAuthenticatedUser()
             .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolRepartidor));
+        opciones.AddPolicy(ConsultaDeEnvios, p => p.RequireAuthenticatedUser()
+            .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolComercio));
         opciones.AddPolicy(Repartidor, p => p.RequireAuthenticatedUser().RequireRole(RolRepartidor));
         opciones.AddPolicy(Comercio, p => p.RequireAuthenticatedUser().RequireRole(RolComercio));
         opciones.AddPolicy(Plataforma, p => p.RequireAuthenticatedUser().RequireRole(RolPlataforma));

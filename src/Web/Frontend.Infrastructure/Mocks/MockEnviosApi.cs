@@ -434,6 +434,12 @@ public class MockEnviosApi : IEnviosApi
         return Task.FromResult(resultado);
     }
 
+    public Task<IReadOnlyList<EvidenciaEntregaDto>> ObtenerEvidenciasEnvioAsync(Guid envioId, CancellationToken cancelacion = default) =>
+        Task.FromResult<IReadOnlyList<EvidenciaEntregaDto>>(Array.Empty<EvidenciaEntregaDto>());
+
+    public Task<ImagenEvidenciaDto?> ObtenerImagenEvidenciaAsync(Guid envioId, Guid intentoId, string tipo, CancellationToken cancelacion = default) =>
+        Task.FromResult<ImagenEvidenciaDto?>(null);
+
     public Task<IReadOnlyList<EventoHistorialEnvioDto>> ObtenerHistorialEnvioAsync(Guid envioId, CancellationToken cancelacion = default)
     {
         if (HistorialPorEnvio.TryGetValue(envioId, out var eventos))
