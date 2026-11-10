@@ -36,7 +36,7 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | Optimización del orden de paradas (Joaquín) | 2 | **Parcial**: 2-opt implementado en la app; falta la comparación medida contra el criterio del RF 16 |
 | Banderas de funcionalidad | 0 | **No se reclama**: se acordó no entregarlo (pocos puntos para lo que exige) y Joaquín lo compensó con otro opcional. El backend existe y funciona (`/api/plataforma/operadores`), pero sin pantalla de administración no cumple el requisito |
 | API pública para comercios | 3 | **Cumplido**: claves por comercio, ruta versionada, ambiente de pruebas (clave sandbox), límite de tasa por clave y documentación navegable. Ver `docs/API_Publica.md` y `ApiPublicaTests` |
-| Pruebas de resiliencia | 2 | Pendiente |
-| Pruebas de carga | 2 | Pendiente |
+| Pruebas de resiliencia | 2 | **Cumplido** (con una repetición pendiente): Redis, RabbitMQ y Postgres interrumpidos con tráfico real, esperado vs observado y dos defectos corregidos. Falta repetir sobre una instancia de producción en la defensa. Ver `docs/Pruebas_de_Resiliencia.md` |
+| Pruebas de carga | 2 | **Parcial**: plan, SLO como umbrales y los 4 escenarios (incluida la sincronización simultánea) medidos en local, todos cumplen. **Falta la ejecución sobre el ambiente remoto** que pide la letra. Ver `docs/Plan_de_Carga.md` |
 
 Puntos que hoy se pueden defender sin trabajo adicional: **2** (cobertura). Los opcionales reclamados son: cobertura, geocercas, optimización de paradas, API pública, resiliencia y carga; hay que cerrar los parciales.

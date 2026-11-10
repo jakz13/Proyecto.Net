@@ -53,7 +53,12 @@ reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cober
 | Detener el receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
 | Destruir y reconstruir el ambiente | `terraform destroy` / `apply` (**pendiente de ejecutar contra la cuenta real**) |
 
-## 7. Pendientes de este plan
-- **Pruebas de carga** (opcional): escenarios k6 de concurrencia, rampa y duración sobre el ambiente remoto, con objetivos de nivel de servicio y el caso de sincronización simultánea de repartidores. **No ejecutadas.**
-- **Pruebas de resiliencia** (opcional): interrumpir Redis, la cola y una instancia y documentar el comportamiento esperado y el observado. **No ejecutadas.**
+## 7. Carga, resiliencia y seguridad
+- **Carga:** `docs/Plan_de_Carga.md` (k6, SLO como umbrales, sincronización simultánea de repartidores). Medida en local; falta ejecutarla sobre el ambiente remoto.
+- **Resiliencia:** `docs/Pruebas_de_Resiliencia.md` (Redis, cola y base interrumpidos con tráfico real; esperado vs observado) y `ResilienciaCacheTests`.
+- **Seguridad:** `docs/Seguridad.md` y `SeguridadEndurecimientoTests`.
+- **API pública:** `docs/API_Publica.md` y `ApiPublicaTests`.
+
+## 8. Pendientes de este plan
+- Ejecutar la carga sobre el ambiente remoto en una ventana acordada, y repetir el corte de una instancia de producción.
 - **Extremo a extremo con navegador** (opcional): no implementadas.
