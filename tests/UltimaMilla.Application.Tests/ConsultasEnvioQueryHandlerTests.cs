@@ -179,6 +179,7 @@ public class ConsultasEnvioQueryHandlerTests
     [Fact]
     public async Task Detalle_IncluyeEventosIntentosYPruebaDeEntrega()
     {
+        _tenant.ComercioOperadorId = null; // vista del personal del operador
         var envio = LlevarAEnTransito(CrearEnvio());
         envio.RegistrarEntregaExitosa(Guid.NewGuid(), Regla(_tenant.OperadorId), "Juan Pérez", "1.234.567-8", "firma-base64", null, -34.9, -56.1, DateTime.UtcNow);
 
@@ -199,8 +200,24 @@ public class ConsultasEnvioQueryHandlerTests
     }
 
     [Fact]
+    public async Task Detalle_UnUsuarioDeComercioVeSusEnviosPeroNoLosDeOtroComercioDelMismoOperador()
+    {
+        var envio = CrearEnvio();
+
+        // El comercio dueño del envío lo ve
+        _tenant.ComercioOperadorId = envio.ComercioOperadorId;
+        Assert.Equal(envio.Id, (await HandlerDetalle().Handle(new ObtenerDetalleEnvioQuery(envio.Id), default)).EnvioId);
+
+        // Otro comercio del mismo operador recibe "no encontrado": no se revela que el envío existe
+        _tenant.ComercioOperadorId = Guid.NewGuid();
+        await Assert.ThrowsAsync<UltimaMilla.Application.Exceptions.NotFoundException>(() =>
+            HandlerDetalle().Handle(new ObtenerDetalleEnvioQuery(envio.Id), default));
+    }
+
+    [Fact]
     public async Task Detalle_NoDevuelveElContenidoDeLaFirmaNiDeLaFoto()
     {
+        _tenant.ComercioOperadorId = null; // vista del personal del operador
         var envio = LlevarAEnTransito(CrearEnvio());
         envio.RegistrarEntregaExitosa(Guid.NewGuid(), Regla(_tenant.OperadorId), "Juan", "1", "FIRMA-SECRETA-BASE64", "FOTO-BASE64", null, null, DateTime.UtcNow);
 

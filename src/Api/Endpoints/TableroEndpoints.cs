@@ -4,6 +4,7 @@ using UltimaMilla.Application.Commands.Tablero.EnviarInstruccionRepartidor;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Tablero;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -13,7 +14,7 @@ public static class TableroEndpoints
     {
         var group = app.MapGroup("/api/operacion/tablero")
             .WithTags("Tablero de operación en vivo (UC-12)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones);
 
         group.MapGet("/", async (
             [FromServices] IMediator mediator,

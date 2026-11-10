@@ -11,6 +11,7 @@ using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Tablero;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -82,18 +83,18 @@ public static class WorkerProcesosEndpoints
 
             return Results.Ok(new { codigoRespuestaHttp = _codigoRespuestaSimulado });
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Administracion)
         .WithName("ConfigurarReceptorWebhookDePrueba")
         .WithSummary("Configurar el modo de respuesta (200 OK o falla 5xx) del receptor de prueba");
 
         receptor.MapGet("/recibidos", () => Results.Ok(Recibidos.Reverse().ToList()))
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Administracion)
             .WithName("ListarWebhooksRecibidosDePrueba")
             .WithSummary("Consultar los avisos recibidos por el receptor de prueba y la validez de su firma");
 
         var suscripciones = app.MapGroup("/api/comercio/webhooks/suscripciones")
             .WithTags("Suscripciones de Webhooks del Comercio (UC-36)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Comercio);
 
         suscripciones.MapPost("/", async (
             [FromBody] CrearSuscripcionAvisoRequest req,
@@ -171,7 +172,7 @@ public static class WorkerProcesosEndpoints
 
         var operacionWebhooks = app.MapGroup("/api/operacion/webhooks")
             .WithTags("Historial y Reenvío de Webhooks (UC-30)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones);
 
         operacionWebhooks.MapGet("/historial", async (
             [FromQuery] Guid? comercioOperadorId,
@@ -215,7 +216,7 @@ public static class WorkerProcesosEndpoints
 
         var procesos = app.MapGroup("/api/operacion/procesos")
             .WithTags("Procesos de operación (UC-37, UC-38)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Administracion);
 
         procesos.MapPost("/recalcular-indicadores", async (
             [FromQuery] DateOnly? fecha,
@@ -266,7 +267,7 @@ public static class WorkerProcesosEndpoints
             var proveedor = redisConfigurado ? "Redis" : "MemoriaDistribuida";
             return Results.Ok(MedidorCache.ObtenerResumen(proveedor));
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Administracion)
         .WithTags("Caché distribuido (RNF 6.7)")
         .WithName("ObtenerMetricasCacheDistribuido")
         .WithSummary("Consultar las métricas de aciertos, fallos e invalidaciones del caché distribuido por caso de uso")

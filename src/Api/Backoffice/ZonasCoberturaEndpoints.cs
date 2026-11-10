@@ -4,6 +4,7 @@ using UltimaMilla.Application.Commands.Operador.GestionZonas;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Queries.Operador.GestionZonas;
 using UltimaMilla.Frontend.Contracts.Modelos.Zonas;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -16,7 +17,8 @@ public static class ZonasCoberturaEndpoints
     {
         var grupo = app.MapGroup("/api/zonas-cobertura")
             .WithTags("Backoffice · Zonas y franjas (UC-02)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.PersonalDelOperador)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (
             [FromQuery] string? q,

@@ -424,6 +424,7 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
     }
 })
 .WithName("AltaEnvio")
+.RequireAuthorization(PoliticasApi.Comercio)
 .WithSummary("Registrar nuevo envío")
 .WithDescription("Crea una orden de envío en estado Admitido para el comercio solicitante.")
 .Produces(StatusCodes.Status201Created)

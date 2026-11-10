@@ -44,3 +44,23 @@ public static class PoliticasApi
         opciones.AddPolicy(Comercio, p => p.RequireAuthenticatedUser().RequireRole(RolComercio));
     }
 }
+
+/// <summary>Extensiones para declarar la autorización de los grupos de endpoints.</summary>
+public static class AutorizacionExtensiones
+{
+    /// <summary>
+    /// Los grupos de administración se pueden consultar con un perfil más amplio que el que los modifica: la lectura la fija la política del grupo
+    /// y cualquier método que no sea de lectura exige además esta política. Ambas se combinan (deben cumplirse las dos).
+    /// </summary>
+    public static TBuilder ExigirParaEscritura<TBuilder>(this TBuilder builder, string politica) where TBuilder : IEndpointConventionBuilder =>
+        builder.AddEndpointFilter(async (contexto, siguiente) =>
+        {
+            var metodo = contexto.HttpContext.Request.Method;
+            if (HttpMethods.IsGet(metodo) || HttpMethods.IsHead(metodo) || HttpMethods.IsOptions(metodo))
+                return await siguiente(contexto);
+
+            var autorizacion = contexto.HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
+            var resultado = await autorizacion.AuthorizeAsync(contexto.HttpContext.User, politica);
+            return resultado.Succeeded ? await siguiente(contexto) : Results.Forbid();
+        });
+}

@@ -4,6 +4,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Frontend.Contracts.Modelos.Mensajeria;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -14,7 +15,7 @@ public static class MensajeriaEndpoints
     {
         var grupo = app.MapGroup("/api/v1/mensajeria/cola-fallidos")
             .WithTags("Backoffice · Cola de mensajes fallidos")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (
             [FromQuery] string? tipo,

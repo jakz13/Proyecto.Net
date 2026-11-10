@@ -5,6 +5,7 @@ using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Queries.Operador.GestionComercios;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Comercios;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -17,7 +18,8 @@ public static class ComerciosEndpoints
     {
         var grupo = app.MapGroup("/api/comercios")
             .WithTags("Backoffice · Comercios (UC-01)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (
             [FromQuery] int? pagina,

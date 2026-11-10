@@ -5,6 +5,7 @@ using UltimaMilla.Application.Commands.Comercio.ReintentarAviso;
 using UltimaMilla.Application.Queries.Comercio.ConsultarHistorialAvisos;
 using UltimaMilla.Application.Queries.Comercio.ObtenerConfiguracionAvisos;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -14,7 +15,7 @@ public static class AvisosComercioEndpoints
     {
         var grupo = app.MapGroup("/api/comercio/avisos")
             .WithTags("Portal del comercio · Avisos automáticos y Webhooks (UC-29, UC-30)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Comercio);
 
         // Consulta la configuración actual de suscripción a avisos (UC-29)
         grupo.MapGet("/", async (

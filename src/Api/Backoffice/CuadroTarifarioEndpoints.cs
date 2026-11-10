@@ -4,6 +4,7 @@ using UltimaMilla.Application.Commands.Operador.GestionTarifas;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Queries.Operador.GestionTarifas;
 using Contratos = UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -17,7 +18,8 @@ public static class CuadroTarifarioEndpoints
     {
         var grupo = app.MapGroup("/api/cuadros-tarifarios")
             .WithTags("Backoffice · Cuadro tarifario")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         // 1. Listado del historial completo de versiones del cuadro tarifario
         grupo.MapGet("/", (IMediator mediator, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>

@@ -10,6 +10,7 @@ using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
 using UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
 using UltimaMilla.Application.Queries.Seguimiento.ListarFranjasDisponibles;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -159,7 +160,7 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .WithTags("Portal del comercio (UC-27)")
         .WithName("GenerarEtiquetasEnvios")
         .WithSummary("Generar etiquetas para uno o más envíos admitidos")
@@ -195,7 +196,7 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .WithTags("Portal del comercio (UC-28)")
         .WithName("ListarEnviosDelComercio")
         .WithSummary("Listado de los envíos propios del comercio")
@@ -227,7 +228,7 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .WithTags("Portal del comercio (UC-32)")
         .WithName("ListarDevolucionesDelComercio")
         .WithSummary("Devoluciones del comercio con su estado")
@@ -262,7 +263,7 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .WithTags("Portal del comercio (UC-32)")
         .WithName("ConfirmarDevolucionRecibida")
         .WithSummary("Confirmar la recepción del bulto devuelto")

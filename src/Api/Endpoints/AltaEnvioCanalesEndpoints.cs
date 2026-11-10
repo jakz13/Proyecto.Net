@@ -8,6 +8,7 @@ using UltimaMilla.Application.Commands.Comercio.RegenerarClaveApi;
 using UltimaMilla.Application.Commands.Integracion.AltaEnvioPorApi;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -149,7 +150,7 @@ public static class AltaEnvioCanalesEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .DisableAntiforgery()
         .WithTags("Alta masiva (UC-25)")
         .WithName("ImportarEnvios")
@@ -179,7 +180,7 @@ public static class AltaEnvioCanalesEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Comercio)
         .WithTags("Integración por API (UC-26)")
         .WithName("RegenerarClaveApi")
         .WithSummary("Generar una nueva clave de API para el comercio")

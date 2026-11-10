@@ -7,6 +7,7 @@ using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -16,7 +17,7 @@ public static class TableroEnVivoEndpoints
     public static IEndpointRouteBuilder MapTableroEnVivoEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/tablero")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Operaciones)
             .WithTags("Tablero de operación en vivo (UC-12, RF-29)");
 
         grupo.MapGet("/resumen", (AppDbContext db, ICurrentTenant tenant, IClock reloj, CancellationToken ct) =>

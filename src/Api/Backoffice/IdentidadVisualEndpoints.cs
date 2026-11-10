@@ -5,6 +5,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -18,7 +19,8 @@ public static partial class IdentidadVisualEndpoints
     {
         var grupo = app.MapGroup("/api/v1/identidad-visual")
             .WithTags("Backoffice · Identidad visual")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
             Results.Ok(await ObtenerAsync(db, tenant.OperadorId, ct))))

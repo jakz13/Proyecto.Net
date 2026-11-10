@@ -18,6 +18,7 @@ using UltimaMilla.Application.Queries.Mobile.Navegacion.ObtenerSecuenciaParadas;
 using UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -48,7 +49,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Repartidor)
         .WithName("DescargarHojasDeRuta")
         .WithSummary("UC-17: Descargar las hojas de ruta de la jornada")
         .WithDescription("Devuelve las hojas de ruta liberadas del repartidor autenticado para la fecha indicada (por defecto hoy), con paradas, destinatarios, bultos y la configuración necesaria para operar sin conexión.")
@@ -85,7 +86,7 @@ public static class MobileRutasEndpoints
 
         app.MapGet("/api/mobile/v1/rutas/activa", obtenerRutaActivaHandler)
             .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Repartidor)
             .WithName("ObtenerRutaActivaRepartidor")
             .WithSummary("Obtener la hoja de ruta activa del repartidor autenticado")
             .WithDescription("Resuelve el RepartidorId a partir de los Claims del JWT y devuelve su hoja de ruta en estado Despachada o EnTransito junto con sus paradas ordenadas, bultos y destinatarios. Retorna 404 si no posee ruta activa.")
@@ -96,12 +97,12 @@ public static class MobileRutasEndpoints
 
         app.MapGet("/api/mobile/v1/rutas/mi-ruta-activa", obtenerRutaActivaHandler)
             .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Repartidor)
             .ExcludeFromDescription();
 
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Repartidor)
             .AddEndpointFilter(async (contexto, siguiente) =>
             {
                 if (HttpMethods.IsPost(contexto.HttpContext.Request.Method))
@@ -599,8 +600,13 @@ public static class MobileRutasEndpoints
         app.MapPost("/api/mobile/v1/demo/reset", async (
             [FromServices] AppDbContext dbContext,
             [FromServices] IDistributedCacheService cacheService,
+            [FromServices] IConfiguration configuracion,
             CancellationToken ct) =>
         {
+            // Es un endpoint anónimo que modifica datos: en el servidor desplegado (modo demo apagado) no debe existir
+            if (!configuracion.GetValue("Auth:PermitirModoDemo", true))
+                return Results.NotFound();
+
             var hojaDeRutaId = DatabaseSeeder.DefaultHojaDeRutaId;
             var ruta = await dbContext.HojasDeRuta
                 .Include(h => h.Paradas)

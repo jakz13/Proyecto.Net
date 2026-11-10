@@ -6,6 +6,7 @@ using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Frontend.Contracts.Modelos.Flota;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -18,7 +19,8 @@ public static class FlotaEndpoints
     {
         var grupo = app.MapGroup("/api/v1/flota")
             .WithTags("Backoffice · Flota")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         MapVehiculos(grupo);
         MapRepartidores(grupo);

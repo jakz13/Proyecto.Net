@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -54,7 +55,7 @@ public static class ReportesEndpoints
             var resultado = await new ConstructorReportes(db, tenant.OperadorId, filtro, reloj.UtcNow).GenerarAsync(ct);
             return Results.Ok(resultado);
         }))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithTags("Reportes de gestión (UC-13, RF-30)")
         .WithName("GenerarReporteDeGestion")
         .WithSummary("Genera el reporte indicado para el período y los filtros recibidos");

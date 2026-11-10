@@ -30,6 +30,11 @@ public class ObtenerDetalleEnvioQueryHandler : IRequestHandler<ObtenerDetalleEnv
         if (envio.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: el envío no corresponde al operador actual.");
 
+        // Segundo nivel de aislamiento: un usuario de comercio solo ve los envíos de su propio comercio.
+        // El de otro comercio se informa como inexistente para no revelar que existe.
+        if (_currentTenant.ComercioOperadorId.HasValue && envio.ComercioOperadorId != _currentTenant.ComercioOperadorId.Value)
+            throw new NotFoundException($"Envío '{request.EnvioId}' no encontrado.");
+
         return new DetalleEnvioDto(
             envio.Id,
             envio.CodigoSeguimientoPublico,
