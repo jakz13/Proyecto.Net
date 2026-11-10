@@ -56,7 +56,7 @@ public class ConcurrenciaYAislamientoApiTests
         var vehiculo = await flota.CrearVehiculoAsync(new CrearVehiculoDto { Patente = "C" + Sufijo().ToUpperInvariant(), Tipo = "Furgón", CapacidadPeso = 500, CapacidadVolumen = 5 });
         var repartidor = await flota.CrearRepartidorAsync(new CrearRepartidorDto
         {
-            NombreCompleto = "Repartidor " + Sufijo(), Email = $"carrera.{Sufijo()}@ultimamilla.com.uy", Documento = "4.111.222-3", Telefono = "099000222"
+            NombreCompleto = "Repartidor " + Sufijo(), Email = $"carrera.{Sufijo()}@ultimamilla.com.uy", Documento = "4.111.222-3", Telefono = "099000222", Password = "Repartidor.2026!"
         });
         return (vehiculo, repartidor);
     }

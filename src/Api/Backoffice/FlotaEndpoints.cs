@@ -192,7 +192,10 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "No está configurado el perfil Repartidor.");
 
             // El repartidor ingresa a la app con un usuario propio; la contraseña provisional se cambia en el primer ingreso
-            var passwordInicial = !string.IsNullOrWhiteSpace(dto.Password) ? dto.Password.Trim() : "Repartidor.2026!";
+            // No existe una contraseña por defecto conocida: se exige elegir una (mínimo 8 caracteres)
+            var passwordInicial = dto.Password?.Trim() ?? string.Empty;
+            if (passwordInicial.Length < 8)
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "La contraseña provisoria del repartidor es obligatoria y debe tener al menos 8 caracteres.");
             var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, hasher.HashearPassword(passwordInicial),
                 perfil.Id, tenant.OperadorId);
             var repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, tenant.OperadorId, dto.Documento, dto.Telefono, dto.VehiculoAsignadoId, estado);
@@ -315,9 +318,10 @@ public static class FlotaEndpoints
             if (usuario is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el usuario asociado al repartidor.");
 
+            // Sin contraseña indicada se genera una aleatoria (no hay una por defecto conocida)
             var passwordNueva = !string.IsNullOrWhiteSpace(cuerpo?.NuevaPassword)
                 ? cuerpo.NuevaPassword.Trim()
-                : "Repartidor.2026!";
+                : GenerarPasswordProvisoria();
 
             usuario.CambiarPassword(hasher.HashearPassword(passwordNueva));
             usuario.Desbloquear();
@@ -327,6 +331,13 @@ public static class FlotaEndpoints
         }))
         .WithName("RestablecerPasswordRepartidor")
         .WithSummary("Restablecer la contraseña de acceso a la app móvil del repartidor");
+    }
+
+    private static string GenerarPasswordProvisoria()
+    {
+        const string alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        var caracteres = System.Security.Cryptography.RandomNumberGenerator.GetItems<char>(alfabeto, 12);
+        return new string(caracteres) + "!1";
     }
 
     private static string? NormalizarEstado(string? estado) =>

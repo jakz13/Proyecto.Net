@@ -54,6 +54,13 @@ public static class DatabaseSeeder
     public static readonly Guid Envio5Id = Guid.Parse("cccccccc-1111-2222-3333-000000000005");
     public static readonly Guid DefaultCuadroTarifarioId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
+    /// <summary>
+    /// Contraseña de las cuentas de demostración. Por defecto la conocida de la documentación (ambiente de laboratorio);
+    /// al desplegar un ambiente real se define SEED_PASSWORD_DEMO (mínimo 8 caracteres) y todas las cuentas nacen con esa.
+    /// </summary>
+    private static string PasswordDemo(string porDefecto) =>
+        Environment.GetEnvironmentVariable("SEED_PASSWORD_DEMO") is { Length: >= 8 } definida ? definida : porDefecto;
+
     public static async Task SeedAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -462,14 +469,14 @@ public static class DatabaseSeeder
         var usuarios = new List<Usuario>
         {
             // Operador 1 (Última Milla Express)
-            new(Guid.Parse("70000000-0000-0000-0000-000000000001"), "Administrador Central", "admin@gmail.com", hasher.HashearPassword("Admin.2026!"), DefaultPerfilAdminId, operadorId: DefaultOperadorId),
-            new(Guid.Parse("70000000-0000-0000-0000-000000000002"), "Despachador Turno Mañana", "despacho@gmail.com", hasher.HashearPassword("Despacho.2026!"), DefaultPerfilDespachadorId, operadorId: DefaultOperadorId),
-            new(Guid.Parse("70000000-0000-0000-0000-000000000003"), "Operario Depósito Central", "deposito@gmail.com", hasher.HashearPassword("Deposito.2026!"), DefaultPerfilOperarioId, operadorId: DefaultOperadorId),
-            new(DefaultUsuarioRepartidorId, "Martín Rodríguez (Repartidor)", "repartidor@gmail.com", hasher.HashearPassword("Repartidor.2026!"), DefaultPerfilRepartidorId, operadorId: DefaultOperadorId),
-            new(Guid.Parse("70000000-0000-0000-0000-000000000005"), "Usuario Comercio", "comercio@gmail.com", hasher.HashearPassword("Comercio.2026!"), DefaultPerfilComercioId, operadorId: DefaultOperadorId, comercioId: DefaultComercioId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000001"), "Administrador Central", "admin@gmail.com", hasher.HashearPassword(PasswordDemo("Admin.2026!")), DefaultPerfilAdminId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000002"), "Despachador Turno Mañana", "despacho@gmail.com", hasher.HashearPassword(PasswordDemo("Despacho.2026!")), DefaultPerfilDespachadorId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000003"), "Operario Depósito Central", "deposito@gmail.com", hasher.HashearPassword(PasswordDemo("Deposito.2026!")), DefaultPerfilOperarioId, operadorId: DefaultOperadorId),
+            new(DefaultUsuarioRepartidorId, "Martín Rodríguez (Repartidor)", "repartidor@gmail.com", hasher.HashearPassword(PasswordDemo("Repartidor.2026!")), DefaultPerfilRepartidorId, operadorId: DefaultOperadorId),
+            new(Guid.Parse("70000000-0000-0000-0000-000000000005"), "Usuario Comercio", "comercio@gmail.com", hasher.HashearPassword(PasswordDemo("Comercio.2026!")), DefaultPerfilComercioId, operadorId: DefaultOperadorId, comercioId: DefaultComercioId),
 
             // Operador 2 (TransLogística Express)
-            new(Guid.Parse("70000000-0000-0000-0000-000000000006"), "Administrador TransLogística", "admin2@gmail.com", hasher.HashearPassword("Admin.2026!"), DefaultPerfilAdminId, operadorId: Operador2Id)
+            new(Guid.Parse("70000000-0000-0000-0000-000000000006"), "Administrador TransLogística", "admin2@gmail.com", hasher.HashearPassword(PasswordDemo("Admin.2026!")), DefaultPerfilAdminId, operadorId: Operador2Id)
         };
 
         foreach (var u in usuarios)
@@ -494,7 +501,7 @@ public static class DatabaseSeeder
         {
             await context.Usuarios.AddAsync(
                 new Usuario(UsuarioAdministradorPlataformaId, "Administrador de la Plataforma", EmailAdministradorPlataforma,
-                    hasher.HashearPassword("Plataforma.2026!"), PerfilAdministradorPlataformaId, operadorId: DefaultOperadorId),
+                    hasher.HashearPassword(PasswordDemo("Plataforma.2026!")), PerfilAdministradorPlataformaId, operadorId: DefaultOperadorId),
                 cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
         }

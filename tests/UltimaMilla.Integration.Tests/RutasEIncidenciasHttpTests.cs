@@ -56,7 +56,7 @@ public class RutasEIncidenciasHttpTests
         var vehiculo = await flota.CrearVehiculoAsync(new CrearVehiculoDto { Patente = "R" + Sufijo().ToUpperInvariant(), Tipo = "Furgón", CapacidadPeso = 500, CapacidadVolumen = 5 });
         var repartidor = await flota.CrearRepartidorAsync(new CrearRepartidorDto
         {
-            NombreCompleto = "Repartidor Ruta " + Sufijo(), Email = $"ruta.{Sufijo()}@ultimamilla.com.uy", Documento = "3.222.111-0", Telefono = "099000111"
+            NombreCompleto = "Repartidor Ruta " + Sufijo(), Email = $"ruta.{Sufijo()}@ultimamilla.com.uy", Documento = "3.222.111-0", Telefono = "099000111", Password = "Repartidor.2026!"
         });
         var (envioId, codigo) = await CrearEnvioClasificadoAsync();
 

@@ -334,7 +334,7 @@ else
         var bultosDeclarados = [
             @if (envio != null)
             {
-                @Html.Raw(string.Join(", ", envio.Bultos.Select(b => $"'{b.Identificacion.Trim().ToUpperInvariant()}'")))
+                @Html.Raw(string.Join(", ", envio.Bultos.Select(b => System.Text.Json.JsonSerializer.Serialize(b.Identificacion.Trim().ToUpperInvariant()))))
             }
         ];
 
@@ -479,7 +479,9 @@ else
                     cardSobrantes.style.display = 'block';
                     badgeConteoSobrantes.textContent = sobrantes;
                     contenedorSobrantes.innerHTML = Array.from(bultosSobrantes).map(function (c) {
-                        return '<span class="font-monospace text-danger small p-1 border border-danger-subtle rounded bg-danger-subtle">' + c + ' (No declarado)</span>';
+                        var seguro = document.createElement('div');
+                        seguro.textContent = c;
+                        return '<span class="font-monospace text-danger small p-1 border border-danger-subtle rounded bg-danger-subtle">' + seguro.innerHTML + ' (No declarado)</span>';
                     }).join('');
                 } else {
                     cardSobrantes.style.display = 'none';

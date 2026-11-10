@@ -368,7 +368,7 @@ public class AdministracionBackofficeApiTests
         var email = $"repartidor.{Sufijo()}@ultimamilla.com.uy";
         var repartidor = await api.CrearRepartidorAsync(new CrearRepartidorDto
         {
-            NombreCompleto = "Repartidor Prueba", Email = email, Documento = "4.111.222-3", Telefono = "099111222", VehiculoAsignadoId = vehiculo.Id
+            NombreCompleto = "Repartidor Prueba", Email = email, Documento = "4.111.222-3", Password = "Repartidor.2026!", Telefono = "099111222", VehiculoAsignadoId = vehiculo.Id
         });
         Assert.Equal("Disponible", repartidor.Estado);
         Assert.Equal(patente, repartidor.VehiculoPatente);

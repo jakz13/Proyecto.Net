@@ -46,8 +46,12 @@ public class TokenJwtService : ITokenJwtService
         var claveConfigurada = configuration["Jwt:SecretKey"]
             ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-        if (string.IsNullOrWhiteSpace(claveConfigurada)
-            && string.Equals(configuration["Jwt:RequireConfiguredSecret"], "true", StringComparison.OrdinalIgnoreCase))
+        // La clave de desarrollo está en el repositorio, así que nunca debe firmar tokens en Production
+        var entorno = configuration["ASPNETCORE_ENVIRONMENT"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var exigirClave = string.Equals(configuration["Jwt:RequireConfiguredSecret"], "true", StringComparison.OrdinalIgnoreCase)
+                          || string.Equals(entorno, "Production", StringComparison.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(claveConfigurada) && exigirClave)
         {
             throw new InvalidOperationException("Debe configurarse 'Jwt:SecretKey' (o variable de entorno JWT_SECRET_KEY) con al menos 32 caracteres.");
         }
@@ -160,13 +164,13 @@ public class TokenJwtService : ITokenJwtService
             var raiz = documento.RootElement;
 
             // Validar expiración
-            if (raiz.TryGetProperty("exp", out var expElement))
-            {
-                var expSeconds = expElement.GetInt64();
-                var expDateTime = DateTimeOffset.FromUnixTimeSeconds(expSeconds).UtcDateTime;
-                if (DateTime.UtcNow > expDateTime)
-                    return null;
-            }
+            // Un token sin vencimiento nunca es válido
+            if (!raiz.TryGetProperty("exp", out var expElement) || expElement.ValueKind != JsonValueKind.Number)
+                return null;
+
+            var expDateTime = DateTimeOffset.FromUnixTimeSeconds(expElement.GetInt64()).UtcDateTime;
+            if (DateTime.UtcNow > expDateTime)
+                return null;
 
             var claims = new List<Claim>();
 

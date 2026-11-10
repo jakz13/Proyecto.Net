@@ -84,7 +84,7 @@ public class RetiroEnDomicilioApiTests
 
         var repartidor = await Json(await admin.PostAsJsonAsync("/api/v1/flota/repartidores", new
         {
-            nombreCompleto = "Repartidor " + sufijo, email, documento = "4.111.222-3", telefono = "099000222"
+            nombreCompleto = "Repartidor " + sufijo, email, documento = "4.111.222-3", telefono = "099000222", password = "Repartidor.2026!"
         }), HttpStatusCode.Created);
 
         var vehiculo = await Json(await admin.PostAsJsonAsync("/api/v1/flota/vehiculos", new
@@ -92,7 +92,7 @@ public class RetiroEnDomicilioApiTests
             patente = "T" + sufijo.ToUpperInvariant(), tipo = "Furgón", capacidadPeso, capacidadVolumen = 5
         }), HttpStatusCode.Created);
 
-        // El alta del repartidor le crea un usuario con la contraseña inicial de la flota
+        // El alta del repartidor le crea un usuario con la contraseña provisoria indicada
         var cliente = await ClienteComoAsync(email, "Repartidor.2026!");
         return new Dotacion(repartidor.GetProperty("id").GetGuid(), vehiculo.GetProperty("id").GetGuid(), cliente);
     }

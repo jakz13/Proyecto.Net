@@ -75,6 +75,25 @@ public class IndexModel : PageModel
         };
     }
 
+    /// <summary>Comprueba los primeros bytes del archivo (firma PNG, JPEG o RIFF/WEBP) para no confiar solo en el nombre.</summary>
+    private static async Task<bool> ContenidoCoincideConLaExtensionAsync(IFormFile archivo, string extension)
+    {
+        var cabecera = new byte[12];
+        await using var flujo = archivo.OpenReadStream();
+        var leidos = await flujo.ReadAsync(cabecera.AsMemory(0, cabecera.Length));
+        if (leidos < 12)
+            return false;
+
+        return extension switch
+        {
+            ".png" => cabecera[0] == 0x89 && cabecera[1] == 0x50 && cabecera[2] == 0x4E && cabecera[3] == 0x47,
+            ".jpg" or ".jpeg" => cabecera[0] == 0xFF && cabecera[1] == 0xD8 && cabecera[2] == 0xFF,
+            ".webp" => cabecera[0] == 'R' && cabecera[1] == 'I' && cabecera[2] == 'F' && cabecera[3] == 'F'
+                       && cabecera[8] == 'W' && cabecera[9] == 'E' && cabecera[10] == 'B' && cabecera[11] == 'P',
+            _ => false
+        };
+    }
+
     public async Task<IActionResult> OnPostGuardarAsync()
     {
         // Si el usuario subió una imagen desde su equipo, procesarla y guardarla en wwwroot/uploads/logos
@@ -86,10 +105,19 @@ public class IndexModel : PageModel
                 var carpetaUploads = Path.Combine(rutaWebRoot, "uploads", "logos");
                 Directory.CreateDirectory(carpetaUploads);
 
-                var extension = Path.GetExtension(ArchivoLogo.FileName);
+                // Solo imágenes rasterizadas, de hasta 2 MB y cuyo contenido coincida con la extensión (sin .svg ni .html, que ejecutan scripts)
+                var extension = Path.GetExtension(ArchivoLogo.FileName).ToLowerInvariant();
                 if (string.IsNullOrWhiteSpace(extension))
                 {
                     extension = ".png";
+                }
+
+                if (extension is not (".png" or ".jpg" or ".jpeg" or ".webp") || ArchivoLogo.Length > 2 * 1024 * 1024
+                    || !await ContenidoCoincideConLaExtensionAsync(ArchivoLogo, extension))
+                {
+                    MensajeError = "El logo debe ser una imagen PNG, JPG o WEBP de hasta 2 MB.";
+                    await CargarIdentidadAsync();
+                    return Page();
                 }
 
                 var nombreArchivo = $"logo_empresa_{Guid.NewGuid():N}{extension}";
@@ -127,7 +155,7 @@ public class IndexModel : PageModel
             }
             catch (Exception ex)
             {
-                MensajeError = $"No se pudo guardar la imagen subida: {ex.Message}";
+                MensajeError = "No se pudo guardar la imagen subida.";
                 await CargarIdentidadAsync();
                 return Page();
             }

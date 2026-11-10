@@ -72,7 +72,19 @@ public static class DependencyInjection
         services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
         services.AddScoped<INotificacionDestinatarioService, RegistroNotificacionDestinatarioService>();
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+            .ConfigurePrimaryHttpMessageHandler(() =>
+            {
+                // Anti-SSRF: los avisos solo salen hacia Internet público (ver DestinoWebhookSeguro). Las excepciones son explícitas.
+                var permitirInternos = configuration.GetValue<bool>("Avisos:PermitirDestinosInternos");
+                var hosts = (configuration["Avisos:HostsPermitidos"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                return new SocketsHttpHandler
+                {
+                    AllowAutoRedirect = false,
+                    ConnectCallback = DestinoWebhookSeguro.CrearConexion(permitirInternos, hosts)
+                };
+            });
 
         // Observabilidad (UC-44): métricas de negocio expuestas a Prometheus
         services.AddSingleton<IMetricasNegocio, MetricasNegocio>();
