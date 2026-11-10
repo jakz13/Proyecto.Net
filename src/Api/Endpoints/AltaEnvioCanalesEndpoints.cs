@@ -7,6 +7,7 @@ using UltimaMilla.Application.Commands.Comercio.ImportarEnvios;
 using UltimaMilla.Application.Commands.Comercio.RegenerarClaveApi;
 using UltimaMilla.Application.Commands.Integracion.AltaEnvioPorApi;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
 using UltimaMilla.Api.Auth;
 
@@ -72,10 +73,15 @@ public static class AltaEnvioCanalesEndpoints
                     estado = resultado.Estado,
                     tarifa = resultado.Tarifa,
                     bultos = resultado.IdentificacionesBultos,
-                    duplicado = resultado.Duplicado
+                    duplicado = resultado.Duplicado,
+                    sandbox = resultado.Simulado
                 };
 
                 // Un reintento con la misma referencia devuelve el envío ya admitido
+                // Con la clave de pruebas nada se registró: se responde 200 y sandbox=true
+                if (resultado.Simulado)
+                    return Results.Ok(cuerpo);
+
                 return resultado.Duplicado ? Results.Ok(cuerpo) : Results.Created($"/api/envios/{resultado.Id}", cuerpo);
             }
             catch (DomainValidationException ex)
@@ -186,6 +192,23 @@ public static class AltaEnvioCanalesEndpoints
         .WithSummary("Generar una nueva clave de API para el comercio")
         .Produces<ClaveApiGeneradaDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
+        // Ambiente de pruebas: la clave de pruebas del comercio (se puede consultar cuantas veces haga falta)
+        app.MapGet("/api/comercio/clave-api-pruebas", (
+            [FromServices] ICurrentTenant tenant,
+            [FromServices] UltimaMilla.Application.Ports.IClavesApiPruebas claves) =>
+            tenant.ComercioOperadorId is { } relacion
+                ? Results.Ok(new
+                {
+                    clavePruebas = claves.Generar(relacion),
+                    descripcion = "Úsela en la cabecera X-Api-Key. Valida el pedido y calcula la tarifa real, pero no registra ni publica nada (la respuesta trae sandbox=true). Límite: 20 solicitudes por minuto."
+                })
+                : Results.Forbid())
+        .RequireAuthorization(PoliticasApi.Comercio)
+        .WithTags("Integración por API (UC-26)")
+        .WithName("ObtenerClaveApiPruebas")
+        .WithSummary("Clave de pruebas (sandbox) de la API pública del comercio")
         .WithOpenApi();
 
         return app;

@@ -41,6 +41,9 @@ public class TokenJwtService : ITokenJwtService
         _claveGlobal = ResolverClave(configuration);
     }
 
+    /// <summary>Clave con la que firma la plataforma (la del JWT), para derivar otras firmas de ella.</summary>
+    public static string ClaveDeFirma(IConfiguration configuration) => ResolverClave(configuration);
+
     private static string ResolverClave(IConfiguration configuration)
     {
         var claveConfigurada = configuration["Jwt:SecretKey"]

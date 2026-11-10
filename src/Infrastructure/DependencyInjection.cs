@@ -114,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IClavesApiPruebas, ClavesApiPruebas>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ITokenJwtService, TokenJwtService>();
 

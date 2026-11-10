@@ -104,15 +104,24 @@ builder.Services.AddRateLimiter(opciones =>
             }));
 
     // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
+    // Limitación diferenciada: cada clave de producción tiene su propio cupo (120/min), la clave de pruebas uno menor (20/min)
+    // y quien no presenta clave se acota por IP (30/min) para frenar el intento de adivinarlas.
     opciones.AddPolicy(AltaEnvioCanalesEndpoints.PoliticaLimiteIntegracion, contexto =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 120,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
+    {
+        var clave = contexto.Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(clave))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter(
+                "ip:" + (contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida"),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+        }
+
+        var huella = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clave.Trim())))[..16];
+        var esPruebas = clave.StartsWith(UltimaMilla.Application.Ports.IClavesApiPruebas.Prefijo, StringComparison.Ordinal);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            (esPruebas ? "pruebas:" : "clave:") + huella,
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = esPruebas ? 20 : 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -126,6 +135,32 @@ builder.Services.AddSwaggerGen(c =>
         {
             Name = "Plataforma Última Milla"
         }
+    });
+
+    // Documentación navegable de la API pública para comercios (versionada: v1), separada de la API interna
+    c.SwaggerDoc("integracion", new OpenApiInfo
+    {
+        Title = "Última Milla · API pública para comercios",
+        Version = "v1",
+        Description = "Integración del sistema del comercio con el operador logístico.\n\n" +
+                      "**Autenticación:** cabecera `X-Api-Key` con la clave del comercio (se genera en el portal del comercio y se muestra una sola vez).\n\n" +
+                      "**Ambiente de pruebas:** la clave de pruebas (`GET /api/comercio/clave-api-pruebas`) valida el pedido y calcula la tarifa real, pero no registra ni publica nada; la respuesta trae `sandbox=true`.\n\n" +
+                      "**Limitación de tasa (por clave):** 120 solicitudes por minuto con la clave de producción, 20 con la de pruebas y 30 por IP sin clave. Al superarla se responde 429.\n\n" +
+                      "**Idempotencia:** con `referenciaExterna`, reintentar devuelve el envío ya admitido (200) en lugar de crear otro.\n\n" +
+                      "**Versionado:** la ruta incluye la versión (`/api/integracion/v1/...`); los cambios que rompen compatibilidad se publican como v2 sin retirar v1."
+    });
+
+    c.DocInclusionPredicate((documento, api) =>
+        documento != "integracion"
+        || (api.RelativePath?.StartsWith("api/integracion/", StringComparison.Ordinal) ?? false)
+        || api.RelativePath == "api/comercio/clave-api-pruebas");
+
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Description = "Clave de API del comercio (o la clave de pruebas) en la cabecera X-Api-Key.",
+        Name = "X-Api-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -223,7 +258,8 @@ app.UseSerilogRequestLogging(opciones =>
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Última Milla v1");
+    c.SwaggerEndpoint("/swagger/integracion/swagger.json", "API pública para comercios (v1)");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
     c.DocumentTitle = "Última Milla · API Docs";
     c.DocExpansion(DocExpansion.List);
     c.DefaultModelsExpandDepth(-1);

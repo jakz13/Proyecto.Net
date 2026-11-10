@@ -35,7 +35,7 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | Geocercas (Joaquín) | 3 | **Parcial**: implementado; falta el análisis del impacto en batería |
 | Optimización del orden de paradas (Joaquín) | 2 | **Parcial**: 2-opt implementado en la app; falta la comparación medida contra el criterio del RF 16 |
 | Banderas de funcionalidad | 0 | **No se reclama**: se acordó no entregarlo (pocos puntos para lo que exige) y Joaquín lo compensó con otro opcional. El backend existe y funciona (`/api/plataforma/operadores`), pero sin pantalla de administración no cumple el requisito |
-| API pública para comercios | 3 | **Parcial**: claves por comercio, ruta versionada y alta idempotente; faltan límite de tasa por clave, ambiente de pruebas y documentación navegable |
+| API pública para comercios | 3 | **Cumplido**: claves por comercio, ruta versionada, ambiente de pruebas (clave sandbox), límite de tasa por clave y documentación navegable. Ver `docs/API_Publica.md` y `ApiPublicaTests` |
 | Pruebas de resiliencia | 2 | Pendiente |
 | Pruebas de carga | 2 | Pendiente |
 

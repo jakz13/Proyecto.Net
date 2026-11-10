@@ -27,6 +27,8 @@ public record ComercioConRelacionOperador(Comercio Comercio, ComercioOperador Re
 public interface IComercioOperadorRepository
 {
     Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Busca la relación por su identificador sin filtro de operador (autenticación por clave de API, sin sesión).</summary>
+    Task<ComercioOperador?> GetByIdSinFiltroAsync(Guid id, CancellationToken cancellationToken = default);
     /// <summary>Busca la relación por la huella SHA-256 de su clave de API.</summary>
     Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default);
     Task<ComercioOperador?> ObtenerPorComercioYOperadorAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);

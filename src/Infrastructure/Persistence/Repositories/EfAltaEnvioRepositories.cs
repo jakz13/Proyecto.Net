@@ -64,6 +64,11 @@ public class EfComercioOperadorRepository : IComercioOperadorRepository
         return await _dbContext.ComerciosOperadores.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
+    public async Task<ComercioOperador?> GetByIdSinFiltroAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
     public async Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default)
     {
         return await _dbContext.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(c => c.ClaveApi == huella, cancellationToken);
