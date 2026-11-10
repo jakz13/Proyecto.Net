@@ -33,9 +33,9 @@ public interface IMensajeriaApi
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Descarta definitivamente un mensaje de la cola de fallidos si ya no requiere reprocesamiento.
+    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio (UC-42).
     /// </summary>
-    Task<bool> DescartarMensajeAsync(Guid id, CancellationToken cancelacion = default);
+    Task<bool> DescartarMensajeAsync(Guid id, string motivo, CancellationToken cancelacion = default);
 
     /// <summary>
     /// Elimina definitivamente todos los mensajes de la lista que ya fueron resueltos con éxito.

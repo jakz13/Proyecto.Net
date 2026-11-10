@@ -71,9 +71,15 @@ public class HttpMensajeriaApi : IMensajeriaApi
         return resultado ?? throw new ApiExcepcion("No se pudo obtener el resultado del reintento.");
     }
 
-    public async Task<bool> DescartarMensajeAsync(Guid id, CancellationToken cancelacion = default)
+    public async Task<bool> DescartarMensajeAsync(Guid id, string motivo, CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.DeleteAsync($"api/v1/mensajeria/cola-fallidos/{id}", cancelacion);
+        var respuesta = await _http.PostAsJsonAsync($"api/v1/mensajeria/cola-fallidos/{id}/descartar", new { Motivo = motivo }, cancelacion);
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            // Fallback por compatibilidad a DELETE con query param
+            var fallback = await _http.DeleteAsync($"api/v1/mensajeria/cola-fallidos/{id}?motivo={Uri.EscapeDataString(motivo)}", cancelacion);
+            return fallback.IsSuccessStatusCode;
+        }
         return respuesta.IsSuccessStatusCode;
     }
 

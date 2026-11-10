@@ -22,6 +22,7 @@ public static class MensajeriaEndpoints
             [FromQuery] string? busqueda,
             AppDbContext db,
             ICurrentTenant tenant,
+            IWebHostEnvironment env,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var consulta = db.MensajesFallidos.AsNoTracking().Where(m => m.OperadorId == null || m.OperadorId == tenant.OperadorId);
@@ -43,18 +44,18 @@ public static class MensajeriaEndpoints
             }
 
             var mensajes = await consulta.OrderByDescending(m => m.UltimoFallo).ToListAsync(ct);
-            return Results.Ok(mensajes.Select(Mapear).ToList());
+            return Results.Ok(mensajes.Select(m => Mapear(m, env)).ToList());
         }))
         .WithName("ListarMensajesFallidos")
         .WithSummary("Listar los mensajes de la cola de fallidos");
 
-        grupo.MapGet("/{id:guid}", (Guid id, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        grupo.MapGet("/{id:guid}", (Guid id, AppDbContext db, ICurrentTenant tenant, IWebHostEnvironment env, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var mensaje = await db.MensajesFallidos.AsNoTracking()
                 .FirstOrDefaultAsync(m => m.Id == id && (m.OperadorId == null || m.OperadorId == tenant.OperadorId), ct);
             return mensaje is null
                 ? RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el mensaje en la cola de fallidos.")
-                : Results.Ok(Mapear(mensaje));
+                : Results.Ok(Mapear(mensaje, env));
         }))
         .WithName("ObtenerMensajeFallido")
         .WithSummary("Detalle de un mensaje fallido");
@@ -124,37 +125,74 @@ public static class MensajeriaEndpoints
         .WithName("ReintentarMensajesFallidos")
         .WithSummary("Reintentar manualmente uno o varios mensajes");
 
-        grupo.MapDelete("/{id:guid}", (Guid id, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        grupo.MapPost("/{id:guid}/descartar", (
+            Guid id,
+            [FromBody] DescartarMensajeRequest cuerpo,
+            AppDbContext db,
+            ICurrentTenant tenant,
+            IWebHostEnvironment env,
+            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
+            var motivo = (cuerpo.Motivo ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(motivo))
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El motivo de descarte es obligatorio.");
+
             var mensaje = await db.MensajesFallidos
                 .FirstOrDefaultAsync(m => m.Id == id && (m.OperadorId == null || m.OperadorId == tenant.OperadorId), ct);
             if (mensaje is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el mensaje en la cola de fallidos.");
 
-            db.MensajesFallidos.Remove(mensaje);
+            mensaje.Descartar(motivo);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(Mapear(mensaje, env));
+        }))
+        .WithName("DescartarMensajeFallidoPost")
+        .WithSummary("Descartar lógicamente un mensaje de la cola registrando el motivo");
+
+        grupo.MapDelete("/{id:guid}", (
+            Guid id,
+            [FromQuery] string? motivo,
+            AppDbContext db,
+            ICurrentTenant tenant,
+            IWebHostEnvironment env,
+            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        {
+            var motivoFinal = string.IsNullOrWhiteSpace(motivo) ? "Descartado manualmente por el administrador" : motivo.Trim();
+
+            var mensaje = await db.MensajesFallidos
+                .FirstOrDefaultAsync(m => m.Id == id && (m.OperadorId == null || m.OperadorId == tenant.OperadorId), ct);
+            if (mensaje is null)
+                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el mensaje en la cola de fallidos.");
+
+            // Descarte lógico: pasa a estado Descartado y se conserva para auditoría
+            mensaje.Descartar(motivoFinal);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         }))
         .WithName("DescartarMensajeFallido")
-        .WithSummary("Descartar definitivamente un mensaje de la cola");
+        .WithSummary("Descartar lógicamente un mensaje de la cola");
 
         grupo.MapPost("/limpiar-resueltos", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var eliminados = await db.MensajesFallidos
-                .Where(m => m.Estado == "Resuelto" && (m.OperadorId == null || m.OperadorId == tenant.OperadorId))
+                .Where(m => (m.Estado == "Resuelto" || m.Estado == "Descartado") && (m.OperadorId == null || m.OperadorId == tenant.OperadorId))
                 .ExecuteDeleteAsync(ct);
             return Results.Ok(eliminados);
         }))
         .WithName("LimpiarMensajesResueltos")
-        .WithSummary("Eliminar de la cola los mensajes ya resueltos");
+        .WithSummary("Eliminar de la cola los mensajes ya resueltos o archivados");
 
         return app;
     }
 
-    private static MensajeFallidoDto Mapear(MensajeFallidoCola m)
+    private static MensajeFallidoDto Mapear(MensajeFallidoCola m, IWebHostEnvironment env)
     {
         // El motivo es la primera línea de la excepción; el detalle conserva el texto completo
         var motivo = m.Excepcion.Split('\n', 2)[0].Trim();
+
+        // En entornos que no sean Development (Producción/Staging), el servidor NO expone la traza técnica (UC-42)
+        var detalleExcepcion = env.IsDevelopment() ? m.Excepcion : string.Empty;
+
         return new MensajeFallidoDto
         {
             Id = m.Id,
@@ -162,14 +200,17 @@ public static class MensajeriaEndpoints
             ColaOrigen = m.ColaOrigen,
             PayloadOriginal = m.PayloadOriginal,
             MotivoFallo = motivo,
-            DetalleExcepcion = m.Excepcion,
+            DetalleExcepcion = detalleExcepcion,
             Intentos = m.Intentos,
             PrimerFallo = m.PrimerFallo,
             UltimoFallo = m.UltimoFallo,
             Estado = m.Estado,
-            OperadorId = m.OperadorId?.ToString()
+            OperadorId = m.OperadorId?.ToString(),
+            MotivoDescarte = m.Estado == "Descartado" ? motivo : null
         };
     }
 }
 
 public record ReintentarMensajesRequest(List<Guid>? Ids, bool ForzarFallo = false);
+
+public record DescartarMensajeRequest(string Motivo);

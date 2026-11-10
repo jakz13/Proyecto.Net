@@ -56,6 +56,31 @@ public record MensajeFallidoDto
     public string Estado { get; init; } = "Fallido";
 
     /// <summary>
+    /// Motivo documentado al momento de descartar el mensaje (UC-42).
+    /// </summary>
+    public string? MotivoDescarte { get; init; }
+
+    /// <summary>
+    /// Fecha y hora en que se descartó el mensaje.
+    /// </summary>
+    public DateTime? FechaDescarte { get; init; }
+
+    /// <summary>
+    /// Identificador o nombre del administrador que descartó el mensaje.
+    /// </summary>
+    public string? DescartadoPor { get; init; }
+
+    /// <summary>
+    /// Vocabulario estandarizado de la plataforma según la regla de negocio: "Pendiente", "Reintentado" o "Descartado".
+    /// </summary>
+    public string EstadoCanonico => Estado switch
+    {
+        "Descartado" => "Descartado",
+        "Resuelto" or "Reintentado" or "Reintentando" => "Reintentado",
+        _ => "Pendiente"
+    };
+
+    /// <summary>
     /// Identificador del operador logístico asociado (si aplica).
     /// </summary>
     public string? OperadorId { get; init; }

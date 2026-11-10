@@ -67,4 +67,20 @@ public class MensajeFallidoCola : Entity
     {
         Estado = "Resuelto";
     }
+
+    /// <summary>
+    /// Descarta lógicamente el mensaje fallido sin eliminarlo físicamente, registrando el motivo (UC-42).
+    /// </summary>
+    public void Descartar(string motivo)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new DomainValidationException("El motivo de descarte es obligatorio.");
+
+        // TODO: Agregar columnas DescartadoPorUsuarioId, FechaDescarte y MotivoDescarte en MensajeFallidoCola
+        // mediante migración EF Core para trazabilidad de auditoría de descarte en base de datos.
+        Estado = "Descartado";
+        Excepcion = string.IsNullOrWhiteSpace(Excepcion)
+            ? $"[Descartado manualmente en {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC. Motivo: {motivo.Trim()}]"
+            : $"{Excepcion}\n[Descartado manualmente en {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC. Motivo: {motivo.Trim()}]";
+    }
 }

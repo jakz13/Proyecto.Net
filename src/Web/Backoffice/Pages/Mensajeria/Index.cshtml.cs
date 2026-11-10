@@ -39,11 +39,16 @@ public class IndexModel : PageModel
     [TempData]
     public string? MensajeError { get; set; }
 
-    // Resumen de Métricas de la Cola
-    public int TotalRetenidos => Mensajes.Count(m => m.Estado == "Fallido");
-    public int TotalResueltos => Mensajes.Count(m => m.Estado == "Resuelto");
-    public int TiposEventosAfectados => Mensajes.Where(m => m.Estado == "Fallido").Select(m => m.TipoMensaje).Distinct().Count();
+    // Resumen de Métricas de la Cola según Vocabulario Canónico (UC-42)
+    public int TotalPendientes => Mensajes.Count(m => m.EstadoCanonico == "Pendiente");
+    public int TotalReintentados => Mensajes.Count(m => m.EstadoCanonico == "Reintentado");
+    public int TotalDescartados => Mensajes.Count(m => m.EstadoCanonico == "Descartado");
     public int TotalIntentosAcumulados => Mensajes.Sum(m => m.Intentos);
+
+    // Compatibilidad para vistas previas
+    public int TotalRetenidos => TotalPendientes;
+    public int TotalResueltos => TotalReintentados;
+    public int TiposEventosAfectados => Mensajes.Where(m => m.EstadoCanonico == "Pendiente").Select(m => m.TipoMensaje).Distinct().Count();
 
     public async Task OnGetAsync()
     {
@@ -68,7 +73,7 @@ public class IndexModel : PageModel
 
             if (simularFallo)
             {
-                MensajeError = $"[Flujo Alternativo] {resultado.MensajeResumen}";
+                MensajeError = $"[Simulación]: {resultado.MensajeResumen}";
             }
             else
             {
@@ -82,6 +87,16 @@ public class IndexModel : PageModel
             MensajeError = ex.Message;
             return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            MensajeError = "Conflicto: uno o varios mensajes ya estaban siendo procesados por otra instancia.";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            MensajeError = "Acceso denegado: uno o más mensajes pertenecen a otro operador logístico.";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
         catch (Exception ex)
         {
             MensajeError = $"Error al reintentar mensajes: {ex.Message}";
@@ -90,7 +105,7 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
-    /// Reintenta un único mensaje específico directamente desde su fila.
+    /// Reintenta un único mensaje específico directamente desde su fila o panel lateral.
     /// </summary>
     public async Task<IActionResult> OnPostReintentarIndividualAsync(Guid id, bool simularFallo = false)
     {
@@ -100,13 +115,23 @@ public class IndexModel : PageModel
 
             if (simularFallo)
             {
-                MensajeError = $"[Flujo Alternativo] El mensaje volvió a fallar y permanece en la cola con intentos incrementados.";
+                MensajeError = "[Simulación]: El reintento falló nuevamente y el mensaje permanece en la cola con intentos actualizados.";
             }
             else
             {
-                MensajeExito = $"Mensaje reencolado exitosamente para su procesamiento inmediato.";
+                MensajeExito = "Mensaje reencolado exitosamente para su procesamiento inmediato.";
             }
 
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            MensajeError = "El mensaje no se encontró en la cola (puede haber sido procesado recientemente).";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            MensajeError = "Acceso denegado: el mensaje solicitado no corresponde al operador actual.";
             return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
         }
         catch (Exception ex)
@@ -117,29 +142,59 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
-    /// Elimina definitivamente un mensaje de la cola de fallidos.
+    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio (UC-42).
     /// </summary>
-    public async Task<IActionResult> OnPostEliminarAsync(Guid id)
+    public async Task<IActionResult> OnPostDescartarAsync(Guid id, string motivo)
     {
+        if (id == Guid.Empty)
+        {
+            MensajeError = "El identificador del mensaje a descartar es inválido.";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            MensajeError = "Debes ingresar un motivo obligatorio para descartar el mensaje de la cola.";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+
         try
         {
-            var eliminado = await _mensajeriaApi.DescartarMensajeAsync(id);
-            if (eliminado)
+            var descartado = await _mensajeriaApi.DescartarMensajeAsync(id, motivo);
+            if (descartado)
             {
-                MensajeExito = "El mensaje fue eliminado de la lista.";
+                MensajeExito = "El mensaje fue descartado lógicamente y archivado con su motivo en el historial.";
             }
             else
             {
-                MensajeError = "No se pudo eliminar el mensaje indicado.";
+                MensajeError = "No se encontró el mensaje o no se pudo descartar.";
             }
 
             return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            MensajeError = $"Error al eliminar mensaje: {ex.Message}";
+            MensajeError = "El mensaje no existe en la cola de fallidos.";
             return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            MensajeError = "Acceso denegado: no puedes descartar mensajes de otro operador.";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+        catch (Exception ex)
+        {
+            MensajeError = $"Error al descartar mensaje: {ex.Message}";
+            return RedirectToPage(new { Busqueda, TipoFiltro, EstadoFiltro });
+        }
+    }
+
+    /// <summary>
+    /// Manejador de descarte por compatibilidad con nombres antiguos.
+    /// </summary>
+    public Task<IActionResult> OnPostEliminarAsync(Guid id, string? motivo = null)
+    {
+        return OnPostDescartarAsync(id, string.IsNullOrWhiteSpace(motivo) ? "Descartado manualmente por el administrador" : motivo);
     }
 
     /// <summary>

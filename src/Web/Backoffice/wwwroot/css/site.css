@@ -695,6 +695,25 @@ body.sidebar-colapsada {
 .tipo-alerta .toast-progreso-relleno { background-color: #F59E0B; }
 .tipo-info .toast-progreso-relleno   { background-color: #3B82F6; }
 
+/* =========================================================================
+   Compatibilidad Bootstrap 5 Offcanvas (bootstrap.min.css v5.1 + bundle.js v5.3)
+   ========================================================================= */
+.offcanvas {
+    visibility: hidden;
+    background-color: #ffffff !important;
+    z-index: 1055 !important;
+}
+
+.offcanvas.showing,
+.offcanvas.show:not(.hiding) {
+    transform: none !important;
+    visibility: visible !important;
+}
+
+.offcanvas.hiding {
+    visibility: visible !important;
+}
+
 /* Offcanvas Drawer de Detalle */
 .panel-notificacion-overlay {
     position: fixed;

@@ -22,6 +22,14 @@ public class MockMensajeriaApi : IMensajeriaApi
         var mensaje5Id = Guid.Parse("44444444-4444-4444-4444-444444444405");
         var mensaje6Id = Guid.Parse("44444444-4444-4444-4444-444444444406");
 
+        var ahora = DateTime.UtcNow;
+        var fecha1 = ahora.AddHours(-6);
+        var fecha2 = ahora.AddHours(-4);
+        var fecha3 = ahora.AddHours(-5);
+        var fecha4 = ahora.AddHours(-3);
+        var fecha5 = ahora.AddHours(-2);
+        var fecha6 = ahora.AddHours(-8);
+
         _colaFallidos = new List<MensajeFallidoDto>
         {
             new()
@@ -29,12 +37,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje1Id,
                 TipoMensaje = "EventoPaqueteDespachado",
                 ColaOrigen = "cola.eventos.envios",
-                PayloadOriginal = "{\n  \"evento\": \"PaqueteDespachado\",\n  \"paqueteId\": \"ENV-2026-0891\",\n  \"operadorId\": \"OP-01\",\n  \"repartidorId\": \"33333333-3333-3333-3333-333333333301\",\n  \"hojaRutaId\": \"HR-2026-104\",\n  \"timestamp\": \"2026-10-15T18:22:10Z\"\n}",
+                PayloadOriginal = $"{{\n  \"evento\": \"PaqueteDespachado\",\n  \"paqueteId\": \"ENV-2026-0891\",\n  \"operadorId\": \"OP-01\",\n  \"repartidorId\": \"33333333-3333-3333-3333-333333333301\",\n  \"hojaRutaId\": \"HR-2026-104\",\n  \"timestamp\": \"{fecha1:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "RabbitMQ BrokerUnreachableException: Timeout al confirmar mensaje en el exchange 'amq.topic'.",
                 DetalleExcepcion = "RabbitMQ.Client.Exceptions.BrokerUnreachableException: None of the specified endpoints were reachable\n   at RabbitMQ.Client.ConnectionFactory.CreateConnection()\n   at UltimaMilla.Infrastructure.Messaging.RabbitMqEventPublisher.PublishAsync(EventMessage eventMsg) in C:\\src\\Infrastructure\\Messaging\\RabbitMqEventPublisher.cs:line 84",
                 Intentos = 3,
-                PrimerFallo = DateTime.UtcNow.AddHours(-6),
-                UltimoFallo = DateTime.UtcNow.AddMinutes(-45),
+                PrimerFallo = fecha1,
+                UltimoFallo = ahora.AddMinutes(-45),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             },
@@ -43,12 +51,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje2Id,
                 TipoMensaje = "NotificacionWebhookComercio",
                 ColaOrigen = "cola.webhooks.comercios",
-                PayloadOriginal = "{\n  \"comercioId\": \"COM-01\",\n  \"endpoint\": \"https://api.tiendacentral.uy/webhooks/envios\",\n  \"evento\": \"ENTREGA_CONCRETADA\",\n  \"codigoSeguimiento\": \"TRK-8841-UY\",\n  \"entregadoA\": \"Juan Pérez\",\n  \"timestamp\": \"2026-10-15T19:05:00Z\"\n}",
+                PayloadOriginal = $"{{\n  \"comercioId\": \"COM-01\",\n  \"endpoint\": \"https://api.tiendacentral.uy/webhooks/envios\",\n  \"evento\": \"ENTREGA_CONCRETADA\",\n  \"codigoSeguimiento\": \"TRK-8841-UY\",\n  \"entregadoA\": \"Juan Pérez\",\n  \"timestamp\": \"{fecha2:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "HttpRequestException: 504 Gateway Timeout devuelto por el servidor del comercio.",
                 DetalleExcepcion = "System.Net.Http.HttpRequestException: Response status code does not indicate success: 504 (Gateway Timeout).\n   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()\n   at UltimaMilla.Infrastructure.Webhooks.WebhookDispatcher.DispatchAsync(WebhookPayload payload) in C:\\src\\Infrastructure\\Webhooks\\WebhookDispatcher.cs:line 52",
                 Intentos = 4,
-                PrimerFallo = DateTime.UtcNow.AddHours(-4),
-                UltimoFallo = DateTime.UtcNow.AddMinutes(-30),
+                PrimerFallo = fecha2,
+                UltimoFallo = ahora.AddMinutes(-30),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             },
@@ -57,12 +65,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje3Id,
                 TipoMensaje = "SincronizacionOfflineRepartidor",
                 ColaOrigen = "cola.sincronizacion.movil",
-                PayloadOriginal = "{\n  \"repartidorId\": \"33333333-3333-3333-3333-333333333302\",\n  \"operacionId\": \"SYNC-9921\",\n  \"accion\": \"REGISTRAR_INTENTO_FALLIDO\",\n  \"paqueteId\": \"ENV-2026-0412\",\n  \"motivoCodigo\": \"DIRECCION_INCORRECTA\",\n  \"horaLocalDispositivo\": \"2026-10-15T16:40:12Z\"\n}",
+                PayloadOriginal = $"{{\n  \"repartidorId\": \"33333333-3333-3333-3333-333333333302\",\n  \"operacionId\": \"SYNC-9921\",\n  \"accion\": \"REGISTRAR_INTENTO_FALLIDO\",\n  \"paqueteId\": \"ENV-2026-0412\",\n  \"motivoCodigo\": \"DIRECCION_INCORRECTA\",\n  \"horaLocalDispositivo\": \"{fecha3:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "DbUpdateConcurrencyException: Conflicto de versión al asentar el intento fallido del repartidor.",
                 DetalleExcepcion = "Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException: Database operation expected to affect 1 row(s) but actually affected 0 row(s).\n   at Microsoft.EntityFrameworkCore.Update.AffectedDataModificationCommandBatch.ConsumeResultSetWithRowsAffectedOnlyAsync()\n   at UltimaMilla.Infrastructure.Persistence.UnitOfWork.SaveChangesAsync() in C:\\src\\Infrastructure\\Persistence\\UnitOfWork.cs:line 45",
                 Intentos = 3,
-                PrimerFallo = DateTime.UtcNow.AddHours(-5),
-                UltimoFallo = DateTime.UtcNow.AddMinutes(-20),
+                PrimerFallo = fecha3,
+                UltimoFallo = ahora.AddMinutes(-20),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             },
@@ -71,12 +79,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje4Id,
                 TipoMensaje = "GeneracionEtiquetaZPL",
                 ColaOrigen = "cola.etiquetas.impresion",
-                PayloadOriginal = "{\n  \"paqueteId\": \"ENV-2026-0902\",\n  \"formato\": \"ZPL_203DPI\",\n  \"impresoraId\": \"IMP-DEPOSITO-01\",\n  \"codigoBarras\": \"TRK-9021-UY\",\n  \"remitente\": \"Distribuidora Sur\",\n  \"destinatario\": \"Carlos Maggi, San José 1120\"\n}",
+                PayloadOriginal = $"{{\n  \"paqueteId\": \"ENV-2026-0902\",\n  \"formato\": \"ZPL_203DPI\",\n  \"impresoraId\": \"IMP-DEPOSITO-01\",\n  \"codigoBarras\": \"TRK-9021-UY\",\n  \"remitente\": \"Distribuidora Sur\",\n  \"destinatario\": \"Carlos Maggi, San José 1120\",\n  \"timestamp\": \"{fecha4:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "TimeoutException: El microservicio de renderizado ZPL no respondió en el plazo de 10 segundos.",
                 DetalleExcepcion = "System.TimeoutException: The operation has timed out.\n   at UltimaMilla.Infrastructure.Etiquetas.ZplPrinterClient.GenerateLabelAsync(LabelData data) in C:\\src\\Infrastructure\\Etiquetas\\ZplPrinterClient.cs:line 63",
                 Intentos = 5,
-                PrimerFallo = DateTime.UtcNow.AddHours(-3),
-                UltimoFallo = DateTime.UtcNow.AddMinutes(-15),
+                PrimerFallo = fecha4,
+                UltimoFallo = ahora.AddMinutes(-15),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             },
@@ -85,12 +93,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje5Id,
                 TipoMensaje = "ActualizacionRutaRepartidor",
                 ColaOrigen = "cola.rutas.optimizacion",
-                PayloadOriginal = "{\n  \"hojaRutaId\": \"HR-2026-104\",\n  \"paradasPendientes\": 8,\n  \"posicionGpsActual\": {\"lat\": -34.9011, \"lon\": -56.1645},\n  \"timestamp\": \"2026-10-15T19:30:00Z\"\n}",
+                PayloadOriginal = $"{{\n  \"hojaRutaId\": \"HR-2026-104\",\n  \"paradasPendientes\": 8,\n  \"posicionGpsActual\": {{\"lat\": -34.9011, \"lon\": -56.1645}},\n  \"timestamp\": \"{fecha5:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "SocketException: Conexión rechazada por el motor OSRM al calcular matriz de distancias.",
                 DetalleExcepcion = "System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it 127.0.0.1:5000\n   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error)\n   at UltimaMilla.Infrastructure.Routing.OsrmRoutingService.CalculateMatrixAsync(Coordinates[] points)",
                 Intentos = 3,
-                PrimerFallo = DateTime.UtcNow.AddHours(-2),
-                UltimoFallo = DateTime.UtcNow.AddMinutes(-10),
+                PrimerFallo = fecha5,
+                UltimoFallo = ahora.AddMinutes(-10),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             },
@@ -99,12 +107,12 @@ public class MockMensajeriaApi : IMensajeriaApi
                 Id = mensaje6Id,
                 TipoMensaje = "FacturacionEnvioComercio",
                 ColaOrigen = "cola.facturacion",
-                PayloadOriginal = "{\n  \"comercioId\": \"COM-02\",\n  \"periodo\": \"2026-10\",\n  \"totalEnvios\": 142,\n  \"montoTotal\": 35500.00,\n  \"moneda\": \"UYU\"\n}",
+                PayloadOriginal = $"{{\n  \"comercioId\": \"COM-02\",\n  \"periodo\": \"2026-10\",\n  \"totalEnvios\": 142,\n  \"montoTotal\": 35500.00,\n  \"moneda\": \"UYU\",\n  \"timestamp\": \"{fecha6:yyyy-MM-ddTHH:mm:ssZ}\"\n}}",
                 MotivoFallo = "InvalidOperationException: Certificado de firma digital de facturación revocado o vencido.",
                 DetalleExcepcion = "System.InvalidOperationException: Digital signature validation failed for issuer 'DGI Uruguay'.\n   at UltimaMilla.Infrastructure.Billing.InvoiceSigner.SignDocumentAsync(InvoiceModel invoice) in C:\\src\\Infrastructure\\Billing\\InvoiceSigner.cs:line 38",
                 Intentos = 3,
-                PrimerFallo = DateTime.UtcNow.AddHours(-8),
-                UltimoFallo = DateTime.UtcNow.AddHours(-1),
+                PrimerFallo = fecha6,
+                UltimoFallo = ahora.AddHours(-1),
                 Estado = "Fallido",
                 OperadorId = "OP-01"
             }
@@ -128,7 +136,23 @@ public class MockMensajeriaApi : IMensajeriaApi
 
             if (!string.IsNullOrWhiteSpace(estado) && estado != "todos")
             {
-                consulta = consulta.Where(m => m.Estado.Equals(estado.Trim(), StringComparison.OrdinalIgnoreCase));
+                var estadoNorm = estado.Trim().ToLowerInvariant();
+                if (estadoNorm is "pendiente" or "fallido")
+                {
+                    consulta = consulta.Where(m => m.Estado is "Fallido" or "Pendiente");
+                }
+                else if (estadoNorm is "reintentado" or "resuelto" or "reintentando")
+                {
+                    consulta = consulta.Where(m => m.Estado is "Resuelto" or "Reintentado" or "Reintentando");
+                }
+                else if (estadoNorm is "descartado")
+                {
+                    consulta = consulta.Where(m => m.Estado.Equals("Descartado", StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    consulta = consulta.Where(m => m.Estado.Equals(estado.Trim(), StringComparison.OrdinalIgnoreCase));
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(busqueda))
@@ -234,7 +258,7 @@ public class MockMensajeriaApi : IMensajeriaApi
         }
     }
 
-    public Task<bool> DescartarMensajeAsync(Guid id, CancellationToken cancelacion = default)
+    public Task<bool> DescartarMensajeAsync(Guid id, string motivo, CancellationToken cancelacion = default)
     {
         lock (_bloqueo)
         {
@@ -244,7 +268,19 @@ public class MockMensajeriaApi : IMensajeriaApi
                 return Task.FromResult(false);
             }
 
-            _colaFallidos.RemoveAt(indice);
+            var actual = _colaFallidos[indice];
+            var motivoFinal = string.IsNullOrWhiteSpace(motivo) ? "Descartado manualmente por el administrador" : motivo.Trim();
+
+            // Descarte lógico: no elimina el registro, cambia su estado y preserva auditoría (UC-42)
+            var descartado = actual with
+            {
+                Estado = "Descartado",
+                MotivoDescarte = motivoFinal,
+                FechaDescarte = DateTime.UtcNow,
+                DescartadoPor = "Administrador"
+            };
+
+            _colaFallidos[indice] = descartado;
             return Task.FromResult(true);
         }
     }

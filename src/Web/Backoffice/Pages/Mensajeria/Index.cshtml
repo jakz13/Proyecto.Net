@@ -1,17 +1,38 @@
 @page
 @model UltimaMilla.Backoffice.Pages.Mensajeria.IndexModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Entorno
 @{
     ViewData["Title"] = "Cola de Mensajes Fallidos";
 }
 
-<!-- Encabezado -->
+<style>
+    /* Reglas para asegurar visibilidad y correcta superposición del offcanvas lateral */
+    #offcanvasDetalleMensaje {
+        background-color: #ffffff !important;
+        z-index: 1055 !important;
+    }
+    #offcanvasDetalleMensaje.showing,
+    #offcanvasDetalleMensaje.show:not(.hiding) {
+        transform: none !important;
+        visibility: visible !important;
+    }
+    #offcanvasDetalleMensaje.hiding {
+        visibility: visible !important;
+    }
+    #modalDescartarMensaje,
+    #modalConfirmarReintento {
+        z-index: 1070 !important;
+    }
+</style>
+
+<!-- Encabezado Principal -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
-        <h1 class="h4 fw-bold mb-0">Cola de Mensajes Fallidos</h1>
-        <partial name="_BotonAyuda" model='"Supervisión de la cola interna de mensajes de la plataforma tras agotarse los reintentos automáticos. Permite solicitar el reprocesamiento manual de uno o varios eventos retenidos (mensajería asíncrona)."' />
+        <h1 class="h4 fw-bold mb-0 text-dark">Cola de Mensajes Fallidos</h1>
+        <partial name="_BotonAyuda" model='"Supervisión de la cola interna de mensajes de la plataforma tras agotarse los reintentos automáticos (Dead Letter Queue). Permite reintentar o descartar mensajes retenidos."' />
     </div>
     <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="recargarCola()">
+        <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm" onclick="recargarCola()" aria-label="Actualizar listado de la cola">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <polyline points="1 20 1 14 7 14"></polyline>
@@ -30,9 +51,9 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>@Model.MensajeExito</span>
+            <span class="fw-semibold">@Model.MensajeExito</span>
         </div>
-        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar notificación"></button>
     </div>
 }
 
@@ -45,186 +66,96 @@
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span>@Model.MensajeError</span>
+            <span class="fw-semibold">@Model.MensajeError</span>
         </div>
-        <button type="button" class="btn-close py-2" onclick="this.parentElement.remove()" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar notificación"></button>
     </div>
 }
 
-<!-- Tarjetas Métricas Estandarizadas de la Cola -->
+<!-- Tarjetas Métricas Estandarizadas de la Cola (Vocabulario Canónico: Pendiente, Reintentado, Descartado) -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
-            "Mensajes Retenidos",
-            $"{Model.TotalRetenidos} pendientes",
-            "Eventos que agotaron sus reintentos automáticos y requieren intervención.",
+            "Mensajes Pendientes",
+            $"{Model.TotalPendientes} pendientes",
+            "Mensajes que agotaron sus reintentos automáticos y requieren intervención.",
             "text-danger",
-            "Ver Cola ↓",
-            "#seccion-cola"
+            "Ver Pendientes ↓",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Pendiente" })
         )' />
     </div>
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
-            "Operaciones Afectadas",
-            $"{Model.TiposEventosAfectados} tipos",
-            "Tipos de operaciones de la plataforma con fallos pendientes de resolución.",
-            "text-dark",
-            "Ver Todos →",
-            Url.Page("/Mensajeria/Index", new { tipoFiltro = "todos" })
+            "Mensajes Reintentados",
+            $"{Model.TotalReintentados} procesados",
+            "Mensajes recuperados exitosamente tras reintento manual por el operador.",
+            "text-success",
+            "Ver Reintentados →",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Reintentado" })
+        )' />
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+            "Mensajes Descartados",
+            $"{Model.TotalDescartados} archivados",
+            "Mensajes descartados con motivo documentado que no requieren reprocesamiento.",
+            "text-secondary",
+            "Ver Descartados →",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Descartado" })
         )' />
     </div>
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
             "Intentos Acumulados",
-            $"{Model.TotalIntentosAcumulados} intentos",
-            "Total de ejecuciones de entrega fallidas antes de derivar a la retención.",
-            "text-secondary",
-            "Solo Fallidos →",
-            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Fallido" })
-        )' />
-    </div>
-    <div class="col-sm-6 col-md-3">
-        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
-            "Mensajes Resueltos",
-            $"{Model.TotalResueltos} reprocesados",
-            "Mensajes recuperados exitosamente tras reintento manual por el operador.",
-            "text-success",
-            "Ver Resueltos →",
-            Url.Page("/Mensajeria/Index", new { estadoFiltro = "Resuelto" })
+            $"{Model.TotalIntentosAcumulados} ejecuciones",
+            "Total de ejecuciones de entrega antes de ingresar o reintentar en la cola.",
+            "text-dark",
+            "Ver Todos →",
+            Url.Page("/Mensajeria/Index", new { estadoFiltro = "todos" })
         )' />
     </div>
 </div>
 
 <!-- =========================================================================
-     Panel de Detalle del Mensaje Retenido (Inspección Técnica)
-     ========================================================================= -->
-<div class="panel-estandar mb-4 border-dark shadow-sm" id="panelDetalleMensaje" style="display: none; border-top: 3px solid #2563eb;">
-    <div class="panel-estandar-header bg-light">
-        <div class="d-flex align-items-center gap-2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary" aria-hidden="true">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <h2 class="h6 fw-bold mb-0 text-dark">Inspección de Operación: <span id="spanDetalleTipo" class="text-primary"></span></h2>
-            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1" id="spanDetalleIdCorto" style="font-size: 0.7rem;"></span>
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="ocultarDetalleMensaje()" title="Cerrar inspección">
-            ✕ Cerrar
-        </button>
-    </div>
-
-    <div class="panel-estandar-body">
-        <div class="row g-4">
-            <!-- Columna 1: Explicación y Metadatos -->
-            <div class="col-md-5">
-                <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">Información del Fallo</h3>
-                
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-danger mb-1">Motivo del Fallo:</label>
-                    <div class="p-2 bg-danger-subtle text-danger border border-danger-subtle rounded small fw-semibold" id="lblDetalleMotivoDigerible">
-                        -
-                    </div>
-                </div>
-
-                <dl class="row small mb-3">
-                    <dt class="col-sm-5 text-muted">ID de Mensaje:</dt>
-                    <dd class="col-sm-7 font-monospace text-break" id="lblDetalleId">-</dd>
-
-                    <dt class="col-sm-5 text-muted">Operación:</dt>
-                    <dd class="col-sm-7 fw-semibold text-dark" id="lblDetalleTipoOperacion">-</dd>
-
-                    <dt class="col-sm-5 text-muted">Estado Actual:</dt>
-                    <dd class="col-sm-7" id="lblDetalleEstado">-</dd>
-
-                    <dt class="col-sm-5 text-muted">Intentos Previos:</dt>
-                    <dd class="col-sm-7 fw-bold" id="lblDetalleIntentos">-</dd>
-
-                    <dt class="col-sm-5 text-muted">Primer Fallo:</dt>
-                    <dd class="col-sm-7" id="lblDetallePrimerFallo">-</dd>
-
-                    <dt class="col-sm-5 text-muted">Último Fallo:</dt>
-                    <dd class="col-sm-7" id="lblDetalleUltimoFallo">-</dd>
-                </dl>
-
-                <div>
-                    <label class="form-label small fw-bold text-secondary mb-1">Detalle Técnico del Error:</label>
-                    <pre class="bg-light text-muted p-2 rounded font-monospace border small mb-0" style="max-height: 140px; overflow-y: auto; font-size: 0.72rem; white-space: pre-wrap;" id="lblDetalleExcepcion">-</pre>
-                </div>
-            </div>
-
-            <!-- Columna 2: Payload JSON Original -->
-            <div class="col-md-7">
-                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-                    <h3 class="h6 fw-bold text-dark mb-0">Datos del Mensaje (Payload JSON)</h3>
-                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="copiarPayload()">
-                        Copiar JSON
-                    </button>
-                </div>
-                <pre class="bg-dark text-light p-3 rounded font-monospace mb-0" style="max-height: 360px; overflow-y: auto; font-size: 0.75rem;" id="lblDetallePayload">-</pre>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel-estandar-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarDetalleMensaje()">Cerrar Inspección</button>
-        <div class="d-flex align-items-center gap-2">
-            <form method="post" asp-page-handler="Eliminar" class="d-inline" id="formEliminarDetalle">
-                <input type="hidden" name="id" id="inputEliminarDetalleId" />
-                <button type="submit" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" onclick="return confirm('¿Seguro que deseas eliminar este mensaje?');">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                    <span>Eliminar Mensaje</span>
-                </button>
-            </form>
-            <form method="post" asp-page-handler="ReintentarIndividual" class="d-inline" id="formReintentarDetalle">
-                <input type="hidden" name="id" id="inputReintentarDetalleId" />
-                <input type="hidden" name="simularFallo" id="inputReintentarDetalleSimular" value="false" />
-                <button type="submit" class="btn btn-dark btn-sm px-3">
-                    Reintentar Mensaje
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- =========================================================================
-     Catálogo de Mensajes en Cola (Tabla Principal con Selección Múltiple)
+     Catálogo Principal de Mensajes en Cola (Tabla con Selección Múltiple)
      ========================================================================= -->
 <div class="row g-4" id="seccion-cola">
     <div class="col-12">
-        <div class="panel-estandar">
-            <div class="panel-estandar-header">
-                <h2 class="h6 fw-bold mb-0 text-dark">Mensajes Retenidos para Reprocesamiento</h2>
+        <div class="panel-estandar shadow-sm border">
+            <div class="panel-estandar-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h2 class="h6 fw-bold mb-0 text-dark">Registro de Mensajes en Cola</h2>
 
-                <!-- Conmutador para demostración de Flujo Alternativo (Reintento con Nueva Falla) -->
-                <div class="d-flex align-items-center gap-2 bg-light border rounded px-2 py-1">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="checkSimularFallo" onchange="alternarSimulacionFallo(this.checked)">
-                        <label class="form-check-label small fw-semibold text-dark" for="checkSimularFallo" style="font-size: 0.775rem;">
-                            Simular nueva falla (Flujo Alternativo)
-                        </label>
+                @* Conmutador disponible ÚNICAMENTE en entorno Development (UC-42) *@
+                @if (Entorno.IsDevelopment())
+                {
+                    <div class="d-flex align-items-center gap-2 bg-light border border-warning-subtle rounded px-2 py-1 shadow-sm">
+                        <span class="badge bg-warning text-dark me-1" style="font-size: 0.65rem;">DEV</span>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="checkSimularFallo" onchange="alternarSimulacionFallo(this.checked)" />
+                            <label class="form-check-label small fw-semibold text-dark" for="checkSimularFallo" style="font-size: 0.775rem;">
+                                Solo desarrollo: fuerza que el reintento falle de nuevo
+                            </label>
+                        </div>
                     </div>
-                </div>
+                }
             </div>
 
-            <!-- Filtros de Búsqueda y Tipo -->
+            <!-- Filtros de Búsqueda, Tipo y Estado Canónico -->
             <div class="p-3 bg-light border-bottom">
-                <form method="get" class="row g-2 align-items-center">
+                <form method="get" class="row g-2 align-items-center" role="search">
                     <div class="col-12 col-md-5">
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-white border-end-0">
+                            <span class="input-group-text bg-white border-end-0 text-secondary" id="icono-busqueda">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <circle cx="11" cy="11" r="8"></circle>
                                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                                 </svg>
                             </span>
-                            <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control border-start-0" placeholder="Buscar por ID, operación o motivo del fallo..." />
+                            <input type="text" name="busqueda" value="@Model.Busqueda" class="form-control border-start-0" placeholder="Buscar por ID, operación o motivo del fallo..." aria-label="Buscar en la cola" aria-describedby="icono-busqueda" />
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <select name="tipoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <select name="tipoFiltro" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Filtrar por tipo de operación">
                             <option value="todos" selected="@(Model.TipoFiltro == "todos")">Todas las operaciones</option>
                             <option value="EventoPaqueteDespachado" selected="@(Model.TipoFiltro == "EventoPaqueteDespachado")">Despacho de Paquete</option>
                             <option value="NotificacionWebhookComercio" selected="@(Model.TipoFiltro == "NotificacionWebhookComercio")">Aviso a Comercio (Webhook)</option>
@@ -235,17 +166,18 @@
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
-                        <select name="estadoFiltro" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <select name="estadoFiltro" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Filtrar por estado">
                             <option value="todos" selected="@(Model.EstadoFiltro == "todos")">Todos los estados</option>
-                            <option value="Fallido" selected="@(Model.EstadoFiltro == "Fallido")">Solo Retenidos</option>
-                            <option value="Resuelto" selected="@(Model.EstadoFiltro == "Resuelto")">Solo Resueltos</option>
+                            <option value="Pendiente" selected="@(Model.EstadoFiltro == "Pendiente" || Model.EstadoFiltro == "Fallido")">Pendientes</option>
+                            <option value="Reintentado" selected="@(Model.EstadoFiltro == "Reintentado" || Model.EstadoFiltro == "Resuelto")">Reintentados</option>
+                            <option value="Descartado" selected="@(Model.EstadoFiltro == "Descartado")">Descartados</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-2 d-flex gap-1">
-                        <button type="submit" class="btn btn-outline-dark btn-sm w-100">Filtrar</button>
+                        <button type="submit" class="btn btn-outline-dark btn-sm w-100 fw-semibold">Filtrar</button>
                         @if (!string.IsNullOrEmpty(Model.Busqueda) || Model.TipoFiltro != "todos" || Model.EstadoFiltro != "todos")
                         {
-                            <a asp-page="/Mensajeria/Index" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros">✕</a>
+                            <a asp-page="/Mensajeria/Index" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros" aria-label="Limpiar filtros de búsqueda">✕</a>
                         }
                     </div>
                 </form>
@@ -253,38 +185,29 @@
 
             <!-- Formulario de Acciones por Lote (Selección Múltiple) -->
             <form method="post" asp-page-handler="ReintentarLote" id="formReintentarLote">
+                @Html.AntiForgeryToken()
                 <input type="hidden" name="simularFallo" id="inputLoteSimularFallo" value="false" />
 
-                <!-- Barra de Herramientas de Selección Múltiple y Limpieza -->
+                <!-- Barra de Herramientas de Selección Múltiple -->
                 <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="d-flex align-items-center gap-2">
                         <div class="form-check mb-0">
-                            <input class="form-check-input" type="checkbox" id="checkSeleccionarTodos" onchange="alternarTodosLosMensajes(this.checked)">
-                            <label class="form-check-label small fw-semibold" for="checkSeleccionarTodos">
-                                Seleccionar todos
+                            <input class="form-check-input" type="checkbox" id="checkSeleccionarTodos" onchange="alternarTodosLosMensajes(this.checked)" aria-label="Seleccionar todos los mensajes pendientes de la página" />
+                            <label class="form-check-label small fw-semibold text-dark user-select-none" for="checkSeleccionarTodos">
+                                Seleccionar todos los pendientes
                             </label>
                         </div>
-                        <span class="text-muted small ms-2" id="txtContadorSeleccionados">(0 seleccionados)</span>
+                        <span class="text-secondary small ms-2 fw-semibold" id="txtContadorSeleccionados">(0 seleccionados)</span>
                     </div>
 
                     <div class="d-flex align-items-center gap-2">
-                        @if (Model.TotalResueltos > 0)
-                        {
-                            <button type="submit" asp-page-handler="LimpiarResueltos" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" onclick="return confirm('¿Seguro que deseas eliminar todos los fallos que ya fueron resueltos?');" title="Eliminar los registros de fallos que ya fueron reprocesados con éxito">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                                <span>Eliminar Resueltos (@Model.TotalResueltos)</span>
-                            </button>
-                        }
-
-                        <button type="submit" class="btn btn-dark btn-sm px-3 shadow-sm d-inline-flex align-items-center gap-1" id="btnReintentarLote" disabled>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <button type="button" class="btn btn-dark btn-sm px-3 shadow-sm d-inline-flex align-items-center gap-1" id="btnReintentarLote" disabled onclick="abrirModalReintentoLote()" aria-label="Reintentar mensajes seleccionados">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="iconoReintentarLote">
                                 <polyline points="23 4 23 10 17 10"></polyline>
                                 <polyline points="1 20 1 14 7 14"></polyline>
                                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                             </svg>
+                            <span class="spinner-border spinner-border-sm d-none" id="spinnerReintentarLote" role="status" aria-hidden="true"></span>
                             <span id="txtBtnReintentarLote">Reintentar Seleccionados</span>
                         </button>
                     </div>
@@ -294,22 +217,29 @@
                     <table class="table table-hover table-compacta mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 40px;" class="text-center">#</th>
-                                <th style="width: 10%;">ID</th>
-                                <th style="width: 22%;">Tipo de Operación</th>
-                                <th>Motivo del Fallo</th>
-                                <th class="text-center" style="width: 8%;">Intentos</th>
-                                <th style="width: 15%;">Último Fallo</th>
-                                <th class="text-center" style="width: 10%;">Estado</th>
-                                <th class="text-end" style="width: 12%;">Acciones</th>
+                                <th style="width: 40px;" class="text-center" scope="col">#</th>
+                                <th style="width: 10%;" scope="col">ID</th>
+                                <th style="width: 20%;" scope="col">Tipo de Operación</th>
+                                <th scope="col">Motivo del Fallo</th>
+                                <th class="text-center" style="width: 9%;" scope="col">Intentos</th>
+                                <th style="width: 15%;" scope="col">Último Fallo</th>
+                                <th class="text-center" style="width: 12%;" scope="col">Estado</th>
+                                <th class="text-end" style="width: 14%;" scope="col">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @if (Model.Mensajes.Count == 0)
                             {
                                 <tr>
-                                    <td colspan="8" class="text-center py-4 text-muted small">
-                                        No hay mensajes retenidos en la cola con los criterios seleccionados.
+                                    <td colspan="8" class="text-center py-5 text-secondary">
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-2">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-muted" aria-hidden="true">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <path d="M8 12h8"></path>
+                                            </svg>
+                                            <div class="fw-semibold text-dark">No hay mensajes fallidos con los filtros seleccionados</div>
+                                            <div class="small text-muted">La cola de mensajes de la plataforma no registra fallos pendientes para este criterio.</div>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -317,25 +247,34 @@
                             {
                                 @foreach (var mensaje in Model.Mensajes)
                                 {
-                                    var claseFila = mensaje.Estado == "Resuelto" ? "opacity-75 bg-light" : "";
+                                    var estadoCanonico = mensaje.EstadoCanonico;
+                                    var esPendiente = estadoCanonico == "Pendiente";
+                                    var esReintentado = estadoCanonico == "Reintentado";
+                                    var esDescartado = estadoCanonico == "Descartado";
+                                    var claseFila = esReintentado ? "opacity-75 bg-light" : (esDescartado ? "opacity-50" : "");
+
                                     <tr class="@claseFila">
                                         <td class="text-center">
-                                            @if (mensaje.Estado == "Fallido")
+                                            @if (esPendiente)
                                             {
-                                                <input class="form-check-input chk-mensaje" type="checkbox" name="idsSeleccionados" value="@mensaje.Id" onchange="actualizarContadorSeleccionados()" />
+                                                <input class="form-check-input chk-mensaje" type="checkbox" name="idsSeleccionados" value="@mensaje.Id" onchange="actualizarContadorSeleccionados()" aria-label="Seleccionar mensaje #@mensaje.Id.ToString()[..8]" />
+                                            }
+                                            else if (esReintentado)
+                                            {
+                                                <span class="text-success small fw-bold" title="Reintentado exitosamente" aria-label="Reintentado">✓</span>
                                             }
                                             else
                                             {
-                                                <span class="text-success small fw-bold">✓</span>
+                                                <span class="text-secondary small fw-bold" title="Mensaje descartado" aria-label="Descartado">⊘</span>
                                             }
                                         </td>
                                         <td>
-                                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.725rem;">
+                                            <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.725rem;">
                                                 #@mensaje.Id.ToString()[..8]
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-dark-subtle text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                            <span class="badge bg-dark-subtle text-dark border px-2 py-1 text-wrap" style="font-size: 0.75rem;">
                                                 @mensaje.TipoLegible
                                             </span>
                                         </td>
@@ -343,13 +282,17 @@
                                             <div class="text-dark small fw-semibold" style="line-height: 1.35;">
                                                 @mensaje.MotivoDigerible
                                             </div>
-                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                            <div class="text-muted small" style="font-size: 0.7rem;">
                                                 Primera falla: @mensaje.PrimerFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                @if (esDescartado && !string.IsNullOrWhiteSpace(mensaje.MotivoDescarte))
+                                                {
+                                                    <span class="text-secondary d-block mt-1"><strong>Motivo descarte:</strong> @mensaje.MotivoDescarte</span>
+                                                }
                                             </div>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge @(mensaje.Intentos >= 4 ? "bg-danger" : "bg-warning text-dark") px-2 py-1" style="font-size: 0.75rem;">
-                                                @mensaje.Intentos int.
+                                            <span class="badge @(mensaje.Intentos >= 4 ? "bg-danger text-white" : "bg-warning text-dark") px-2 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                                @mensaje.Intentos @(mensaje.Intentos == 1 ? "intento" : "intentos")
                                             </span>
                                         </td>
                                         <td>
@@ -358,49 +301,51 @@
                                             </div>
                                         </td>
                                         <td class="text-center">
-                                            @if (mensaje.Estado == "Fallido")
+                                            @if (esPendiente)
                                             {
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                                    ● Retenido
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                    ● Pendiente
                                                 </span>
                                             }
-                                            else if (mensaje.Estado == "Resuelto")
+                                            else if (esReintentado)
                                             {
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.725rem;">
-                                                    ✓ Resuelto
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                    ✓ Reintentado
                                                 </span>
                                             }
                                             else
                                             {
-                                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 0.725rem;">
-                                                    @mensaje.Estado
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                    ⊘ Descartado
                                                 </span>
                                             }
                                         </td>
                                         <td class="text-end">
                                             <div class="d-inline-flex align-items-center gap-1">
-                                                <!-- Botón Icono Ojo: Inspeccionar detalle técnico -->
-                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1" title="Inspeccionar detalle del mensaje" onclick="mostrarDetalleMensaje('@mensaje.Id')">
+                                                <!-- Botón Inspeccionar en Offcanvas lateral (mantiene lista y scroll visibles) -->
+                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1 btn-accion-inspeccionar" title="Inspeccionar detalle del mensaje" aria-label="Inspeccionar detalle del mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirOffcanvasDetalle('@mensaje.Id', this)">
                                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                                         <circle cx="12" cy="12" r="3"></circle>
                                                     </svg>
                                                 </button>
 
-                                                <!-- Botón Icono Basura: Eliminar mensaje de la lista -->
-                                                <button type="button" class="btn btn-outline-danger btn-sm p-1" title="Eliminar mensaje" onclick="ejecutarEliminarIndividual('@mensaje.Id')">
-                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                        <polyline points="3 6 5 6 21 6"></polyline>
-                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                                                    </svg>
-                                                </button>
-
-                                                <!-- Reintento directo individual -->
-                                                @if (mensaje.Estado == "Fallido")
+                                                <!-- Botón Descartar: abre modal con motivo obligatorio -->
+                                                @if (!esDescartado)
                                                 {
-                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="ejecutarReintentoIndividual('@mensaje.Id')" title="Reintentar procesamiento">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm p-1" title="Descartar mensaje de la cola" aria-label="Descartar mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirModalDescartar('@mensaje.Id', '@mensaje.TipoLegible')">
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                                                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                                                        </svg>
+                                                    </button>
+                                                }
+
+                                                <!-- Reintento directo individual (abre panel/modal de confirmación) -->
+                                                @if (esPendiente)
+                                                {
+                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="abrirModalReintentoIndividual('@mensaje.Id')" title="Reintentar procesamiento">
                                                         Reintentar
                                                     </button>
                                                 }
@@ -417,26 +362,258 @@
     </div>
 </div>
 
+<!-- =========================================================================
+     Panel Lateral Offcanvas (Inspección Técnica - Lista y Scroll Intactos)
+     ========================================================================= -->
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="offcanvasDetalleMensaje" aria-labelledby="offcanvasDetalleTitulo" style="width: 600px; max-width: 90vw;">
+    <div class="offcanvas-header bg-light border-bottom">
+        <div class="d-flex align-items-center gap-2 overflow-hidden">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary flex-shrink-0" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <h2 class="h6 fw-bold mb-0 text-dark text-truncate" id="offcanvasDetalleTitulo">
+                Inspección: <span id="spanDetalleTipo" class="text-primary"></span>
+            </h2>
+            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1" id="spanDetalleIdCorto" style="font-size: 0.7rem;"></span>
+        </div>
+        <!-- ÚNICO botón de cerrar en todo el panel -->
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar panel de inspección"></button>
+    </div>
+
+    <div class="offcanvas-body d-flex flex-column gap-3">
+        <!-- Explicación entendible del fallo para el Administrador -->
+        <div>
+            <label class="form-label small fw-bold text-dark mb-1">Motivo del Fallo:</label>
+            <div class="p-3 bg-danger-subtle text-danger-emphasis border border-danger-subtle rounded-3 small fw-semibold" id="lblDetalleMotivoDigerible">
+                -
+            </div>
+        </div>
+
+        <!-- Metadatos del Mensaje -->
+        <div class="p-3 bg-light rounded-3 border">
+            <dl class="row small mb-0 g-2">
+                <dt class="col-sm-4 text-secondary">ID Mensaje:</dt>
+                <dd class="col-sm-8 font-monospace text-break mb-0" id="lblDetalleId">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Operación:</dt>
+                <dd class="col-sm-8 fw-semibold text-dark mb-0" id="lblDetalleTipoOperacion">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Cola de Origen:</dt>
+                <dd class="col-sm-8 font-monospace text-secondary mb-0" id="lblDetalleColaOrigen">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Estado:</dt>
+                <dd class="col-sm-8 mb-0" id="lblDetalleEstado">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Intentos:</dt>
+                <dd class="col-sm-8 fw-bold text-dark mb-0" id="lblDetalleIntentos">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Primer Fallo:</dt>
+                <dd class="col-sm-8 mb-0 text-dark" id="lblDetallePrimerFallo">-</dd>
+
+                <dt class="col-sm-4 text-secondary">Último Fallo:</dt>
+                <dd class="col-sm-8 mb-0 text-dark" id="lblDetalleUltimoFallo">-</dd>
+            </dl>
+        </div>
+
+        @* Detalle técnico (stack trace / clases / IPs) visible ÚNICAMENTE en Development *@
+        @if (Entorno.IsDevelopment())
+        {
+            <div class="border rounded-3 p-2 bg-white" id="contenedorDetalleTecnico">
+                <details>
+                    <summary class="small fw-semibold text-secondary user-select-none cursor-pointer py-1">
+                        🔍 Detalle técnico (solo en desarrollo)
+                    </summary>
+                    <div class="mt-2 pt-2 border-top">
+                        <pre class="bg-light text-dark p-2 rounded font-monospace small mb-0 border" style="max-height: 160px; overflow-y: auto; font-size: 0.72rem; white-space: pre-wrap;" id="lblDetalleExcepcion">-</pre>
+                    </div>
+                </details>
+            </div>
+        }
+
+        <!-- Payload JSON Original -->
+        <div class="flex-grow-1 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-bold text-dark">Carga Útil del Evento (Payload JSON):</span>
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="copiarPayload()">
+                    Copiar JSON
+                </button>
+            </div>
+            <pre class="bg-dark text-light p-3 rounded font-monospace flex-grow-1 mb-0 border" style="max-height: 280px; overflow-y: auto; font-size: 0.75rem;" id="lblDetallePayload">-</pre>
+        </div>
+    </div>
+
+    <div class="offcanvas-footer p-3 bg-light border-top d-flex justify-content-end align-items-center gap-2">
+        <button type="button" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" id="btnDescartarDesdeOffcanvas" onclick="abrirModalDescartarDesdeOffcanvas()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            <span>Descartar Mensaje</span>
+        </button>
+        <button type="button" class="btn btn-dark btn-sm px-3 shadow-sm" id="btnReintentarDesdeOffcanvas" onclick="abrirModalReintentoDesdeOffcanvas()">
+            Reintentar Mensaje
+        </button>
+    </div>
+</div>
+
+<!-- =========================================================================
+     Modal de Confirmación para Descartar Mensaje (Motivo Obligatorio)
+     ========================================================================= -->
+<div class="modal fade" id="modalDescartarMensaje" tabindex="-1" aria-labelledby="modalDescartarTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" asp-page-handler="Descartar" id="formDescartarModal" onsubmit="return validarDescarte(this)">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="inputModalDescartarId" />
+
+                <div class="modal-header bg-light border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                        <h3 class="h6 fw-bold mb-0 text-dark" id="modalDescartarTitulo">Descartar Mensaje de la Cola</h3>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar modal"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <p class="small text-secondary mb-3">
+                        El mensaje no será eliminado de la base de datos: pasará al estado <strong>Descartado</strong> y quedará registrado en el historial para consultas posteriores (UC-42).
+                    </p>
+
+                    <div class="p-2 bg-light rounded border mb-3 small">
+                        <span class="text-secondary">Operación a descartar:</span>
+                        <div class="fw-bold text-dark" id="modalDescartarTipoOperacion">-</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="textareaMotivoDescarte" class="form-label small fw-semibold text-dark">
+                            Motivo del Descarte <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control form-control-sm" id="textareaMotivoDescarte" name="motivo" rows="3" placeholder="Ej: Error subsanado manualmente por el soporte técnico; el comercio ya procesó la orden..." required maxlength="300"></textarea>
+                        <div class="invalid-feedback small">El motivo de descarte es obligatorio para auditoría.</div>
+                        <div class="form-text" style="font-size: 0.725rem;">
+                            Este motivo quedará visible para el equipo en el historial de fallos archivados.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3 shadow-sm d-inline-flex align-items-center gap-1" id="btnConfirmarDescarte">
+                        <span class="spinner-border spinner-border-sm d-none" id="spinnerDescarte" role="status" aria-hidden="true"></span>
+                        <span id="txtBtnConfirmarDescarte">Confirmar Descarte</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     Modal de Confirmación para Reintento Manual (UC-42)
+     ========================================================================= -->
+<div class="modal fade" id="modalConfirmarReintento" tabindex="-1" aria-labelledby="modalConfirmarReintentoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-3">
+            <div class="modal-header bg-light border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-dark-subtle p-2 text-dark d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold mb-0 text-dark" id="modalConfirmarReintentoTitulo">Confirmar Reintento de Procesamiento</h3>
+                        <span class="small text-secondary">Caso de uso UC-42: Reprocesamiento manual de mensajes</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <p class="text-dark fw-semibold mb-3 fs-6" id="modalConfirmarReintentoPregunta">
+                    ¿Confirmas el reintento manual inmediato de este mensaje?
+                </p>
+
+                <!-- Detalle del mensaje a reprocesar (modo individual) -->
+                <div class="p-3 bg-light rounded-3 border mb-3 small" id="modalReintentoDetalleContenedor">
+                    <dl class="row mb-0 g-2">
+                        <dt class="col-sm-4 text-secondary">Operación:</dt>
+                        <dd class="col-sm-8 fw-semibold text-dark mb-0" id="modalReintentoTipoOperacion">-</dd>
+
+                        <dt class="col-sm-4 text-secondary">Identificador:</dt>
+                        <dd class="col-sm-8 font-monospace text-secondary mb-0" id="modalReintentoIdCorto">-</dd>
+
+                        <dt class="col-sm-4 text-secondary">Intentos previos:</dt>
+                        <dd class="col-sm-8 mb-0" id="modalReintentoIntentos">-</dd>
+                    </dl>
+                </div>
+
+                <!-- Detalle para selección múltiple (modo lote) -->
+                <div class="p-3 bg-light rounded-3 border mb-3 small d-none" id="modalReintentoLoteContenedor">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark px-2 py-1 fs-6" id="modalReintentoLoteCantidad">0</span>
+                        <span class="text-dark fw-semibold">mensajes pendientes seleccionados serán reintentados de inmediato en la cola.</span>
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-info-subtle rounded-3 py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-info flex-shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <div>
+                        El consumidor despachará la operación en segundo plano. Si vuelve a fallar, incrementará su contador de intentos conservando la traza.
+                    </div>
+                </div>
+
+                <div class="alert alert-warning border-warning-subtle rounded-3 py-2 px-3 small d-none align-items-center gap-2 mb-0" id="alertaSimulacionReintentoModal">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-warning flex-shrink-0" aria-hidden="true">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <div>
+                        <strong>Modo simulación activo:</strong> Se forzará un fallo de timeout para comprobar la resiliencia de la cola (UC-42).
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-top bg-light">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-dark btn-sm px-4 shadow-sm d-inline-flex align-items-center gap-2" id="btnEjecutarReintentoModal" onclick="confirmarAccionReintentoModal()">
+                    <span class="spinner-border spinner-border-sm d-none" id="spinnerReintentoModal" role="status" aria-hidden="true"></span>
+                    <span id="txtBtnConfirmarReintentoModal">Confirmar Reintento</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Formulario oculto auxiliar para reintentos individuales directos -->
 <form method="post" asp-page-handler="ReintentarIndividual" id="formReintentoIndividualOculto" style="display: none;">
+    @Html.AntiForgeryToken()
     <input type="hidden" name="id" id="inputReintentoIndividualId" />
     <input type="hidden" name="simularFallo" id="inputReintentoIndividualSimular" value="false" />
-</form>
-
-<!-- Formulario oculto auxiliar para eliminación individual directa -->
-<form method="post" asp-page-handler="Eliminar" id="formEliminarIndividualOculto" style="display: none;">
-    <input type="hidden" name="id" id="inputEliminarIndividualId" />
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        // Datos de mensajes serializados de forma segura para evitar errores de sintaxis por saltos de línea
+        // Datos de mensajes serializados sin exponer stack trace innecesario
         var mensajesData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Mensajes.Select(m => new {
             id = m.Id.ToString(),
             tipoLegible = m.TipoLegible,
             colaOrigen = m.ColaOrigen,
-            estado = m.Estado,
+            estado = m.EstadoCanonico,
             intentos = m.Intentos,
             primerFallo = m.PrimerFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
             ultimoFallo = m.UltimoFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
@@ -447,6 +624,52 @@
 
         var simularFalloActivo = false;
         var payloadActual = '';
+        var offcanvasInstancia = null;
+        var modalDescartarInstancia = null;
+        var modalReintentoInstancia = null;
+        var botonOrigenOffcanvas = null;
+        var mensajeSeleccionadoId = null;
+        var modoReintentoActual = 'individual';
+        var idMensajeParaReintentar = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var elOffcanvas = document.getElementById('offcanvasDetalleMensaje');
+            if (elOffcanvas) {
+                // Reubicar el contenedor como hijo directo de body para evitar problemas de apilamiento con el layout
+                if (elOffcanvas.parentElement !== document.body) {
+                    document.body.appendChild(elOffcanvas);
+                }
+                offcanvasInstancia = bootstrap.Offcanvas.getOrCreateInstance(elOffcanvas);
+
+                elOffcanvas.addEventListener('show.bs.offcanvas', function () {
+                    elOffcanvas.style.visibility = 'visible';
+                });
+
+                elOffcanvas.addEventListener('hidden.bs.offcanvas', function () {
+                    elOffcanvas.style.visibility = '';
+                    // Restauración accesible de foco al botón que abrió el panel
+                    if (botonOrigenOffcanvas) {
+                        botonOrigenOffcanvas.focus();
+                    }
+                });
+            }
+
+            var elModalDescartar = document.getElementById('modalDescartarMensaje');
+            if (elModalDescartar) {
+                if (elModalDescartar.parentElement !== document.body) {
+                    document.body.appendChild(elModalDescartar);
+                }
+                modalDescartarInstancia = bootstrap.Modal.getOrCreateInstance(elModalDescartar);
+            }
+
+            var elModalReintento = document.getElementById('modalConfirmarReintento');
+            if (elModalReintento) {
+                if (elModalReintento.parentElement !== document.body) {
+                    document.body.appendChild(elModalReintento);
+                }
+                modalReintentoInstancia = bootstrap.Modal.getOrCreateInstance(elModalReintento);
+            }
+        });
 
         function recargarCola() {
             window.location.reload();
@@ -456,11 +679,10 @@
             simularFalloActivo = activo;
             document.getElementById('inputLoteSimularFallo').value = activo ? 'true' : 'false';
             document.getElementById('inputReintentoIndividualSimular').value = activo ? 'true' : 'false';
-            document.getElementById('inputReintentarDetalleSimular').value = activo ? 'true' : 'false';
 
             var btnLote = document.getElementById('txtBtnReintentarLote');
             if (btnLote) {
-                btnLote.textContent = activo ? 'Reintentar (Simular Falla)' : 'Reintentar Seleccionados';
+                btnLote.textContent = activo ? 'Reintentar (Falla Forzada)' : 'Reintentar Seleccionados';
             }
         }
 
@@ -487,68 +709,254 @@
             }
         }
 
-        function ejecutarReintentoIndividual(id) {
-            document.getElementById('inputReintentoIndividualId').value = id;
-            document.getElementById('inputReintentoIndividualSimular').value = simularFalloActivo ? 'true' : 'false';
-            document.getElementById('formReintentoIndividualOculto').submit();
-        }
+        function abrirModalReintentoLote() {
+            var checkboxes = document.querySelectorAll('.chk-mensaje:checked');
+            if (checkboxes.length === 0) return;
 
-        function ejecutarEliminarIndividual(id) {
-            if (confirm('¿Seguro que deseas eliminar este mensaje de la lista?')) {
-                document.getElementById('inputEliminarIndividualId').value = id;
-                document.getElementById('formEliminarIndividualOculto').submit();
+            modoReintentoActual = 'lote';
+            idMensajeParaReintentar = null;
+
+            var preg = document.getElementById('modalConfirmarReintentoPregunta');
+            if (preg) {
+                preg.textContent = simularFalloActivo
+                    ? '¿Deseas simular el reintento forzando una nueva falla para ' + checkboxes.length + ' mensaje(s)?'
+                    : '¿Confirmas el reintento manual inmediato de ' + checkboxes.length + ' mensaje(s) de la cola?';
+            }
+
+            var contIndiv = document.getElementById('modalReintentoDetalleContenedor');
+            var contLote = document.getElementById('modalReintentoLoteContenedor');
+            var cantLote = document.getElementById('modalReintentoLoteCantidad');
+
+            if (contIndiv) contIndiv.classList.add('d-none');
+            if (contLote) contLote.classList.remove('d-none');
+            if (cantLote) cantLote.textContent = checkboxes.length;
+
+            var alertaSim = document.getElementById('alertaSimulacionReintentoModal');
+            if (alertaSim) {
+                if (simularFalloActivo) {
+                    alertaSim.classList.remove('d-none');
+                    alertaSim.classList.add('d-flex');
+                } else {
+                    alertaSim.classList.add('d-none');
+                    alertaSim.classList.remove('d-flex');
+                }
+            }
+
+            restablecerEstadoBotonModalReintento();
+
+            if (modalReintentoInstancia) {
+                modalReintentoInstancia.show();
             }
         }
 
-        function mostrarDetalleMensaje(id) {
-            var idNormalizado = (id || '').toString().trim().toLowerCase();
-            var item = mensajesData.find(function(m) { 
-                return (m.id || '').toString().trim().toLowerCase() === idNormalizado; 
+        function abrirModalReintentoIndividual(id) {
+            modoReintentoActual = 'individual';
+            idMensajeParaReintentar = id;
+
+            var idNorm = (id || '').toString().trim().toLowerCase();
+            var item = mensajesData.find(function (m) {
+                return (m.id || '').toString().trim().toLowerCase() === idNorm;
             });
 
-            if (!item) {
-                console.warn('Mensaje no encontrado para ID:', id);
-                return;
+            var tipoTexto = item ? item.tipoLegible : 'Mensaje';
+            var idCortoTexto = '#' + (id ? id.substring(0, 8) : '');
+            var intentosTexto = item ? (item.intentos + (item.intentos === 1 ? ' intento' : ' intentos')) : '-';
+
+            var preg = document.getElementById('modalConfirmarReintentoPregunta');
+            if (preg) {
+                preg.textContent = simularFalloActivo
+                    ? '¿Deseas simular una nueva falla en el reintento de este mensaje?'
+                    : '¿Confirmas el reintento manual inmediato de este mensaje?';
             }
 
+            var contIndiv = document.getElementById('modalReintentoDetalleContenedor');
+            var contLote = document.getElementById('modalReintentoLoteContenedor');
+            if (contIndiv) contIndiv.classList.remove('d-none');
+            if (contLote) contLote.classList.add('d-none');
+
+            var lblTipo = document.getElementById('modalReintentoTipoOperacion');
+            var lblId = document.getElementById('modalReintentoIdCorto');
+            var lblIntentos = document.getElementById('modalReintentoIntentos');
+
+            if (lblTipo) lblTipo.textContent = tipoTexto;
+            if (lblId) lblId.textContent = idCortoTexto;
+            if (lblIntentos) lblIntentos.textContent = intentosTexto;
+
+            var alertaSim = document.getElementById('alertaSimulacionReintentoModal');
+            if (alertaSim) {
+                if (simularFalloActivo) {
+                    alertaSim.classList.remove('d-none');
+                    alertaSim.classList.add('d-flex');
+                } else {
+                    alertaSim.classList.add('d-none');
+                    alertaSim.classList.remove('d-flex');
+                }
+            }
+
+            restablecerEstadoBotonModalReintento();
+
+            if (modalReintentoInstancia) {
+                modalReintentoInstancia.show();
+            }
+        }
+
+        function abrirModalReintentoDesdeOffcanvas() {
+            if (mensajeSeleccionadoId) {
+                abrirModalReintentoIndividual(mensajeSeleccionadoId);
+            }
+        }
+
+        function restablecerEstadoBotonModalReintento() {
+            var btn = document.getElementById('btnEjecutarReintentoModal');
+            var spinner = document.getElementById('spinnerReintentoModal');
+            var txt = document.getElementById('txtBtnConfirmarReintentoModal');
+
+            if (btn) btn.disabled = false;
+            if (spinner) spinner.classList.add('d-none');
+            if (txt) txt.textContent = 'Confirmar Reintento';
+        }
+
+        function confirmarAccionReintentoModal() {
+            var btn = document.getElementById('btnEjecutarReintentoModal');
+            var spinner = document.getElementById('spinnerReintentoModal');
+            var txt = document.getElementById('txtBtnConfirmarReintentoModal');
+
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('d-none');
+            if (txt) txt.textContent = 'Procesando reintento...';
+
+            if (modoReintentoActual === 'lote') {
+                var btnLote = document.getElementById('btnReintentarLote');
+                var spinnerLote = document.getElementById('spinnerReintentarLote');
+                var iconoLote = document.getElementById('iconoReintentarLote');
+
+                if (btnLote) btnLote.disabled = true;
+                if (spinnerLote) spinnerLote.classList.remove('d-none');
+                if (iconoLote) iconoLote.classList.add('d-none');
+
+                var formLote = document.getElementById('formReintentarLote');
+                if (formLote) formLote.submit();
+            } else {
+                document.getElementById('inputReintentoIndividualId').value = idMensajeParaReintentar;
+                document.getElementById('inputReintentoIndividualSimular').value = simularFalloActivo ? 'true' : 'false';
+                var formIndiv = document.getElementById('formReintentoIndividualOculto');
+                if (formIndiv) formIndiv.submit();
+            }
+        }
+
+        // Delegados de compatibilidad
+        function ejecutarReintentoIndividual(id) {
+            abrirModalReintentoIndividual(id);
+        }
+
+        function ejecutarReintentoDesdeOffcanvas() {
+            abrirModalReintentoDesdeOffcanvas();
+        }
+
+        function abrirOffcanvasDetalle(id, botonTrigger) {
+            botonOrigenOffcanvas = botonTrigger;
+            var idNorm = (id || '').toString().trim().toLowerCase();
+            var item = mensajesData.find(function (m) {
+                return (m.id || '').toString().trim().toLowerCase() === idNorm;
+            });
+
+            if (!item) return;
+
+            mensajeSeleccionadoId = item.id;
             payloadActual = item.payloadOriginal;
 
             document.getElementById('spanDetalleTipo').textContent = item.tipoLegible;
             document.getElementById('spanDetalleIdCorto').textContent = '#' + item.id.substring(0, 8);
             document.getElementById('lblDetalleId').textContent = item.id;
             document.getElementById('lblDetalleTipoOperacion').textContent = item.tipoLegible;
-            document.getElementById('lblDetalleEstado').innerHTML = item.estado === 'Fallido'
-                ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">● Retenido</span>'
-                : '<span class="badge bg-success-subtle text-success border border-success-subtle">✓ Resuelto</span>';
-            document.getElementById('lblDetalleIntentos').textContent = item.intentos + ' reintentos';
+            document.getElementById('lblDetalleColaOrigen').textContent = item.colaOrigen || 'cola.interna.dlq';
+
+            var badgeEstado = '';
+            if (item.estado === 'Pendiente') {
+                badgeEstado = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-bold">● Pendiente</span>';
+            } else if (item.estado === 'Reintentado') {
+                badgeEstado = '<span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">✓ Reintentado</span>';
+            } else {
+                badgeEstado = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fw-bold">⊘ Descartado</span>';
+            }
+
+            document.getElementById('lblDetalleEstado').innerHTML = badgeEstado;
+            document.getElementById('lblDetalleIntentos').textContent = item.intentos + (item.intentos === 1 ? ' intento' : ' intentos');
             document.getElementById('lblDetallePrimerFallo').textContent = item.primerFallo;
             document.getElementById('lblDetalleUltimoFallo').textContent = item.ultimoFallo;
             document.getElementById('lblDetalleMotivoDigerible').textContent = item.motivoDigerible;
-            document.getElementById('lblDetalleExcepcion').textContent = item.detalleExcepcion;
+
+            var lblExcepcion = document.getElementById('lblDetalleExcepcion');
+            if (lblExcepcion) {
+                lblExcepcion.textContent = item.detalleExcepcion || 'Sin traza técnica disponible';
+            }
+
             document.getElementById('lblDetallePayload').textContent = item.payloadOriginal;
 
-            document.getElementById('inputEliminarDetalleId').value = item.id;
-            document.getElementById('inputReintentarDetalleId').value = item.id;
-            document.getElementById('inputReintentarDetalleSimular').value = simularFalloActivo ? 'true' : 'false';
+            // Botones de acción en pie del offcanvas
+            var btnReintentar = document.getElementById('btnReintentarDesdeOffcanvas');
+            var btnDescartar = document.getElementById('btnDescartarDesdeOffcanvas');
 
-            var panel = document.getElementById('panelDetalleMensaje');
-            if (panel) {
-                panel.style.display = 'block';
-                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (btnReintentar) {
+                btnReintentar.style.display = item.estado === 'Pendiente' ? 'inline-block' : 'none';
+            }
+            if (btnDescartar) {
+                btnDescartar.style.display = item.estado !== 'Descartado' ? 'inline-block' : 'none';
+            }
+
+            var el = document.getElementById('offcanvasDetalleMensaje');
+            if (el) {
+                el.style.visibility = 'visible';
+                if (!offcanvasInstancia) {
+                    offcanvasInstancia = bootstrap.Offcanvas.getOrCreateInstance(el);
+                }
+                offcanvasInstancia.show();
             }
         }
 
-        function ocultarDetalleMensaje() {
-            var panel = document.getElementById('panelDetalleMensaje');
-            if (panel) {
-                panel.style.display = 'none';
+        function abrirModalDescartar(id, tipoOperacion) {
+            document.getElementById('inputModalDescartarId').value = id;
+            document.getElementById('modalDescartarTipoOperacion').textContent = tipoOperacion + ' (#' + id.substring(0, 8) + ')';
+            document.getElementById('textareaMotivoDescarte').value = '';
+
+            if (modalDescartarInstancia) {
+                modalDescartarInstancia.show();
+                setTimeout(function () {
+                    var area = document.getElementById('textareaMotivoDescarte');
+                    if (area) area.focus();
+                }, 300);
             }
+        }
+
+        function abrirModalDescartarDesdeOffcanvas() {
+            if (mensajeSeleccionadoId) {
+                var item = mensajesData.find(function (m) { return m.id === mensajeSeleccionadoId; });
+                abrirModalDescartar(mensajeSeleccionadoId, item ? item.tipoLegible : 'Mensaje');
+            }
+        }
+
+        function validarDescarte(form) {
+            var motivo = document.getElementById('textareaMotivoDescarte').value.trim();
+            if (motivo.length === 0) {
+                alert('El motivo de descarte es obligatorio.');
+                return false;
+            }
+
+            var btn = document.getElementById('btnConfirmarDescarte');
+            var spinner = document.getElementById('spinnerDescarte');
+            var txt = document.getElementById('txtBtnConfirmarDescarte');
+
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('d-none');
+            if (txt) txt.textContent = 'Descartando...';
+
+            return true;
         }
 
         function copiarPayload() {
             if (payloadActual) {
                 navigator.clipboard.writeText(payloadActual).then(function () {
-                    alert('Datos JSON copiados al portapapeles.');
+                    alert('Carga JSON copiada al portapapeles.');
                 }).catch(function () {
                     alert('No se pudo copiar el JSON automáticamente.');
                 });
