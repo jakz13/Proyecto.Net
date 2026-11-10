@@ -416,6 +416,9 @@ public class MockEnviosApi : IEnviosApi
 
         RegistrarEventoHistorico(dto.EnvioId, evento);
 
+        // Notificar al comercio mediante la bitácora de avisos y webhooks (RF-11)
+        MockAvisosComercioApi.RegistrarAvisoExtraviado(dto.EnvioId, envioActual.CodigoSeguimiento, dto.MotivoExtravio);
+
         var resultado = new ResultadoDeclaracionExtravioDto
         {
             Exito = true,

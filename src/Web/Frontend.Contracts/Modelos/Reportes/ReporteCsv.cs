@@ -16,34 +16,36 @@ public static class ReporteCsv
         var filtro = datos.Filtro;
         var sb = new StringBuilder();
 
-        sb.AppendLine($"Reporte de Gestión;Tipo: {filtro.TipoReporte};Periodo: {filtro.FechaDesde:dd/MM/yyyy} a {filtro.FechaHasta:dd/MM/yyyy}");
-        sb.AppendLine($"Generado el;{datos.FechaGeneracion:dd/MM/yyyy HH:mm:ss}");
-        sb.AppendLine();
-
         if (datos.ItemsCumplimiento.Count > 0)
         {
-            sb.AppendLine("Entidad/Zona;Detalle;Asignados;En Plazo;Con Demora;No Entregados;% Efectividad SLA;% Entrega Total");
+            sb.AppendLine("Entidad/Zona;Detalle;Total Asignados;En Plazo (SLA);Con Demora;No Entregados;% Cumplimiento SLA;Tasa Entrega Total;Nivel de Rendimiento");
             foreach (var item in datos.ItemsCumplimiento)
+            {
+                var nivel = item.PorcentajeEfectividad >= 95m ? "Excelente" : item.PorcentajeEfectividad >= 85m ? "Aceptable" : "En Riesgo";
                 sb.AppendLine(Fila(Texto(item.Agrupador), Texto(item.DetalleAdicional), item.TotalAsignados, item.EntregadosEnPlazo,
-                    item.EntregadosConDemora, item.NoEntregados, Porcentaje(item.PorcentajeEfectividad), Porcentaje(item.PorcentajeEntregaTotal)));
+                    item.EntregadosConDemora, item.NoEntregados, Porcentaje(item.PorcentajeEfectividad), Porcentaje(item.PorcentajeEntregaTotal), Texto(nivel)));
+            }
         }
         else if (datos.ItemsMotivos.Count > 0)
         {
-            sb.AppendLine("Codigo Motivo;Descripcion;Categoria;Ocurrencias;% del Total;Impacto Operativo");
+            sb.AppendLine("Codigo Motivo;Descripcion del Motivo;Categoria;Ocurrencias;% del Total;Impacto en la Operacion");
             foreach (var m in datos.ItemsMotivos)
                 sb.AppendLine(Fila(Texto(m.CodigoMotivo), Texto(m.DescripcionMotivo), Texto(m.Categoria), m.CantidadOcurrencias,
                     Porcentaje(m.PorcentajeDelTotal), Texto(m.ImpactoComun)));
         }
         else if (datos.ItemsVolumen.Count > 0)
         {
-            sb.AppendLine("Fecha;Guias;Bultos;Peso Total (kg);Volumen Total (m3);Rutas Despachadas");
+            sb.AppendLine("Fecha;Guias Procesadas;Bultos Fisicos;Peso Total (kg);Volumen Total (m3);Hojas de Ruta;Promedio Bultos por Ruta");
             foreach (var v in datos.ItemsVolumen)
+            {
+                var prom = v.RutasDespachadas > 0 ? (decimal)v.CantidadBultos / v.RutasDespachadas : 0;
                 sb.AppendLine(Fila(v.Fecha.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture), v.CantidadGuias, v.CantidadBultos,
-                    Numero(v.PesoTotalKg), Numero(v.VolumenTotalM3), v.RutasDespachadas));
+                    Numero(v.PesoTotalKg), Numero(v.VolumenTotalM3), v.RutasDespachadas, prom.ToString("F1", CultureInfo.InvariantCulture)));
+            }
         }
         else if (datos.ItemsLiquidacion.Count > 0)
         {
-            sb.AppendLine("Comercio;RUT;Envios;Tarifa Base ($);Recargo Peso ($);Recargo Volumen ($);Descuento ($);Subtotal ($);IVA 22% ($);Total Facturado ($)");
+            sb.AppendLine("Comercio Cliente;RUT;Envios Facturados;Tarifa Base ($);Recargo Peso ($);Recargo Volumen ($);Bonificacion ($);Subtotal ($);IVA 22% ($);Total Facturado ($)");
             foreach (var l in datos.ItemsLiquidacion)
                 sb.AppendLine(Fila(Texto(l.RazonSocial), Texto(l.Rut), l.CantidadEnviosLiquidados, Numero(l.TarifaBaseTotal), Numero(l.RecargoPesoTotal),
                     Numero(l.RecargoVolumenTotal), Numero(l.DescuentoVolumenTotal), Numero(l.Subtotal), Numero(l.Iva), Numero(l.TotalFacturado)));

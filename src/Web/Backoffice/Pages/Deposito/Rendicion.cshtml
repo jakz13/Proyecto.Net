@@ -49,6 +49,128 @@
     </div>
 }
 
+@if (Model.ResultadoRendicion != null)
+{
+    <!-- PANEL DE RESULTADO DE RENDICIÓN DE HOJA DE RUTA (UC-16, RF-22) -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white mb-4 overflow-hidden border-start border-success border-4">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success text-white px-2 py-1">Rendición Confirmada</span>
+                    <h2 class="h5 fw-bold mb-0 text-dark">Hoja de Ruta Cerrada y Repartidor Habilitado</h2>
+                </div>
+                <div class="text-secondary small mt-1">
+                    @Model.ResultadoRendicion.Mensaje
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
+                    <span>Volver a Rendiciones</span>
+                </a>
+                <a asp-page="/Rutas/Index" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
+                    <span>Ver Hojas de Ruta</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="card-body p-4 border-top">
+            <!-- Métricas Clave de la Rendición -->
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="p-3 rounded-3 bg-light border text-center">
+                        <div class="text-secondary small fw-semibold text-uppercase">Entregados en Calle</div>
+                        <div class="h3 fw-bold text-success mb-0 mt-1">@Model.ResultadoRendicion.BultosEntregados</div>
+                        <div class="text-muted small">Confirmados con éxito</div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="p-3 rounded-3 bg-light border text-center">
+                        <div class="text-secondary small fw-semibold text-uppercase">Reintegrados a Depósito</div>
+                        <div class="h3 fw-bold text-primary mb-0 mt-1">@Model.ResultadoRendicion.BultosDevueltos</div>
+                        <div class="text-muted small">Devueltos físicamente</div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="p-3 rounded-3 bg-light border text-center">
+                        <div class="text-secondary small fw-semibold text-uppercase">Bultos Pendientes</div>
+                        <div class="h3 fw-bold @(Model.ResultadoRendicion.BultosPendientes > 0 ? "text-danger" : "text-muted") mb-0 mt-1">
+                            @Model.ResultadoRendicion.BultosPendientes
+                        </div>
+                        <div class="text-muted small">No presentados en muelle</div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="p-3 rounded-3 bg-light border text-center">
+                        <div class="text-secondary small fw-semibold text-uppercase">Estado del Repartidor</div>
+                        <div class="h4 fw-bold text-success mb-0 mt-1">Habilitado</div>
+                        <div class="text-muted small">Disponible para nueva salida</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalle de Bultos Reintegrados -->
+            @if (Model.ResultadoRendicion.EnviosReintegradosADeposito.Count > 0)
+            {
+                <div class="alert alert-light border rounded-3 p-3 mb-3">
+                    <div class="fw-semibold text-dark small mb-2 d-flex align-items-center gap-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Envíos Reintegrados al Depósito (@Model.ResultadoRendicion.EnviosReintegradosADeposito.Count):</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var cod in Model.ResultadoRendicion.EnviosReintegradosADeposito)
+                        {
+                            <span class="badge bg-white text-dark border font-monospace">@cod</span>
+                        }
+                    </div>
+                    <div class="small text-muted mt-2">
+                        Estos bultos quedaron clasificados nuevamente en depósito y listos para ser reasignados a una nueva hoja de ruta o reprogramados.
+                    </div>
+                </div>
+            }
+
+            <!-- Detalle de Bultos Pendientes / Faltantes -->
+            @if (Model.ResultadoRendicion.EnviosPendientes.Count > 0)
+            {
+                <div class="alert alert-warning border rounded-3 p-3 mb-3">
+                    <div class="fw-semibold text-dark small mb-2 d-flex align-items-center gap-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-warning-emphasis">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>Bultos Pendientes no presentados (@Model.ResultadoRendicion.EnviosPendientes.Count):</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var cod in Model.ResultadoRendicion.EnviosPendientes)
+                        {
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning font-monospace">@cod</span>
+                        }
+                    </div>
+                    <div class="small text-muted mt-2">
+                        El cierre de la ruta se registró con observaciones. Estos envíos continúan pendientes para posterior resolución o declaración de extravío (RF-11).
+                    </div>
+                </div>
+            }
+
+            <!-- Detalle de Códigos Sobrantes -->
+            @if (Model.ResultadoRendicion.CodigosSobrantes.Count > 0)
+            {
+                <div class="alert alert-info border rounded-3 p-3 mb-0">
+                    <div class="fw-semibold text-dark small mb-2">Bultos Sobrantes detectados en descarga (@Model.ResultadoRendicion.CodigosSobrantes.Count):</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var cod in Model.ResultadoRendicion.CodigosSobrantes)
+                        {
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info font-monospace">@cod</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @if (Model.RutaDetalle == null)
 {
     <!-- VISTA PRINCIPAL: LISTADO DE RUTAS PENDIENTES DE RENDICIÓN -->
@@ -453,7 +575,7 @@ else
 
                 <div class="d-flex justify-content-end align-items-center gap-2 mt-4 pt-3 border-top">
                     <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-dark d-inline-flex align-items-center gap-2 px-4 shadow-sm" id="btnConfirmarRendicion">
+                    <button type="button" class="btn btn-dark d-inline-flex align-items-center gap-2 px-4 shadow-sm" id="btnAbrirModalConfirmacion">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                             <polyline points="22 4 12 14.01 9 11.01"></polyline>
@@ -464,6 +586,66 @@ else
             </div>
         }
     </form>
+
+    <!-- MODAL DE CONFIRMACIÓN DE RENDICIÓN Y CIERRE DE HOJA DE RUTA (UC-16, RF-22) -->
+    <div class="modal fade" id="modalConfirmarRendicion" tabindex="-1" aria-labelledby="modalConfirmarRendicionLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0 rounded-3">
+                <div class="modal-header border-0 pb-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle bg-success-subtle p-2 text-success">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="modalConfirmarRendicionLabel">Cierre de Hoja de Ruta</h5>
+                            <span class="small text-secondary">Ruta @Model.RutaDetalle?.NumeroRuta</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <p class="text-dark fw-semibold mb-2">
+                        ¿Confirma la rendición y el cierre de la hoja de ruta?
+                    </p>
+                    <div class="alert alert-success border-success-subtle rounded-3 py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-success flex-shrink-0">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span><strong>El repartidor quedará habilitado</strong> para nuevas rutas una vez confirmada la operación.</span>
+                    </div>
+
+                    <div id="alertaDiscrepanciaModal" class="alert alert-warning border-warning rounded-3 py-2 px-3 small mb-3" style="display: none;">
+                        <div class="fw-semibold text-warning-emphasis mb-1">Diferencias en descarga física:</div>
+                        <span id="textoDiscrepanciaModal">Se detectaron bultos no presentados que quedarán pendientes de resolución.</span>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">Repartidor:</span>
+                            <span class="fw-semibold text-dark">@(Model.RutaDetalle?.RepartidorDocumento ?? "Repartidor asignado")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">Bultos entregados confirmados:</span>
+                            <span class="fw-bold text-success">@(Model.RutaDetalle?.BultosEntregadosCount ?? 0)</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-secondary">Bultos verificados a reintegrar:</span>
+                            <span class="fw-bold text-primary" id="modalContadorDevueltos">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-dark btn-sm px-4 shadow-sm" id="btnEjecutarRendicionModal">
+                        Confirmar y Cerrar Hoja de Ruta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @section Scripts {
@@ -545,24 +727,43 @@ else
                 });
             }
 
-            if (formRendicion) {
-                formRendicion.addEventListener('submit', function (e) {
+            const btnAbrirModal = document.getElementById('btnAbrirModalConfirmacion');
+            const btnEjecutarModal = document.getElementById('btnEjecutarRendicionModal');
+            const modalElement = document.getElementById('modalConfirmarRendicion');
+            const alertaDiscrepancia = document.getElementById('alertaDiscrepanciaModal');
+            const textoDiscrepancia = document.getElementById('textoDiscrepanciaModal');
+            const modalContadorDevueltos = document.getElementById('modalContadorDevueltos');
+
+            if (btnAbrirModal && modalElement) {
+                btnAbrirModal.addEventListener('click', function () {
                     let marcados = 0;
                     checks.forEach(c => { if (c.checked) marcados++; });
                     const totalEsperados = parseInt(document.getElementById('totalEsperadosRetorno')?.textContent || '0', 10);
 
-                    if (marcados < totalEsperados) {
-                        const diferencia = totalEsperados - marcados;
-                        if (!confirm(`Se registran ${diferencia} bulto(s) pendiente(s) de devolución física.\n¿Desea cerrar la rendición con estas diferencias?`)) {
-                            e.preventDefault();
-                            return;
-                        }
-                    } else {
-                        if (!confirm('¿Confirma la rendición y el cierre de la hoja de ruta? El repartidor quedará habilitado para nuevas rutas.')) {
-                            e.preventDefault();
-                            return;
+                    if (modalContadorDevueltos) {
+                        modalContadorDevueltos.textContent = marcados;
+                    }
+
+                    if (alertaDiscrepancia && textoDiscrepancia) {
+                        if (marcados < totalEsperados) {
+                            const diferencia = totalEsperados - marcados;
+                            textoDiscrepancia.textContent = `Se registran ${diferencia} bulto(s) pendiente(s) de devolución física. Estos envíos continuarán pendientes para posterior resolución o declaración de extravío.`;
+                            alertaDiscrepancia.style.display = 'block';
+                        } else {
+                            alertaDiscrepancia.style.display = 'none';
                         }
                     }
+
+                    const modalBs = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modalBs.show();
+                });
+            }
+
+            if (btnEjecutarModal && formRendicion) {
+                btnEjecutarModal.addEventListener('click', function () {
+                    btnEjecutarModal.disabled = true;
+                    btnEjecutarModal.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Procesando cierre...';
+                    formRendicion.submit();
                 });
             }
         });

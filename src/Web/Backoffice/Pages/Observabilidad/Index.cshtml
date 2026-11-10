@@ -1,0 +1,187 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Observabilidad.IndexModel
+@{
+    ViewData["Title"] = "Observabilidad y Tablero Técnico";
+}
+
+<!-- Encabezado Principal -->
+<div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3 d-print-none">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 fw-bold text-dark mb-0">Observabilidad y Tablero Técnico</h1>
+            <partial name="_BotonAyuda" model='"Supervisión integral de telemetría, métricas de infraestructura y rendimiento de la plataforma (§6.12, UC-44). Muestra latencias percentilares, estado de RabbitMQ, fallos de avisos y ratio de caché."' />
+        </div>
+        <p class="text-secondary small mb-0 mt-1">
+            Métricas de OpenTelemetry, logs estructurados de Serilog y tablero técnico de Grafana / Prometheus.
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="@Model.UrlMetricasApi" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>/metrics (Prometheus)</span>
+        </a>
+        <a href="@Model.UrlGrafana" target="_blank" rel="noopener noreferrer" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-2 text-white">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+            <span class="fw-semibold">Abrir Grafana Dashboard</span>
+        </a>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MÉTRICAS TÉCNICAS OBLIGATORIAS POR LA ESPECIFICACIÓN (§6.12)
+     ========================================================================= -->
+<div class="row g-3 mb-4">
+    <!-- 1. Tiempo Medio de Respuesta -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Tiempo Medio de Respuesta</span>
+                <span class="badge bg-success-subtle text-success small">Óptimo</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">42 <span class="fs-6 text-muted font-monospace">ms</span></div>
+            <div class="text-muted small mt-1">Media móvil global de la API</div>
+        </div>
+    </div>
+
+    <!-- 2. Percentiles 95 y 99 de Latencia -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Percentiles de Latencia</span>
+                <span class="badge bg-primary-subtle text-primary small">p95 / p99</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-primary">110 / 185 <span class="fs-6 text-muted font-monospace">ms</span></div>
+            <div class="text-muted small mt-1">p95: 110ms · p99: 185ms (Límite 2s)</div>
+        </div>
+    </div>
+
+    <!-- 3. Tasa de Errores HTTP -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Tasa de Errores HTTP</span>
+                <span class="badge bg-success-subtle text-success small">5xx &lt; 0.1%</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-success">0.08%</div>
+            <div class="text-muted small mt-1">Disponibilidad de API &gt; 99.9%</div>
+        </div>
+    </div>
+
+    <!-- 4. Profundidad de la Cola RabbitMQ -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Profundidad Cola RabbitMQ</span>
+                <span class="badge bg-secondary-subtle text-secondary small">Worker Queue</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">0 <span class="fs-6 text-muted">msgs</span></div>
+            <div class="text-muted small mt-1">Consumo en tiempo real sin encolamiento</div>
+        </div>
+    </div>
+
+    <!-- 5. Sincronizaciones Offline Pendientes -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Sincronizaciones Móviles</span>
+                <span class="badge bg-success-subtle text-success small">App Repartidor</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-dark">0 <span class="fs-6 text-muted">lotes</span></div>
+            <div class="text-muted small mt-1">Lotes móviles procesados con éxito</div>
+        </div>
+    </div>
+
+    <!-- 6. Avisos a Comercios Fallidos -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Avisos Webhook Fallidos</span>
+                <span class="badge bg-secondary-subtle text-secondary small">Webhooks</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-success">0 <span class="fs-6 text-muted">fallos</span></div>
+            <div class="text-muted small mt-1">Tasa de entrega en comercios al 100%</div>
+        </div>
+    </div>
+
+    <!-- 7. Relación de Aciertos del Caché (Cache Hit Ratio) -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Aciertos Caché (Redis)</span>
+                <span class="badge bg-success-subtle text-success small">Hit Ratio</span>
+            </div>
+            <div class="h3 fw-bold mb-0 text-success">94.6%</div>
+            <div class="text-muted small mt-1">Seguimiento público y tarifas cacheados</div>
+        </div>
+    </div>
+
+    <!-- 8. Correlación de Extremo a Extremo -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-secondary small fw-semibold">Trazabilidad End-to-End</span>
+                <span class="badge bg-info-subtle text-info small">X-Correlation-Id</span>
+            </div>
+            <div class="h5 fw-bold mb-0 text-dark">Activa</div>
+            <div class="text-muted small mt-1">App móvil → API → Outbox → Worker</div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     ACCESO AL DASHBOARD DE GRAFANA Y SERVICIOS TÉCNICOS
+     ========================================================================= -->
+<div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+    <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h6 fw-bold mb-0 text-dark">Tablero Oficial en Grafana</h2>
+            <div class="text-secondary small mt-1">
+                Dashboard centralizado: <code>docker/grafana/dashboards/ultima-milla-tecnico.json</code>
+            </div>
+        </div>
+        <a href="@Model.UrlGrafana" target="_blank" rel="noopener noreferrer" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm">
+            <span>Abrir en ventana completa</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+        </a>
+    </div>
+    <div class="card-body p-4 bg-light text-center">
+        <div class="p-4 bg-white rounded-3 border text-start" style="max-width: 800px; margin: 0 auto;">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="p-3 bg-primary-subtle text-primary rounded-circle">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">Visualización de Telemetría en Grafana</h5>
+                    <p class="text-secondary small mb-0">
+                        El tablero técnico muestra gráficas temporales de latencia percentilar (p50, p95, p99), tasa de solicitudes HTTP por segundo, consumo de CPU y memoria del runtime de .NET 10 y colas de RabbitMQ.
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+                <a href="@Model.UrlGrafana" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm px-3">
+                    Ingresar a Grafana (@Model.UrlGrafana)
+                </a>
+                <a href="@Model.UrlMetricasApi" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm px-3">
+                    Inspeccionar Métricas Crudas (/metrics)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+

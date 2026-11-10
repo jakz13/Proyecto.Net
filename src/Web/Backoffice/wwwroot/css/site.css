@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    Variables y Tokens de Diseño - Backoffice del Operador
    ========================================================================== */
 :root {
@@ -1021,4 +1021,82 @@ body.sidebar-colapsada {
     font-weight: 600;
     color: #B91C1C;
     margin-top: 3px;
+}
+
+/* ==========================================================================
+   Estilos de Impresión (@media print) - Optimización de Reportes y Tablas
+   ========================================================================== */
+@media print {
+    /* Ocultar barra lateral, banners de demo y botones interactivos */
+    .sidebar-oscura,
+    #sidebarPrincipal,
+    .banner-demo-dev,
+    .d-print-none,
+    nav,
+    button,
+    .btn,
+    .btn-group,
+    form,
+    .form-control,
+    .form-select,
+    .btn-close,
+    .um-mapa-leaflet {
+        display: none !important;
+    }
+
+    /* Adaptar el contenedor principal para que la tabla y métricas ocupen el 100% */
+    .layout-contenido-principal {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        font-size: 10pt !important;
+    }
+
+    main {
+        padding: 10px 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Tarjetas y métricas en impresión */
+    .card {
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    /* Tablas optimizadas para hojas A4 / Letter */
+    .table-responsive {
+        overflow: visible !important;
+    }
+
+    .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 9pt !important;
+    }
+
+    .table th, .table td {
+        border: 1px solid #CBD5E1 !important;
+        padding: 5px 8px !important;
+        color: #000000 !important;
+    }
+
+    .table thead {
+        background-color: #F1F5F9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .badge {
+        border: 1px solid #94A3B8 !important;
+        color: #000000 !important;
+        background-color: transparent !important;
+        font-weight: 600 !important;
+    }
 }

@@ -41,6 +41,31 @@
     </div>
 </div>
 
+<!-- Encabezado Exclusivo para Impresión (d-print-block) -->
+<div class="d-none d-print-block mb-4 border-bottom pb-2">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="h5 fw-bold text-dark mb-0">Reporte de Gestión Operativa</h2>
+            <div class="small text-muted mt-1">
+                Tipo: <strong>@switch (tipo)
+                {
+                    case "CumplimientoZona": <span>Cumplimiento por Zona Geográfica</span>; break;
+                    case "CumplimientoRepartidor": <span>Cumplimiento por Repartidor</span>; break;
+                    case "CumplimientoComercio": <span>Cumplimiento por Comercio Adherido</span>; break;
+                    case "MotivosNoEntrega": <span>Distribución de Motivos de No Entrega</span>; break;
+                    case "VolumenPeriodo": <span>Volumen y Peso de Carga por Período</span>; break;
+                    case "LiquidacionComercio": <span>Liquidación y Facturación por Comercio</span>; break;
+                    default: <span>@tipo</span>; break;
+                }</strong>
+                · Período: @Model.Reporte.Filtro.FechaDesde.ToString("dd/MM/yyyy") al @Model.Reporte.Filtro.FechaHasta.ToString("dd/MM/yyyy")
+            </div>
+        </div>
+        <div class="text-end small text-muted font-monospace">
+            Generado: @Model.Reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+        </div>
+    </div>
+</div>
+
 <!-- Filtros de Parámetros y Período -->
 <div class="card border-0 shadow-sm rounded-3 mb-4 d-print-none">
     <div class="card-body p-3 bg-white">

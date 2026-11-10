@@ -74,6 +74,25 @@ public class MarcarEnvioExtraviadoCommandHandler : IRequestHandler<MarcarEnvioEx
             cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                // Notifica al comercio en tiempo real y al seguimiento público sobre la incidencia de extravío (RF-11, RF-26)
+                await _tableroNotifier.NotificarEnvioCambioEstadoAsync(
+                    envio.OperadorId,
+                    envio.ComercioOperadorId,
+                    envio.Id,
+                    envio.CodigoSeguimientoPublico,
+                    "Extraviado",
+                    cancellationToken);
+            }
+            catch
+            {
+                // La falla de notificación en tiempo real no revierte la persistencia del extravío
+            }
+        }
+
         if (retiradoDeRuta && rutaRetiradaId is { } rutaAfectadaId && _tableroNotifier is not null)
         {
             try
