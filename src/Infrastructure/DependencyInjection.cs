@@ -111,6 +111,7 @@ public static class DependencyInjection
             services.AddDistributedMemoryCache();
         }
 
+        services.AddSingleton<CortacircuitosCache>();
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();

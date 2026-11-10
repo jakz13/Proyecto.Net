@@ -17,11 +17,19 @@ public class DistributedCacheService : IDistributedCacheService
     private readonly ILogger<DistributedCacheService>? _logger;
     private readonly IMetricasNegocio? _metricas;
 
+    private readonly CortacircuitosCache _cortacircuitos;
+
+    private bool EnPausa => _cortacircuitos.EnPausa;
+
+    private void Pausar() => _cortacircuitos.Pausar();
+
     public DistributedCacheService(
         IDistributedCache cache,
         ILogger<DistributedCacheService>? logger = null,
-        IMetricasNegocio? metricas = null)
+        IMetricasNegocio? metricas = null,
+        CortacircuitosCache? cortacircuitos = null)
     {
+        _cortacircuitos = cortacircuitos ?? new CortacircuitosCache();
         ArgumentNullException.ThrowIfNull(cache);
         _cache = cache;
         _logger = logger;
@@ -32,6 +40,13 @@ public class DistributedCacheService : IDistributedCacheService
     {
         if (string.IsNullOrWhiteSpace(key))
             return default;
+
+        if (EnPausa)
+        {
+            MedidorCache.RegistrarFallo(key);
+            _metricas?.RegistrarFalloCache();
+            return default;
+        }
 
         try
         {
@@ -61,6 +76,7 @@ public class DistributedCacheService : IDistributedCacheService
         }
         catch (Exception ex)
         {
+            Pausar();
             MedidorCache.RegistrarError(key);
             MedidorCache.RegistrarFallo(key);
             _metricas?.RegistrarFalloCache();
@@ -74,7 +90,7 @@ public class DistributedCacheService : IDistributedCacheService
 
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(key) || value is null)
+        if (string.IsNullOrWhiteSpace(key) || value is null || EnPausa)
             return;
 
         try
@@ -98,6 +114,7 @@ public class DistributedCacheService : IDistributedCacheService
         }
         catch (Exception ex)
         {
+            Pausar();
             MedidorCache.RegistrarError(key);
             _logger?.LogWarning(
                 ex,
@@ -108,7 +125,7 @@ public class DistributedCacheService : IDistributedCacheService
 
     public async Task RemoveAsync(string key, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(key))
+        if (string.IsNullOrWhiteSpace(key) || EnPausa)
             return;
 
         try
@@ -122,6 +139,7 @@ public class DistributedCacheService : IDistributedCacheService
         }
         catch (Exception ex)
         {
+            Pausar();
             MedidorCache.RegistrarError(key);
             _logger?.LogWarning(
                 ex,

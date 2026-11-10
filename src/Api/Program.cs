@@ -202,6 +202,10 @@ if (!string.IsNullOrWhiteSpace(redisBackplane))
     {
         opciones.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("UltimaMilla.Tablero");
         opciones.Configuration.AbortOnConnectFail = false;
+        // Con Redis caído, emitir al tablero no debe retener la solicitud: la espera por defecto (5 s por mensaje) se acota a 1 s
+        opciones.Configuration.ConnectTimeout = 1000;
+        opciones.Configuration.SyncTimeout = 1000;
+        opciones.Configuration.AsyncTimeout = 1000;
     });
 }
 
@@ -238,6 +242,35 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Una línea de log por solicitud (método, ruta, código y duración) con el CorrelationId del middleware anterior.
 // Las rutas de salud y de métricas se registran en nivel Verbose para no llenar el log con los chequeos periódicos.
+// Errores no controlados: nunca se devuelve el detalle de la excepción (rutas, SQL, pila). Si la base de datos no responde se
+// contesta 503 con Retry-After (degradación esperada, el cliente reintenta); cualquier otro fallo es un 500 genérico con el
+// identificador de traza para buscarlo en los logs.
+app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
+{
+    var error = contexto.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    var baseNoDisponible = false;
+    for (var e = error; e is not null; e = e.InnerException)
+    {
+        if (e is Npgsql.NpgsqlException || e is System.Net.Sockets.SocketException || e is TimeoutException)
+        {
+            baseNoDisponible = true;
+            break;
+        }
+    }
+
+    contexto.Response.ContentType = "application/json";
+    if (baseNoDisponible)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        contexto.Response.Headers.RetryAfter = "5";
+        await contexto.Response.WriteAsJsonAsync(new { error = "El servicio no está disponible temporalmente. Reintente en unos segundos." });
+        return;
+    }
+
+    contexto.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await contexto.Response.WriteAsJsonAsync(new { error = "Ocurrió un error inesperado.", traceId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? contexto.TraceIdentifier });
+}));
+
 app.UseSerilogRequestLogging(opciones =>
 {
     opciones.GetLevel = (contexto, _, excepcion) =>
