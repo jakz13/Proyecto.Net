@@ -26,6 +26,9 @@ public sealed class TiempoRealEnviosServicio : IAsyncDisposable
     /// <summary>Se dispara con el código de seguimiento y el estado nuevo; ambos vacíos indican "refrescá todo" (tras reconectar).</summary>
     public event Func<string, string, Task>? EnvioCambioEstado;
 
+    /// <summary>Cambió la lista de operadores del comercio (alta de un vínculo nuevo, suspensión o reactivación).</summary>
+    public event Func<Task>? OperadoresDelComercioCambiaron;
+
     public async Task IniciarAsync()
     {
         if (_iniciado)
@@ -59,6 +62,26 @@ public sealed class TiempoRealEnviosServicio : IAsyncDisposable
             try
             {
                 await escucha(codigoSeguimiento, estado);
+            }
+            catch
+            {
+                // Una página defectuosa no debe impedir que las demás se actualicen
+            }
+        }
+    }
+
+    [JSInvokable]
+    public async Task AlCambiarOperadores()
+    {
+        var manejador = OperadoresDelComercioCambiaron;
+        if (manejador is null)
+            return;
+
+        foreach (Func<Task> escucha in manejador.GetInvocationList())
+        {
+            try
+            {
+                await escucha();
             }
             catch
             {

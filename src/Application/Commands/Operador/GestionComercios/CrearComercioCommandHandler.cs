@@ -17,13 +17,16 @@ public class CrearComercioCommandHandler : IRequestHandler<CrearComercioCommand,
     private readonly IComercioOperadorRepository _comercioOperadorRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
+    private readonly ITableroRealtimeNotifier? _tiempoReal;
 
     public CrearComercioCommandHandler(
         IComercioRepository comercioRepositorio,
         IComercioOperadorRepository comercioOperadorRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        ITableroRealtimeNotifier? tiempoReal = null)
     {
+        _tiempoReal = tiempoReal;
         _comercioRepositorio = comercioRepositorio;
         _comercioOperadorRepositorio = comercioOperadorRepositorio;
         _inquilinoActual = inquilinoActual;
@@ -83,6 +86,20 @@ public class CrearComercioCommandHandler : IRequestHandler<CrearComercioCommand,
 
         await _comercioOperadorRepositorio.AgregarAsync(vinculo, cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+
+        // Si el comercio ya existía (mismo RUT en otro operador), sus sesiones abiertas deben ver al operador nuevo sin recargar.
+        // El aviso es complementario: un fallo del tiempo real no deshace el alta.
+        if (comercioExistente is not null && _tiempoReal is not null)
+        {
+            try
+            {
+                await _tiempoReal.NotificarOperadoresDelComercioAsync(comercioAAsociar.Id, cancellationToken);
+            }
+            catch
+            {
+                // El comercio verá al operador al recargar
+            }
+        }
 
         return new ComercioDetalleDto(
             comercioAAsociar.Id,

@@ -14,7 +14,7 @@ Documento vivo. **Marcar cada casilla en cuanto se termine la tarea.** Si una co
 Backend
 - [x] Firmas de entrega visibles en Backoffice y en los roles que corresponda — `GET /api/envios/{id}/intentos/{intento}/evidencia/{firma|foto}` (política `ConsultaDeEnvios`: admin, despachador, operario y comercio dueño), modal de trazabilidad del Backoffice y detalle del Portal; pruebas `ObtenerEvidenciaEntregaTests` y `AutorizacionPorPerfilApiTests`
 - [ ] Extraviados llegan como notificación al Portal de Comercio (verificar de punta a punta)
-- [ ] Mismo RUT en dos operadores: el comercio ve a ambos en tiempo real (prueba de integración + verificación)
+- [x] Mismo RUT en dos operadores: el comercio ve a ambos en tiempo real — `GET /api/comercio/operadores` y `POST /api/comercio/operadores/{id}/sesion` (token acotado a un operador), aviso SignalR `OperadoresDelComercioCambiaron` al vincular/suspender, selector real en el Portal (antes era un selector de demo y en el servidor mostraba operadores inventados). Pruebas `ComercioConVariosOperadoresApiTests`
 - [x] Subida de imágenes de identidad visual (hecho por el equipo)
 - [ ] CSV del portal de comercio y webhooks: verificar con archivo real y definir receptor de prueba
 - [ ] Cuenta corriente del portal: revisar contenido
@@ -30,5 +30,11 @@ Frontend
 - [ ] Terraform: `import` + `plan` sin cambios y captura de costos (requiere `oci session authenticate`: lo hace el usuario)
 - [ ] Opcionales hasta 16 puntos (ver sección)
 
+## Hallazgos y correcciones del 10/11
+- Defecto corregido: los usuarios sembrados del segundo operador (`admin.express@...`) no podían iniciar sesión (500 por hash en otro formato). La semilla ahora usa `PasswordHasherService`, repara los hashes viejos y el verificador rechaza hashes en formato inválido sin lanzar excepción (`PasswordHasherServiceTests`).
+- El detalle del envío (`/api/envios/{id}/detalle`) pasó de `RequireAuthorization()` a la política `ConsultaDeEnvios` (el repartidor ya no entra).
+
 ## Registro de avance
 (Anotar aquí cada hito con fecha y commit.)
+- 10/11 — Firmas visibles (commit `cb307cd`).
+- 10/11 — Comercio con varios operadores + corrección del hash de la semilla.

@@ -73,7 +73,8 @@ public class TokenJwtService : ITokenJwtService
         Perfil perfil,
         IReadOnlyCollection<string> codigosPermisos,
         TimeSpan? tiempoExpiracion = null,
-        Guid? comercioOperadorId = null)
+        Guid? comercioOperadorId = null,
+        Guid? operadorId = null)
     {
         ArgumentNullException.ThrowIfNull(usuario);
         ArgumentNullException.ThrowIfNull(perfil);
@@ -102,10 +103,13 @@ public class TokenJwtService : ITokenJwtService
             { "permisos", codigosPermisos ?? Array.Empty<string>() }
         };
 
-        if (usuario.OperadorId.HasValue)
+        // Un usuario de comercio vinculado a varios operadores puede abrir sesión en cualquiera de ellos: el operador explícito
+        // (ya validado por quien emite el token) manda sobre el operador de origen del usuario.
+        var operadorDelToken = operadorId ?? usuario.OperadorId;
+        if (operadorDelToken.HasValue)
         {
-            payload["operador_id"] = usuario.OperadorId.Value.ToString();
-            payload["tenant_id"] = usuario.OperadorId.Value.ToString();
+            payload["operador_id"] = operadorDelToken.Value.ToString();
+            payload["tenant_id"] = operadorDelToken.Value.ToString();
         }
 
         // El sistema identifica al comercio por su relación con el operador (ComercioOperador), no por el comercio a secas.

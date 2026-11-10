@@ -32,6 +32,20 @@ public class MockIdentidadVisualApi : IIdentidadVisualApi
         return Task.FromResult(_contexto.ListarOperadores());
     }
 
+    public Task<OperadoresDelComercioDto> ObtenerOperadoresDelComercioAsync(CancellationToken cancelacion = default) =>
+        Task.FromResult(new OperadoresDelComercioDto
+        {
+            OperadorActualId = _contexto.OperadorActivo.OperadorId,
+            Operadores = _contexto.ListarOperadores().ToList()
+        });
+
+    public Task<SesionOperadorDto> AbrirSesionConOperadorAsync(string operadorId, CancellationToken cancelacion = default)
+    {
+        // En modo mock no hay sesión real: cambiar de operador es solo cambiar el contexto de demostración
+        _contexto.SeleccionarOperador(operadorId);
+        return Task.FromResult(new SesionOperadorDto { OperadorId = operadorId });
+    }
+
     public Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default)
     {
         var actual = _contexto.OperadorActivo;

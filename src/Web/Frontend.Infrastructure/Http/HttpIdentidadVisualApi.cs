@@ -47,6 +47,28 @@ public class HttpIdentidadVisualApi : IIdentidadVisualApi
         return lista ?? (IReadOnlyList<IdentidadVisualDto>)Array.Empty<IdentidadVisualDto>();
     }
 
+    public async Task<OperadoresDelComercioDto> ObtenerOperadoresDelComercioAsync(CancellationToken cancelacion = default)
+    {
+        var respuesta = await _clienteHttp.GetAsync("/api/comercio/operadores", cancelacion);
+        await AsegurarRespuestaExitosaAsync(respuesta, cancelacion);
+
+        return await respuesta.Content.ReadFromJsonAsync<OperadoresDelComercioDto>(OpcionesJson, cancelacion) ?? new OperadoresDelComercioDto();
+    }
+
+    public async Task<SesionOperadorDto> AbrirSesionConOperadorAsync(string operadorId, CancellationToken cancelacion = default)
+    {
+        if (!Guid.TryParse(operadorId, out var id))
+        {
+            throw new ArgumentException("El identificador del operador es inválido.", nameof(operadorId));
+        }
+
+        var respuesta = await _clienteHttp.PostAsync($"/api/comercio/operadores/{id}/sesion", null, cancelacion);
+        await AsegurarRespuestaExitosaAsync(respuesta, cancelacion);
+
+        return await respuesta.Content.ReadFromJsonAsync<SesionOperadorDto>(OpcionesJson, cancelacion)
+               ?? throw new ApiExcepcion(System.Net.HttpStatusCode.InternalServerError, "No se pudo leer la sesión nueva.");
+    }
+
     public async Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default)
     {
         var respuesta = await _clienteHttp.PutAsJsonAsync("/api/v1/identidad-visual", dto, cancelacion);

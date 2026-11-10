@@ -15,6 +15,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     public const string EventoHitoParada = "HitoParada";
     public const string EventoPosicionVehiculo = "PosicionVehiculo";
     public const string EventoEnvioCambioEstado = "EnvioCambioEstado";
+    public const string EventoOperadoresDelComercio = "OperadoresDelComercioCambiaron";
     public const string EventoSeguimientoActualizado = "EnvioActualizado";
 
     private readonly IHubContext<TableroHub> _hubContext;
@@ -125,6 +126,22 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del vehículo {VehiculoId} (operador {OperadorId}).", EventoPosicionVehiculo, vehiculoId, operadorId);
+        }
+    }
+
+    public async Task NotificarOperadoresDelComercioAsync(Guid comercioId, CancellationToken ct = default)
+    {
+        if (comercioId == Guid.Empty)
+            return;
+
+        try
+        {
+            await _hubContext.Clients.Group(TableroHub.GrupoCuentaComercio(comercioId))
+                .SendAsync(EventoOperadoresDelComercio, new { timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del comercio {ComercioId}.", EventoOperadoresDelComercio, comercioId);
         }
     }
 

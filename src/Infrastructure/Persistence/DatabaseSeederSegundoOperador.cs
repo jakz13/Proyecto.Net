@@ -127,9 +127,15 @@ public static class DatabaseSeederSegundoOperador
 
     private static async Task SembrarUsuariosAsync(AppDbContext context, CancellationToken ct)
     {
-        var emailsExistentes = await context.Usuarios.Select(u => u.Email).ToListAsync(ct);
-        var hash = HashContrasena.Generar(DatabaseSeederAdministracion.PasswordDemo);
+        // El mismo servicio que verifica el inicio de sesión: un hash en otro formato impide entrar (y antes hacía fallar el login con un 500).
+        var hasher = new PasswordHasherService();
+        var existentes = await context.Usuarios.Where(u => u.Email == EmailAdministrador || u.Email == EmailDespachador).ToListAsync(ct);
 
+        // Las semillas anteriores guardaron el hash con otro formato ("iteraciones.sal.hash"): se corrige para que esos usuarios puedan entrar.
+        foreach (var usuario in existentes.Where(u => u.PasswordHash.Contains('.')))
+            usuario.CambiarPassword(hasher.HashearPassword(DatabaseSeederAdministracion.PasswordDemo));
+
+        var hash = hasher.HashearPassword(DatabaseSeederAdministracion.PasswordDemo);
         var usuarios = new[]
         {
             new Usuario(UsuarioAdministradorId, "Lucía Fernández (Express)", EmailAdministrador, hash,
@@ -138,7 +144,7 @@ public static class DatabaseSeederSegundoOperador
                 DatabaseSeederAdministracion.PerfilDespachadorId, OperadorId)
         };
 
-        foreach (var usuario in usuarios.Where(u => !emailsExistentes.Contains(u.Email)))
+        foreach (var usuario in usuarios.Where(u => existentes.All(e => e.Email != u.Email)))
             await context.Usuarios.AddAsync(usuario, ct);
     }
 

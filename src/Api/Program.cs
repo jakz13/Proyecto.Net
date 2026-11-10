@@ -571,6 +571,7 @@ app.MapAvisosComercioEndpoints();
 
 // Administración del operador para el Backoffice (comercios, usuarios, zonas, tarifas, reglas, motivos, identidad, flota y mensajería)
 app.MapComerciosBackofficeEndpoints();
+app.MapComercioOperadoresEndpoints();
 app.MapUsuariosBackofficeEndpoints();
 app.MapZonasCoberturaEndpoints();
 app.MapCuadroTarifarioEndpoints();

@@ -13,12 +13,15 @@ public class CambiarEstadoComercioCommandHandler : IRequestHandler<CambiarEstado
     private readonly IComercioOperadorRepository _comercioOperadorRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
+    private readonly ITableroRealtimeNotifier? _tiempoReal;
 
     public CambiarEstadoComercioCommandHandler(
         IComercioOperadorRepository comercioOperadorRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        ITableroRealtimeNotifier? tiempoReal = null)
     {
+        _tiempoReal = tiempoReal;
         _comercioOperadorRepositorio = comercioOperadorRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
@@ -50,6 +53,19 @@ public class CambiarEstadoComercioCommandHandler : IRequestHandler<CambiarEstado
 
         await _comercioOperadorRepositorio.ActualizarAsync(vinculo, cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+
+        // Las sesiones abiertas del comercio actualizan su lista de operadores sin recargar; un fallo del aviso no deshace el cambio.
+        if (_tiempoReal is not null)
+        {
+            try
+            {
+                await _tiempoReal.NotificarOperadoresDelComercioAsync(vinculo.ComercioId, cancellationToken);
+            }
+            catch
+            {
+                // El comercio verá el cambio al recargar
+            }
+        }
     }
 }
 

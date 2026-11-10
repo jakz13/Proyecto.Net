@@ -36,6 +36,9 @@ public class TableroHub : Hub
     /// <summary>Grupo de un comercio dentro de su operador: recibe solo los eventos de sus propios envíos.</summary>
     public static string GrupoComercio(Guid comercioOperadorId) => $"comercio_{comercioOperadorId}";
 
+    /// <summary>Grupo común a todas las sesiones de un comercio, sea cual sea el operador con el que operen (avisos sobre su lista de operadores).</summary>
+    public static string GrupoCuentaComercio(Guid comercioId) => $"cuenta_comercio_{comercioId}";
+
     public override async Task OnConnectedAsync()
     {
         if (!IntentarExtraerOperadorId(Context.User, out var operadorId))
@@ -56,7 +59,8 @@ public class TableroHub : Hub
                 return;
             }
 
-            grupo = GrupoComercio(relacion.Value);
+            grupo = GrupoComercio(relacion.Value.Relacion);
+            await Groups.AddToGroupAsync(Context.ConnectionId, GrupoCuentaComercio(relacion.Value.Comercio));
         }
         else
         {
@@ -77,7 +81,7 @@ public class TableroHub : Hub
     /// los claims de comercio traen esa relación o el id del comercio; en ambos casos se resuelve en la base acotada al operador del token,
     /// nunca a partir de lo que envíe el navegador.
     /// </summary>
-    private async Task<Guid?> ResolverRelacionComercioAsync(ClaimsPrincipal? usuario, Guid operadorId)
+    private async Task<(Guid Relacion, Guid Comercio)?> ResolverRelacionComercioAsync(ClaimsPrincipal? usuario, Guid operadorId)
     {
         var candidatos = new List<Guid>();
         foreach (var tipo in new[] { ClaimRelacionComercio, ClaimComercio })
@@ -91,7 +95,7 @@ public class TableroHub : Hub
 
         var vinculo = await _db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(c => c.OperadorId == operadorId && (candidatos.Contains(c.Id) || candidatos.Contains(c.ComercioId)), Context.ConnectionAborted);
-        return vinculo?.Id;
+        return vinculo is null ? null : (vinculo.Id, vinculo.ComercioId);
     }
 
     internal static bool IntentarExtraerOperadorId(ClaimsPrincipal? usuario, out Guid operadorId)
