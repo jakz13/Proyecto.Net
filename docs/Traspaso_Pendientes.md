@@ -23,7 +23,7 @@ Rama de trabajo: `desarrollo-backend` (commits locales, **sin subir**). `main` s
 7. **Optimización de paradas (2 pts)**: falta la comparación medida contra el criterio del RF 16.
 8. **Geocercas (3 pts)**: falta el análisis del impacto en batería.
 9. **Liquidación**: el retiro entregado todavía no entra en la liquidación por comercio (sí en el reporte de retiros).
-10. `docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md` (referenciados en el README, **aún no escritos**).
+10. ~~`docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md`~~ escritos; revisar el estado de cada requerimiento cuando se cierren los parciales.
 11. Terraform: `import` + `plan` sin cambios (requiere sesión de Oracle) y captura de costos.
 12. Notificaciones con la app cerrada (letra 6.11, obligatorio): ADR-002 de Joaquín descarta FCM; riesgo de nota.
 13. Límite de tasa por instancia (con 2 instancias el límite real es el doble): decidir si se implementa distribuido o se documenta.

@@ -66,4 +66,5 @@ public interface ISolicitudReprogramacionRepository
 public interface IOperadorRepository
 {
     Task<Operador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IdentidadVisual?> ObtenerIdentidadAsync(Guid operadorId, CancellationToken cancellationToken = default);
 }

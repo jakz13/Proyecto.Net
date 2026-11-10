@@ -13,6 +13,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     private readonly IEnvioRepository _envioRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
+    private readonly IOperadorRepository? _operadorRepository;
     private readonly IDistributedCacheService? _cacheService;
     private readonly IRetiroRepository? _retiroRepository;
     private readonly IFuncionalidadesService? _funcionalidades;
@@ -25,13 +26,15 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         IFranjaHorariaRepository franjaHorariaRepository,
         IDistributedCacheService? cacheService = null,
         IRetiroRepository? retiroRepository = null,
-        IFuncionalidadesService? funcionalidades = null)
+        IFuncionalidadesService? funcionalidades = null,
+        IOperadorRepository? operadorRepository = null)
     {
         _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _cacheService = cacheService;
         _retiroRepository = retiroRepository;
+        _operadorRepository = operadorRepository;
     }
 
     /// <summary>
@@ -84,6 +87,21 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             ? envio.Eventos.Max(e => e.Timestamp)
             : envio.FechaAlta;
 
+        string? operadorNombre = null;
+        string? colorPrimario = null;
+        string? colorSecundario = null;
+        string? logoUrl = null;
+
+        if (_operadorRepository is not null && envio.OperadorId != Guid.Empty)
+        {
+            var operador = await _operadorRepository.GetByIdAsync(envio.OperadorId, cancellationToken);
+            var identidad = await _operadorRepository.ObtenerIdentidadAsync(envio.OperadorId, cancellationToken);
+            operadorNombre = operador?.NombreComercial;
+            colorPrimario = identidad?.ColorPrimario;
+            colorSecundario = identidad?.ColorSecundario;
+            logoUrl = identidad?.LogoUrl;
+        }
+
         var resultado = new SeguimientoPublicoDto(
             envio.CodigoSeguimientoPublico,
             envio.EstadoActual,
@@ -95,7 +113,11 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             totalBultos,
             bultosEntregados,
             bultosPendientes,
-            avanceEntrega);
+            avanceEntrega,
+            OperadorNombre: operadorNombre,
+            OperadorColorPrimario: colorPrimario,
+            OperadorColorSecundario: colorSecundario,
+            OperadorLogoUrl: logoUrl);
 
         if (_cacheService is not null)
         {

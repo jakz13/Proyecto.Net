@@ -1,3 +1,5 @@
+@using System.Text.RegularExpressions
+
 @if (EsModoCompacto)
 {
     <div class="buscador-seguimiento-compacto mb-4 p-2 px-3 bg-white border rounded-3 shadow-xs d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -9,9 +11,12 @@
                 <input type="text"
                        class="form-control form-control-sm border-start-0"
                        placeholder="Consultar otro código..."
-                       @bind="codigo"
+                       @bind="CodigoSeguro"
                        @bind:event="oninput"
-                       maxlength="30" />
+                       maxlength="30"
+                       autocomplete="off"
+                       spellcheck="false"
+                       aria-label="Código de seguimiento" />
             </div>
             <button type="submit" class="btn btn-outline-dark btn-sm px-3 d-inline-flex align-items-center gap-1" disabled="@EstaCargando">
                 @if (EstaCargando)
@@ -46,9 +51,12 @@ else
                 <input type="text"
                        class="buscador-seguimiento__input"
                        placeholder="Ej: TRK-2026-0001"
-                       @bind="codigo"
+                       @bind="CodigoSeguro"
                        @bind:event="oninput"
-                       maxlength="30" />
+                       maxlength="30"
+                       autocomplete="off"
+                       spellcheck="false"
+                       aria-label="Código de seguimiento del paquete" />
             </div>
             <button type="submit" class="buscador-seguimiento__boton" disabled="@EstaCargando">
                 @if (EstaCargando)
@@ -113,27 +121,48 @@ else
     [Parameter]
     public EventCallback<string> AlBuscar { get; set; }
 
-    private string codigo = string.Empty;
+    private string _codigo = string.Empty;
+
+    // Propiedad protegida: sanitiza activamente en tiempo real cualquier caracter sospechoso o etiquetas
+    private string CodigoSeguro
+    {
+        get => _codigo;
+        set => _codigo = SanitizarEntrada(value);
+    }
 
     protected override void OnParametersSet()
     {
-        if (!string.IsNullOrWhiteSpace(CodigoInicial) && string.IsNullOrWhiteSpace(codigo))
+        if (!string.IsNullOrWhiteSpace(CodigoInicial) && string.IsNullOrWhiteSpace(_codigo))
         {
-            codigo = CodigoInicial;
+            _codigo = SanitizarEntrada(CodigoInicial);
         }
+    }
+
+    private static string SanitizarEntrada(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return string.Empty;
+
+        // Seguridad: solo permite caracteres alfanuméricos seguros y guiones.
+        // Remueve activamente cualquier etiqueta HTML, comillas, scripts o código malicioso.
+        var sanitizado = Regex.Replace(valor, @"[^A-Za-z0-9\-]", "");
+        return sanitizado.Length > 30 ? sanitizado[..30] : sanitizado;
     }
 
     private async Task ManejarBusqueda()
     {
-        if (!string.IsNullOrWhiteSpace(codigo))
+        var codigoLimpio = SanitizarEntrada(_codigo).Trim().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(codigoLimpio))
         {
-            await AlBuscar.InvokeAsync(codigo.Trim().ToUpperInvariant());
+            _codigo = codigoLimpio;
+            await AlBuscar.InvokeAsync(codigoLimpio);
         }
     }
 
     private async Task SeleccionarCodigo(string codigoPrueba)
     {
-        codigo = codigoPrueba;
-        await AlBuscar.InvokeAsync(codigoPrueba);
+        var codigoLimpio = SanitizarEntrada(codigoPrueba).Trim().ToUpperInvariant();
+        _codigo = codigoLimpio;
+        await AlBuscar.InvokeAsync(codigoLimpio);
     }
 }

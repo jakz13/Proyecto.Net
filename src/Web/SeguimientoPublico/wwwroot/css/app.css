@@ -47,6 +47,7 @@ body {
     background-color: var(--color-primario);
     color: var(--color-texto-primario);
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    transition: background-color 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .littlebox-header__contenedor {
@@ -58,8 +59,24 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    text-decoration: none;
-    color: var(--color-texto-primario);
+    text-decoration: none !important;
+    color: var(--color-texto-primario) !important;
+    transition: opacity 0.2s ease;
+}
+
+.littlebox-header__marca:hover,
+.littlebox-header__marca:focus,
+.littlebox-header__marca:active {
+    color: var(--color-texto-primario) !important;
+    text-decoration: none !important;
+    opacity: 0.92;
+}
+
+.littlebox-header__marca:hover .littlebox-header__nombre-app,
+.littlebox-header__marca:hover .littlebox-header__subtitulo,
+.littlebox-header__marca:focus .littlebox-header__nombre-app,
+.littlebox-header__marca:focus .littlebox-header__subtitulo {
+    color: var(--color-texto-primario) !important;
 }
 
 .littlebox-header__logo-caja {
@@ -291,12 +308,24 @@ body {
 
 .stepper-seguimiento__paso--completado .stepper-seguimiento__linea {
     background-color: var(--color-primario);
+    transition: background-color 0.5s ease;
+}
+
+.stepper-seguimiento__linea--en-progreso {
+    background: linear-gradient(90deg, var(--color-primario) 0%, rgba(203, 213, 225, 0.6) 50%, var(--color-primario) 100%) !important;
+    background-size: 200% 100% !important;
+    animation: animacionFlujoLinea 2s infinite linear !important;
+}
+
+@keyframes animacionFlujoLinea {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .stepper-seguimiento__paso--activo .stepper-seguimiento__nodo {
     background-color: var(--color-primario);
     color: var(--color-texto-primario);
-    box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.2);
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.12);
 }
 
 .stepper-seguimiento__etiqueta {
@@ -312,13 +341,14 @@ body {
 }
 
 @keyframes pulsoPasoActivo {
-    0% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.45); }
-    70% { box-shadow: 0 0 0 8px rgba(29, 78, 216, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0); }
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.25); }
+    50% { transform: scale(1.06); }
+    70% { box-shadow: 0 0 0 9px rgba(15, 23, 42, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(15, 23, 42, 0); }
 }
 
 .stepper-seguimiento__paso--activo .stepper-seguimiento__nodo {
-    animation: pulsoPasoActivo 2.2s infinite ease-in-out;
+    animation: pulsoPasoActivo 2s infinite ease-in-out;
 }
 
 .stepper-seguimiento__paso--alerta .stepper-seguimiento__nodo {
@@ -395,6 +425,93 @@ body {
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
     overflow: hidden;
     margin-bottom: 1.5rem;
+    transition: box-shadow 0.5s ease, border-color 0.5s ease;
+}
+
+.tarjeta-envio--actualizada {
+    animation: pulsoTarjetaActualizada 2s ease-out;
+}
+
+@keyframes pulsoTarjetaActualizada {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+    70% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+    100% { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); }
+}
+
+.tarjeta-envio__cabecera-hero {
+    padding: 1.25rem 1.5rem;
+    background-color: #F8FAFC;
+    border-bottom: 1px solid var(--color-borde);
+    transition: background-color 0.5s ease, border-left-color 0.5s ease;
+}
+
+.tarjeta-envio__cabecera-hero--operador {
+    background-color: #F8FAFC;
+    border-left: 5px solid var(--color-primario);
+}
+
+.tarjeta-envio__cabecera-hero--operador .tarjeta-envio__icono-hero {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background-color: var(--color-primario);
+    color: var(--color-texto-primario);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.5s ease;
+}
+
+.tarjeta-envio__cabecera-hero--operador .tarjeta-envio__titulo-hero {
+    color: var(--color-primario);
+    font-size: 1.15rem !important;
+}
+
+.tarjeta-envio__cabecera-hero--error {
+    background-color: #FEF2F2;
+    border-left: 5px solid #DC2626;
+}
+
+.tarjeta-envio__cabecera-hero--error .tarjeta-envio__icono-hero {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background-color: #DC2626;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tarjeta-envio__cabecera-hero--error .tarjeta-envio__titulo-hero {
+    color: #DC2626;
+    font-size: 1.15rem !important;
+}
+
+.tarjeta-envio__cabecera-hero--aviso {
+    background-color: #FFFBEB;
+    border-left: 5px solid #D97706;
+}
+
+.tarjeta-envio__cabecera-hero--aviso .tarjeta-envio__icono-hero {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background-color: #D97706;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tarjeta-envio__cabecera-hero--aviso .tarjeta-envio__titulo-hero {
+    color: #D97706;
+    font-size: 1.15rem !important;
+}
+
+.tarjeta-envio__subtitulo-hero {
+    color: #475569;
+    font-weight: 500;
 }
 
 .tarjeta-envio__cabecera {
@@ -522,13 +639,62 @@ body {
     justify-content: center;
     box-shadow: 0 0 0 2px #FFFFFF;
     z-index: 1;
+    transition: all 0.4s ease;
 }
 
 .linea-tiempo__item--actual .linea-tiempo__marcador {
     border-color: var(--color-primario);
     background-color: var(--color-primario);
     color: var(--color-texto-primario);
-    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.2);
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.12);
+}
+
+.linea-tiempo__item--operador .linea-tiempo__marcador {
+    border-color: var(--color-primario) !important;
+    background-color: var(--color-primario) !important;
+    color: var(--color-texto-primario) !important;
+}
+
+.linea-tiempo__item--error .linea-tiempo__marcador {
+    border-color: #DC2626 !important;
+    background-color: #DC2626 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+}
+
+.linea-tiempo__item--aviso .linea-tiempo__marcador {
+    border-color: #D97706 !important;
+    background-color: #D97706 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.15);
+}
+
+.indicador-actual-pulso {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-primario);
+    background-color: rgba(15, 23, 42, 0.06);
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+}
+
+.punto-pulso {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-primario);
+    animation: pulsoPuntoActual 1.8s infinite ease-in-out;
+}
+
+@keyframes pulsoPuntoActual {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .linea-tiempo__encabezado {

@@ -23,7 +23,11 @@ public record SeguimientoPublicoDto(
     string? AvanceEntregaBultos = null,
     string Tipo = "Envio",
     string? EstadoRetiro = null,
-    string? DescripcionEstado = null);
+    string? DescripcionEstado = null,
+    string? OperadorNombre = null,
+    string? OperadorColorPrimario = null,
+    string? OperadorColorSecundario = null,
+    string? OperadorLogoUrl = null);
 
 /// <summary>
 /// Hito de la línea de tiempo pública. Para un retiro, <c>Estado</c> no aplica y el estado se informa en <c>EstadoTexto</c>.

@@ -28,4 +28,9 @@ public record SeguimientoPublicoDto
     public string? DescripcionEstado { get; init; }
 
     public bool EsRetiro => string.Equals(Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+
+    public string? OperadorNombre { get; init; }
+    public string? OperadorColorPrimario { get; init; }
+    public string? OperadorColorSecundario { get; init; }
+    public string? OperadorLogoUrl { get; init; }
 }
