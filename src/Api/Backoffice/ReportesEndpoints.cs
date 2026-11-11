@@ -56,7 +56,7 @@ public static class ReportesEndpoints
             var resultado = await new ConstructorReportes(db, tenant.OperadorId, filtro, reloj.UtcNow).GenerarAsync(ct);
             return Results.Ok(resultado);
         }))
-        .RequireAuthorization(PoliticasApi.Operaciones)
+        .RequireAuthorization(PoliticasApi.Supervision)
         .WithTags("Reportes de gestión (UC-13, RF-30)")
         .WithName("GenerarReporteDeGestion")
         .WithSummary("Genera el reporte indicado para el período y los filtros recibidos");

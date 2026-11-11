@@ -22,30 +22,28 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         opciones.SlidingExpiration = true;
     });
 
-// Políticas de autorización por perfil (Administrador, Despachador, Operario)
+// Políticas de autorización por perfil. Reflejan la letra (sección 3): el administrador configura la operación; el despachador planifica
+// y monitorea; el operario trabaja en el depósito; despacho es lo que pasa por las manos del despachador y del operario.
 builder.Services.AddAuthorization(opciones =>
 {
     opciones.AddPolicy("SoloAdministradores", politica => politica.RequireRole("Administrador"));
-    opciones.AddPolicy("Operaciones", politica => politica.RequireRole("Administrador", "Despachador"));
-    opciones.AddPolicy("Deposito", politica => politica.RequireRole("Administrador", "Despachador", "Operario"));
+    opciones.AddPolicy("Operaciones", politica => politica.RequireRole("Despachador"));
+    opciones.AddPolicy("Deposito", politica => politica.RequireRole("Operario"));
+    opciones.AddPolicy("Despacho", politica => politica.RequireRole("Despachador", "Operario"));
+    opciones.AddPolicy("Supervision", politica => politica.RequireRole("Administrador", "Despachador"));
 });
 
-// Configuración de convenciones de Razor Pages
+// Configuración de convenciones de Razor Pages: cada carpeta declara quién puede abrirla (las páginas repiten el perfil con [Authorize])
 builder.Services.AddRazorPages(opciones =>
 {
-    opciones.Conventions.AuthorizeFolder("/Comercios", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Usuarios", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Zonas", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Tarifas", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/ReglasOperativas", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/MotivosNoEntrega", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/IdentidadVisual", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Flota", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Mensajeria", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Observabilidad", "SoloAdministradores");
-    opciones.Conventions.AuthorizeFolder("/Tablero", "Operaciones");
+    foreach (var carpeta in new[] { "Comercios", "Usuarios", "Zonas", "Tarifas", "ReglasOperativas", "MotivosNoEntrega", "IdentidadVisual", "Flota", "Mensajeria", "Observabilidad" })
+        opciones.Conventions.AuthorizeFolder("/" + carpeta, "SoloAdministradores");
+    foreach (var carpeta in new[] { "Tablero", "Rutas", "Envios", "Incidencias" })
+        opciones.Conventions.AuthorizeFolder("/" + carpeta, "Operaciones");
+    opciones.Conventions.AuthorizeFolder("/Reportes", "Supervision");
     opciones.Conventions.AuthorizeFolder("/Deposito", "Deposito");
-    opciones.Conventions.AuthorizeFolder("/Retiros", "Deposito");
+    foreach (var carpeta in new[] { "Despacho", "Retiros" })
+        opciones.Conventions.AuthorizeFolder("/" + carpeta, "Despacho");
     opciones.Conventions.AllowAnonymousToPage("/Login");
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
 });

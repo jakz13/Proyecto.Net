@@ -417,7 +417,8 @@ public static class DatabaseSeeder
             var pDespacho = new Perfil(DefaultPerfilDespachadorId, "Despachador", "Armado, verificación y despacho de hojas de ruta");
             var pOperario = new Perfil(DefaultPerfilOperarioId, "Operario", "Recepción y clasificación de bultos en depósito");
             var pRepartidor = new Perfil(DefaultPerfilRepartidorId, "Repartidor", "Ejecución de entregas y devoluciones en calle");
-            var pComercio = new Perfil(DefaultPerfilComercioId, "Administrador de Comercio", "Portal del comercio para altas de envíos y seguimiento");
+            // El nombre del perfil es el rol que viaja en el token y con el que la API autoriza (PoliticasApi.RolComercio): no se renombra
+            var pComercio = new Perfil(DefaultPerfilComercioId, "Comercio", "Portal del comercio para altas de envíos y seguimiento");
 
             var permAdmin = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000001"), "OPERACION_ADMIN", "Administración del operador");
             var permDespacho = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000002"), "RUTAS_DESPACHO", "Planificación y despacho de rutas");

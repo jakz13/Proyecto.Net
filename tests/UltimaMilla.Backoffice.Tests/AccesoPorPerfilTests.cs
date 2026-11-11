@@ -19,11 +19,13 @@ public class AccesoPorPerfilTests : IClassFixture<WebApplicationFactory<Program>
 
     /// <summary>
     /// Quién puede abrir cada carpeta de páginas. Es la regla de negocio contra la que se contrastan el servidor y las vistas:
-    /// administración (solo administrador), operaciones (administrador y despachador), depósito (también el operario).
+    /// administración (solo administrador), planificación (solo despachador), depósito (solo operario), despacho (despachador y operario).
     /// </summary>
     private static readonly (string Ruta, string[] Perfiles)[] Pantallas =
     {
         ("/", new[] { Administrador, Despachador, Operario }),
+
+        // Administración: solo el administrador configura la operación
         ("/Comercios", new[] { Administrador }),
         ("/Comercios/Nuevo", new[] { Administrador }),
         ("/Usuarios/Nuevo", new[] { Administrador }),
@@ -38,33 +40,36 @@ public class AccesoPorPerfilTests : IClassFixture<WebApplicationFactory<Program>
         ("/Flota", new[] { Administrador }),
         ("/Mensajeria", new[] { Administrador }),
         ("/Observabilidad", new[] { Administrador }),
-        ("/Rutas", new[] { Administrador, Despachador }),
-        ("/Rutas/Armar", new[] { Administrador, Despachador }),
-        ("/Envios", new[] { Administrador, Despachador }),
-        ("/Incidencias", new[] { Administrador, Despachador }),
-        ("/Tablero", new[] { Administrador, Despachador }),
+
+        // Planificación: solo el despachador
+        ("/Rutas", new[] { Despachador }),
+        ("/Rutas/Armar", new[] { Despachador }),
+        ("/Envios", new[] { Despachador }),
+        ("/Incidencias", new[] { Despachador }),
+        ("/Tablero", new[] { Despachador }),
+
+        // Reportes de gestión: administrador y despachador
         ("/Reportes", new[] { Administrador, Despachador }),
-        ("/Despacho", new[] { Administrador, Despachador, Operario }),
-        ("/Retiros", new[] { Administrador, Despachador, Operario }),
-        ("/Deposito", new[] { Administrador, Despachador, Operario }),
-        ("/Deposito/Clasificacion", new[] { Administrador, Despachador, Operario }),
-        ("/Deposito/Rendicion", new[] { Administrador, Despachador, Operario }),
+
+        // Despacho y retiros: despachador y operario
+        ("/Despacho", new[] { Despachador, Operario }),
+        ("/Retiros", new[] { Despachador, Operario }),
+
+        // Depósito: solo el operario
+        ("/Deposito", new[] { Operario }),
+        ("/Deposito/Clasificacion", new[] { Operario }),
+        ("/Deposito/Rendicion", new[] { Operario }),
     };
 
-    /// <summary>Opciones que debe mostrar el menú lateral de cada perfil (todas las pantallas que puede abrir y que son de lista).</summary>
+    /// <summary>Opciones que debe mostrar el menú lateral de cada perfil, según lo que la letra le asigna.</summary>
     private static readonly Dictionary<string, string[]> MenuEsperado = new()
     {
         [Administrador] = new[]
         {
-            "/", "/Observabilidad", "/Comercios", "/Zonas", "/Tarifas", "/ReglasOperativas", "/MotivosNoEntrega", "/IdentidadVisual",
-            "/Flota", "/Mensajeria", "/Rutas", "/Envios", "/Incidencias", "/Tablero", "/Reportes", "/Despacho", "/Retiros",
-            "/Deposito", "/Deposito/Clasificacion", "/Deposito/Rendicion"
+            "/", "/Comercios", "/Zonas", "/Tarifas", "/ReglasOperativas", "/MotivosNoEntrega", "/IdentidadVisual",
+            "/Flota", "/Mensajeria", "/Observabilidad", "/Reportes"
         },
-        [Despachador] = new[]
-        {
-            "/", "/Rutas", "/Envios", "/Incidencias", "/Tablero", "/Reportes", "/Despacho", "/Retiros",
-            "/Deposito", "/Deposito/Clasificacion", "/Deposito/Rendicion"
-        },
+        [Despachador] = new[] { "/", "/Rutas", "/Envios", "/Incidencias", "/Tablero", "/Despacho", "/Retiros", "/Reportes" },
         [Operario] = new[] { "/", "/Despacho", "/Retiros", "/Deposito", "/Deposito/Clasificacion", "/Deposito/Rendicion" },
     };
 

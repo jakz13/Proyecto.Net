@@ -9,7 +9,7 @@ namespace UltimaMilla.Backoffice.Pages.Deposito;
 /// <summary>
 /// Modelo de página para el listado de arribos en estado Admitido pendientes de recepción física en depósito (UC-14, RF-10).
 /// </summary>
-[Authorize(Roles = "Operario,Despachador,Administrador")]
+[Authorize(Roles = "Operario")]
 public class IndexModel : PageModel
 {
     private readonly IDepositoApi _depositoApi;

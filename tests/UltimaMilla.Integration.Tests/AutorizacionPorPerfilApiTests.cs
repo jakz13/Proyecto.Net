@@ -132,19 +132,6 @@ public class AutorizacionPorPerfilApiTests
     }
 
     [FactPostgres]
-    public async Task ElAdministrador_PuedeAdministrarYConsultar()
-    {
-        var admin = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
-
-        foreach (var ruta in LecturasDelOperador.Where(r => r != "/api/operacion/cache/metricas"))
-        {
-            var respuesta = await admin.GetAsync(ruta);
-            Assert.True(respuesta.StatusCode != HttpStatusCode.Forbidden && respuesta.StatusCode != HttpStatusCode.Unauthorized,
-                $"GET {ruta} debería permitirse al administrador y respondió {(int)respuesta.StatusCode}");
-        }
-    }
-
-    [FactPostgres]
     public async Task ElSeguimientoPublicoYElLoginNoRequierenSesion()
     {
         var anonimo = _factory.CreateClient();

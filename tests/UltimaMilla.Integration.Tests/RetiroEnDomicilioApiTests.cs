@@ -41,13 +41,13 @@ public class RetiroEnDomicilioApiTests
     }
 
     private Task<HttpClient> ComercioAsync() => ClienteComoAsync("comercio@gmail.com", "Comercio.2026!");
-    // La cuenta del despachador la bloquea a propósito otra clase de pruebas (bloqueo por intentos fallidos) y la base es compartida:
-    // el administrador del operador también tiene permisos de planificación.
-    private Task<HttpClient> DespachadorAsync() => AdminAsync();
+    // La cuenta despacho@gmail.com la bloquea a propósito otra clase de pruebas (bloqueo por intentos fallidos) y la base es compartida:
+    // se usa una cuenta de despachador propia de las pruebas. El administrador no planifica (letra, sección 3).
+    private Task<HttpClient> DespachadorAsync() => UsuariosDePrueba.DespachadorAsync(_factory);
     private Task<HttpClient> DepositoAsync() => ClienteComoAsync("deposito@gmail.com", "Deposito.2026!");
     private Task<HttpClient> RepartidorAsync() => ClienteComoAsync("repartidor@gmail.com", "Repartidor.2026!");
     private Task<HttpClient> AdminAsync() => ClienteComoAsync("admin@gmail.com", "Admin.2026!");
-    private Task<HttpClient> Admin2Async() => ClienteComoAsync("admin2@gmail.com", "Admin.2026!");
+    private Task<HttpClient> DespachadorDelOperadorDosAsync() => ClienteComoAsync("despacho.express@ultimamilla.com.uy", "demo1234");
 
     private static async Task<JsonElement> Json(HttpResponseMessage respuesta, HttpStatusCode esperado)
     {
@@ -394,7 +394,8 @@ public class RetiroEnDomicilioApiTests
     {
         var comercio = await ComercioAsync();
         var admin = await AdminAsync();
-        var admin2 = await Admin2Async();
+        var despachador = await DespachadorAsync();
+        var admin2 = await DespachadorDelOperadorDosAsync();
         var repartidor = await RepartidorAsync();
 
         var retiroId = (await Json(await comercio.PostAsJsonAsync("/api/comercio/retiros", SolicitudDeRetiro(cantidadBultos: 1)), HttpStatusCode.Created))
@@ -407,7 +408,7 @@ public class RetiroEnDomicilioApiTests
         Assert.DoesNotContain(listadoOtroOperador.GetProperty("items").EnumerateArray(), r => r.GetProperty("id").GetGuid() == retiroId);
 
         // El operador dueño sí lo ve
-        var listadoDueno = await Json(await admin.GetAsync("/api/retiros"), HttpStatusCode.OK);
+        var listadoDueno = await Json(await despachador.GetAsync("/api/retiros"), HttpStatusCode.OK);
         Assert.Contains(listadoDueno.GetProperty("items").EnumerateArray(), r => r.GetProperty("id").GetGuid() == retiroId);
 
         // Control por perfil: el comercio no accede al backoffice, y el personal no usa el portal del comercio
@@ -512,7 +513,7 @@ public class RetiroEnDomicilioApiTests
     public async Task Retiro_SeIncorporaAlTableroDeOperacionYALosReportes()
     {
         var comercio = await ComercioAsync();
-        var admin = await AdminAsync();
+        var admin = await DespachadorAsync(); // el tablero y los reportes de operación son del despachador
 
         var antes = await Json(await admin.GetAsync("/api/tablero/resumen"), HttpStatusCode.OK);
         var pendientesAntes = antes.GetProperty("retirosPendientes").GetInt32();

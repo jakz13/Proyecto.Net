@@ -19,7 +19,7 @@ public static class FlotaEndpoints
     {
         var grupo = app.MapGroup("/api/v1/flota")
             .WithTags("Backoffice · Flota")
-            .RequireAuthorization(PoliticasApi.Operaciones)
+            .RequireAuthorization(PoliticasApi.Supervision)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
         MapVehiculos(grupo);

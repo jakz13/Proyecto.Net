@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 
 namespace UltimaMilla.Backoffice.Pages.Rutas;
 
-[Authorize(Roles = "Despachador,Administrador")]
+[Authorize(Roles = "Despachador")]
 public class ArmarModel : PageModel
 {
     private readonly IRutasApi _rutasApi;

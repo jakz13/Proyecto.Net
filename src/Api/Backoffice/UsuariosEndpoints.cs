@@ -18,7 +18,7 @@ public static class UsuariosEndpoints
     {
         var grupo = app.MapGroup("/api/usuarios")
             .WithTags("Backoffice · Usuarios (UC-01)")
-            .RequireAuthorization(PoliticasApi.Operaciones)
+            .RequireAuthorization(PoliticasApi.Administracion)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (
@@ -145,7 +145,7 @@ public static class UsuariosEndpoints
                 Descripcion = p.Descripcion
             }).ToList());
         }))
-        .RequireAuthorization(PoliticasApi.Operaciones)
+        .RequireAuthorization(PoliticasApi.Administracion)
         .WithTags("Backoffice · Usuarios (UC-01)")
         .WithName("ListarPerfiles")
         .WithSummary("Perfiles disponibles para asignar a los usuarios")

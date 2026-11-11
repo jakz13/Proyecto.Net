@@ -768,9 +768,3 @@ public record RegistrarIntentoFallidoRequest(
     double? Longitud = null,
     DateTime? FechaHoraDispositivoUtc = null
 );
-
-public record FinalizarRutaMobileRequest(
-    List<string>? CodigosBultosDevueltos = null,
-    string? MotivoInternoCodigo = null,
-    string? Observaciones = null
-);

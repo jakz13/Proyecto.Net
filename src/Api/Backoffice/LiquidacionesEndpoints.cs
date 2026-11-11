@@ -20,7 +20,7 @@ public static class LiquidacionesEndpoints
     public static IEndpointRouteBuilder MapLiquidacionesEndpoints(this IEndpointRouteBuilder app)
     {
         var operador = app.MapGroup("/api/liquidaciones")
-            .RequireAuthorization(PoliticasApi.Operaciones)
+            .RequireAuthorization(PoliticasApi.Administracion)
             .WithTags("Liquidaciones a comercios (RF-30)");
 
         operador.MapPost("/generar", (GenerarLiquidacionesDto peticion, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>

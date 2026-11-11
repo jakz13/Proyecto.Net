@@ -18,7 +18,7 @@ public static class ComerciosEndpoints
     {
         var grupo = app.MapGroup("/api/comercios")
             .WithTags("Backoffice · Comercios (UC-01)")
-            .RequireAuthorization(PoliticasApi.Operaciones)
+            .RequireAuthorization(PoliticasApi.Supervision)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (

@@ -67,13 +67,6 @@
                 <a asp-page="/Deposito/Rendicion" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
                     <span>Volver a Rendiciones</span>
                 </a>
-                @* Las hojas de ruta son del administrador y del despachador: el operario no tiene acceso a esa pantalla *@
-                @if (UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
-                {
-                    <a asp-page="/Rutas/Index" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
-                        <span>Ver Hojas de Ruta</span>
-                    </a>
-                }
             </div>
         </div>
 

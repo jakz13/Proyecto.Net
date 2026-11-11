@@ -11,7 +11,7 @@ namespace UltimaMilla.Backoffice.Pages.Deposito;
 /// Modelo de página para la rendición de repartidores al regreso a depósito (UC-16, RF-22).
 /// Permite al operario contrastar bultos entregados, devueltos y sin intento, seleccionar motivos internos y cerrar la hoja de ruta.
 /// </summary>
-[Authorize(Roles = "Operario,Despachador,Administrador")]
+[Authorize(Roles = "Operario")]
 public class RendicionModel : PageModel
 {
     private readonly IDepositoApi _depositoApi;

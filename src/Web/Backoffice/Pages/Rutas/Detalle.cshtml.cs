@@ -10,7 +10,7 @@ namespace UltimaMilla.Backoffice.Pages.Rutas;
 /// <summary>
 /// Controlador de la vista de detalle de hoja de ruta y reasignación / reprogramación de envíos (UC-10, RF-12, RF-13, RF-15).
 /// </summary>
-[Authorize(Roles = "Despachador,Administrador")]
+[Authorize(Roles = "Despachador")]
 public class DetalleModel : PageModel
 {
     private readonly IRutasApi _rutasApi;

@@ -63,12 +63,8 @@ public class ConcurrenciaYAislamientoApiTests
 
     private async Task<HttpClient> ClienteDelOperadorDosAsync()
     {
-        var cliente = _factory.CreateClient();
-        var login = await cliente.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest("admin2@gmail.com", "Admin.2026!"));
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-        var sesion = await login.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>();
-        cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sesion!.Token);
-        return cliente;
+        // El despachador del segundo operador (sin datos propios); el administrador no planifica
+        return await UsuariosDePrueba.DespachadorDelOperadorDosAsync(_factory);
     }
 
     [FactPostgres]
@@ -147,7 +143,12 @@ public class ConcurrenciaYAislamientoApiTests
         var tablero = await new HttpTableroApi(operadorDos).ObtenerResumenEnVivoAsync();
         Assert.Empty(tablero.Vehiculos);
 
-        var liquidaciones = await operadorDos.GetFromJsonAsync<JsonElement>("/api/liquidaciones");
+        // Las liquidaciones son de administración: las consulta el administrador del segundo operador
+        var adminDos = _factory.CreateClient();
+        var loginAdminDos = await adminDos.PostAsJsonAsync("/api/v1/auth/login", new IniciarSesionRequest("admin2@gmail.com", "Admin.2026!"));
+        Assert.Equal(HttpStatusCode.OK, loginAdminDos.StatusCode);
+        adminDos.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await loginAdminDos.Content.ReadFromJsonAsync<IniciarSesionResultadoDto>())!.Token);
+        var liquidaciones = await adminDos.GetFromJsonAsync<JsonElement>("/api/liquidaciones");
         Assert.Equal(0, liquidaciones.GetArrayLength());
 
         // El envío del operador uno sigue exactamente como estaba
