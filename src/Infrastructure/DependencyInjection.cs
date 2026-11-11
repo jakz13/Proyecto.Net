@@ -30,6 +30,8 @@ public static class DependencyInjection
 
         // Puertos de persistencia y dominio
         services.AddScoped<IEnvioRepository, EfEnvioRepository>();
+        services.AddScoped<IRetiroRepository, EfRetiroRepository>();
+        services.AddScoped<IFuncionalidadesService, FuncionalidadesService>();
         services.AddScoped<IRutaRepository, EfRutaRepository>();
         services.AddScoped<IRendicionRepository, EfRendicionRepository>();
         services.AddScoped<IDevolucionRepository, EfDevolucionRepository>();
@@ -70,7 +72,19 @@ public static class DependencyInjection
         services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
         services.AddScoped<INotificacionDestinatarioService, RegistroNotificacionDestinatarioService>();
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+            .ConfigurePrimaryHttpMessageHandler(() =>
+            {
+                // Anti-SSRF: los avisos solo salen hacia Internet público (ver DestinoWebhookSeguro). Las excepciones son explícitas.
+                var permitirInternos = configuration.GetValue<bool>("Avisos:PermitirDestinosInternos");
+                var hosts = (configuration["Avisos:HostsPermitidos"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                return new SocketsHttpHandler
+                {
+                    AllowAutoRedirect = false,
+                    ConnectCallback = DestinoWebhookSeguro.CrearConexion(permitirInternos, hosts)
+                };
+            });
 
         // Observabilidad (UC-44): métricas de negocio expuestas a Prometheus
         services.AddSingleton<IMetricasNegocio, MetricasNegocio>();
@@ -97,9 +111,11 @@ public static class DependencyInjection
             services.AddDistributedMemoryCache();
         }
 
+        services.AddSingleton<CortacircuitosCache>();
         services.AddScoped<IDistributedCacheService, DistributedCacheService>();
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IClavesApiPruebas, ClavesApiPruebas>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ITokenJwtService, TokenJwtService>();
 

@@ -15,6 +15,9 @@ public class PruebaDeEntrega : Entity
     public double? Longitud { get; private set; }
     public DateTime TimestampDispositivo { get; private set; }
 
+    /// <summary>Códigos de los bultos efectivamente entregados respaldados por esta prueba de entrega (RF-32). Se persiste.</summary>
+    public IReadOnlyList<string> CodigosBultosEntregados { get; private set; } = Array.Empty<string>();
+
     protected PruebaDeEntrega() { }
 
     public PruebaDeEntrega(
@@ -26,22 +29,38 @@ public class PruebaDeEntrega : Entity
         string? documentoReceptor = null,
         double? latitud = null,
         double? longitud = null,
-        DateTime? timestampDispositivo = null) : base(intentoEntregaId)
+        DateTime? timestampDispositivo = null,
+        IEnumerable<string>? codigosBultosEntregados = null) : base(Guid.NewGuid())
     {
         if (intentoEntregaId == Guid.Empty)
-            throw new DomainValidationException("El identificador del intento de entrega no puede ser vacío.");
+            throw new DomainValidationException("La prueba de entrega debe estar asociada a un intento válido.");
 
         if (string.IsNullOrWhiteSpace(tipo))
             throw new DomainValidationException("El tipo de prueba de entrega no puede ser vacío.");
 
         IntentoEntregaId = intentoEntregaId;
         Tipo = tipo.Trim();
-        FirmaImagenUrl = firmaImagenUrl?.Trim();
-        FotoUrl = fotoUrl?.Trim();
+        FirmaImagenUrl = firmaImagenUrl;
+        FotoUrl = fotoUrl;
         NombreReceptor = nombreReceptor?.Trim();
         DocumentoReceptor = documentoReceptor?.Trim();
         Latitud = latitud;
         Longitud = longitud;
         TimestampDispositivo = timestampDispositivo ?? DateTime.UtcNow;
+
+        if (codigosBultosEntregados is not null)
+            AsociarBultosEntregados(codigosBultosEntregados);
+    }
+
+    public void AsociarBultosEntregados(IEnumerable<string> codigosBultos)
+    {
+        var normalizados = (codigosBultos ?? Enumerable.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList()
+            .AsReadOnly();
+
+        CodigosBultosEntregados = normalizados;
     }
 }

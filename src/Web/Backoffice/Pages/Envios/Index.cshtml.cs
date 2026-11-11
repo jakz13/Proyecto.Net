@@ -155,4 +155,33 @@ public class IndexModel : PageModel
         var historial = await _enviosApi.ObtenerHistorialEnvioAsync(id);
         return new JsonResult(historial);
     }
+    /// <summary>Evidencias (receptor, firma y foto) de las entregas de un envío, para el modal de trazabilidad.</summary>
+    public async Task<IActionResult> OnGetEvidenciasAsync(Guid id)
+    {
+        if (id == Guid.Empty)
+        {
+            return new JsonResult(Array.Empty<EvidenciaEntregaDto>());
+        }
+
+        return new JsonResult(await _enviosApi.ObtenerEvidenciasEnvioAsync(id));
+    }
+
+    /// <summary>Sirve la imagen de una firma o foto. Pasa por el Backoffice porque la API exige el token de sesión.</summary>
+    public async Task<IActionResult> OnGetImagenEvidenciaAsync(Guid id, Guid intento, string tipo)
+    {
+        if (id == Guid.Empty || intento == Guid.Empty || tipo is not ("firma" or "foto"))
+        {
+            return BadRequest();
+        }
+
+        var imagen = await _enviosApi.ObtenerImagenEvidenciaAsync(id, intento, tipo);
+        if (imagen is null)
+        {
+            return NotFound();
+        }
+
+        // Cabecera de privacidad: la firma y la foto son datos personales del receptor, no deben quedar en cachés compartidas.
+        Response.Headers.CacheControl = "private, no-store";
+        return File(imagen.Contenido, imagen.TipoContenido);
+    }
 }

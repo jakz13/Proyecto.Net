@@ -30,6 +30,7 @@ public static class EventosIntegracion
         // Hoja de ruta
         public const string RutaArmada = "RutaArmadaIntegrationEvent";
         public const string CargaVehiculoRegistrada = "CargaVehiculoRegistradaIntegrationEvent";
+        public const string RutaIniciada = "RutaIniciadaIntegrationEvent";
 
         // Incidencias
         public const string IncidenciaAbierta = "IncidenciaAbiertaIntegrationEvent";

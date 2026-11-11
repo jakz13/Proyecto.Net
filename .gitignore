@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Keystores and Android certificates
+*.keystore
+*.jks
+
 # User-specific files
 *.rsuser
 *.suo

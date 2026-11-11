@@ -3,6 +3,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Frontend.Contracts.Modelos.Liquidaciones;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -19,7 +20,7 @@ public static class LiquidacionesEndpoints
     public static IEndpointRouteBuilder MapLiquidacionesEndpoints(this IEndpointRouteBuilder app)
     {
         var operador = app.MapGroup("/api/liquidaciones")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Operaciones)
             .WithTags("Liquidaciones a comercios (RF-30)");
 
         operador.MapPost("/generar", (GenerarLiquidacionesDto peticion, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>
@@ -90,7 +91,7 @@ public static class LiquidacionesEndpoints
 
         // Vista del propio comercio (portal): solo ve su información
         var comercio = app.MapGroup("/api/comercio")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Comercio)
             .WithTags("Cuenta corriente y liquidaciones del comercio (RF-34)");
 
         comercio.MapGet("/cuenta-corriente", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>

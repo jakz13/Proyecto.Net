@@ -2,6 +2,7 @@ using MediatR;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Queries.Mobile.Navegacion.ObtenerSecuenciaParadas;
@@ -48,7 +49,9 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
 
         foreach (var parada in paradasOrdenadas)
         {
-            enviosDict.TryGetValue(parada.EnvioId, out var envio);
+            Envio? envio = null;
+            if (parada.EnvioId.HasValue)
+                enviosDict.TryGetValue(parada.EnvioId.Value, out envio);
 
             var contacto = new DestinatarioContactoDto(
                 envio?.NombreDestinatario ?? "Destinatario no especificado",
@@ -75,7 +78,7 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
 
             resultado.Add(new ParadaNavegacionDto(
                 parada.Id,
-                parada.EnvioId,
+                parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
                 parada.Orden,
                 parada.Estado,
                 envio?.CodigoSeguimientoPublico ?? $"PAR-{parada.Orden:D2}",

@@ -16,6 +16,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         opciones.Cookie.Name = "UltimaMilla.Backoffice.Auth";
         opciones.Cookie.HttpOnly = true;
         opciones.Cookie.SameSite = SameSiteMode.Lax;
+        // En el servidor la cookie solo viaja por HTTPS; en localhost (HTTP) se mantiene la política del pedido
+        opciones.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
         opciones.ExpireTimeSpan = TimeSpan.FromHours(8);
         opciones.SlidingExpiration = true;
     });
@@ -43,6 +45,7 @@ builder.Services.AddRazorPages(opciones =>
     opciones.Conventions.AuthorizeFolder("/Observabilidad", "SoloAdministradores");
     opciones.Conventions.AuthorizeFolder("/Tablero", "Operaciones");
     opciones.Conventions.AuthorizeFolder("/Deposito", "Deposito");
+    opciones.Conventions.AuthorizeFolder("/Retiros", "Deposito");
     opciones.Conventions.AllowAnonymousToPage("/Login");
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
 });

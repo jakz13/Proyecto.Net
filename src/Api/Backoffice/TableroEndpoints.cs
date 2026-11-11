@@ -2,10 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Application.Tablero;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -15,7 +18,7 @@ public static class TableroEnVivoEndpoints
     public static IEndpointRouteBuilder MapTableroEnVivoEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/tablero")
-            .RequireAuthorization()
+            .RequireAuthorization(PoliticasApi.Operaciones)
             .WithTags("Tablero de operación en vivo (UC-12, RF-29)");
 
         grupo.MapGet("/resumen", (AppDbContext db, ICurrentTenant tenant, IClock reloj, CancellationToken ct) =>
@@ -33,6 +36,17 @@ public static class TableroEnVivoEndpoints
                 var enTransito = await db.Envios.AsNoTracking()
                     .CountAsync(e => e.OperadorId == tenant.OperadorId && e.EstadoActual == EstadoEnvio.EnTransito, ct);
 
+                // El retiro en domicilio se incorpora al tablero (RF 41): cuántos esperan una ruta y cuántos están en gestión
+                var retirosPorEstado = await db.Retiros.AsNoTracking().IgnoreAutoIncludes()
+                    .Where(r => r.OperadorId == tenant.OperadorId)
+                    .GroupBy(r => r.EstadoActual)
+                    .Select(g => new { Estado = g.Key, Cantidad = g.Count() })
+                    .ToListAsync(ct);
+                var retirosPendientes = retirosPorEstado.Where(r => r.Estado == EstadoRetiro.Solicitado).Sum(r => r.Cantidad);
+                var retirosEnCurso = retirosPorEstado
+                    .Where(r => r.Estado is EstadoRetiro.Solicitado or EstadoRetiro.AsignadoARuta or EstadoRetiro.Retirado or EstadoRetiro.NoRetirado or EstadoRetiro.EnDeposito)
+                    .Sum(r => r.Cantidad);
+
                 var alertas = vehiculos.SelectMany(v => v.EnviosEnRiesgo)
                     .OrderByDescending(a => ConstructorTablero.PesoNivel(a.NivelRiesgo))
                     .ThenByDescending(a => a.MinutosRetrasoEstimado)
@@ -45,6 +59,8 @@ public static class TableroEnVivoEndpoints
                     TotalEnviosEnTransito = enTransito,
                     TotalEnviosEntregadosHoy = entregadosHoy,
                     TotalEnviosEnRiesgo = alertas.Count,
+                    RetirosPendientes = retirosPendientes,
+                    RetirosEnCurso = retirosEnCurso,
                     UltimaSincronizacion = ahora,
                     Vehiculos = vehiculos,
                     AlertasRiesgo = alertas
@@ -143,7 +159,9 @@ internal static class ConstructorTablero
             var paradasDto = new List<ParadaEnVivoDto>();
             foreach (var parada in vigentes)
             {
-                envios.TryGetValue(parada.EnvioId, out var envio);
+                Envio? envio = null;
+                if (parada.EnvioId.HasValue)
+                    envios.TryGetValue(parada.EnvioId.Value, out envio);
                 direcciones.TryGetValue(parada.DireccionId, out var direccion);
                 var franja = parada.FranjaHorariaId.HasValue ? franjas.GetValueOrDefault(parada.FranjaHorariaId.Value) : null;
                 var zona = direccion?.ZonaCoberturaId is { } zid ? zonas.GetValueOrDefault(zid) ?? string.Empty : string.Empty;
@@ -162,7 +180,7 @@ internal static class ConstructorTablero
                     {
                         enRiesgo.Add(new EnvioRiesgoDto
                         {
-                            EnvioId = parada.EnvioId,
+                            EnvioId = parada.EnvioId ?? Guid.Empty,
                             HojaDeRutaId = ruta.Id,
                             NumeroRuta = numero,
                             CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
@@ -187,7 +205,7 @@ internal static class ConstructorTablero
 
                 paradasDto.Add(new ParadaEnVivoDto
                 {
-                    EnvioId = parada.EnvioId,
+                    EnvioId = parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
                     CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
                     Orden = parada.Orden,
                     Destinatario = envio?.NombreDestinatario ?? string.Empty,
@@ -202,7 +220,7 @@ internal static class ConstructorTablero
             }
 
             var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault();
-            var actualEnvio = actual is null ? null : envios.GetValueOrDefault(actual.EnvioId);
+            var actualEnvio = actual?.EnvioId is { } actualEnvioId ? envios.GetValueOrDefault(actualEnvioId) : null;
             var actualDireccion = actual is null ? null : direcciones.GetValueOrDefault(actual.DireccionId);
 
             resultado.Add(new VehiculoEnVivoDto

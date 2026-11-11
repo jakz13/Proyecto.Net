@@ -5,6 +5,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -18,15 +19,20 @@ public static partial class IdentidadVisualEndpoints
     {
         var grupo = app.MapGroup("/api/v1/identidad-visual")
             .WithTags("Backoffice · Identidad visual")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
             Results.Ok(await ObtenerAsync(db, tenant.OperadorId, ct))))
         .WithName("ObtenerIdentidadVisual")
         .WithSummary("Identidad visual del operador en sesión");
 
-        grupo.MapGet("/operadores-demo", (AppDbContext db, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        grupo.MapGet("/operadores-demo", (AppDbContext db, IConfiguration configuracion, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
+            // Listar a todos los operadores sin sesión solo tiene sentido en la demo local; en el servidor se oculta
+            if (!configuracion.GetValue("Auth:PermitirModoDemo", true))
+                return Results.NotFound();
+
             var operadorIds = await db.Operadores.AsNoTracking().OrderBy(o => o.NombreComercial).Select(o => o.Id).ToListAsync(ct);
             var identidades = new List<IdentidadVisualDto>();
             foreach (var id in operadorIds)
@@ -49,7 +55,12 @@ public static partial class IdentidadVisualEndpoints
 
         grupo.MapGet("/logos/{nombreArchivo}", (string nombreArchivo, IWebHostEnvironment env) =>
         {
-            if (string.IsNullOrWhiteSpace(nombreArchivo) || nombreArchivo.Contains(".."))
+            // Solo un nombre de archivo simple con extensión de imagen permitida (sin rutas ni SVG, que puede llevar scripts)
+            if (string.IsNullOrWhiteSpace(nombreArchivo)
+                || nombreArchivo != Path.GetFileName(nombreArchivo)
+                || nombreArchivo.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || nombreArchivo.Contains("..")
+                || Path.GetExtension(nombreArchivo).ToLowerInvariant() is not (".png" or ".jpg" or ".jpeg" or ".webp"))
                 return Results.BadRequest();
 
             var rutasPosibles = new[]
@@ -68,7 +79,6 @@ public static partial class IdentidadVisualEndpoints
                     {
                         ".png" => "image/png",
                         ".jpg" or ".jpeg" => "image/jpeg",
-                        ".svg" => "image/svg+xml",
                         ".webp" => "image/webp",
                         _ => "application/octet-stream"
                     };

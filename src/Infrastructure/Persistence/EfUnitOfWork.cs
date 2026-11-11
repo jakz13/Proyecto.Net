@@ -7,6 +7,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Retiros;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
@@ -26,6 +27,7 @@ public class EfUnitOfWork : IUnitOfWork
         // Patrón outbox: el evento se guarda en la misma transacción que el cambio de estado que lo origina,
         // de modo que no puede persistirse uno sin el otro.
         var (enviosAfectados, cuadrosAfectados) = await EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(cancellationToken);
+        var codigosRetirosAfectados = await EncolarCambiosDeRetiroAsync(cancellationToken);
 
         int filasAfectadas;
         try
@@ -46,6 +48,12 @@ public class EfUnitOfWork : IUnitOfWork
         // Una vez confirmada la transacción en base de datos, se invalidan las entradas correspondientes en el caché distribuido
         if (_cacheService is not null)
         {
+            foreach (var (operadorId, codigo) in codigosRetirosAfectados)
+            {
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(codigo), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(operadorId, codigo), cancellationToken);
+            }
+
             foreach (var envio in enviosAfectados)
             {
                 await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
@@ -68,13 +76,72 @@ public class EfUnitOfWork : IUnitOfWork
     }
 
     /// <summary>
-    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado (UC-39)
+    /// Agrega al outbox un mensaje por cada evento de retiro nuevo (RF 41): el cambio de estado y su evento se confirman en la misma
+    /// transacción, igual que con los envíos, de modo que no puede persistirse uno sin el otro. Devuelve los retiros afectados
+    /// para invalidar su caché de seguimiento público una vez confirmada la transacción.
+    /// </summary>
+    private async Task<List<(Guid OperadorId, string Codigo)>> EncolarCambiosDeRetiroAsync(CancellationToken cancellationToken)
+    {
+        var eventosNuevos = _dbContext.ChangeTracker.Entries<EventoRetiro>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToList();
+
+        if (eventosNuevos.Count == 0)
+            return new List<(Guid, string)>();
+
+        var retirosRastreados = _dbContext.ChangeTracker.Entries<Retiro>()
+            .ToDictionary(e => e.Entity.Id, e => e.Entity);
+
+        var faltantes = eventosNuevos.Select(e => e.RetiroId).Where(id => !retirosRastreados.ContainsKey(id)).Distinct().ToList();
+        if (faltantes.Count > 0)
+        {
+            var cargados = await _dbContext.Retiros.AsNoTracking().Where(r => faltantes.Contains(r.Id)).ToListAsync(cancellationToken);
+            foreach (var retiro in cargados)
+                retirosRastreados[retiro.Id] = retiro;
+        }
+
+        var correlationId = ContextoCorrelacion.ObtenerCorrelationIdActual();
+        var afectados = new List<(Guid, string)>();
+
+        foreach (var evento in eventosNuevos)
+        {
+            if (!retirosRastreados.TryGetValue(evento.RetiroId, out var retiro))
+                continue;
+
+            var publicado = new EventoRetiroPublicado(
+                retiro.OperadorId,
+                retiro.Id,
+                retiro.ComercioOperadorId,
+                retiro.CodigoSeguimientoPublico,
+                evento.TipoEvento,
+                evento.EstadoAnterior?.ToString(),
+                evento.EstadoNuevo.ToString(),
+                evento.Timestamp,
+                correlationId,
+                retiro.Bultos.Select(b => b.Identificacion).ToList());
+
+            await _dbContext.OutboxMessages.AddAsync(
+                new OutboxMessage(Guid.NewGuid(), nameof(Retiro), retiro.Id, EventoRetiroPublicado.TipoMensaje, publicado.Serializar()),
+                cancellationToken);
+
+            afectados.Add((retiro.OperadorId, retiro.CodigoSeguimientoPublico));
+        }
+
+        return afectados.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado o entrega parcial (UC-39, RF-36)
     /// y recopila los envíos y cuadros tarifarios modificados para invalidar su caché tras confirmar la transacción.
     /// </summary>
     private async Task<(List<(Guid Id, Guid OperadorId, string CodigoSeguimientoPublico)> Envios, List<(Guid Id, Guid OperadorId)> Cuadros)>
         EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(CancellationToken cancellationToken)
     {
         _dbContext.ChangeTracker.DetectChanges();
+
+        var enviosEntidades = _dbContext.ChangeTracker.Entries<Envio>()
+            .ToDictionary(e => e.Entity.Id, e => e.Entity);
 
         var enviosRastreados = _dbContext.ChangeTracker.Entries<Envio>()
             .ToDictionary(
@@ -100,7 +167,7 @@ public class EfUnitOfWork : IUnitOfWork
         }
 
         var eventosCambioEstado = todosEventosNuevos
-            .Where(e => e.EstadoAnterior != e.EstadoNuevo)
+            .Where(e => e.EstadoAnterior != e.EstadoNuevo || e.TipoEvento == "EntregaParcial")
             .ToList();
 
         // Toma el identificador de correlación fijado por el middleware (X-Correlation-Id) o la traza actual (UC-44)
@@ -113,6 +180,14 @@ public class EfUnitOfWork : IUnitOfWork
                 if (!enviosRastreados.TryGetValue(evento.EnvioId, out var datos))
                     continue;
 
+                IReadOnlyList<EventoBultoPublicado>? bultosPublicados = null;
+                if (enviosEntidades.TryGetValue(evento.EnvioId, out var entidadEnvio) && entidadEnvio.Bultos.Count > 0)
+                {
+                    bultosPublicados = entidadEnvio.Bultos
+                        .Select(b => new EventoBultoPublicado(b.Identificacion, b.EstadoBulto, b.MotivoNoEntregaCodigo))
+                        .ToList();
+                }
+
                 var publicado = new EventoEnvioPublicado(
                     datos.OperadorId,
                     evento.EnvioId,
@@ -122,7 +197,8 @@ public class EfUnitOfWork : IUnitOfWork
                     evento.EstadoAnterior?.ToString(),
                     evento.EstadoNuevo.ToString(),
                     evento.Timestamp,
-                    correlationId);
+                    correlationId,
+                    bultosPublicados);
 
                 await _dbContext.OutboxMessages.AddAsync(
                     new OutboxMessage(Guid.NewGuid(), nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),

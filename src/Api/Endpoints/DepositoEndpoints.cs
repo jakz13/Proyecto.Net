@@ -9,6 +9,7 @@ using UltimaMilla.Application.Queries.Deposito;
 using UltimaMilla.Application.Queries.Deposito.ListarEnviosAdmitidos;
 using UltimaMilla.Application.Queries.Deposito.ListarEnviosEnDeposito;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -18,7 +19,7 @@ public static class DepositoEndpoints
     {
         var group = app.MapGroup("/api/deposito/envios/{envioId:guid}")
             .WithTags("Depósito (UC-14, UC-15)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Deposito);
 
         group.MapPost("/recepcion", async (
             [FromRoute] Guid envioId,
@@ -162,7 +163,7 @@ public static class DepositoEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithTags("Depósito (UC-14, UC-15, UC-16)")
         .WithName("RendirHojaDeRuta")
         .WithSummary("Registrar la rendición del repartidor (UC-16)")
@@ -178,7 +179,7 @@ public static class DepositoEndpoints
         app.MapGet("/api/deposito/hojas-de-ruta-pendientes-rendicion", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarRutasPendientesRendicionQuery(), ct)))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithTags("Depósito (UC-14, UC-15, UC-16)")
         .WithName("ListarRutasPendientesRendicion")
         .WithSummary("Listar hojas de ruta pendientes de rendición")
@@ -211,7 +212,7 @@ public static class DepositoEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithTags("Depósito (UC-14, UC-15, UC-16)")
         .WithName("ObtenerRutaParaRendicion")
         .WithSummary("Obtener detalle de hoja de ruta para rendición")
@@ -227,7 +228,7 @@ public static class DepositoEndpoints
         app.MapGet("/api/deposito/envios-admitidos", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosAdmitidosQuery(), ct)))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithTags("Depósito (UC-14, UC-15)")
         .WithName("ListarEnviosAdmitidos")
         .WithSummary("Listar envíos admitidos pendientes de recepción en depósito")
@@ -241,7 +242,7 @@ public static class DepositoEndpoints
         app.MapGet("/api/deposito/envios-en-deposito", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosEnDepositoQuery(), ct)))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithTags("Depósito (UC-14, UC-15)")
         .WithName("ListarEnviosEnDeposito")
         .WithSummary("Listar envíos en depósito para clasificación de bultos")

@@ -26,6 +26,8 @@ x-api: &api
     Auth__PermitirModoDemo: "false"
     Jwt__SecretKey: ${JWT_SECRET:?definir JWT_SECRET (mínimo 32 caracteres)}
     Jwt__RequireConfiguredSecret: "true"
+    # Anti-SSRF: los avisos a comercios no salen hacia redes internas, salvo el receptor de prueba propio
+    Avisos__HostsPermitidos: "api1,api2"
     DOTNET_GCConserveMemory: "7"
     DOTNET_TieredPGO: "0"
   mem_limit: 256m
@@ -142,6 +144,7 @@ services:
       Auth__PermitirModoDemo: "false"
       Jwt__SecretKey: ${JWT_SECRET:?definir JWT_SECRET (mínimo 32 caracteres)}
       Jwt__RequireConfiguredSecret: "true"
+      Avisos__HostsPermitidos: "api1,api2"
       DataProtection__Path: /keys
       DOTNET_GCConserveMemory: "7"
     volumes:
@@ -198,7 +201,6 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ultima-milla-tecnico.json
       GOMEMLIMIT: 140MiB
     volumes:
       - grafana_data:/var/lib/grafana

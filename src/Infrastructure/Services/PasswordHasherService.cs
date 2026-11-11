@@ -25,7 +25,15 @@ public class PasswordHasherService : IPasswordHasherService
         if (string.IsNullOrWhiteSpace(passwordPlano) || string.IsNullOrWhiteSpace(passwordHash))
             return false;
 
-        var resultado = _hasher.VerifyHashedPassword(UsuarioContexto, passwordHash, passwordPlano);
-        return resultado != PasswordVerificationResult.Failed;
+        try
+        {
+            var resultado = _hasher.VerifyHashedPassword(UsuarioContexto, passwordHash, passwordPlano);
+            return resultado != PasswordVerificationResult.Failed;
+        }
+        catch (FormatException)
+        {
+            // Un hash guardado con otro formato no es una contraseña válida: se rechaza el acceso en lugar de fallar con un 500.
+            return false;
+        }
     }
 }

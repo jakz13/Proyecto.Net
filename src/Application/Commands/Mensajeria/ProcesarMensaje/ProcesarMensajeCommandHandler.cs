@@ -4,7 +4,9 @@ using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Entities.Seguimiento;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
@@ -13,17 +15,18 @@ namespace UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 
 public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeCommand, ResultadoProcesamientoMensaje>
 {
-    /// <summary>Cambios de estado que justifican avisar al destinatario sin que tenga que consultar (UC-35).</summary>
+    /// <summary>Cambios de estado que justifican avisar al destinatario sin que tenga que consultar (UC-35, RF-35).</summary>
     private static readonly HashSet<EstadoEnvio> EstadosNotificablesAlDestinatario = new()
     {
         EstadoEnvio.Admitido,
         EstadoEnvio.EnTransito,
         EstadoEnvio.Entregado,
+        EstadoEnvio.EntregadoParcialmente,
         EstadoEnvio.NoEntregado,
         EstadoEnvio.Reprogramado
     };
 
-    /// <summary>Valor de suscripción que recibe avisos de cualquier cambio de estado.</summary>
+    /// <summary>Valor de suscripción que recibe avisos de cualquier cambio de estado o evento de bulto.</summary>
     public const string TodosLosEventos = "*";
 
     private readonly IIdempotenciaConsumidorRepository _idempotenciaRepository;
@@ -36,6 +39,8 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
     private readonly IDistributedCacheService? _cacheService;
+    private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public ProcesarMensajeCommandHandler(
         IIdempotenciaConsumidorRepository idempotenciaRepository,
@@ -47,8 +52,11 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         AvisoComercioEntregador entregador,
         IUnitOfWork unitOfWork,
         ICurrentTenant? currentTenant = null,
-        IDistributedCacheService? cacheService = null)
+        IDistributedCacheService? cacheService = null,
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _idempotenciaRepository = idempotenciaRepository;
         _envioRepository = envioRepository;
         _destinatarioRepository = destinatarioRepository;
@@ -59,6 +67,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _cacheService = cacheService;
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<ResultadoProcesamientoMensaje> Handle(ProcesarMensajeCommand request, CancellationToken cancellationToken)
@@ -74,6 +83,10 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         var claveMensaje = request.MessageId.ToString();
         if (await _idempotenciaRepository.ExisteAsync(claveMensaje, cancellationToken))
             return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Duplicado, 0, 0);
+
+        // Eventos del retiro en domicilio (RF 41): su propio mensaje, con el mismo patrón de idempotencia y entrega
+        if (string.Equals(request.TipoEvento, EventoRetiroPublicado.TipoMensaje, StringComparison.Ordinal))
+            return await ProcesarRetiroAsync(request, claveMensaje, cancellationToken);
 
         if (!string.Equals(request.TipoEvento, EventoEnvioPublicado.TipoMensaje, StringComparison.Ordinal))
         {
@@ -106,7 +119,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         }
 
         var notificaciones = await NotificarDestinatarioAsync(evento, envio, cancellationToken);
-        var avisos = await GenerarAvisosAsync(evento, envio.ComercioOperadorId, cancellationToken);
+        var avisos = await GenerarAvisosAsync(evento, envio, envio.ComercioOperadorId, cancellationToken);
 
         // Efectos y clave de idempotencia se confirman juntos: o quedan todos o no queda ninguno
         await _idempotenciaRepository.AddAsync(
@@ -120,7 +133,102 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, notificaciones, avisos.Count);
     }
 
-    private async Task<int> NotificarDestinatarioAsync(EventoEnvioPublicado evento, Domain.Entities.Envios.Envio envio, CancellationToken cancellationToken)
+    /// <summary>
+    /// Procesa el cambio de estado de un retiro: invalida el caché del seguimiento público y genera los avisos a los comercios suscriptos.
+    /// El contrato de los avisos está versionado (RF 36): los retiros solo viajan en el contrato v2, de modo que las integraciones que ya
+    /// recibían avisos con el formato original (v1) no se ven afectadas por esta funcionalidad nueva.
+    /// </summary>
+    private async Task<ResultadoProcesamientoMensaje> ProcesarRetiroAsync(
+        ProcesarMensajeCommand request, string claveMensaje, CancellationToken cancellationToken)
+    {
+        if (_retiroRepository is null)
+            return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.SinConsumidor, 0, 0);
+
+        var evento = EventoRetiroPublicado.Deserializar(request.Payload)
+            ?? throw new MensajeInvalidoException($"El payload del mensaje {claveMensaje} no es un evento de retiro válido.");
+
+        // Fija el operador declarado por el evento en el alcance actual antes de consultar la base
+        _currentTenant?.EstablecerOperadorDeProceso(evento.OperadorId);
+
+        var retiro = await _retiroRepository.GetByIdAsync(evento.RetiroId, cancellationToken)
+            ?? throw new NotFoundException($"No se encontró el retiro '{evento.RetiroId}' del evento.");
+
+        // Defensa de aislamiento: el operador declarado por el evento debe ser el dueño real del retiro
+        if (retiro.OperadorId != evento.OperadorId)
+            throw new MensajeInvalidoException($"El retiro '{evento.RetiroId}' no pertenece al operador del evento.");
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(retiro.CodigoSeguimientoPublico), cancellationToken);
+            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico), cancellationToken);
+        }
+
+        // El worker respeta la bandera: sin la funcionalidad habilitada para el operador no se avisa a los comercios por retiros
+        var habilitado = _funcionalidades is null
+            || await _funcionalidades.EstaHabilitadaAsync(evento.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);
+        var avisos = habilitado
+            ? await GenerarAvisosDeRetiroAsync(evento, retiro, cancellationToken)
+            : new List<AvisoComercio>();
+
+        await _idempotenciaRepository.AddAsync(
+            new ClaveIdempotenciaConsumidor(Guid.NewGuid(), claveMensaje, $"retiro;avisos={avisos.Count}"),
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _entregador.EntregarAsync(avisos, cancellationToken);
+
+        return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, 0, avisos.Count);
+    }
+
+    private async Task<List<AvisoComercio>> GenerarAvisosDeRetiroAsync(
+        EventoRetiroPublicado evento, Retiro retiro, CancellationToken cancellationToken)
+    {
+        var suscripciones = await _avisoRepository.ListarSuscripcionesActivasAsync(retiro.ComercioOperadorId, cancellationToken);
+        var avisos = new List<AvisoComercio>();
+
+        foreach (var suscripcion in suscripciones.Where(s =>
+                     string.Equals(s.VersionContrato, SuscripcionAviso.ContratoV2, StringComparison.OrdinalIgnoreCase)
+                     && CoincideConEventoDeRetiro(s, evento)))
+        {
+            var avisoId = Guid.NewGuid();
+            var identificaciones = retiro.Bultos.Select(b => b.Identificacion).OrderBy(i => i, StringComparer.Ordinal).ToList();
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                versionContrato = SuscripcionAviso.ContratoV2,
+                avisoId,
+                evento = EventoRetiroPublicado.TipoMensaje,
+                tipoEventoDominio = evento.TipoEventoDominio,
+                retiroId = evento.RetiroId,
+                codigoSeguimiento = evento.CodigoSeguimiento,
+                referenciaExterna = retiro.ReferenciaExterna,
+                estadoAnterior = evento.EstadoAnterior,
+                estado = evento.EstadoNuevo,
+                ocurridoEn = evento.OcurridoEnUtc,
+                resumenBultos = new { totalBultos = identificaciones.Count },
+                bultos = identificaciones.Select(i => new { identificacion = i }).ToList()
+            }, EventoEnvioPublicado.OpcionesJson);
+
+            var aviso = new AvisoComercio(avisoId, suscripcion.Id, evento.RetiroId, payload, FirmaWebhook.Calcular(suscripcion.ClaveFirma, payload));
+            await _avisoRepository.AddAsync(aviso, cancellationToken);
+            avisos.Add(aviso);
+        }
+
+        return avisos;
+    }
+
+    /// <summary>Una suscripción recibe el evento de retiro si pide todo ("*"), todos los retiros ("Retiro"), el estado o el tipo de evento.</summary>
+    private static bool CoincideConEventoDeRetiro(SuscripcionAviso suscripcion, EventoRetiroPublicado evento)
+    {
+        var tipoSuscripto = NormalizarTipoEventoSuscripto(suscripcion.TipoEvento);
+
+        return string.Equals(tipoSuscripto, TodosLosEventos, StringComparison.Ordinal)
+            || string.Equals(tipoSuscripto, "Retiro", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tipoSuscripto, evento.EstadoNuevo, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tipoSuscripto, evento.TipoEventoDominio, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<int> NotificarDestinatarioAsync(EventoEnvioPublicado evento, Envio envio, CancellationToken cancellationToken)
     {
         if (!Enum.TryParse<EstadoEnvio>(evento.EstadoNuevo, ignoreCase: true, out var estado) || !EstadosNotificablesAlDestinatario.Contains(estado))
             return 0;
@@ -129,7 +237,6 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         if (destinatario is null)
             return 0;
 
-        // Canal según el dato de contacto disponible; sin contacto no hay a quién notificar
         var (canal, contacto) = !string.IsNullOrWhiteSpace(destinatario.Email)
             ? ("Email", destinatario.Email!)
             : !string.IsNullOrWhiteSpace(destinatario.Telefono)
@@ -150,24 +257,74 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         return 1;
     }
 
-    private async Task<List<AvisoComercio>> GenerarAvisosAsync(EventoEnvioPublicado evento, Guid comercioOperadorId, CancellationToken cancellationToken)
+    private async Task<List<AvisoComercio>> GenerarAvisosAsync(
+        EventoEnvioPublicado evento,
+        Envio envio,
+        Guid comercioOperadorId,
+        CancellationToken cancellationToken)
     {
         var suscripciones = await _avisoRepository.ListarSuscripcionesActivasAsync(comercioOperadorId, cancellationToken);
         var avisos = new List<AvisoComercio>();
 
+        var bultosEvento = evento.Bultos is { Count: > 0 }
+            ? evento.Bultos
+            : envio.Bultos
+                .Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion)
+                .Select(b => new EventoBultoPublicado(b.Identificacion, b.EstadoBulto, b.MotivoNoEntregaCodigo))
+                .ToList();
+
         foreach (var suscripcion in suscripciones.Where(s => CoincideConEvento(s, evento)))
         {
             var avisoId = Guid.NewGuid();
-            var payload = JsonSerializer.Serialize(new
+            string payload;
+
+            if (string.Equals(suscripcion.VersionContrato, SuscripcionAviso.ContratoV2, StringComparison.OrdinalIgnoreCase))
             {
-                avisoId,
-                evento = EventoEnvioPublicado.TipoMensaje,
-                envioId = evento.EnvioId,
-                codigoSeguimiento = evento.CodigoSeguimiento,
-                estadoAnterior = evento.EstadoAnterior,
-                estado = evento.EstadoNuevo,
-                ocurridoEn = evento.OcurridoEnUtc
-            }, EventoEnvioPublicado.OpcionesJson);
+                int totalBultos = bultosEvento.Count;
+                int bultosEntregados = bultosEvento.Count(b => string.Equals(b.EstadoBulto, MaquinaEstadosBulto.Entregado, StringComparison.Ordinal));
+                int bultosPendientes = Math.Max(0, totalBultos - bultosEntregados);
+
+                // Contrato v2 (RF-36): incorpora versión explícita, resumen de avance y eventos a nivel de bulto
+                payload = JsonSerializer.Serialize(new
+                {
+                    versionContrato = SuscripcionAviso.ContratoV2,
+                    avisoId,
+                    evento = EventoEnvioPublicado.TipoMensaje,
+                    tipoEventoDominio = evento.TipoEventoDominio,
+                    envioId = evento.EnvioId,
+                    codigoSeguimiento = evento.CodigoSeguimiento,
+                    estadoAnterior = evento.EstadoAnterior,
+                    estado = evento.EstadoNuevo,
+                    ocurridoEn = evento.OcurridoEnUtc,
+                    resumenBultos = new
+                    {
+                        totalBultos,
+                        bultosEntregados,
+                        bultosPendientes,
+                        avance = $"{bultosEntregados} de {totalBultos} bultos entregados"
+                    },
+                    bultos = bultosEvento.Select(b => new
+                    {
+                        identificacion = b.Identificacion,
+                        estado = b.EstadoBulto,
+                        motivoNoEntrega = b.MotivoNoEntrega
+                    }).ToList()
+                }, EventoEnvioPublicado.OpcionesJson);
+            }
+            else
+            {
+                // Contrato v1 (RF-36): preserva intacto el formato original para no afectar integraciones existentes
+                payload = JsonSerializer.Serialize(new
+                {
+                    avisoId,
+                    evento = EventoEnvioPublicado.TipoMensaje,
+                    envioId = evento.EnvioId,
+                    codigoSeguimiento = evento.CodigoSeguimiento,
+                    estadoAnterior = evento.EstadoAnterior,
+                    estado = evento.EstadoNuevo,
+                    ocurridoEn = evento.OcurridoEnUtc
+                }, EventoEnvioPublicado.OpcionesJson);
+            }
 
             var aviso = new AvisoComercio(avisoId, suscripcion.Id, evento.EnvioId, payload, FirmaWebhook.Calcular(suscripcion.ClaveFirma, payload));
             await _avisoRepository.AddAsync(aviso, cancellationToken);
@@ -177,7 +334,26 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         return avisos;
     }
 
-    private static bool CoincideConEvento(SuscripcionAviso suscripcion, EventoEnvioPublicado evento) =>
-        string.Equals(suscripcion.TipoEvento, TodosLosEventos, StringComparison.Ordinal)
-        || string.Equals(suscripcion.TipoEvento, evento.EstadoNuevo, StringComparison.OrdinalIgnoreCase);
+    private static bool CoincideConEvento(SuscripcionAviso suscripcion, EventoEnvioPublicado evento)
+    {
+        var tipoSuscripto = NormalizarTipoEventoSuscripto(suscripcion.TipoEvento);
+
+        return string.Equals(tipoSuscripto, TodosLosEventos, StringComparison.Ordinal)
+            || string.Equals(tipoSuscripto, evento.EstadoNuevo, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tipoSuscripto, evento.TipoEventoDominio, StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(tipoSuscripto, "EventoBulto", StringComparison.OrdinalIgnoreCase)
+                && (evento.Bultos is { Count: > 0 } || string.Equals(evento.EstadoNuevo, nameof(EstadoEnvio.EntregadoParcialmente), StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string NormalizarTipoEventoSuscripto(string tipoEvento)
+    {
+        if (string.IsNullOrWhiteSpace(tipoEvento))
+            return string.Empty;
+
+        var limpio = tipoEvento.Trim();
+        if (limpio.StartsWith("v1:", StringComparison.OrdinalIgnoreCase) || limpio.StartsWith("v2:", StringComparison.OrdinalIgnoreCase))
+            return limpio[3..].Trim();
+
+        return limpio;
+    }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Common;
@@ -10,6 +11,7 @@ using UltimaMilla.Domain.Entities.Incidencias;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Entities.Seguimiento;
 
 namespace UltimaMilla.Infrastructure.Persistence;
@@ -39,6 +41,11 @@ public class AppDbContext : DbContext
     private Guid OperadorFiltro => _currentTenant is { IsAuthenticated: true } ? _currentTenant.OperadorId : Guid.Empty;
 
     public DbSet<Envio> Envios => Set<Envio>();
+    public DbSet<Retiro> Retiros => Set<Retiro>();
+    public DbSet<BanderaFuncionalidad> BanderasFuncionalidad => Set<BanderaFuncionalidad>();
+    public DbSet<HistorialBandera> HistorialBanderas => Set<HistorialBandera>();
+    public DbSet<BultoRetiro> BultosRetiro => Set<BultoRetiro>();
+    public DbSet<EventoRetiro> EventosRetiro => Set<EventoRetiro>();
     public DbSet<Bulto> Bultos => Set<Bulto>();
     public DbSet<HojaDeRuta> HojasDeRuta => Set<HojaDeRuta>();
     public DbSet<Parada> Paradas => Set<Parada>();
@@ -56,6 +63,7 @@ public class AppDbContext : DbContext
     public DbSet<FranjaHoraria> FranjasHorarias => Set<FranjaHoraria>();
     public DbSet<EscaneoCargaVehiculo> EscaneosCargaVehiculo => Set<EscaneoCargaVehiculo>();
     public DbSet<PosicionVehiculo> PosicionesVehiculo => Set<PosicionVehiculo>();
+    public DbSet<ConflictoSincronizacion> ConflictosSincronizacion => Set<ConflictoSincronizacion>();
     public DbSet<Liquidacion> Liquidaciones => Set<Liquidacion>();
     public DbSet<CuentaCorriente> CuentasCorrientes => Set<CuentaCorriente>();
     public DbSet<MovimientoCuentaCorriente> MovimientosCuentaCorriente => Set<MovimientoCuentaCorriente>();
@@ -125,6 +133,9 @@ public class AppDbContext : DbContext
             builder.HasKey(b => b.Id);
             builder.Ignore(b => b.Volumen);
             builder.Ignore(b => b.EstaClasificado);
+            builder.Ignore(b => b.EstaEntregado);
+            builder.Ignore(b => b.EstaDisponibleParaRuta);
+            builder.Property(b => b.MotivoNoEntregaCodigo).HasMaxLength(50);
             builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
             builder.Property(b => b.EstadoBulto).IsRequired().HasMaxLength(50);
             builder.Property(b => b.Prioridad).HasConversion<string>().HasMaxLength(20);
@@ -148,7 +159,83 @@ public class AppDbContext : DbContext
         {
             builder.ToTable("Paradas");
             builder.HasKey(p => p.Id);
+            builder.Ignore(p => p.EsRetiro);
             builder.Property(p => p.Estado).IsRequired().HasMaxLength(50);
+            // Las hojas de ruta son mixtas (RF 39): una parada entrega un envío o retira un retiro
+            builder.Property(p => p.Tipo).IsRequired().HasMaxLength(20).HasDefaultValue(Parada.TipoEntrega);
+            builder.HasIndex(p => p.RetiroId);
+        });
+
+        // Banderas de funcionalidad por operador: las escribe el administrador de la plataforma sobre cualquier operador
+        modelBuilder.Entity<BanderaFuncionalidad>(builder =>
+        {
+            builder.ToTable("BanderasFuncionalidad");
+            builder.HasKey(b => b.Id);
+            builder.Property(b => b.Clave).IsRequired().HasMaxLength(50);
+            builder.Property(b => b.ModificadaPorNombre).HasMaxLength(200);
+            builder.HasIndex(b => new { b.OperadorId, b.Clave }).IsUnique();
+        });
+
+        modelBuilder.Entity<HistorialBandera>(builder =>
+        {
+            builder.ToTable("HistorialBanderas");
+            builder.HasKey(h => h.Id);
+            builder.Property(h => h.Clave).IsRequired().HasMaxLength(50);
+            builder.Property(h => h.UsuarioNombre).HasMaxLength(200);
+            builder.HasIndex(h => new { h.OperadorId, h.Fecha });
+        });
+
+        // Retiro en domicilio (cambio de requerimientos 2.2, RF 37 a RF 41)
+        modelBuilder.Entity<Retiro>(builder =>
+        {
+            builder.ToTable("Retiros");
+            builder.HasKey(r => r.Id);
+            builder.Ignore(r => r.PesoTotal);
+            builder.Ignore(r => r.VolumenTotal);
+            builder.Property(r => r.OperadorId).IsRequired();
+            builder.Property(r => r.ComercioOperadorId).IsRequired();
+            builder.Property(r => r.SelloModificacion).IsConcurrencyToken();
+            builder.Property(r => r.CodigoSeguimientoPublico).IsRequired().HasMaxLength(100);
+            builder.HasIndex(r => r.CodigoSeguimientoPublico).IsUnique();
+            builder.Property(r => r.ReferenciaExterna).HasMaxLength(100);
+            // Una misma referencia del comercio no puede solicitar dos retiros: hace idempotente la solicitud por API
+            builder.HasIndex(r => new { r.ComercioOperadorId, r.ReferenciaExterna }).IsUnique().HasFilter("\"ReferenciaExterna\" IS NOT NULL");
+            builder.HasIndex(r => new { r.OperadorId, r.EstadoActual });
+            builder.Property(r => r.NombreContacto).IsRequired().HasMaxLength(200);
+            builder.Property(r => r.TelefonoContacto).HasMaxLength(50);
+            builder.Property(r => r.EmailContacto).HasMaxLength(200);
+            builder.Property(r => r.DireccionRetiro).IsRequired().HasMaxLength(300);
+            builder.Property(r => r.Motivo).IsRequired().HasMaxLength(300);
+            builder.Property(r => r.EstadoActual).IsRequired().HasConversion<string>().HasMaxLength(50);
+            builder.Property(r => r.TarifaCalculada).HasPrecision(18, 2);
+            builder.Property(r => r.NombreEntrega).HasMaxLength(200);
+            builder.Property(r => r.DocumentoEntrega).HasMaxLength(50);
+            builder.Property(r => r.MotivoNoRetiroCodigo).HasMaxLength(50);
+            builder.HasMany(r => r.Bultos).WithOne().HasForeignKey(b => b.RetiroId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasMany(r => r.Eventos).WithOne().HasForeignKey(e => e.RetiroId).OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(r => r.Bultos).AutoInclude();
+            builder.Navigation(r => r.Eventos).AutoInclude();
+        });
+
+        modelBuilder.Entity<BultoRetiro>(builder =>
+        {
+            builder.ToTable("BultosRetiro");
+            builder.HasKey(b => b.Id);
+            builder.Ignore(b => b.Volumen);
+            builder.Property(b => b.Identificacion).IsRequired().HasMaxLength(100);
+            builder.Property(b => b.Descripcion).IsRequired().HasMaxLength(200);
+            builder.HasIndex(b => b.Identificacion);
+        });
+
+        modelBuilder.Entity<EventoRetiro>(builder =>
+        {
+            builder.ToTable("EventosRetiro");
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.TipoEvento).IsRequired().HasMaxLength(100);
+            builder.Property(e => e.EstadoAnterior).HasConversion<string>().HasMaxLength(50);
+            builder.Property(e => e.EstadoNuevo).IsRequired().HasConversion<string>().HasMaxLength(50);
+            builder.Property(e => e.Origen).IsRequired().HasMaxLength(50);
+            builder.HasIndex(e => e.RetiroId);
         });
 
         modelBuilder.Entity<Operador>(builder =>
@@ -202,6 +289,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PruebaDeEntrega>(builder =>
         {
             builder.ToTable("PruebasDeEntrega");
+            builder.Property(p => p.CodigosBultosEntregados)
+                .HasMaxLength(2000)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => string.IsNullOrEmpty(v) ? Array.Empty<string>() : v.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                    new ValueComparer<IReadOnlyList<string>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        a => a.Aggregate(0, (h, x) => HashCode.Combine(h, x.GetHashCode())),
+                        a => a.ToList()));
             builder.HasKey(p => p.Id);
             builder.Property(p => p.Tipo).IsRequired().HasMaxLength(100);
         });
@@ -209,6 +305,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ReglaOperativa>(builder =>
         {
             builder.ToTable("ReglasOperativas");
+            builder.Property(r => r.AdmiteEntregaParcial).HasDefaultValue(true);
+            builder.Property(r => r.PoliticaEntregaParcial).IsRequired().HasMaxLength(50).HasDefaultValue(ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
             builder.HasKey(r => r.Id);
             builder.Property(r => r.TipoPruebaEntregaExigida).IsRequired().HasMaxLength(200);
             builder.Property(r => r.PoliticaDevolucion).IsRequired().HasMaxLength(500);
@@ -337,6 +435,18 @@ public class AppDbContext : DbContext
             builder.Property(p => p.Origen).IsRequired().HasMaxLength(30);
             // La consulta del tablero pide la última posición de cada vehículo del operador
             builder.HasIndex(p => new { p.OperadorId, p.VehiculoId, p.Timestamp });
+        });
+
+        modelBuilder.Entity<ConflictoSincronizacion>(builder =>
+        {
+            builder.ToTable("ConflictosSincronizacion");
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.EntidadAfectada).IsRequired().HasMaxLength(50);
+            builder.Property(c => c.EstadoServidor).HasMaxLength(50);
+            builder.Property(c => c.EstadoDispositivo).HasMaxLength(50);
+            builder.Property(c => c.PoliticaAplicada).HasMaxLength(100);
+            builder.Property(c => c.Resolucion).IsRequired().HasMaxLength(500);
+            builder.HasIndex(c => new { c.EntidadAfectada, c.EntidadId });
         });
 
         modelBuilder.Entity<AsignacionEnvioRuta>(builder =>
@@ -510,6 +620,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SuscripcionAviso>(builder =>
         {
             builder.ToTable("SuscripcionesAviso");
+            builder.Property(s => s.VersionContrato).IsRequired().HasMaxLength(10).HasDefaultValue(SuscripcionAviso.ContratoV1);
             builder.HasKey(s => s.Id);
             builder.Property(s => s.TipoEvento).IsRequired().HasMaxLength(100);
             builder.Property(s => s.UrlWebhook).IsRequired().HasMaxLength(500);
@@ -561,6 +672,7 @@ public class AppDbContext : DbContext
         // Aislamiento por fila (ADR-002): toda entidad de alcance de operador queda acotada al operador del inquilino actual
         AplicarFiltroDeOperador<ComercioOperador>(modelBuilder);
         AplicarFiltroDeOperador<Envio>(modelBuilder);
+        AplicarFiltroDeOperador<Retiro>(modelBuilder);
         AplicarFiltroDeOperador<HojaDeRuta>(modelBuilder);
         AplicarFiltroDeOperador<Incidencia>(modelBuilder);
         AplicarFiltroDeOperador<IndicadorCumplimiento>(modelBuilder);

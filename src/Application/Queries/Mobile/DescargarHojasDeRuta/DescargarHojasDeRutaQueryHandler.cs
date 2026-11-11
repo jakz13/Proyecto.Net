@@ -3,6 +3,7 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Queries.Mobile.DescargarHojasDeRuta;
@@ -20,6 +21,8 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public DescargarHojasDeRutaQueryHandler(
         IRutaRepository rutaRepository,
@@ -29,8 +32,11 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
         IDireccionRepository direccionRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _repartidorRepository = repartidorRepository;
@@ -39,6 +45,7 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
         _franjaHorariaRepository = franjaHorariaRepository;
         _currentTenant = currentTenant;
         _clock = clock;
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<DescargaHojasDeRutaDto> Handle(DescargarHojasDeRutaQuery request, CancellationToken cancellationToken)
@@ -68,14 +75,25 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
         }
 
         var paradasVigentes = rutas.SelectMany(r => r.Paradas).Where(p => p.Estado != "Cancelada").ToList();
-        var envios = (await _envioRepository.GetByIdsAsync(paradasVigentes.Select(p => p.EnvioId), cancellationToken))
+        var envios = (await _envioRepository.GetByIdsAsync(paradasVigentes.IdsDeEnvios(), cancellationToken))
             .Where(e => e.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(e => e.Id);
+
+        // Hoja de ruta mixta (RF 39): las paradas de retiro llegan al dispositivo con sus bultos, para operar sin conexión (RF 40)
+        // Si el operador no tiene habilitado el retiro en domicilio, la app no recibe paradas de retiro
+        var retiroHabilitado = _funcionalidades is null
+            || await _funcionalidades.EstaHabilitadaAsync(_currentTenant.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);
+        var retiros = _retiroRepository is null || !retiroHabilitado
+            ? new Dictionary<Guid, Retiro>()
+            : (await _retiroRepository.GetByIdsAsync(paradasVigentes.IdsDeRetiros(), cancellationToken))
+                .Where(r => r.OperadorId == _currentTenant.OperadorId)
+                .ToDictionary(r => r.Id);
 
         var destinatarios = (await _destinatarioRepository.GetByIdsAsync(envios.Values.Select(e => e.DestinatarioId), cancellationToken))
             .ToDictionary(d => d.Id);
         var direcciones = (await _direccionRepository.GetByIdsAsync(
-                envios.Values.Where(e => e.DireccionEntregaId.HasValue).Select(e => e.DireccionEntregaId!.Value), cancellationToken))
+                envios.Values.Where(e => e.DireccionEntregaId.HasValue).Select(e => e.DireccionEntregaId!.Value)
+                    .Concat(retiros.Values.Select(r => r.DireccionRetiroId)), cancellationToken))
             .ToDictionary(d => d.Id);
         var franjas = (await _franjaHorariaRepository.GetByIdsAsync(
                 paradasVigentes.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value), cancellationToken))
@@ -89,9 +107,12 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
                 ruta.VehiculoId,
                 ruta.SelloModificacion,
                 ruta.Paradas
-                    .Where(p => p.Estado != "Cancelada" && envios.ContainsKey(p.EnvioId))
+                    .Where(p => p.Estado != "Cancelada"
+                        && ((p.EnvioId.HasValue && envios.ContainsKey(p.EnvioId.Value)) || (p.RetiroId.HasValue && retiros.ContainsKey(p.RetiroId.Value))))
                     .OrderBy(p => p.Orden)
-                    .Select(p => ConstruirParada(p, envios[p.EnvioId], destinatarios, direcciones, franjas))
+                    .Select(p => p.RetiroId.HasValue
+                        ? ConstruirParadaDeRetiro(p, retiros[p.RetiroId.Value], direcciones, franjas)
+                        : ConstruirParada(p, envios[p.EnvioId!.Value], destinatarios, direcciones, franjas))
                     .ToList()))
             .ToList();
 
@@ -108,6 +129,39 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
             regla?.TipoPruebaEntregaExigida,
             regla?.MaxIntentosEntrega,
             motivos.Select(m => new MotivoNoEntregaDescargaDto(m.Id, m.Codigo, m.Descripcion)).ToList());
+    }
+
+    private static ParadaDescargaDto ConstruirParadaDeRetiro(
+        Parada parada,
+        Retiro retiro,
+        IReadOnlyDictionary<Guid, Direccion> direcciones,
+        IReadOnlyDictionary<Guid, FranjaHoraria> franjas)
+    {
+        direcciones.TryGetValue(retiro.DireccionRetiroId, out var direccion);
+
+        string? ventana = null;
+        if (parada.FranjaHorariaId.HasValue && franjas.TryGetValue(parada.FranjaHorariaId.Value, out var franja))
+            ventana = $"{franja.HoraInicio:HH\\:mm}-{franja.HoraFin:HH\\:mm}";
+
+        return new ParadaDescargaDto(
+            parada.Id,
+            Guid.Empty,
+            parada.Orden,
+            parada.Estado,
+            retiro.CodigoSeguimientoPublico,
+            retiro.EstadoActual.ToString(),
+            "Retiro",
+            retiro.SelloModificacion,
+            ventana,
+            new DireccionDescargaDto(direccion?.ToString() ?? retiro.DireccionRetiro, direccion?.Latitud, direccion?.Longitud, direccion?.Referencia),
+            new DestinatarioDescargaDto(retiro.NombreContacto, retiro.TelefonoContacto, retiro.EmailContacto),
+            retiro.Bultos
+                .OrderBy(b => b.Identificacion, StringComparer.Ordinal)
+                .Select(b => new BultoDescargaDto(b.Id, b.Identificacion, b.Peso, null))
+                .ToList(),
+            Parada.TipoRetiro,
+            retiro.Id,
+            retiro.Motivo);
     }
 
     private static ParadaDescargaDto ConstruirParada(

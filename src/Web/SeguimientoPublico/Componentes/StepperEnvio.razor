@@ -47,7 +47,7 @@
     {
         EstadoEnvioDto.Admitido => 1,
         EstadoEnvioDto.EnDeposito => 2,
-        EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito or EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado => 3,
+EstadoEnvioDto.AsignadoARuta or EstadoEnvioDto.EnTransito or EstadoEnvioDto.NoEntregado or EstadoEnvioDto.Reprogramado or EstadoEnvioDto.EntregadoParcialmente => 3,
         EstadoEnvioDto.Entregado or EstadoEnvioDto.Devuelto or EstadoEnvioDto.Extraviado => 4,
         _ => 2
     };

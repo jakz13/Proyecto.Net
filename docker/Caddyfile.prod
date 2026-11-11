@@ -1,6 +1,18 @@
 # Balanceador y proxy inverso de producción.
 # {$DOMINIO} lo toma de la variable de entorno; Caddy obtiene y renueva el certificado solo.
 
+# Cabeceras de seguridad comunes a todos los sitios (OWASP): HTTPS forzado, sin sniffing de tipos, sin incrustación en marcos
+(seguridad) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "microphone=()"
+		-Server
+	}
+}
+
 # Interno (sin publicar): balanceador que usa el backoffice para llegar a la API.
 :8081 {
 	reverse_proxy api1:8080 api2:8080 {
@@ -14,6 +26,7 @@
 }
 
 {$DOMINIO} {
+	import seguridad
 	encode gzip
 
 	# La API (REST, SignalR y salud) se reparte entre las dos instancias.
@@ -38,6 +51,7 @@
 
 # Portal del comercio en su propio dominio. La API se sirve también aquí (mismo origen para el navegador).
 {$DOMINIO_COMERCIO} {
+	import seguridad
 	encode gzip
 
 	@api path /api/* /hubs/*
@@ -59,6 +73,7 @@
 
 # Panel de observabilidad (Grafana). Prometheus no se publica: solo Grafana lo consulta por la red interna.
 {$DOMINIO_PANEL} {
+	import seguridad
 	encode gzip
 	reverse_proxy grafana:3000
 }

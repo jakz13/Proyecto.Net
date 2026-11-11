@@ -41,7 +41,8 @@ public class AltaEnvioProcesador
         Guid operadorId,
         AltaEnvioCommand request,
         Guid? loteImportacionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool simular = false)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -55,7 +56,7 @@ public class AltaEnvioProcesador
             throw new DomainValidationException("El envío debe incluir al menos un bulto.");
 
         var referencia = string.IsNullOrWhiteSpace(request.ReferenciaExterna) ? null : request.ReferenciaExterna.Trim();
-        if (referencia is not null)
+        if (referencia is not null && !simular)
         {
             var existente = await _envioRepository.GetByReferenciaExternaAsync(request.ComercioId, referencia, cancellationToken);
             if (existente is not null)
@@ -126,6 +127,12 @@ public class AltaEnvioProcesador
                 $"No existe una regla de tarifa aplicable para la modalidad '{envio.ModalidadServicio}' con el peso y volumen informados.");
 
         envio.AplicarTarifa(regla.CalcularPrecioFinal(), regla.Id);
+
+        // Ambiente de pruebas: se validó y se calculó la tarifa, pero no se registra ni se publica nada
+        if (simular)
+        {
+            return new AltaEnvioResultDto(Guid.Empty, "SBX-" + codigoSeguimiento, envio.EstadoActual.ToString(), envio.TarifaCalculada, identificaciones, Simulado: true);
+        }
 
         await _destinatarioRepository.AddAsync(destinatario, cancellationToken);
         await _direccionRepository.AddAsync(direccion, cancellationToken);

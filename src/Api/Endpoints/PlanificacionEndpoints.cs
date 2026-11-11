@@ -6,6 +6,7 @@ using UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -15,7 +16,7 @@ public static class PlanificacionEndpoints
     {
         var group = app.MapGroup("/api/planificacion/hojas-de-ruta")
             .WithTags("Planificación (UC-08, UC-09, UC-10)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Deposito);
 
         group.MapPost("/", async (
             [FromBody] ArmarHojaDeRutaRequest request,
@@ -28,7 +29,8 @@ public static class PlanificacionEndpoints
                     request.RepartidorId,
                     request.VehiculoId,
                     request.Fecha,
-                    request.EnviosIds ?? new List<Guid>());
+                    request.EnviosIds ?? new List<Guid>(),
+                    RetirosIds: request.RetirosIds);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Created($"/api/planificacion/hojas-de-ruta/{resultado.HojaDeRutaId}", resultado);
@@ -51,8 +53,9 @@ public static class PlanificacionEndpoints
             }
         })
         .WithName("ArmarHojaDeRuta")
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithSummary("Armar y liberar una hoja de ruta")
-        .WithDescription("Asigna los envíos en depósito a un repartidor y un vehículo validando paradas máximas, capacidad y franjas. Los envíos que no cumplen se excluyen y se informa el motivo. La ruta queda liberada para su descarga.")
+        .WithDescription("Asigna los envíos en depósito y los retiros en domicilio solicitados a un repartidor y un vehículo (hoja de ruta mixta), validando paradas máximas, franjas y la capacidad del vehículo a lo largo del recorrido: los retiros suman carga desde la parada en que se suben. Lo que no cumple se excluye y se informa el motivo. La ruta queda liberada para su descarga.")
         .Produces<ArmarHojaDeRutaResultDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -68,7 +71,8 @@ public static class PlanificacionEndpoints
             try
             {
                 var command = new ArmarHojaDeRutaCommand(
-                    request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true);
+                    request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true,
+                    RetirosIds: request.RetirosIds);
                 return Results.Ok(await mediator.Send(command, ct));
             }
             catch (DomainValidationException ex)
@@ -85,6 +89,7 @@ public static class PlanificacionEndpoints
             }
         })
         .WithName("ValidarArmadoHojaDeRuta")
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithSummary("Validar el armado de una hoja de ruta sin guardarla")
         .WithDescription("Aplica las restricciones de paradas, capacidad y franjas y devuelve qué envíos entrarían y cuáles se excluirían, sin asignar nada.")
         .Produces<ArmarHojaDeRutaResultDto>(StatusCodes.Status200OK)
@@ -176,7 +181,7 @@ public static class PlanificacionEndpoints
         app.MapGet("/api/planificacion/envios-pendientes", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosPendientesDeRutaQuery(), ct)))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithTags("Planificación (UC-08, UC-09, UC-10)")
         .WithName("ListarEnviosPendientesDeRuta")
         .WithSummary("Envíos en depósito, clasificados, listos para asignar a una hoja de ruta")
@@ -216,6 +221,7 @@ public static class PlanificacionEndpoints
             }
         })
         .WithName("ReasignarEnvio")
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithSummary("Reasignar o reprogramar un envío en ruta (UC-10)")
         .WithDescription("Retira el envío de su hoja de ruta. Si la ruta no salió vuelve a depósito y puede asignarse a otra ruta liberada o reprogramarse. Si ya está en la calle queda no entregado con un motivo interno y vuelve a depósito en la rendición.")
         .Produces<ReasignacionResultDto>(StatusCodes.Status200OK)
@@ -280,4 +286,5 @@ public record ArmarHojaDeRutaRequest(
     Guid RepartidorId,
     Guid VehiculoId,
     DateOnly Fecha,
-    List<Guid>? EnviosIds);
+    List<Guid>? EnviosIds,
+    List<Guid>? RetirosIds = null);

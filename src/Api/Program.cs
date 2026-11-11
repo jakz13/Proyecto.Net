@@ -87,7 +87,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddScheme<AuthenticationSchemeOptions, DevMobileAuthHandler>(DevMobileAuthHandler.SchemeName, _ => { });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(UltimaMilla.Api.Auth.PoliticasApi.Configurar);
 
 // Límite de tasa para la consulta pública de seguimiento (evita la enumeración de códigos y el abuso)
 builder.Services.AddRateLimiter(opciones =>
@@ -104,15 +104,24 @@ builder.Services.AddRateLimiter(opciones =>
             }));
 
     // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
+    // Limitación diferenciada: cada clave de producción tiene su propio cupo (120/min), la clave de pruebas uno menor (20/min)
+    // y quien no presenta clave se acota por IP (30/min) para frenar el intento de adivinarlas.
     opciones.AddPolicy(AltaEnvioCanalesEndpoints.PoliticaLimiteIntegracion, contexto =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 120,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
+    {
+        var clave = contexto.Request.Headers["X-Api-Key"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(clave))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter(
+                "ip:" + (contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida"),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+        }
+
+        var huella = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clave.Trim())))[..16];
+        var esPruebas = clave.StartsWith(UltimaMilla.Application.Ports.IClavesApiPruebas.Prefijo, StringComparison.Ordinal);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            (esPruebas ? "pruebas:" : "clave:") + huella,
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = esPruebas ? 20 : 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -126,6 +135,32 @@ builder.Services.AddSwaggerGen(c =>
         {
             Name = "Plataforma Última Milla"
         }
+    });
+
+    // Documentación navegable de la API pública para comercios (versionada: v1), separada de la API interna
+    c.SwaggerDoc("integracion", new OpenApiInfo
+    {
+        Title = "Última Milla · API pública para comercios",
+        Version = "v1",
+        Description = "Integración del sistema del comercio con el operador logístico.\n\n" +
+                      "**Autenticación:** cabecera `X-Api-Key` con la clave del comercio (se genera en el portal del comercio y se muestra una sola vez).\n\n" +
+                      "**Ambiente de pruebas:** la clave de pruebas (`GET /api/comercio/clave-api-pruebas`) valida el pedido y calcula la tarifa real, pero no registra ni publica nada; la respuesta trae `sandbox=true`.\n\n" +
+                      "**Limitación de tasa (por clave):** 120 solicitudes por minuto con la clave de producción, 20 con la de pruebas y 30 por IP sin clave. Al superarla se responde 429.\n\n" +
+                      "**Idempotencia:** con `referenciaExterna`, reintentar devuelve el envío ya admitido (200) en lugar de crear otro.\n\n" +
+                      "**Versionado:** la ruta incluye la versión (`/api/integracion/v1/...`); los cambios que rompen compatibilidad se publican como v2 sin retirar v1."
+    });
+
+    c.DocInclusionPredicate((documento, api) =>
+        documento != "integracion"
+        || (api.RelativePath?.StartsWith("api/integracion/", StringComparison.Ordinal) ?? false)
+        || api.RelativePath == "api/comercio/clave-api-pruebas");
+
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Description = "Clave de API del comercio (o la clave de pruebas) en la cabecera X-Api-Key.",
+        Name = "X-Api-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -167,6 +202,10 @@ if (!string.IsNullOrWhiteSpace(redisBackplane))
     {
         opciones.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("UltimaMilla.Tablero");
         opciones.Configuration.AbortOnConnectFail = false;
+        // Con Redis caído, emitir al tablero no debe retener la solicitud: la espera por defecto (5 s por mensaje) se acota a 1 s
+        opciones.Configuration.ConnectTimeout = 1000;
+        opciones.Configuration.SyncTimeout = 1000;
+        opciones.Configuration.AsyncTimeout = 1000;
     });
 }
 
@@ -203,6 +242,35 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Una línea de log por solicitud (método, ruta, código y duración) con el CorrelationId del middleware anterior.
 // Las rutas de salud y de métricas se registran en nivel Verbose para no llenar el log con los chequeos periódicos.
+// Errores no controlados: nunca se devuelve el detalle de la excepción (rutas, SQL, pila). Si la base de datos no responde se
+// contesta 503 con Retry-After (degradación esperada, el cliente reintenta); cualquier otro fallo es un 500 genérico con el
+// identificador de traza para buscarlo en los logs.
+app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
+{
+    var error = contexto.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    var baseNoDisponible = false;
+    for (var e = error; e is not null; e = e.InnerException)
+    {
+        if (e is Npgsql.NpgsqlException || e is System.Net.Sockets.SocketException || e is TimeoutException)
+        {
+            baseNoDisponible = true;
+            break;
+        }
+    }
+
+    contexto.Response.ContentType = "application/json";
+    if (baseNoDisponible)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        contexto.Response.Headers.RetryAfter = "5";
+        await contexto.Response.WriteAsJsonAsync(new { error = "El servicio no está disponible temporalmente. Reintente en unos segundos." });
+        return;
+    }
+
+    contexto.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await contexto.Response.WriteAsJsonAsync(new { error = "Ocurrió un error inesperado.", traceId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? contexto.TraceIdentifier });
+}));
+
 app.UseSerilogRequestLogging(opciones =>
 {
     opciones.GetLevel = (contexto, _, excepcion) =>
@@ -223,7 +291,8 @@ app.UseSerilogRequestLogging(opciones =>
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Última Milla v1");
+    c.SwaggerEndpoint("/swagger/integracion/swagger.json", "API pública para comercios (v1)");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
     c.DocumentTitle = "Última Milla · API Docs";
     c.DocExpansion(DocExpansion.List);
     c.DefaultModelsExpandDepth(-1);
@@ -424,6 +493,7 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
     }
 })
 .WithName("AltaEnvio")
+.RequireAuthorization(PoliticasApi.Comercio)
 .WithSummary("Registrar nuevo envío")
 .WithDescription("Crea una orden de envío en estado Admitido para el comercio solicitante.")
 .Produces(StatusCodes.Status201Created)
@@ -449,6 +519,7 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
     var status = await mediator.Send(new CheckMobileConnectivityQuery());
     return Results.Ok(status);
 })
+.RequireAuthorization()
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
 
@@ -488,12 +559,19 @@ app.MapIncidenciasEndpoints();
 // Registrar reglas operativas y motivos de no entrega (UC-04, UC-05)
 app.MapOperadorConfiguracionEndpoints();
 
+// Retiro en domicilio (cambio de requerimientos 2.2): portal, API por clave, backoffice y repartidor
+app.MapRetirosEndpoints();
+
+// Banderas de funcionalidad por operador (activables por el administrador de la plataforma)
+app.MapFuncionalidadesEndpoints();
+
 // Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
 app.MapAltaEnvioCanalesEndpoints();
 app.MapAvisosComercioEndpoints();
 
 // Administración del operador para el Backoffice (comercios, usuarios, zonas, tarifas, reglas, motivos, identidad, flota y mensajería)
 app.MapComerciosBackofficeEndpoints();
+app.MapComercioOperadoresEndpoints();
 app.MapUsuariosBackofficeEndpoints();
 app.MapZonasCoberturaEndpoints();
 app.MapCuadroTarifarioEndpoints();

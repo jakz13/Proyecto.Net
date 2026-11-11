@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
+using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -10,7 +12,7 @@ public static class ReportesEndpoints
 {
     public static readonly string[] TiposValidos =
     {
-        "CumplimientoZona", "CumplimientoRepartidor", "CumplimientoComercio", "MotivosNoEntrega", "VolumenPeriodo", "LiquidacionComercio"
+        "CumplimientoZona", "CumplimientoRepartidor", "CumplimientoComercio", "MotivosNoEntrega", "VolumenPeriodo", "LiquidacionComercio", "RetirosEnDomicilio"
     };
 
     private const int MaximoDiasDelPeriodo = 366;
@@ -54,7 +56,7 @@ public static class ReportesEndpoints
             var resultado = await new ConstructorReportes(db, tenant.OperadorId, filtro, reloj.UtcNow).GenerarAsync(ct);
             return Results.Ok(resultado);
         }))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithTags("Reportes de gestión (UC-13, RF-30)")
         .WithName("GenerarReporteDeGestion")
         .WithSummary("Genera el reporte indicado para el período y los filtros recibidos");
@@ -96,6 +98,7 @@ internal sealed class ConstructorReportes
         var motivos = new List<ItemReporteMotivosDto>();
         var volumen = new List<ItemReporteVolumenDto>();
         var liquidacion = new List<ItemReporteLiquidacionDto>();
+        var retiros = new List<ItemReporteRetirosDto>();
 
         switch (_filtro.TipoReporte)
         {
@@ -112,6 +115,9 @@ internal sealed class ConstructorReportes
                 break;
             case "LiquidacionComercio":
                 liquidacion = await LiquidacionAsync(ct);
+                break;
+            case "RetirosEnDomicilio":
+                retiros = await RetirosAsync(ct);
                 break;
         }
 
@@ -132,8 +138,44 @@ internal sealed class ConstructorReportes
             ItemsCumplimiento = cumplimiento,
             ItemsMotivos = motivos,
             ItemsVolumen = volumen,
-            ItemsLiquidacion = liquidacion
+            ItemsLiquidacion = liquidacion,
+            ItemsRetiros = retiros
         };
+    }
+
+    // ---------------------------------------------------------------- Retiros en domicilio (RF 41)
+
+    /// <summary>
+    /// Retiros solicitados en el período, por comercio: cómo terminaron y lo facturado por los que ya llegaron al comercio.
+    /// El retiro tiene tarifa propia dentro del cuadro; se factura al cerrarse el flujo.
+    /// </summary>
+    private async Task<List<ItemReporteRetirosDto>> RetirosAsync(CancellationToken ct)
+    {
+        var retiros = await _db.Retiros.AsNoTracking().IgnoreAutoIncludes()
+            .Where(r => r.OperadorId == _operadorId && r.FechaSolicitud >= _desdeUtc && r.FechaSolicitud < _hastaUtc
+                        && (_filtro.ComercioId == null || r.ComercioOperadorId == _filtro.ComercioId))
+            .Select(r => new { r.ComercioOperadorId, r.EstadoActual, r.TarifaCalculada })
+            .ToListAsync(ct);
+
+        var nombres = await NombresAsync(Array.Empty<Guid?>(), Array.Empty<Guid?>(), retiros.Select(r => r.ComercioOperadorId), ct);
+
+        return retiros
+            .GroupBy(r => r.ComercioOperadorId)
+            .Select(g => new ItemReporteRetirosDto
+            {
+                ComercioId = g.Key,
+                Comercio = nombres.Comercio(g.Key).Nombre,
+                Solicitados = g.Count(),
+                Retirados = g.Count(r => r.EstadoActual is EstadoRetiro.Retirado or EstadoRetiro.EnDeposito or EstadoRetiro.EntregadoAlComercio),
+                NoRetirados = g.Count(r => r.EstadoActual == EstadoRetiro.NoRetirado),
+                EntregadosAlComercio = g.Count(r => r.EstadoActual == EstadoRetiro.EntregadoAlComercio),
+                Cancelados = g.Count(r => r.EstadoActual == EstadoRetiro.Cancelado),
+                EnCurso = g.Count(r => r.EstadoActual is EstadoRetiro.Solicitado or EstadoRetiro.AsignadoARuta or EstadoRetiro.Retirado or EstadoRetiro.NoRetirado or EstadoRetiro.EnDeposito),
+                TotalFacturado = g.Where(r => r.EstadoActual == EstadoRetiro.EntregadoAlComercio).Sum(r => r.TarifaCalculada)
+            })
+            .OrderByDescending(i => i.Solicitados)
+            .ThenBy(i => i.Comercio)
+            .ToList();
     }
 
     // ---------------------------------------------------------------- Cumplimiento
@@ -188,7 +230,8 @@ internal sealed class ConstructorReportes
         var filas = new Dictionary<string, (string? Detalle, int Asignados, int EnPlazo, int Demora, int NoEntregados)>();
         foreach (var parada in ultimaParada)
         {
-            if (!envios.TryGetValue(parada.EnvioId, out var envio))
+            // El cumplimiento por zona, repartidor y comercio se mide sobre entregas; los retiros tienen su propio reporte
+            if (parada.EnvioId is not { } envioDeLaParada || !envios.TryGetValue(envioDeLaParada, out var envio))
                 continue;
 
             var zona = direcciones.GetValueOrDefault(parada.DireccionId) is { } zid ? zonas.GetValueOrDefault(zid) ?? "Sin zona" : "Sin zona";
@@ -196,7 +239,7 @@ internal sealed class ConstructorReportes
                 continue;
 
             var ruta = rutaPorId[parada.HojaDeRutaId];
-            var delEnvio = intentos[parada.EnvioId].ToList();
+            var delEnvio = intentos[envioDeLaParada].ToList();
             var exitoso = delEnvio.Where(i => i.Resultado == "Exitoso").OrderByDescending(i => i.Timestamp).FirstOrDefault();
 
             var enPlazo = false;

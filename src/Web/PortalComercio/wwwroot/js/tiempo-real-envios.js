@@ -26,6 +26,11 @@
                 referencia.invokeMethodAsync('AlCambiarEstado', cambio.codigoSeguimiento || '', cambio.estado || '');
             });
 
+            // El comercio se vinculó (o se desvinculó) de un operador: el selector del encabezado se actualiza sin recargar
+            conexion.on('OperadoresDelComercioCambiaron', function () {
+                referencia.invokeMethodAsync('AlCambiarOperadores');
+            });
+
             // Lo ocurrido mientras la conexión estuvo caída no llega como evento: se pide un refresco general
             conexion.onreconnected(function () {
                 referencia.invokeMethodAsync('AlCambiarEstado', '', '');

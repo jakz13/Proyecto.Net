@@ -7,7 +7,9 @@ using UltimaMilla.Application.Commands.Operador.PublicarReglaOperativa;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Operador;
+using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -17,7 +19,8 @@ public static class OperadorConfiguracionEndpoints
     {
         var reglas = app.MapGroup("/api/reglas-operativas")
             .WithTags("Reglas operativas (UC-04)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.PersonalDelOperador)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         reglas.MapGet("/", ([FromServices] IMediator m, CancellationToken ct) =>
                 Ejecutar(async () => Results.Ok(await m.Send(new ListarReglasOperativasQuery(), ct))))
@@ -45,10 +48,12 @@ public static class OperadorConfiguracionEndpoints
                         r.ResolverPlazoEstandar(),
                         r.ResolverPlazoUrgente(),
                         r.ResolverMaxParadas(),
-                        r.Comentario), ct);
+                        r.Comentario,
+                        r.AdmiteEntregaParcial ?? true,
+                        r.PoliticaEntregaParcial ?? ReglaOperativa.PoliticaNuevaVisitaSinRecargo), ct);
                     return Results.Created($"/api/reglas-operativas/{dto.Id}", dto);
                 }))
-            .WithName("PublicarReglaOperativa").WithSummary("Publicar una nueva versión de regla operativa (UC-04)")
+            .WithName("PublicarReglaOperativa").WithSummary("Publicar una nueva versión de regla operativa (UC-04, RF-33)")
             .Produces<ReglaOperativaDto>(StatusCodes.Status201Created).Produces(StatusCodes.Status400BadRequest).WithOpenApi();
 
         reglas.MapPost("/simular", ([FromBody] SimularReglaOperativaRequest r, [FromServices] IMediator m, CancellationToken ct) =>
@@ -62,7 +67,8 @@ public static class OperadorConfiguracionEndpoints
 
         var motivos = app.MapGroup("/api/v1/motivos-no-entrega")
             .WithTags("Motivos de no entrega (UC-05)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.PersonalDelOperador)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         motivos.MapGet("/", ([FromQuery] string? busqueda, [FromQuery] bool? soloActivos, [FromServices] IMediator m, CancellationToken ct) =>
                 Ejecutar(async () => Results.Ok(await m.Send(new ListarMotivosNoEntregaQuery(busqueda, soloActivos), ct))))
@@ -139,7 +145,9 @@ public record PublicarReglaOperativaRequest(
     int? HorasEntreIntentos = null,
     int? HorasPlazoComprometidoEstandar = null,
     int? HorasPlazoComprometidoUrgente = null,
-    string? Comentario = null)
+    string? Comentario = null,
+    bool? AdmiteEntregaParcial = null,
+    string? PoliticaEntregaParcial = null)
 {
     public TimeSpan ResolverPlazoEntreIntentos() =>
         PlazoEntreIntentos ?? (HorasEntreIntentos.HasValue ? TimeSpan.FromHours(HorasEntreIntentos.Value) : TimeSpan.FromHours(24));

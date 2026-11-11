@@ -239,7 +239,8 @@ public class HttpRutasApi : IRutasApi
         repartidorId = dto.RepartidorId,
         vehiculoId = dto.VehiculoId,
         fecha = dto.Fecha.ToString("yyyy-MM-dd"),
-        enviosIds = dto.EnviosIds
+        enviosIds = dto.EnviosIds,
+        retirosIds = dto.RetirosIds
     };
 
     private static string EstadoParaApi(string estadoPantalla) => estadoPantalla == "Finalizada" ? "Rendida" : estadoPantalla;

@@ -28,6 +28,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
     private readonly IDistributedCacheService? _cacheService;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public SolicitarReprogramacionCommandHandler(
         IEnvioRepository envioRepository,
@@ -38,8 +39,10 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         IClock clock,
         IUnitOfWork unitOfWork,
         ICurrentTenant? currentTenant = null,
-        IDistributedCacheService? cacheService = null)
+        IDistributedCacheService? cacheService = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _direccionRepository = direccionRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
@@ -65,6 +68,9 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
 
         // Fija el operador dueño del envío resuelto por su código público para que la lectura rastreada y el guardado queden acotados a ese operador
         _currentTenant?.EstablecerOperadorDeProceso(consultado.OperadorId);
+
+        // El operador puede no ofrecer la reprogramación al destinatario (funcionalidad activable por operador)
+        await _funcionalidades.ExigirAsync(consultado.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken);
 
         // La consulta por código no rastrea la entidad; se vuelve a leer para poder modificarla
         var envio = await _envioRepository.GetByIdAsync(consultado.Id, cancellationToken)

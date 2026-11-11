@@ -37,6 +37,7 @@ public static class InyeccionDependencias
         servicios.AddSingleton<ITableroApi, MockTableroApi>();
         servicios.AddSingleton<IReportesApi, MockReportesApi>();
         servicios.AddSingleton<IAvisosComercioApi, MockAvisosComercioApi>();
+        servicios.AddSingleton<IRetirosApi, MockRetirosApi>();
 
         return servicios;
     }
@@ -139,6 +140,12 @@ public static class InyeccionDependencias
         });
 
         servicios.AddHttpClient<IAvisosComercioApi, HttpAvisosComercioApi>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(urlBaseApi);
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        servicios.AddHttpClient<IRetirosApi, HttpRetirosApi>(cliente =>
         {
             cliente.BaseAddress = new Uri(urlBaseApi);
             cliente.Timeout = TimeSpan.FromSeconds(15);

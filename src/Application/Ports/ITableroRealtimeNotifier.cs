@@ -21,6 +21,13 @@ public interface ITableroRealtimeNotifier
     Task NotificarEnvioCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid envioId, string codigoSeguimiento, string estado, CancellationToken ct = default)
         => Task.CompletedTask;
 
+    /// <summary>
+    /// Avisa a las sesiones de un comercio que cambió la lista de operadores con los que trabaja (alta de un vínculo nuevo, baja o suspensión).
+    /// Se emite al comercio (por su identificador, común a todos sus operadores), nunca a otros.
+    /// </summary>
+    Task NotificarOperadoresDelComercioAsync(Guid comercioId, CancellationToken ct = default)
+        => Task.CompletedTask;
+
     Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
         => Task.CompletedTask;
 }

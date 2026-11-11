@@ -6,6 +6,7 @@ using UltimaMilla.Application.Commands.Incidencias.RegistrarSeguimientoIncidenci
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Incidencias;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -15,7 +16,7 @@ public static class IncidenciasEndpoints
     {
         var group = app.MapGroup("/api/backoffice/incidencias")
             .WithTags("Incidencias (UC-11)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones);
 
         group.MapPost("/", (
             [FromBody] AbrirIncidenciaRequest request,

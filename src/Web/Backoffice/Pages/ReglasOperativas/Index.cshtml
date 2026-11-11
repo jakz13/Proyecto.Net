@@ -152,6 +152,34 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Entrega Parcial de Bultos (RF-33)</span>
+                                    <partial name="_BotonAyuda" model='"Define si el operador admite entregar una parte de los bultos en una parada."' />
+                                </div>
+                                <div class="fw-semibold text-dark small mt-1">
+                                    <span class="badge @(Model.VersionVigente.AdmiteEntregaParcial ? "bg-success-subtle text-success border-success-subtle" : "bg-danger-subtle text-danger border-danger-subtle") border px-2 py-1">
+                                        @(Model.VersionVigente.AdmiteEntregaParcial ? "Habilitada" : "No admitida (solo entrega total)")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="metrica-card">
+                                <div class="metrica-card__header">
+                                    <span class="metrica-card__label">Política de Bultos Pendientes (RF-33)</span>
+                                    <partial name="_BotonAyuda" model='"Destino de los bultos no entregados cuando ocurre una entrega parcial."' />
+                                </div>
+                                <div class="fw-semibold text-dark small mt-1">
+                                    <span class="badge bg-info-subtle text-dark border font-monospace px-2 py-1">
+                                        @Model.VersionVigente.PoliticaEntregaParcial
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>

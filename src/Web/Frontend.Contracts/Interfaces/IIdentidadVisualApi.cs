@@ -24,6 +24,17 @@ public interface IIdentidadVisualApi
     Task<IReadOnlyList<IdentidadVisualDto>> ListarOperadoresDemoAsync(CancellationToken cancelacion = default);
 
     /// <summary>
+    /// Operadores con los que trabaja el comercio de la sesión (mismo RUT vinculado a varios operadores) y el de la sesión actual.
+    /// Requiere sesión de comercio: sin ella la API responde 401/403.
+    /// </summary>
+    Task<OperadoresDelComercioDto> ObtenerOperadoresDelComercioAsync(CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Abre sesión con otro de los operadores del comercio y devuelve el token nuevo, acotado a ese operador.
+    /// </summary>
+    Task<SesionOperadorDto> AbrirSesionConOperadorAsync(string operadorId, CancellationToken cancelacion = default);
+
+    /// <summary>
     /// Actualiza la identidad visual (marca, colores, contacto) del operador actual (UC-06, RF-05).
     /// </summary>
     Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default);

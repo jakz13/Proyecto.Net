@@ -403,8 +403,8 @@
                                 <label asp-for="NuevoRepartidor.Password" class="form-label small fw-semibold">
                                     Contraseña para App Móvil
                                 </label>
-                                <input asp-for="NuevoRepartidor.Password" type="password" class="form-control form-control-sm" placeholder="Por defecto: Repartidor.2026!" maxlength="100" />
-                                <span class="text-muted small" style="font-size: 0.725rem;">Si se omite, se asigna 'Repartidor.2026!'.</span>
+                                <input asp-for="NuevoRepartidor.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 8 caracteres" minlength="8" required maxlength="100" />
+                                <span class="text-muted small" style="font-size: 0.725rem;">Obligatoria. El repartidor la usa en su primer ingreso a la app.</span>
                                 <span asp-validation-for="NuevoRepartidor.Telefono" class="text-danger small"></span>
                             </div>
                             <div class="col-12">

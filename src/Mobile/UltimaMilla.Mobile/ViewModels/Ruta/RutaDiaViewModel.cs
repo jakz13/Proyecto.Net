@@ -4,19 +4,45 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Optimization;
+using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
 
-public class BultoItemViewModel
+public partial class BultoItemViewModel : ObservableObject
 {
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid ParadaId { get; init; } = Guid.Empty;
+    public Guid EnvioId { get; init; } = Guid.Empty;
     public string Codigo { get; init; } = string.Empty;
     public string Descripcion { get; init; } = string.Empty;
     public decimal PesoKg { get; init; }
     public bool EsFragil { get; init; }
     public string Icono => EsFragil ? "FRÁGIL" : "ESTÁNDAR";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoCargaTexto))]
+    [NotifyPropertyChangedFor(nameof(BadgeCargaBgColor))]
+    [NotifyPropertyChangedFor(nameof(BadgeCargaTextColor))]
+    private bool _verificadoEnCarga;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoEntregaTexto))]
+    [NotifyPropertyChangedFor(nameof(BadgeEntregaBgColor))]
+    [NotifyPropertyChangedFor(nameof(BadgeEntregaTextColor))]
+    [NotifyPropertyChangedFor(nameof(FondoCardColor))]
+    private bool _verificadoEnEntrega;
+
+    public string EstadoCargaTexto => VerificadoEnCarga ? "Cargado y Verificado" : "Pendiente de Escaneo";
+    public Color BadgeCargaBgColor => VerificadoEnCarga ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F1F5F9");
+    public Color BadgeCargaTextColor => VerificadoEnCarga ? Color.FromArgb("#16A34A") : Color.FromArgb("#64748B");
+
+    public string EstadoEntregaTexto => VerificadoEnEntrega ? "Verificado para entrega" : "Pendiente de verificación";
+    public Color BadgeEntregaBgColor => VerificadoEnEntrega ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F1F5F9");
+    public Color BadgeEntregaTextColor => VerificadoEnEntrega ? Color.FromArgb("#16A34A") : Color.FromArgb("#64748B");
+    public Color FondoCardColor => VerificadoEnEntrega ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#F8FAFC");
 }
 
 public partial class ParadaItemViewModel : ObservableObject
@@ -66,26 +92,34 @@ public partial class ParadaItemViewModel : ObservableObject
     public double Longitud { get; init; }
     public List<BultoItemViewModel> Bultos { get; init; } = new();
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstadoBgColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoTextColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoBorderColor))]
+    [NotifyPropertyChangedFor(nameof(EstadoTextoBadge))]
+    [NotifyPropertyChangedFor(nameof(PuedeRegistrar))]
+    private bool _enPrecarga;
+
     // Helpers visuales para el renderizado del badge de estado en XAML
     public Color EstadoBgColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#DCFCE7"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#FEE2E2"),
-        _ => Color.FromArgb("#FEF3C7")
+        _ => EnPrecarga ? Color.FromArgb("#F1F5F9") : Color.FromArgb("#FEF3C7")
     };
 
     public Color EstadoTextColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#15803D"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#B91C1C"),
-        _ => Color.FromArgb("#B45309")
+        _ => EnPrecarga ? Color.FromArgb("#475569") : Color.FromArgb("#B45309")
     };
 
     public Color EstadoBorderColor => Estado switch
     {
         "Entregado" => Color.FromArgb("#86EFAC"),
         "Fallido" or "EnDevolucion" => Color.FromArgb("#FCA5A5"),
-        _ => Color.FromArgb("#FCD34D")
+        _ => EnPrecarga ? Color.FromArgb("#CBD5E1") : Color.FromArgb("#FCD34D")
     };
 
     public string EstadoTextoBadge => Estado switch
@@ -93,7 +127,7 @@ public partial class ParadaItemViewModel : ObservableObject
         "Entregado" => "Entregado",
         "EnDevolucion" => "En Devolución",
         "Fallido" => "Fallido",
-        _ => "Pendiente"
+        _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
     };
 
     // Helpers visuales para Geocercas
@@ -117,7 +151,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public Color GeocercaBorderColor => Color.FromArgb("#93C5FD");
     public Color GeocercaTextColor => Color.FromArgb("#1E40AF");
 
-    public bool PuedeRegistrar => Estado == "Pendiente";
+    public bool PuedeRegistrar => Estado == "Pendiente" && !EnPrecarga;
 }
 
 public partial class RutaDiaViewModel : ObservableObject, IDisposable
@@ -128,9 +162,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly IGeofenceService? _geofenceService;
     private readonly IAuthService? _authService;
     private readonly IRutaOptimizationService _optimizationService;
+    private readonly IBiometricAuthService? _biometricAuthService;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecorridoNoIniciado))]
+    private string _estadoHojaDeRuta = "EnTransito";
+
+    public bool RecorridoNoIniciado => EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador";
 
     [ObservableProperty]
     private bool _isOffline = true;
@@ -170,6 +211,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     // =========================================================================
     [ObservableProperty]
     private bool _isTrackingGpsActivo = false;
+
+    [ObservableProperty]
+    private bool _foregroundServiceActivo = false;
 
     [ObservableProperty]
     private string _estadoTrackingTexto = "GPS en vivo";
@@ -215,7 +259,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null, null)
     {
     }
 
@@ -225,7 +269,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         IGeolocalizacionTrackingService? trackingService,
         IGeofenceService? geofenceService = null,
         IAuthService? authService = null,
-        IRutaOptimizationService? optimizationService = null)
+        IRutaOptimizationService? optimizationService = null,
+        IBiometricAuthService? biometricAuthService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -233,6 +278,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         _geofenceService = geofenceService;
         _authService = authService;
         _optimizationService = optimizationService ?? new RutaOptimizationService();
+        _biometricAuthService = biometricAuthService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -269,6 +315,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             IsTrackingGpsActivo = activo;
+            ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
             ActualizarEstadoVisualTracking(activo);
         });
     }
@@ -278,14 +325,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             UltimaUbicacionTexto = $"{e.Latitud:F4}, {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
+            ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
+            string estadoGps = ForegroundServiceActivo ? "GPS en vivo (Segundo plano)" : "GPS en vivo";
             if (e.TransmitidaSignalR)
             {
-                EstadoTrackingTexto = "GPS en vivo";
+                EstadoTrackingTexto = estadoGps;
                 TrackingDotColor = Color.FromArgb("#16A34A");
             }
             else
             {
-                EstadoTrackingTexto = "GPS en vivo";
+                EstadoTrackingTexto = estadoGps;
                 TrackingDotColor = Color.FromArgb("#10B981");
             }
         });
@@ -328,9 +377,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     private void ActualizarEstadoVisualTracking(bool activo)
     {
+        ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
         if (activo)
         {
-            EstadoTrackingTexto = "GPS en vivo";
+            EstadoTrackingTexto = ForegroundServiceActivo ? "GPS en vivo (Segundo plano)" : "GPS en vivo";
             TrackingBadgeBgColor = Color.FromArgb("#ECFDF5");
             TrackingBadgeBorderColor = Color.FromArgb("#A7F3D0");
             TrackingBadgeTextColor = Color.FromArgb("#065F46");
@@ -384,6 +434,14 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
             AplicarEstadosGeocercaEnParadas();
             RecalcularProgreso();
+            if (_localDatabaseService != null)
+            {
+                var rutaActiva = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                if (rutaActiva?.Ruta != null)
+                {
+                    EstadoHojaDeRuta = rutaActiva.Ruta.Estado;
+                }
+            }
             await EvaluarYActualizarTrackingAsync();
         }
         finally
@@ -408,6 +466,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                     Paradas.Add(p);
                 }
                 AplicarEstadosGeocercaEnParadas();
+            }
+            if (local?.Ruta != null)
+            {
+                EstadoHojaDeRuta = local.Ruta.Estado;
             }
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
@@ -512,6 +574,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             ? "Desactivar Modo Offline (Pasar a Online)"
             : "Activar Modo Offline Simulado (Demo)";
 
+        const string opcionRendirRuta = "Rendir Hoja de Ruta en Depósito";
         const string opcionSync = "Sincronizar Ahora con Backend";
         const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
         const string opcionCerrarSesion = "Cerrar Sesión";
@@ -521,11 +584,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             "Cerrar",
             null,
             opcionToggle,
+            opcionRendirRuta,
             opcionSync,
             opcionReset,
             opcionCerrarSesion);
 
-        if (seleccion == opcionToggle && _syncService is not null)
+        if (seleccion == opcionRendirRuta)
+        {
+            await RendirHojaDeRutaAsync();
+        }
+        else if (seleccion == opcionToggle && _syncService is not null)
         {
             await _syncService.AlternarModoOfflineSimuladoAsync();
 
@@ -619,10 +687,82 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task RendirHojaDeRutaAsync()
+    {
+        if (IsBusy)
+            return;
+
+        if (_biometricAuthService != null)
+        {
+            var autorizado = await _biometricAuthService.ValidarIdentidadAsync(
+                "Autorizar Rendicion de Ruta",
+                "Verifique su identidad para confirmar la entrega de bultos en deposito y cerrar la jornada.");
+
+            if (!autorizado)
+            {
+                if (Shell.Current is not null)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Operacion Cancelada",
+                        "No se completo la validacion biometrica. La rendicion de la hoja de ruta fue cancelada.",
+                        "Entendido");
+                }
+                return;
+            }
+        }
+
+        try
+        {
+            IsBusy = true;
+
+            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
+            if (_trackingService is { IsTrackingActive: true })
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+
+            if (_localDatabaseService != null && rutaId != Guid.Empty)
+            {
+                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(rutaId, "Rendida");
+            }
+
+            EstadoHojaDeRuta = "Rendida";
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Hoja de Ruta Rendida",
+                    "La rendición en depósito fue confirmada exitosamente con autenticación biométrica.",
+                    "Aceptar");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al rendir ruta: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
     private async Task IrAParadaAsync(ParadaItemViewModel? parada)
     {
         if (parada is null)
             return;
+
+        if (RecorridoNoIniciado || parada.EnPrecarga)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Pendiente de Carga en Depósito",
+                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
+                    "Entendido");
+            }
+            return;
+        }
 
         await Shell.Current.GoToAsync("DetalleParadaPage", new Dictionary<string, object>
         {
@@ -635,6 +775,18 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     {
         if (parada is null)
             return;
+
+        if (RecorridoNoIniciado || parada.EnPrecarga)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Pendiente de Carga en Depósito",
+                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
+                    "Entendido");
+            }
+            return;
+        }
 
         try
         {
@@ -786,9 +938,12 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
                 var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
                 await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
+                string modoSegundoPlano = _trackingService.ForegroundServiceActivo
+                    ? "\nModo segundo plano: Activo con soporte de pantalla apagada (Servicio en primer plano Android)."
+                    : string.Empty;
                 await Shell.Current.DisplayAlertAsync(
                     "Tracking GPS en Vivo",
-                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.",
+                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.{modoSegundoPlano}",
                     "Entendido");
             }
         }

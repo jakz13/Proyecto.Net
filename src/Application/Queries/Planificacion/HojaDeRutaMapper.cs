@@ -17,8 +17,8 @@ public static class HojaDeRutaMapper
         IReadOnlyDictionary<Guid, Repartidor> repartidores)
     {
         var enviosDeLaRuta = ParadasVigentes(ruta)
-            .Where(p => envios.ContainsKey(p.EnvioId))
-            .Select(p => envios[p.EnvioId])
+            .Where(p => p.EnvioId.HasValue && envios.ContainsKey(p.EnvioId.Value))
+            .Select(p => envios[p.EnvioId!.Value])
             .ToList();
 
         Vehiculo? vehiculo = null;

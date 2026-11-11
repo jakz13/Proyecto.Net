@@ -5,6 +5,7 @@
 @inject NavigationManager Navegador
 @inject IConfiguration Configuracion
 @inject ITokenStore TokenStore
+@inject UltimaMilla.PortalComercio.Client.Servicios.TiempoRealEnviosServicio TiempoReal
 @implements IDisposable
 
 @* Inyección dinámica de variables CSS de identidad visual del operador con transición suave *@
@@ -147,6 +148,9 @@
 
     private bool modoDemo = true;
 
+    // Verdadero cuando la lista de operadores viene de la sesión real del comercio (no del selector de la demo)
+    private bool sesionReal;
+
     private async Task CerrarSesionAsync()
     {
         await TokenStore.EliminarTokenAsync();
@@ -170,23 +174,55 @@
         }
 
         ContextoOperador.AlCambiarOperador += ManejarCambioOperador;
+        TiempoReal.OperadoresDelComercioCambiaron += AlCambiarOperadoresDelComercio;
         await CargarOperadoresDisponibles();
         await CargarIdentidadVisual();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // La conexión en vivo es una por sesión y la comparten las páginas; aquí se abre para enterarse de nuevos operadores del comercio
+        if (firstRender && sesionReal)
+        {
+            await TiempoReal.IniciarAsync();
+        }
+    }
+
+    private async Task AlCambiarOperadoresDelComercio()
+    {
+        await InvokeAsync(async () =>
+        {
+            await CargarOperadoresDisponibles();
+            StateHasChanged();
+        });
+    }
+
     private async Task CargarOperadoresDisponibles()
     {
+        // Con sesión de comercio, los operadores son los que el comercio tiene vinculados de verdad
+        try
+        {
+            var delComercio = await IdentidadApi.ObtenerOperadoresDelComercioAsync();
+            operadoresDisponibles = delComercio.Operadores;
+            sesionReal = true;
+            return;
+        }
+        catch
+        {
+            sesionReal = false;
+        }
+
+        // Sin sesión real solo existe el selector de la demo local; en el servidor no se muestran operadores inventados
+        if (!modoDemo)
+        {
+            operadoresDisponibles = [];
+            return;
+        }
+
         try
         {
             var lista = await IdentidadApi.ListarOperadoresDemoAsync();
-            if (lista != null && lista.Count > 0)
-            {
-                operadoresDisponibles = lista;
-            }
-            else
-            {
-                operadoresDisponibles = ContextoOperador.ListarOperadores();
-            }
+            operadoresDisponibles = lista is { Count: > 0 } ? lista : ContextoOperador.ListarOperadores();
         }
         catch
         {
@@ -228,6 +264,15 @@
     private async Task SeleccionarOperadorAsync(string operadorId)
     {
         desplegableOperadoresAbierto = false;
+        if (sesionReal)
+        {
+            // Sesión nueva del mismo usuario, acotada al operador elegido: la API valida que el comercio tenga vínculo activo con él
+            var sesion = await IdentidadApi.AbrirSesionConOperadorAsync(operadorId);
+            await TokenStore.GuardarTokenAsync(sesion.Token);
+            Navegador.NavigateTo("", forceLoad: true);
+            return;
+        }
+
         ContextoOperador.SeleccionarOperador(operadorId);
         await CargarIdentidadVisual();
         // Redirige al Dashboard del comercio para aislar la información del operador anterior y cargar el nuevo operador
@@ -242,5 +287,6 @@
     public void Dispose()
     {
         ContextoOperador.AlCambiarOperador -= ManejarCambioOperador;
+        TiempoReal.OperadoresDelComercioCambiaron -= AlCambiarOperadoresDelComercio;
     }
 }

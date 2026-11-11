@@ -95,7 +95,9 @@ public class MockReglasOperativasApi : IReglasOperativasApi
             PoliticaDevolucion = nuevaVersion.PoliticaDevolucion.Trim(),
             PlazoComprometidoEstandar = TimeSpan.FromHours(nuevaVersion.HorasPlazoComprometidoEstandar),
             PlazoComprometidoUrgente = TimeSpan.FromHours(nuevaVersion.HorasPlazoComprometidoUrgente),
-            Comentario = nuevaVersion.Comentario?.Trim()
+            Comentario = nuevaVersion.Comentario?.Trim(),
+            AdmiteEntregaParcial = nuevaVersion.AdmiteEntregaParcial,
+            PoliticaEntregaParcial = nuevaVersion.PoliticaEntregaParcial
         };
 
         VersionesEnMemoria.Insert(0, nuevaEntidad);

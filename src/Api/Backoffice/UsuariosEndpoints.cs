@@ -5,6 +5,7 @@ using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Queries.Operador.GestionUsuarios;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -17,7 +18,8 @@ public static class UsuariosEndpoints
     {
         var grupo = app.MapGroup("/api/usuarios")
             .WithTags("Backoffice · Usuarios (UC-01)")
-            .RequireAuthorization();
+            .RequireAuthorization(PoliticasApi.Operaciones)
+            .ExigirParaEscritura(PoliticasApi.Administracion);
 
         grupo.MapGet("/", (
             [FromQuery] int? pagina,
@@ -143,7 +145,7 @@ public static class UsuariosEndpoints
                 Descripcion = p.Descripcion
             }).ToList());
         }))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithTags("Backoffice · Usuarios (UC-01)")
         .WithName("ListarPerfiles")
         .WithSummary("Perfiles disponibles para asignar a los usuarios")

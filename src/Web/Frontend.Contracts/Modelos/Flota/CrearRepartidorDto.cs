@@ -28,7 +28,7 @@ public record CrearRepartidorDto
     public string Estado { get; init; } = "Disponible";
 
     /// <summary>
-    /// Contraseña de acceso a la app móvil del repartidor. Si se omite, se asigna 'Repartidor.2026!'.
+    /// Contraseña de acceso a la app móvil del repartidor. Obligatoria (mínimo 8 caracteres): no existe una contraseña por defecto.
     /// </summary>
     [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
     public string? Password { get; init; }

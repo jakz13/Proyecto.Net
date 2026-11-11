@@ -20,7 +20,8 @@ public class FakeTokenJwtService : ITokenJwtService
         Perfil perfil,
         IReadOnlyCollection<string> codigosPermisos,
         TimeSpan? tiempoExpiracion = null,
-        Guid? comercioOperadorId = null)
+        Guid? comercioOperadorId = null,
+        Guid? operadorId = null)
     {
         UltimoComercioOperadorId = comercioOperadorId;
         var expira = DateTime.UtcNow.Add(tiempoExpiracion ?? TimeSpan.FromHours(8));

@@ -263,6 +263,80 @@ public class HttpEnviosApi : IEnviosApi
         };
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<EvidenciaEntregaDto>> ObtenerEvidenciasEnvioAsync(Guid envioId, CancellationToken cancelacion = default)
+    {
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.GetAsync($"/api/envios/{envioId}/detalle", cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al consultar la evidencia del envío: {ex.Message}");
+        }
+
+        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+        {
+            return Array.Empty<EvidenciaEntregaDto>();
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+        }
+
+        var detalle = await respuesta.Content.ReadFromJsonAsync<DetalleEnvioApiDto>(OpcionesJson, cancelacion);
+        return (detalle?.Intentos ?? new List<IntentoDetalleApiDto>())
+            .Where(i => i.Prueba is not null && (i.Prueba.TieneFirma || i.Prueba.TieneFoto))
+            .OrderBy(i => i.Fecha)
+            .Select(i => new EvidenciaEntregaDto
+            {
+                IntentoId = i.IntentoId,
+                FechaHora = i.Fecha,
+                Resultado = i.Resultado,
+                NombreReceptor = i.Prueba!.NombreReceptor,
+                DocumentoReceptor = i.Prueba.DocumentoReceptor,
+                TieneFirma = i.Prueba.TieneFirma,
+                TieneFoto = i.Prueba.TieneFoto
+            })
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<ImagenEvidenciaDto?> ObtenerImagenEvidenciaAsync(Guid envioId, Guid intentoId, string tipo, CancellationToken cancelacion = default)
+    {
+        if (tipo is not ("firma" or "foto"))
+        {
+            throw new ArgumentException("El tipo de evidencia debe ser 'firma' o 'foto'.", nameof(tipo));
+        }
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.GetAsync($"/api/envios/{envioId}/intentos/{intentoId}/evidencia/{tipo}", cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al obtener la evidencia: {ex.Message}");
+        }
+
+        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+        }
+
+        var contenido = await respuesta.Content.ReadAsByteArrayAsync(cancelacion);
+        return new ImagenEvidenciaDto(contenido, respuesta.Content.Headers.ContentType?.MediaType ?? "image/png");
+    }
+
     /// <summary>
     /// Registra un nuevo envío enviando la solicitud a la API central.
     /// </summary>
@@ -794,11 +868,16 @@ public class HttpEnviosApi : IEnviosApi
         Guid? HojaDeRutaId,
         DateTime FechaAlta,
         List<BultoDetalleApiDto>? Bultos,
-        List<EventoDetalleApiDto>? Eventos);
+        List<EventoDetalleApiDto>? Eventos,
+        List<IntentoDetalleApiDto>? Intentos = null);
 
     private record BultoDetalleApiDto(Guid BultoId, string Identificacion, decimal PesoKg, string EstadoBulto);
 
     private record EventoDetalleApiDto(DateTime Fecha, string TipoEvento, int EstadoNuevo, string Origen, string? Detalle);
+
+    private record IntentoDetalleApiDto(Guid IntentoId, string Resultado, DateTime Fecha, PruebaDetalleApiDto? Prueba);
+
+    private record PruebaDetalleApiDto(string? NombreReceptor, string? DocumentoReceptor, bool TieneFirma, bool TieneFoto);
 
     private record EnvioCreadoApiDto(Guid Id, string CodigoSeguimiento, string Estado, decimal Tarifa, List<string>? Bultos = null);
 }

@@ -14,6 +14,9 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
         "EnDeposito",
         "EnTransito",
         "Entregado",
+        "EntregadoParcialmente",
+        "EntregaParcial",
+        "EventoBulto",
         "NoEntregado",
         "Reprogramado",
         "Extraviado"
@@ -75,19 +78,21 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
             throw new UnauthorizedAccessException("Se requiere una sesión activa de comercio para configurar avisos automáticos.");
         }
 
-        // Genera una clave de firma HMAC si el comercio no especificó una propia
         var claveFirma = string.IsNullOrWhiteSpace(request.ClaveFirma)
             ? Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant()
             : request.ClaveFirma.Trim();
 
-        // Obtiene las suscripciones previas para reemplazarlas de forma idempotente
+        var versionContrato = string.IsNullOrWhiteSpace(request.VersionContrato)
+            ? SuscripcionAviso.ContratoV1
+            : request.VersionContrato.Trim();
+
         var suscripcionesExistentes = await _suscripcionRepository.ListarPorComercioOperadorAsync(comercioOperadorId.Value, cancellationToken);
         if (suscripcionesExistentes.Count > 0)
         {
             await _suscripcionRepository.RemoveRangeAsync(suscripcionesExistentes, cancellationToken);
         }
 
-        // Crea las nuevas suscripciones por cada evento elegido
+        var versionNormalizada = SuscripcionAviso.ContratoV1;
         foreach (var tipoEvento in eventosNormalizados)
         {
             var suscripcion = new SuscripcionAviso(
@@ -95,7 +100,10 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
                 comercioOperadorId.Value,
                 tipoEvento,
                 urlLimpia,
-                claveFirma);
+                claveFirma,
+                versionContrato);
+
+            versionNormalizada = suscripcion.VersionContrato;
 
             if (!request.Activa)
             {
@@ -114,7 +122,7 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
             claveFirma,
             request.Activa,
             DateTime.UtcNow,
-            "Suscripción de avisos automáticos guardada exitosamente.");
+            "Suscripción de avisos automáticos guardada exitosamente.",
+            versionNormalizada);
     }
 }
-

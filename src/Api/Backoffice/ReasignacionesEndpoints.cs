@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Infrastructure.Persistence;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
@@ -49,7 +50,7 @@ public static class ReasignacionesEndpoints
                 envios.GetValueOrDefault(e.EnvioId)?.NombreDestinatario ?? string.Empty,
                 e.TipoEvento, e.Timestamp, e.Payload, e.ResponsableUsuarioId)).ToList());
         }))
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Operaciones)
         .WithTags("Planificación (UC-08, UC-09, UC-10)")
         .WithName("ListarReasignacionesDeHojaDeRuta")
         .WithSummary("Historial de retiros y reprogramaciones de los envíos de una hoja de ruta");

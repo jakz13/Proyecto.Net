@@ -14,5 +14,7 @@ public record RegistrarEntregaExitosaCommand(
     string? FotoEvidenciaBase64 = null,
     double? Latitud = null,
     double? Longitud = null,
-    DateTime? FechaHoraDispositivoUtc = null
+    DateTime? FechaHoraDispositivoUtc = null,
+    IReadOnlyList<string>? CodigosBultosEntregados = null,
+    IReadOnlyList<BultoNoEntregadoRequestDto>? BultosNoEntregados = null
 ) : IRequest<EntregaExitosaResultDto>;

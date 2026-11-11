@@ -1,5 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Queries.Deposito;
@@ -51,7 +52,7 @@ public class ListarRutasPendientesRendicionQueryHandler : IRequestHandler<Listar
 
         var repartidoresIds = rutas.Where(r => r.RepartidorId.HasValue).Select(r => r.RepartidorId!.Value).Distinct();
         var vehiculosIds = rutas.Where(r => r.VehiculoId.HasValue).Select(r => r.VehiculoId!.Value).Distinct();
-        var enviosIds = rutas.SelectMany(r => r.Paradas).Select(p => p.EnvioId).Distinct();
+        var enviosIds = rutas.SelectMany(r => r.Paradas).IdsDeEnvios().Distinct();
 
         var repartidores = (await _repartidorRepository.GetByIdsAsync(repartidoresIds, cancellationToken))
             .ToDictionary(r => r.Id);
@@ -69,18 +70,18 @@ public class ListarRutasPendientesRendicionQueryHandler : IRequestHandler<Listar
         {
             var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
             var enviosRuta = paradasVigentes
-                .Where(p => envios.ContainsKey(p.EnvioId))
-                .Select(p => envios[p.EnvioId])
+                .Where(p => p.EnvioId.HasValue && envios.ContainsKey(p.EnvioId.Value))
+                .Select(p => envios[p.EnvioId!.Value])
                 .DistinctBy(e => e.Id)
                 .ToList();
 
             var bultosViajaron = enviosRuta
-                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio"))
                 .ToList();
 
             var bultosEntregados = enviosRuta
                 .Where(e => e.EstadoActual == EstadoEnvio.Entregado)
-                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+                .SelectMany(e => e.Bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito" or "Entregado" or "NoEntregado" or "PendienteReenvio"))
                 .Count();
 
             var bultosRetornoEstimados = bultosViajaron.Count - bultosEntregados;

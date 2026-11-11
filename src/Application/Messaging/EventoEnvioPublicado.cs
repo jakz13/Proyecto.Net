@@ -2,9 +2,15 @@ using System.Text.Json;
 
 namespace UltimaMilla.Application.Messaging;
 
+/// <summary>Detalle del estado de un bulto individual incluido en el evento publicado para avisos versionados a comercios (RF-36).</summary>
+public record EventoBultoPublicado(
+    string Identificacion,
+    string EstadoBulto,
+    string? MotivoNoEntrega = null);
+
 /// <summary>
 /// Evento de negocio que la API deja en el outbox ante cada cambio de estado de un envío (UC-39) y que el worker consume
-/// para notificar al destinatario (UC-35) y avisar al comercio (UC-36). Incluye el operador para que el worker procese
+/// para notificar al destinatario (UC-35) y avisar al comercio (UC-36, RF-36). Incluye el operador para que el worker procese
 /// siempre con alcance explícito de inquilino y no contenga datos personales del destinatario.
 /// </summary>
 public record EventoEnvioPublicado(
@@ -16,7 +22,8 @@ public record EventoEnvioPublicado(
     string? EstadoAnterior,
     string EstadoNuevo,
     DateTime OcurridoEnUtc,
-    string CorrelationId)
+    string CorrelationId,
+    IReadOnlyList<EventoBultoPublicado>? Bultos = null)
 {
     /// <summary>Tipo de evento del outbox con el que se publica y se enruta este mensaje.</summary>
     public const string TipoMensaje = "EnvioCambioEstado";

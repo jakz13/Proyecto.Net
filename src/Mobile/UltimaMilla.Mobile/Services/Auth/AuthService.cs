@@ -41,6 +41,7 @@ public class AuthService : IAuthService
     public const string EmailKey = "auth_email";
     public const string TenantIdKey = "auth_tenant_id";
     public const string ExpiraUtcKey = "auth_exp_utc";
+    public const string PasswordHashKey = "auth_password_hash";
     public const string DemoRepartidorEmail = "repartidor@gmail.com";
     public const string DemoRepartidorPassword = "Repartidor.2026!";
 
@@ -135,6 +136,10 @@ public class AuthService : IAuthService
                 await GuardarEnSecureStorageAsync(TenantIdKey, tenantId.Value.ToString());
             }
             await GuardarEnSecureStorageAsync(ExpiraUtcKey, expiraUtc.ToUniversalTime().ToString("O"));
+
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var passwordHash = Convert.ToBase64String(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password)));
+            await GuardarEnSecureStorageAsync(PasswordHashKey, passwordHash);
 
             _logger.LogInformation("Sesión iniciada correctamente para el repartidor {Email} (Tenant: {TenantId}).", emailResuelto, tenantId);
 
@@ -264,6 +269,7 @@ public class AuthService : IAuthService
         EliminarDeSecureStorage(EmailKey);
         EliminarDeSecureStorage(TenantIdKey);
         EliminarDeSecureStorage(ExpiraUtcKey);
+        EliminarDeSecureStorage(PasswordHashKey);
 
         await Task.CompletedTask;
     }

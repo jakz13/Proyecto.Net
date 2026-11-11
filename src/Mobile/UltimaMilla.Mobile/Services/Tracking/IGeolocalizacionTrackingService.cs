@@ -33,11 +33,13 @@ public record TelemetriaBateriaGeocercaDto(
 );
 
 /// <summary>
-/// Contrato del servicio de geolocalización en segundo plano, muestreo adaptativo y geocercas (Hito 4 / Sección 7.3).
+/// Contrato del servicio de geolocalización en segundo plano, muestreo adaptativo y geocercas.
 /// </summary>
 public interface IGeolocalizacionTrackingService : IAsyncDisposable
 {
     bool IsTrackingActive { get; }
+
+    bool ForegroundServiceActivo { get; }
 
     Location? UltimaUbicacionConocida { get; }
 

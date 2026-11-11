@@ -4,6 +4,7 @@ using UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
+using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
@@ -37,7 +38,7 @@ public static class MobilePosicionEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization()
+        .RequireAuthorization(PoliticasApi.Repartidor)
         .WithTags("Mobile - Posición del vehículo (RF-23)")
         .WithName("RegistrarPosicionesVehiculo")
         .WithSummary("Registrar las posiciones del vehículo del repartidor autenticado")

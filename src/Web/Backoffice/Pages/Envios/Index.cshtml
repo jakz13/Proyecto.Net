@@ -170,6 +170,9 @@
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Entregado:
                                             <span class="estado-entregado">Entregado</span>
                                             break;
+                                        case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EntregadoParcialmente:
+                                            <span class="estado-intermedio">Entregado Parcialmente</span>
+                                            break;
                                         case UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Extraviado:
                                             <span class="estado-fallo">Extraviado</span>
                                             @if (!string.IsNullOrEmpty(envio.IncidenciaAsociadaNumero))
@@ -419,6 +422,11 @@
                                 <div id="errorHistorial" class="alert alert-warning small mb-0" style="display: none;">
                                     No se pudieron cargar los eventos históricos del envío seleccionado.
                                 </div>
+
+                                <div id="seccionEvidencias" class="border-top pt-3 mt-3" style="display: none;">
+                                    <div class="small fw-bold text-uppercase text-secondary mb-2">Evidencia de entrega</div>
+                                    <div id="listaEvidencias"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -500,6 +508,8 @@
                 }
             }, 240);
 
+            cargarEvidencias(envioId);
+
             fetch('?handler=Historial&id=' + encodeURIComponent(envioId))
                 .then(function(response) {
                     if (!response.ok) throw new Error('Error de red');
@@ -552,6 +562,40 @@
                     cargando.style.display = 'none';
                     error.style.display = 'block';
                 });
+        }
+
+        // Firma y foto que dejó el repartidor: las imágenes se piden aparte y por el Backoffice (la API exige el token de sesión).
+        function cargarEvidencias(envioId) {
+            var seccion = document.getElementById('seccionEvidencias');
+            var lista = document.getElementById('listaEvidencias');
+            seccion.style.display = 'none';
+            lista.innerHTML = '';
+
+            fetch('?handler=Evidencias&id=' + encodeURIComponent(envioId))
+                .then(function (r) { if (!r.ok) throw new Error('Error de red'); return r.json(); })
+                .then(function (evidencias) {
+                    if (!evidencias || evidencias.length === 0) return;
+
+                    var html = '';
+                    evidencias.forEach(function (ev) {
+                        var base = '?handler=ImagenEvidencia&id=' + encodeURIComponent(envioId) + '&intento=' + encodeURIComponent(ev.intentoId);
+                        html += '<div class="border rounded p-2 mb-2">';
+                        html += '<div class="small text-secondary mb-1">' + new Date(ev.fechaHora).toLocaleString() + '</div>';
+                        html += '<div class="small mb-2">Recibió: <strong class="text-dark">' + escapeHtml(ev.nombreReceptor || 'Sin nombre') + '</strong>';
+                        if (ev.documentoReceptor) html += ' &middot; Documento: <span class="font-monospace">' + escapeHtml(ev.documentoReceptor) + '</span>';
+                        html += '</div><div class="d-flex flex-wrap gap-3">';
+                        if (ev.tieneFirma) {
+                            html += '<figure class="mb-0"><a href="' + base + '&tipo=firma" target="_blank" rel="noopener"><img src="' + base + '&tipo=firma" alt="Firma del receptor" class="border rounded bg-white" style="max-height: 110px; max-width: 220px;"></a><figcaption class="small text-secondary">Firma</figcaption></figure>';
+                        }
+                        if (ev.tieneFoto) {
+                            html += '<figure class="mb-0"><a href="' + base + '&tipo=foto" target="_blank" rel="noopener"><img src="' + base + '&tipo=foto" alt="Foto de la entrega" class="border rounded bg-white" style="max-height: 110px; max-width: 220px;"></a><figcaption class="small text-secondary">Foto</figcaption></figure>';
+                        }
+                        html += '</div></div>';
+                    });
+                    lista.innerHTML = html;
+                    seccion.style.display = 'block';
+                })
+                .catch(function () { /* La evidencia es complementaria: si falla, el historial sigue funcionando. */ });
         }
 
         function escapeHtml(texto) {

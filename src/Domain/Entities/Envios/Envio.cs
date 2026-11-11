@@ -25,7 +25,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     public Guid SelloModificacion { get; private set; }
     public Guid? HojaDeRutaId { get; private set; }
 
-    // Compatibility properties for existing services & tests
+    // Propiedades de compatibilidad calculadas
     public Guid ComercioId => ComercioOperadorId;
     public string DireccionDestino { get; private set; } = string.Empty;
     public string NombreDestinatario { get; private set; } = string.Empty;
@@ -47,7 +47,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
     protected Envio() { }
 
-    // Rich domain constructor
     public Envio(
         Guid id,
         Guid comercioOperadorId,
@@ -93,7 +92,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         FranjaHorariaComprometidaId = franjaHorariaComprometidaId;
         LoteImportacionId = loteImportacionId;
         ReferenciaExterna = string.IsNullOrWhiteSpace(referenciaExterna) ? null : referenciaExterna.Trim();
-        // Copia desnormalizada para listados y etiquetas sin necesidad de resolver las entidades relacionadas
         DireccionDestino = direccionDestino?.Trim() ?? string.Empty;
         NombreDestinatario = nombreDestinatario?.Trim() ?? string.Empty;
         OperadorId = operadorId ?? Guid.Empty;
@@ -110,7 +108,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "Sistema"));
     }
 
-    // Constructor supporting initial test suite & simple intake
     public Envio(Guid id, Guid comercioId, string direccionDestino, string nombreDestinatario, string? codigoSeguimientoPublico = null, Guid? operadorId = null) : base(id)
     {
         if (id == Guid.Empty)
@@ -147,9 +144,16 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "Sistema"));
     }
 
-    // Los bultos faltantes en recepción no viajan, por lo tanto no cuentan en el peso ni el volumen
-    public decimal PesoTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Peso);
-    public decimal VolumenTotal => _bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").Sum(b => b.Volumen);
+    // Los bultos faltantes en recepción no viajan, y cuando el envío está entregado parcialmente solo cuentan los bultos pendientes
+    public decimal PesoTotal =>
+        EstadoActual == EstadoEnvio.EntregadoParcialmente
+            ? _bultos.Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion && !b.EstaEntregado).Sum(b => b.Peso)
+            : _bultos.Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion).Sum(b => b.Peso);
+
+    public decimal VolumenTotal =>
+        EstadoActual == EstadoEnvio.EntregadoParcialmente
+            ? _bultos.Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion && !b.EstaEntregado).Sum(b => b.Volumen)
+            : _bultos.Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion).Sum(b => b.Volumen);
 
     public void AgregarBulto(string identificacion, decimal peso, decimal alto = 20, decimal ancho = 20, decimal profundo = 20, Guid? bultoId = null)
     {
@@ -190,14 +194,17 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     /// <summary>Zona operativa con la que se clasificaron los bultos del envío (la menor, para que el orden sea determinístico).</summary>
     public Guid? ZonaClasificadaId => _bultos.Where(b => b.ZonaClasificadaId.HasValue).Select(b => b.ZonaClasificadaId!.Value).OrderBy(z => z).Cast<Guid?>().FirstOrDefault();
 
-    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable.</summary>
+    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable (RF-34).</summary>
     public string? ObtenerMotivoNoAsignable()
     {
         if (EstadoActual == EstadoEnvio.AsignadoARuta)
             return "El envío ya fue asignado a otra hoja de ruta.";
 
-        if (EstadoActual != EstadoEnvio.EnDeposito)
-            return $"El envío está en estado '{EstadoActual}' y solo se pueden asignar envíos 'EnDeposito'.";
+        if (EstadoActual is not (EstadoEnvio.EnDeposito or EstadoEnvio.EntregadoParcialmente))
+            return $"El envío está en estado '{EstadoActual}' y solo se pueden asignar envíos 'EnDeposito' o 'EntregadoParcialmente'.";
+
+        if (EstadoActual == EstadoEnvio.EntregadoParcialmente && !_bultos.Any(b => b.EstaDisponibleParaRuta))
+            return "El envío entregado parcialmente no tiene bultos pendientes disponibles para una nueva hoja de ruta.";
 
         if (!EstaClasificado)
             return "El envío tiene bultos sin clasificar en depósito.";
@@ -214,7 +221,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede despachar porque su estado es {EstadoActual} (se requiere estado AsignadoARuta).");
 
         HojaDeRutaId = hojaDeRutaId;
-        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado"))
+        foreach (var bulto in _bultos.Where(b => b.EstaDisponibleParaRuta))
         {
             bulto.MarcarCargadoEnVehiculo();
         }
@@ -274,9 +281,23 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         VolverADeposito("RetornoADeposito", responsableUsuarioId, "Rendición del repartidor.");
     }
 
-    /// <summary>Devuelve a depósito un envío reprogramado cuando el repartidor lo entrega en la rendición (UC-16).</summary>
+    /// <summary>Devuelve a depósito un envío reprogramado o entregado parcialmente cuando el repartidor rinde la ruta (UC-16, RF-34).</summary>
     public void ReintegrarADepositoPorRendicion(Guid responsableUsuarioId)
     {
+        if (EstadoActual == EstadoEnvio.EntregadoParcialmente)
+        {
+            HojaDeRutaId = null;
+            foreach (var bulto in _bultos.Where(b => b.EstadoBulto is MaquinaEstadosBulto.CargadoEnVehiculo or MaquinaEstadosBulto.NoEntregado or MaquinaEstadosBulto.PendienteReenvio))
+                bulto.MarcarRecibido();
+
+            RegistrarEventoSinCambioDeEstado(
+                "ReintegroADeposito",
+                responsableUsuarioId,
+                "Backoffice",
+                "Rendición del repartidor: bultos pendientes de entrega parcial reintegrados a depósito.");
+            return;
+        }
+
         if (EstadoActual is not (EstadoEnvio.Reprogramado or EstadoEnvio.NoEntregado))
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede reintegrar a depósito porque su estado es '{EstadoActual}'.");
 
@@ -292,7 +313,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (EstadoActual != EstadoEnvio.EnDevolucion)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
 
-        var porRetirar = _bultos.Where(b => b.EstadoBulto == "CargadoEnVehiculo").ToList();
+        var porRetirar = _bultos.Where(b => b.EstadoBulto == MaquinaEstadosBulto.CargadoEnVehiculo).ToList();
         if (porRetirar.Count == 0)
             return false;
 
@@ -312,6 +333,9 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     {
         if (EstadoActual != EstadoEnvio.EnDevolucion)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is MaquinaEstadosBulto.EnRetornoADeposito or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.NoEntregado))
+            bulto.MarcarDevuelto();
 
         TransicionarEstado(
             EstadoEnvio.Devuelto,
@@ -359,7 +383,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (franjaHorariaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
 
-        if (EstadoActual != EstadoEnvio.EnDeposito)
+        if (EstadoActual is not (EstadoEnvio.EnDeposito or EstadoEnvio.EntregadoParcialmente))
             throw new DomainValidationException($"Solo se puede reprogramar la franja de un envío en depósito (estado '{EstadoActual}').");
 
         var anterior = FranjaHorariaComprometidaId;
@@ -377,7 +401,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (franjaHorariaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
 
-        if (EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.Reprogramado))
+        if (EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.Reprogramado or EstadoEnvio.EntregadoParcialmente))
             throw new DomainValidationException($"No se puede reprogramar un envío en estado '{EstadoActual}'.");
 
         var anterior = FranjaHorariaComprometidaId;
@@ -389,7 +413,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
     {
         HojaDeRutaId = null;
-        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is "CargadoEnVehiculo" or "EnRetornoADeposito"))
+        foreach (var bulto in _bultos.Where(b => b.EstadoBulto is MaquinaEstadosBulto.CargadoEnVehiculo or MaquinaEstadosBulto.EnRetornoADeposito or MaquinaEstadosBulto.NoEntregado or MaquinaEstadosBulto.PendienteReenvio))
             bulto.MarcarRecibido();
 
         TransicionarEstado(EstadoEnvio.EnDeposito, tipoEvento, responsableUsuarioId, "Backoffice", payload: detalle);
@@ -421,13 +445,14 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         string? origen = null,
         double? latitud = null,
         double? longitud = null,
-        string? payload = null)
+        string? payload = null,
+        bool forzarPorConflicto = false)
     {
         if (string.IsNullOrWhiteSpace(tipoEvento))
             throw new DomainValidationException("El tipo de evento no puede ser vacío.");
 
         // UC-39: toda transición se valida contra la máquina de estados declarativa
-        if (!MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
+        if (!forzarPorConflicto && !MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
             throw new DomainValidationException(
                 $"Transición de estado inválida para el envío {CodigoSeguimientoPublico}: '{EstadoActual}' -> '{nuevoEstado}'.");
 
@@ -448,10 +473,16 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             payload));
     }
 
-    /// <summary>Indica si todos los bultos recibidos del envío ya fueron clasificados.</summary>
+    /// <summary>
+    /// Deriva declarativamente el estado del envío a partir de los estados de sus bultos (RF-31).
+    /// </summary>
+    public EstadoEnvio DerivarEstadoDesdeBultos() =>
+        MaquinaEstadosBulto.DerivarEstadoEnvio(_bultos, EstadoActual);
+
+    /// <summary>Indica si todos los bultos disponibles para ruta del envío ya fueron clasificados.</summary>
     public bool EstaClasificado =>
-        _bultos.Where(b => b.EstadoBulto is "Recibido" or "Danado").All(b => b.EstaClasificado)
-        && _bultos.Any(b => b.EstadoBulto is "Recibido" or "Danado");
+        _bultos.Where(b => b.EstaDisponibleParaRuta).All(b => b.EstaClasificado)
+        && _bultos.Any(b => b.EstaDisponibleParaRuta);
 
     /// <summary>
     /// Clasifica bultos del envío (zona, prioridad, tipo) y los deja disponibles para la hoja de ruta.
@@ -462,7 +493,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (usuarioDepositoId == Guid.Empty)
             throw new DomainValidationException("El identificador del usuario de depósito no puede ser vacío.");
 
-        if (EstadoActual != EstadoEnvio.EnDeposito)
+        if (EstadoActual is not (EstadoEnvio.EnDeposito or EstadoEnvio.EntregadoParcialmente))
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede clasificar porque su estado es '{EstadoActual}' (se requiere '{EstadoEnvio.EnDeposito}').");
 
         var lista = clasificaciones?.ToList() ?? new List<ClasificacionBulto>();
@@ -644,7 +675,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         double? latitud,
         double? longitud,
         DateTime fechaHoraDispositivoUtc,
-        Guid? responsableUsuarioId = null)
+        Guid? responsableUsuarioId = null,
+        bool resolverConflictoReasignacion = false)
     {
         if (paradaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la parada no puede ser vacío.");
@@ -652,13 +684,25 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         ArgumentNullException.ThrowIfNull(reglaOperativa);
 
         if (EstadoActual != EstadoEnvio.EnTransito)
-            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede entregar porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}').");
+        {
+            if (resolverConflictoReasignacion && EstadoActual is EstadoEnvio.NoEntregado or EstadoEnvio.Reprogramado or EstadoEnvio.EnDevolucion)
+            {
+                // En conflicto de sincronizacion offline-first, prevalece la entrega fisica real con prueba POD
+            }
+            else
+            {
+                throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede entregar porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}').");
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(nombreReceptor))
             throw new DomainValidationException("El nombre del receptor es requerido para registrar la entrega exitosa.");
 
-        // Evaluación de la prueba de entrega contra la regla operativa del operador
         reglaOperativa.ValidarPruebaEntrega(firmaDigitalBase64, fotoEvidenciaBase64, documentoReceptor);
+
+        var bultosPorEntregar = _bultos
+            .Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion && !b.EstaEntregado)
+            .ToList();
 
         var intentoId = Guid.NewGuid();
         var prueba = new PruebaDeEntrega(
@@ -670,7 +714,21 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             documentoReceptor: documentoReceptor?.Trim(),
             latitud: latitud,
             longitud: longitud,
-            timestampDispositivo: fechaHoraDispositivoUtc);
+            timestampDispositivo: fechaHoraDispositivoUtc,
+            codigosBultosEntregados: bultosPorEntregar.Select(b => b.Identificacion));
+
+        foreach (var bulto in bultosPorEntregar)
+        {
+            if (MaquinaEstadosBulto.EsTransicionValida(bulto.EstadoBulto, MaquinaEstadosBulto.Entregado))
+            {
+                bulto.MarcarEntregado(prueba.Id);
+            }
+            else if (MaquinaEstadosBulto.EsTransicionValida(bulto.EstadoBulto, MaquinaEstadosBulto.CargadoEnVehiculo))
+            {
+                bulto.MarcarCargadoEnVehiculo();
+                bulto.MarcarEntregado(prueba.Id);
+            }
+        }
 
         var intento = new IntentoEntrega(
             intentoId,
@@ -685,7 +743,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         intento.AdjuntarPruebaEntrega(prueba);
         _intentosEntrega.Add(intento);
 
-        // Transición de estado a Entregado con EventoEnvio inmutable
         TransicionarEstado(
             EstadoEnvio.Entregado,
             "EntregaExitosa",
@@ -693,9 +750,254 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "MobileApp",
             latitud,
             longitud,
-            payload: $"Receptor: {nombreReceptor.Trim()} (Doc: {documentoReceptor?.Trim()}). DispositivoUtc: {fechaHoraDispositivoUtc:O}");
+            payload: $"Receptor: {nombreReceptor.Trim()} (Doc: {documentoReceptor?.Trim()}). DispositivoUtc: {fechaHoraDispositivoUtc:O}",
+            forzarPorConflicto: resolverConflictoReasignacion);
 
         return intento;
+    }
+
+    /// <summary>
+    /// Registra el resultado de entrega a nivel de cada bulto en la parada (RF-31, RF-32, RF-33, RF-34).
+    /// Asocia la prueba de entrega a los bultos efectivamente entregados, registra el motivo del catálogo para los no entregados,
+    /// resuelve conflictos offline a nivel de bulto y deriva declarativamente el estado del envío.
+    /// </summary>
+    public ResultadoEntregaParcialDominio RegistrarEntregaParcial(
+        Guid paradaId,
+        ReglaOperativa reglaOperativa,
+        IEnumerable<string>? codigosBultosEntregados,
+        IReadOnlyCollection<BultoNoEntregadoInput>? bultosNoEntregados,
+        string nombreReceptor,
+        string documentoReceptor,
+        string? firmaDigitalBase64,
+        string? fotoEvidenciaBase64,
+        double? latitud,
+        double? longitud,
+        DateTime fechaHoraDispositivoUtc,
+        Guid? responsableUsuarioId = null)
+    {
+        if (paradaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la parada no puede ser vacío.");
+
+        ArgumentNullException.ThrowIfNull(reglaOperativa);
+
+        if (EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no puede registrar entrega de bultos porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}' o '{EstadoEnvio.EntregadoParcialmente}').");
+
+        if (_bultos.Count == 0)
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no tiene bultos declarados.");
+
+        if (string.IsNullOrWhiteSpace(nombreReceptor))
+            throw new DomainValidationException("El nombre del receptor es requerido para registrar la entrega de bultos.");
+
+        var entregadosEscaneados = (codigosBultosEntregados ?? Enumerable.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (entregadosEscaneados.Count == 0)
+            throw new DomainValidationException("Debe indicar mediante escaneo al menos un bulto entregado en la parada.");
+
+        var bultosPorCodigo = _bultos.ToDictionary(b => b.Identificacion, StringComparer.OrdinalIgnoreCase);
+        var ajenosEntregados = entregadosEscaneados.Where(c => !bultosPorCodigo.ContainsKey(c)).ToList();
+        if (ajenosEntregados.Count > 0)
+            throw new DomainValidationException($"Los siguientes bultos escaneados no pertenecen al envío {CodigoSeguimientoPublico}: {string.Join(", ", ajenosEntregados)}.");
+
+        var noEntregadosLista = (bultosNoEntregados ?? Array.Empty<BultoNoEntregadoInput>()).ToList();
+        var mapaNoEntregados = new Dictionary<string, BultoNoEntregadoInput>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in noEntregadosLista)
+        {
+            if (item is null || string.IsNullOrWhiteSpace(item.CodigoBulto))
+                throw new DomainValidationException("Cada bulto no entregado debe indicar su código de identificación.");
+
+            var codigoNormalizado = item.CodigoBulto.Trim().ToUpperInvariant();
+            if (!bultosPorCodigo.ContainsKey(codigoNormalizado))
+                throw new DomainValidationException($"El bulto no entregado '{codigoNormalizado}' no pertenece al envío {CodigoSeguimientoPublico}.");
+
+            if (entregadosEscaneados.Contains(codigoNormalizado, StringComparer.OrdinalIgnoreCase))
+                throw new DomainValidationException($"El bulto '{codigoNormalizado}' no puede declararse simultáneamente como entregado y no entregado.");
+
+            if (item.Motivo is null)
+                throw new DomainValidationException($"Debe indicar un motivo del catálogo para el bulto no entregado '{codigoNormalizado}'.");
+
+            if (!item.Motivo.Activo)
+                throw new DomainValidationException($"El motivo de no entrega '{item.Motivo.Codigo}' para el bulto '{codigoNormalizado}' se encuentra inactivo.");
+
+            mapaNoEntregados[codigoNormalizado] = item with { CodigoBulto = codigoNormalizado };
+        }
+
+        var operativos = _bultos
+            .Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion)
+            .ToList();
+
+        var conflictosResueltos = new List<string>();
+        var entregadosEnEstaVisita = new List<Bulto>();
+        var noEntregadosEnEstaVisita = new List<(Bulto Bulto, BultoNoEntregadoInput Info)>();
+
+        foreach (var bulto in operativos)
+        {
+            bool escaneadoComoEntregado = entregadosEscaneados.Contains(bulto.Identificacion, StringComparer.OrdinalIgnoreCase);
+            bool reportadoNoEntregado = mapaNoEntregados.TryGetValue(bulto.Identificacion, out var infoNoEntregado);
+
+            if (bulto.EstaEntregado)
+            {
+                if (reportadoNoEntregado)
+                {
+                    // Resolución de conflicto a nivel de bulto (RF-32): una entrega con prueba previa prevalece sobre un reporte offline tardío de no entrega
+                    conflictosResueltos.Add(
+                        $"Conflicto resuelto en bulto '{bulto.Identificacion}': ya constaba como Entregado con prueba de entrega; se preserva su entrega frente al reporte de no entrega ({infoNoEntregado!.Motivo.Codigo}).");
+                }
+                continue;
+            }
+
+            if (escaneadoComoEntregado)
+            {
+                entregadosEnEstaVisita.Add(bulto);
+            }
+            else if (reportadoNoEntregado)
+            {
+                noEntregadosEnEstaVisita.Add((bulto, infoNoEntregado!));
+            }
+            else
+            {
+                throw new DomainValidationException(
+                    $"El bulto '{bulto.Identificacion}' no fue escaneado como entregado y no se indicó el motivo de no entrega correspondiente.");
+            }
+        }
+
+        bool quedaranBultosSinEntregar = noEntregadosEnEstaVisita.Count > 0
+            || operativos.Any(b => !b.EstaEntregado && !entregadosEnEstaVisita.Contains(b));
+
+        if (quedaranBultosSinEntregar && !reglaOperativa.AdmiteEntregaParcial)
+        {
+            throw new DomainValidationException(
+                "El operador no admite entregas parciales según su regla operativa vigente.");
+        }
+
+        reglaOperativa.ValidarPruebaEntrega(firmaDigitalBase64, fotoEvidenciaBase64, documentoReceptor);
+
+        var codigosEntregadosEfectivos = entregadosEnEstaVisita
+            .Select(b => b.Identificacion)
+            .ToList();
+
+        var intentoId = Guid.NewGuid();
+        var prueba = new PruebaDeEntrega(
+            intentoId,
+            tipo: reglaOperativa.TipoPruebaEntregaExigida,
+            firmaImagenUrl: firmaDigitalBase64,
+            fotoUrl: fotoEvidenciaBase64,
+            nombreReceptor: nombreReceptor.Trim(),
+            documentoReceptor: documentoReceptor?.Trim(),
+            latitud: latitud,
+            longitud: longitud,
+            timestampDispositivo: fechaHoraDispositivoUtc,
+            codigosBultosEntregados: codigosEntregadosEfectivos);
+
+        foreach (var bulto in entregadosEnEstaVisita)
+        {
+            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado)
+                bulto.MarcarCargadoEnVehiculo();
+
+            if (bulto.EstadoBulto is MaquinaEstadosBulto.NoEntregado or MaquinaEstadosBulto.PendienteReenvio)
+            {
+                conflictosResueltos.Add(
+                    $"Conflicto resuelto en bulto '{bulto.Identificacion}': actualización offline con prueba de entrega válida promueve el bulto de '{bulto.EstadoBulto}' a 'Entregado'.");
+            }
+
+            bulto.MarcarEntregado(prueba.Id);
+        }
+
+        string destinoBultoPendiente = string.Equals(
+            reglaOperativa.PoliticaEntregaParcial,
+            ReglaOperativa.PoliticaDevolucionAlComercio,
+            StringComparison.OrdinalIgnoreCase)
+            ? MaquinaEstadosBulto.EnRetornoADeposito
+            : MaquinaEstadosBulto.PendienteReenvio;
+
+        foreach (var (bulto, info) in noEntregadosEnEstaVisita)
+        {
+            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado)
+                bulto.MarcarCargadoEnVehiculo();
+
+            bulto.MarcarNoEntregado(info.Motivo.Codigo, destinoBultoPendiente);
+        }
+
+        var estadoDerivado = DerivarEstadoDesdeBultos();
+        string resultadoIntento = estadoDerivado == EstadoEnvio.Entregado ? "Exitoso" : "Parcial";
+        Guid? motivoPrincipalId = noEntregadosEnEstaVisita.FirstOrDefault().Info?.Motivo.Id;
+
+        var intento = new IntentoEntrega(
+            intentoId,
+            paradaId,
+            Id,
+            resultado: resultadoIntento,
+            origenDatos: "MobileApp",
+            motivoNoEntregaId: motivoPrincipalId,
+            latitud: latitud,
+            longitud: longitud);
+
+        intento.AdjuntarPruebaEntrega(prueba);
+        _intentosEntrega.Add(intento);
+
+        bool aplicaRecargo = estadoDerivado == EstadoEnvio.EntregadoParcialmente
+            && string.Equals(reglaOperativa.PoliticaEntregaParcial, ReglaOperativa.PoliticaNuevaVisitaConRecargo, StringComparison.OrdinalIgnoreCase);
+
+        if (aplicaRecargo && TarifaCalculada > 0)
+        {
+            decimal recargoVisita = Math.Round(TarifaCalculada * 0.50m, 2);
+            TarifaCalculada += recargoVisita;
+        }
+
+        int totalOperativos = operativos.Count;
+        int totalEntregadosAcumulados = operativos.Count(b => b.EstaEntregado);
+        int totalPendientes = totalOperativos - totalEntregadosAcumulados;
+
+        string resumenNoEntregados = noEntregadosEnEstaVisita.Count == 0
+            ? "Ninguno"
+            : string.Join(", ", noEntregadosEnEstaVisita.Select(x => $"{x.Bulto.Identificacion}:{x.Info.Motivo.Codigo}"));
+
+        string payloadEvento =
+            $"Avance: {totalEntregadosAcumulados}/{totalOperativos} bultos entregados. " +
+            $"Entregados en parada: [{string.Join(", ", codigosEntregadosEfectivos)}]. " +
+            $"No entregados: [{resumenNoEntregados}]. " +
+            $"Política aplicada: {reglaOperativa.PoliticaEntregaParcial}. " +
+            $"Receptor: {nombreReceptor.Trim()} (Doc: {documentoReceptor?.Trim()}). DispositivoUtc: {fechaHoraDispositivoUtc:O}";
+
+        string tipoEvento = estadoDerivado == EstadoEnvio.Entregado ? "EntregaExitosa" : "EntregaParcial";
+
+        if (EstadoActual != estadoDerivado)
+        {
+            TransicionarEstado(
+                estadoDerivado,
+                tipoEvento,
+                responsableUsuarioId,
+                "MobileApp",
+                latitud,
+                longitud,
+                payload: payloadEvento);
+        }
+        else
+        {
+            RegistrarEventoSinCambioDeEstado(
+                tipoEvento,
+                responsableUsuarioId,
+                "MobileApp",
+                payload: payloadEvento);
+        }
+
+        return new ResultadoEntregaParcialDominio(
+            intento,
+            prueba,
+            estadoDerivado,
+            totalOperativos,
+            totalEntregadosAcumulados,
+            totalPendientes,
+            reglaOperativa.PoliticaEntregaParcial,
+            aplicaRecargo,
+            codigosEntregadosEfectivos,
+            noEntregadosEnEstaVisita.Select(x => x.Bulto.Identificacion).ToList(),
+            conflictosResueltos);
     }
 
     public (IntentoEntrega Intento, EstadoEnvio EstadoFinal, int IntentosRestantes) RegistrarIntentoFallido(
@@ -753,7 +1055,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         _intentosEntrega.Add(intento);
 
-        // Paso 1 de Estado: Transicionar el Envio a NoEntregado y registrar su EventoEnvio inmutable
         TransicionarEstado(
             EstadoEnvio.NoEntregado,
             "IntentoEntregaFallido",
@@ -763,7 +1064,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             longitud,
             payload: $"Motivo: {motivo.Codigo} - {motivo.Descripcion}. Observaciones: {observaciones.Trim()}. DispositivoUtc: {fechaHoraDispositivoUtc:O}");
 
-        // Paso 2 de Estado: Evaluación automática de regla operativa
         int intentosAcumulados = _intentosEntrega.Count(i => i.Resultado == "Fallido");
         bool superaMaximo = reglaOperativa.SuperaMaximoIntentos(intentosAcumulados);
         int intentosRestantes = reglaOperativa.CalcularIntentosRestantes(intentosAcumulados);
@@ -798,7 +1098,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Restablece el envío a estado EnTransito (4) para repetición fluida de demostraciones de calle (Demo Reset).
+    /// Registra un evento de entrada o salida de geocerca con histéresis e idempotencia.
     /// </summary>
     public (EventoEnvio Evento, bool Idempotente) RegistrarEventoGeocerca(
         string tipoEventoGeocerca,
@@ -857,16 +1157,41 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         return (nuevoEvento, false);
     }
 
+    public EventoEnvio RegistrarEventoAuditoria(
+        string tipoEvento,
+        Guid? responsableUsuarioId,
+        string origen,
+        double? latitud,
+        double? longitud,
+        string descripcion)
+    {
+        var nuevoEvento = new EventoEnvio(
+            Guid.NewGuid(),
+            Id,
+            tipoEvento,
+            EstadoActual,
+            EstadoActual,
+            origen,
+            responsableUsuarioId,
+            latitud,
+            longitud,
+            descripcion);
+
+        _eventos.Add(nuevoEvento);
+        SelloModificacion = Guid.NewGuid();
+        return nuevoEvento;
+    }
+
     public void ReiniciarParaDemoEnTransito(Guid hojaDeRutaId)
     {
         HojaDeRutaId = hojaDeRutaId;
         EstadoActual = EstadoEnvio.EnTransito;
         SelloModificacion = Guid.NewGuid();
         _intentosEntrega.Clear();
-        _eventos.RemoveAll(e => e.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "ReinicioDemo");
+        _eventos.RemoveAll(e => e.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "ReinicioDemo" or "EntregaParcial");
         foreach (var bulto in _bultos)
         {
-            bulto.MarcarCargadoEnVehiculo();
+            bulto.ReiniciarEstadoParaDemo();
         }
         _eventos.Add(new EventoEnvio(
             Guid.NewGuid(),
@@ -877,3 +1202,23 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "DemoReset"));
     }
 }
+
+/// <summary>Datos de un bulto no entregado en la parada junto con su motivo del catálogo del operador (RF-32).</summary>
+public record BultoNoEntregadoInput(
+    string CodigoBulto,
+    MotivoNoEntrega Motivo,
+    string? Observaciones = null);
+
+/// <summary>Resultado de dominio tras procesar una entrega a nivel de bultos (RF-31 a RF-34).</summary>
+public record ResultadoEntregaParcialDominio(
+    IntentoEntrega Intento,
+    PruebaDeEntrega Prueba,
+    EstadoEnvio EstadoFinalEnvio,
+    int TotalBultosOperativos,
+    int BultosEntregadosAcumulados,
+    int BultosPendientes,
+    string PoliticaAplicada,
+    bool RecargoAplicado,
+    IReadOnlyList<string> CodigosEntregadosEnVisita,
+    IReadOnlyList<string> CodigosNoEntregadosEnVisita,
+    IReadOnlyList<string> ConflictosResueltos);

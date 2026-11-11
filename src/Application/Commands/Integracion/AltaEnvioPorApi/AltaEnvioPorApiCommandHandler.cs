@@ -11,13 +11,16 @@ public class AltaEnvioPorApiCommandHandler : IRequestHandler<AltaEnvioPorApiComm
     private readonly AltaEnvioProcesador _procesador;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant? _currentTenant;
+    private readonly IClavesApiPruebas? _clavesPruebas;
 
     public AltaEnvioPorApiCommandHandler(
         IComercioOperadorRepository comercioOperadorRepository,
         AltaEnvioProcesador procesador,
         IUnitOfWork unitOfWork,
-        ICurrentTenant? currentTenant = null)
+        ICurrentTenant? currentTenant = null,
+        IClavesApiPruebas? clavesPruebas = null)
     {
+        _clavesPruebas = clavesPruebas;
         _comercioOperadorRepository = comercioOperadorRepository;
         _procesador = procesador;
         _unitOfWork = unitOfWork;
@@ -32,7 +35,13 @@ public class AltaEnvioPorApiCommandHandler : IRequestHandler<AltaEnvioPorApiComm
         if (string.IsNullOrWhiteSpace(request.ClaveApi))
             throw new UnauthorizedAccessException("Clave de API inválida.");
 
-        var comercioOperador = await _comercioOperadorRepository.GetByHuellaClaveApiAsync(
+        // Clave de pruebas (sandbox): valida y calcula la tarifa sin registrar ni publicar nada
+        var relacionDePruebas = _clavesPruebas?.Validar(request.ClaveApi);
+        var esPruebas = relacionDePruebas.HasValue;
+
+        var comercioOperador = esPruebas
+            ? await _comercioOperadorRepository.GetByIdSinFiltroAsync(relacionDePruebas!.Value, cancellationToken)
+            : await _comercioOperadorRepository.GetByHuellaClaveApiAsync(
                 ComercioOperador.CalcularHuellaClaveApi(request.ClaveApi), cancellationToken);
         if (comercioOperador is null || !comercioOperador.EstaActivo)
             throw new UnauthorizedAccessException("Clave de API inválida.");
@@ -49,8 +58,8 @@ public class AltaEnvioPorApiCommandHandler : IRequestHandler<AltaEnvioPorApiComm
             request.FranjaHorariaId,
             request.ReferenciaExterna);
 
-        var resultado = await _procesador.ProcesarAsync(comercioOperador.OperadorId, alta, null, cancellationToken);
-        if (!resultado.Duplicado)
+        var resultado = await _procesador.ProcesarAsync(comercioOperador.OperadorId, alta, null, cancellationToken, simular: esPruebas);
+        if (!resultado.Duplicado && !esPruebas)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return resultado;

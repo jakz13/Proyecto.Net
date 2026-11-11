@@ -2,6 +2,7 @@ using MediatR;
 using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
@@ -14,22 +15,32 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly IOperadorRepository? _operadorRepository;
     private readonly IDistributedCacheService? _cacheService;
+    private readonly IRetiroRepository? _retiroRepository;
+    private readonly IFuncionalidadesService? _funcionalidades;
+
+    /// <summary>Prefijo de los códigos de retiro: el comprador usa el mismo enlace público que para los envíos (RF 41).</summary>
+    public const string PrefijoCodigoRetiro = "RET-";
 
     public ConsultarSeguimientoPublicoQueryHandler(
         IEnvioRepository envioRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         IDistributedCacheService? cacheService = null,
+        IRetiroRepository? retiroRepository = null,
+        IFuncionalidadesService? funcionalidades = null,
         IOperadorRepository? operadorRepository = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _cacheService = cacheService;
+        _retiroRepository = retiroRepository;
         _operadorRepository = operadorRepository;
     }
 
     /// <summary>
     /// Devuelve null cuando el código es inválido o no existe, sin distinguir ambos casos, para no permitir la enumeración de envíos.
     /// Utiliza el caché distribuido con expiración corta (5 minutos) e invalidación ante eventos del envío (RNF 6.7).
+    /// Incorpora el avance de entrega de bultos sin exponer identificadores internos (RF-35).
     /// </summary>
     public async Task<SeguimientoPublicoDto?> Handle(ConsultarSeguimientoPublicoQuery request, CancellationToken cancellationToken)
     {
@@ -47,14 +58,29 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
                 return enCache;
         }
 
+        // Un retiro se sigue por el mismo enlace; sin distinguir "no existe" de "código inválido", igual que con los envíos
+        if (codigo.StartsWith(PrefijoCodigoRetiro, StringComparison.Ordinal))
+            return await ConsultarRetiroAsync(codigo, claveCache, cancellationToken);
+
         var envio = await _envioRepository.GetByCodigoSeguimientoAsync(codigo, cancellationToken);
         if (envio is null)
             return null;
 
+        var operativos = envio.Bultos
+            .Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion)
+            .ToList();
+
+        int totalBultos = operativos.Count;
+        int bultosEntregados = envio.EstadoActual == EstadoEnvio.Entregado
+            ? totalBultos
+            : operativos.Count(b => b.EstaEntregado);
+        int bultosPendientes = Math.Max(0, totalBultos - bultosEntregados);
+        string avanceEntrega = $"{bultosEntregados} de {totalBultos} bultos entregados";
+
         var hitos = envio.Eventos
             .Where(EsHitoPublico)
             .OrderBy(e => e.Timestamp)
-            .Select(e => new HitoSeguimientoDto(e.Timestamp, e.EstadoNuevo, DescribirHito(e)))
+            .Select(e => new HitoSeguimientoDto(e.Timestamp, e.EstadoNuevo, DescribirHito(e, bultosEntregados, totalBultos)))
             .ToList();
 
         var ultimaActualizacion = envio.Eventos.Count > 0
@@ -81,12 +107,17 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
-            envio.EstadoActual == EstadoEnvio.Reprogramado,
+            envio.EstadoActual == EstadoEnvio.Reprogramado
+                && (_funcionalidades is null || await _funcionalidades.EstaHabilitadaAsync(envio.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken)),
             hitos,
-            operadorNombre,
-            colorPrimario,
-            colorSecundario,
-            logoUrl);
+            totalBultos,
+            bultosEntregados,
+            bultosPendientes,
+            avanceEntrega,
+            OperadorNombre: operadorNombre,
+            OperadorColorPrimario: colorPrimario,
+            OperadorColorSecundario: colorSecundario,
+            OperadorLogoUrl: logoUrl);
 
         if (_cacheService is not null)
         {
@@ -101,11 +132,93 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         return resultado;
     }
 
-    /// <summary>Solo los cambios de estado (y el alta) forman parte de la línea de tiempo pública.</summary>
+    /// <summary>
+    /// Vista pública de un retiro (RF 41): estado, ventana, avance y línea de tiempo, sin nombres, domicilios, contactos ni identificadores internos.
+    /// </summary>
+    private async Task<SeguimientoPublicoDto?> ConsultarRetiroAsync(string codigo, string claveCache, CancellationToken cancellationToken)
+    {
+        if (_retiroRepository is null)
+            return null;
+
+        var retiro = await _retiroRepository.GetByCodigoSeguimientoAsync(codigo, cancellationToken);
+        if (retiro is null)
+            return null;
+
+        string? ventana = null;
+        if (retiro.FranjaHorariaId.HasValue)
+        {
+            var franja = (await _franjaHorariaRepository.GetByIdsAsync(new[] { retiro.FranjaHorariaId.Value }, cancellationToken)).FirstOrDefault();
+            ventana = franja is null ? null : $"{franja.HoraInicio:HH\\:mm}-{franja.HoraFin:HH\\:mm}";
+        }
+
+        var total = retiro.Bultos.Count;
+        var retirados = retiro.EstadoActual is EstadoRetiro.Retirado or EstadoRetiro.EnDeposito or EstadoRetiro.EntregadoAlComercio ? total : 0;
+
+        var hitos = retiro.Eventos
+            .OrderBy(e => e.Timestamp)
+            .Select(e => new HitoSeguimientoDto(e.Timestamp, EstadoEnvio.Admitido, DescribirHitoRetiro(e), e.EstadoNuevo.ToString()))
+            .ToList();
+
+        var resultado = new SeguimientoPublicoDto(
+            retiro.CodigoSeguimientoPublico,
+            EstadoEnvio.Admitido,
+            ventana,
+            retiro.Eventos.Count > 0 ? retiro.Eventos.Max(e => e.Timestamp) : retiro.FechaSolicitud,
+            false,
+            hitos,
+            total,
+            retirados,
+            total - retirados,
+            $"{retirados} de {total} bultos retirados",
+            "Retiro",
+            retiro.EstadoActual.ToString(),
+            DescribirEstadoRetiro(retiro.EstadoActual));
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
+            await _cacheService.SetAsync(
+                ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico),
+                resultado,
+                ClavesCache.ExpiracionSeguimientoPublico,
+                cancellationToken);
+        }
+
+        return resultado;
+    }
+
+    private static string DescribirEstadoRetiro(EstadoRetiro estado) => estado switch
+    {
+        EstadoRetiro.Solicitado => "Retiro solicitado: estamos programando la visita",
+        EstadoRetiro.AsignadoARuta => "Retiro programado: un repartidor pasará a retirar los bultos",
+        EstadoRetiro.Retirado => "Los bultos ya fueron retirados",
+        EstadoRetiro.NoRetirado => "No se pudo concretar el retiro; se coordinará una nueva visita",
+        EstadoRetiro.EnDeposito => "Los bultos retirados están en el depósito",
+        EstadoRetiro.EntregadoAlComercio => "Los bultos llegaron al comercio",
+        EstadoRetiro.Cancelado => "El retiro fue cancelado",
+        _ => estado.ToString()
+    };
+
+    /// <summary>Texto apto para el comprador: nunca se publica el detalle interno del evento.</summary>
+    private static string DescribirHitoRetiro(EventoRetiro evento) => evento.TipoEvento switch
+    {
+        "SolicitudRetiro" => "Retiro solicitado por el comercio",
+        "AsignacionRuta" => "Retiro programado en una ruta de distribución",
+        "RetiroRealizado" => "Bultos retirados en el domicilio",
+        "RetiroNoRealizado" => "No se pudo concretar el retiro",
+        "RetiroReprogramado" => "Retiro reprogramado para una nueva visita",
+        "RetiroLiberadoDeRuta" => "Retiro pendiente de una nueva programación",
+        "RecepcionEnDeposito" => "Bultos recibidos en el depósito",
+        "EntregaAlComercio" => "Bultos entregados al comercio",
+        "RetiroCancelado" => "Retiro cancelado",
+        _ => DescribirEstadoRetiro(evento.EstadoNuevo)
+    };
+
+    /// <summary>Solo los cambios de estado, entregas parciales y geocercas forman parte de la línea de tiempo pública.</summary>
     private static bool EsHitoPublico(EventoEnvio evento) =>
         evento.EstadoAnterior is null
         || evento.EstadoAnterior != evento.EstadoNuevo
-        || evento.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca";
+        || evento.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "EntregaParcial";
 
     private async Task<string?> ObtenerVentanaAsync(Envio envio, CancellationToken cancellationToken)
     {
@@ -117,8 +230,8 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         return franja is null ? null : $"{franja.HoraInicio:HH\\:mm}-{franja.HoraFin:HH\\:mm}";
     }
 
-    /// <summary>Texto apto para el destinatario: nunca se publica el payload interno ni el responsable del evento.</summary>
-    private static string DescribirHito(EventoEnvio evento) => evento.TipoEvento switch
+    /// <summary>Texto apto para el destinatario: nunca se publica el payload interno ni identificadores internos de bultos (RF-35).</summary>
+    private static string DescribirHito(EventoEnvio evento, int bultosEntregados, int totalBultos) => evento.TipoEvento switch
     {
         "AltaEnvio" => "Envío registrado y admitido",
         "RecepcionEnDeposito" => "Envío recibido en el depósito",
@@ -126,6 +239,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         "BultoFaltanteEnCarga" => "Envío devuelto al depósito para una nueva planificación",
         "DespachoRuta" => "El envío salió a reparto",
         "EntregaExitosa" => "Envío entregado",
+        "EntregaParcial" => $"Entrega parcial registrada ({bultosEntregados} de {totalBultos} bultos entregados)",
         "IntentoEntregaFallido" => "No se pudo concretar la entrega",
         "ResolucionReglaOperativa_Reprogramado" => "Entrega reprogramada para un nuevo intento",
         "ResolucionReglaOperativa_EnDevolucion" => "El envío será devuelto al comercio",
@@ -139,6 +253,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         {
             EstadoEnvio.EnDeposito => "Envío en el depósito",
             EstadoEnvio.EnTransito => "Envío en tránsito",
+            EstadoEnvio.EntregadoParcialmente => $"Envío entregado parcialmente ({bultosEntregados} de {totalBultos} bultos entregados)",
             EstadoEnvio.Devuelto => "Envío devuelto al comercio",
             EstadoEnvio.Extraviado => "El envío no pudo ser ubicado y se está gestionando",
             _ => $"Actualización del estado del envío: {evento.EstadoNuevo}"

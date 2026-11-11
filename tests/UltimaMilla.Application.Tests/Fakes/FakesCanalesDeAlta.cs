@@ -12,6 +12,9 @@ public class FakeComercioOperadorRepository : IComercioOperadorRepository
     public Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(Relaciones.FirstOrDefault(c => c.Id == id));
 
+    public Task<ComercioOperador?> GetByIdSinFiltroAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Relaciones.FirstOrDefault(c => c.Id == id));
+
     public Task<ComercioOperador?> GetByHuellaClaveApiAsync(string huella, CancellationToken cancellationToken = default) =>
         Task.FromResult(Relaciones.FirstOrDefault(c => c.ClaveApi == huella));
 

@@ -11,7 +11,7 @@
   <ItemGroup>
     <!-- El Portal solo hospeda el cliente WASM: ya no referencia Application ni Infrastructure -->
     <ProjectReference Include="..\PortalComercio.Client\UltimaMilla.PortalComercio.Client.csproj" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.14" />
   </ItemGroup>
 
 </Project>

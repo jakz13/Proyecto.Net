@@ -111,6 +111,7 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
             new(ClaimTypes.Role, "Operario"),
             new(ClaimTypes.Role, "Comercio"),
             new(ClaimTypes.Role, "Administrador"),
+            new(ClaimTypes.Role, "AdministradorPlataforma"),
             new(ClaimTypes.Name, "Repartidor Demo (Martín Rodríguez)")
         };
 

@@ -2,6 +2,7 @@ using MediatR;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
@@ -42,7 +43,9 @@ public class ValidarEscaneoCargaCommandHandler : IRequestHandler<ValidarEscaneoC
             .ToHashSet();
 
         var bultosAsignados = envios
-            .SelectMany(e => e.Bultos.Select(b => new { Envio = e, Bulto = b }))
+            .SelectMany(e => e.Bultos
+                .Where(b => !b.EstaEntregado && b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion)
+                .Select(b => new { Envio = e, Bulto = b }))
             .ToList();
 
         var bultosCorrectos = new List<BultoItemDto>();

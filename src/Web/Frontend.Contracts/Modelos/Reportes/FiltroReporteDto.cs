@@ -6,7 +6,7 @@ namespace UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 public record FiltroReporteDto
 {
     public string TipoReporte { get; init; } = "CumplimientoZona"; 
-    // Opciones: "CumplimientoZona", "CumplimientoRepartidor", "CumplimientoComercio", "MotivosNoEntrega", "VolumenPeriodo", "LiquidacionComercio"
+    // Opciones: "CumplimientoZona", "CumplimientoRepartidor", "CumplimientoComercio", "MotivosNoEntrega", "VolumenPeriodo", "LiquidacionComercio", "RetirosEnDomicilio"
 
     public DateOnly FechaDesde { get; init; } = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30));
     public DateOnly FechaHasta { get; init; } = DateOnly.FromDateTime(DateTime.UtcNow);

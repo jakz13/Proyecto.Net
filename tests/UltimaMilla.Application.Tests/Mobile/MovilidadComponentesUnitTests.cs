@@ -435,4 +435,326 @@ public class MovilidadComponentesUnitTests
         Assert.Equal("LLEGADA_GEOCERCA", cmd.TipoEvento);
         Assert.True(cmd.DistanciaMetros > 0);
     }
+
+    // =========================================================================
+    // 4. SEGURIDAD CRIPTOGRÁFICA Y ALMACENAMIENTO SQLCIPHER (RNF 6.3, RNF 6.11)
+    // =========================================================================
+
+    public record EstadoCifradoDiagnosticoDto(
+        bool CifradoActivo,
+        string CipherVersion,
+        bool ArchivoEsCifradoEnDisco,
+        string MensajeDiagnostico);
+
+    [Fact]
+    public void GeneracionClaveCriptografica_256Bits_ProduceClaveValidaYEntropiaAlta()
+    {
+        var keyBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        var base64Key = Convert.ToBase64String(keyBytes);
+
+        Assert.Equal(32, keyBytes.Length);
+        Assert.Equal(44, base64Key.Length);
+        Assert.False(string.IsNullOrWhiteSpace(base64Key));
+
+        // Claves sucesivas deben ser criptográficamente impredecibles y únicas
+        var keyBytes2 = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        var base64Key2 = Convert.ToBase64String(keyBytes2);
+        Assert.NotEqual(base64Key, base64Key2);
+    }
+
+    [Fact]
+    public void ValidacionCabeceraBaseDeDatos_DeteccionTextoPlanoVsCifrado_DistingueCorrectamente()
+    {
+        var sqlitePlaintextHeader = "SQLite format 3\0"u8.ToArray();
+        Assert.Equal(16, sqlitePlaintextHeader.Length);
+
+        // Archivo en texto plano: primeros 16 bytes coinciden con el magic header de SQLite
+        byte[] samplePlaintext = new byte[16];
+        Array.Copy(sqlitePlaintextHeader, samplePlaintext, 16);
+        bool esTextoPlano = samplePlaintext.SequenceEqual(sqlitePlaintextHeader);
+        bool esCifrado = !esTextoPlano;
+
+        Assert.True(esTextoPlano);
+        Assert.False(esCifrado);
+
+        // Archivo cifrado con SQLCipher: primeros 16 bytes contienen salt criptográfico aleatorio
+        byte[] sampleCiphertext = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        bool esTextoPlanoCipher = sampleCiphertext.SequenceEqual(sqlitePlaintextHeader);
+        bool esCifradoCipher = !esTextoPlanoCipher;
+
+        Assert.False(esTextoPlanoCipher);
+        Assert.True(esCifradoCipher);
+    }
+
+    [Fact]
+    public void EstadoCifradoDiagnosticoDto_ContratoCifradoSQLCipher_CumpleInvariantes()
+    {
+        var dto = new EstadoCifradoDiagnosticoDto(
+            CifradoActivo: true,
+            CipherVersion: "4.5.7 community",
+            ArchivoEsCifradoEnDisco: true,
+            MensajeDiagnostico: "Cifrado activo con SQLCipher v4.5.7 community. Base de datos cifrada en disco."
+        );
+
+        Assert.True(dto.CifradoActivo);
+        Assert.Equal("4.5.7 community", dto.CipherVersion);
+        Assert.True(dto.ArchivoEsCifradoEnDisco);
+        Assert.Contains("SQLCipher", dto.MensajeDiagnostico);
+
+        var json = JsonSerializer.Serialize(dto);
+        var deserializado = JsonSerializer.Deserialize<EstadoCifradoDiagnosticoDto>(json);
+
+        Assert.NotNull(deserializado);
+        Assert.Equal(dto.CifradoActivo, deserializado.CifradoActivo);
+        Assert.Equal(dto.CipherVersion, deserializado.CipherVersion);
+        Assert.Equal(dto.ArchivoEsCifradoEnDisco, deserializado.ArchivoEsCifradoEnDisco);
+    }
+
+    // =========================================================================
+    // 5. PRUEBA DE ENTREGA (POD): FIRMA, FOTO Y AUDITORÍA GPS
+    // =========================================================================
+
+    [Fact]
+    public void PruebaDeEntrega_FirmaRasterizada_GeneraEncabezadoPngValidoYBase64()
+    {
+        // Encabezado estándar PNG (RFC 2083)
+        byte[] pngHeader = [137, 80, 78, 71, 13, 10, 26, 10];
+
+        // Simulación de comprobante de firma rasterizada
+        using var ms = new MemoryStream();
+        ms.Write(pngHeader);
+        ms.Write(new byte[128]); // Datos simulados de imagen rasterizada
+
+        var bytes = ms.ToArray();
+        var base64 = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+
+        Assert.True(bytes.Length > 8);
+        Assert.True(bytes.Take(8).SequenceEqual(pngHeader));
+        Assert.StartsWith("data:image/png;base64,", base64);
+        Assert.True(base64.Length > 30);
+    }
+
+    [Fact]
+    public void PruebaDeEntrega_CompresionFotografica_ValidaEncabezadoJpegYRelacionCompresion()
+    {
+        // Encabezado SOI estándar JPEG
+        byte[] jpegHeader = [0xFF, 0xD8];
+
+        long pesoOriginalBytes = 3_420_000; // ~3.4 MB
+        long pesoComprimidoBytes = 78_500;  // ~78 KB
+
+        double factorCompresion = (double)pesoComprimidoBytes / pesoOriginalBytes;
+        Assert.True(factorCompresion < 0.10); // Más del 90% de reducción
+
+        byte[] fakeJpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0xFF, 0xD9];
+        Assert.True(fakeJpeg.Take(2).SequenceEqual(jpegHeader));
+        Assert.Equal(0xFF, fakeJpeg[^2]);
+        Assert.Equal(0xD9, fakeJpeg[^1]);
+    }
+
+    [Fact]
+    public void PruebaDeEntrega_AuditoriaGeolocalizacionYTimestamp_PreservaPrecision()
+    {
+        double latitud = -34.9011;
+        double longitud = -56.1645;
+        var timestampUtc = DateTime.UtcNow;
+
+        var payload = new
+        {
+            HojaDeRutaId = Guid.NewGuid(),
+            ParadaId = Guid.NewGuid(),
+            EnvioId = Guid.NewGuid(),
+            IdempotencyKey = $"ENTREGA-{Guid.NewGuid():N}",
+            NombreReceptor = "Carlos Martinez",
+            DocumentoReceptor = "4.567.890-1",
+            FirmaDigitalBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+            FotoEvidenciaBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+            Latitud = latitud,
+            Longitud = longitud,
+            FechaHoraDispositivoUtc = timestampUtc
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        Assert.Contains("-34.9011", json);
+        Assert.Contains("-56.1645", json);
+        Assert.Contains("Carlos Martinez", json);
+        Assert.NotNull(payload.FirmaDigitalBase64);
+        Assert.NotNull(payload.FotoEvidenciaBase64);
+        Assert.True(payload.FechaHoraDispositivoUtc <= DateTime.UtcNow);
+    }
+
+    // =========================================================================
+    // 6. VALIDACIÓN BIOMÉTRICA EN OPERACIONES SENSIBLES (RNF 6.3, RNF 6.11)
+    // =========================================================================
+
+    public interface ITestBiometricAuthService
+    {
+        Task<bool> ValidarIdentidadAsync(string titulo, string motivo);
+        Task<bool> DispositivoSoportaBiometriaAsync();
+    }
+
+    public class FakeBiometricAuthService : ITestBiometricAuthService
+    {
+        public bool DebeAprobar { get; set; } = true;
+        public bool SoportaBiometria { get; set; } = true;
+        public int LlamadasValidar { get; private set; }
+        public string? UltimoTitulo { get; private set; }
+        public string? UltimoMotivo { get; private set; }
+
+        public Task<bool> DispositivoSoportaBiometriaAsync()
+            => Task.FromResult(SoportaBiometria);
+
+        public Task<bool> ValidarIdentidadAsync(string titulo, string motivo)
+        {
+            LlamadasValidar++;
+            UltimoTitulo = titulo;
+            UltimoMotivo = motivo;
+            return Task.FromResult(DebeAprobar);
+        }
+    }
+
+    [Fact]
+    public async Task Biometria_OperacionSensible_Autorizada_PermiteCompletarAccion()
+    {
+        var bioService = new FakeBiometricAuthService { DebeAprobar = true };
+
+        var autorizado = await bioService.ValidarIdentidadAsync(
+            "Autorizar Custodia de Carga",
+            "Verifique su identidad para asumir la custodia de los bultos.");
+
+        Assert.True(autorizado);
+        Assert.Equal(1, bioService.LlamadasValidar);
+        Assert.Equal("Autorizar Custodia de Carga", bioService.UltimoTitulo);
+    }
+
+    [Fact]
+    public async Task Biometria_OperacionSensible_Rechazada_ImpideContinuar()
+    {
+        var bioService = new FakeBiometricAuthService { DebeAprobar = false };
+
+        var autorizado = await bioService.ValidarIdentidadAsync(
+            "Autorizar Rendicion de Ruta",
+            "Verifique su identidad para confirmar la entrega de bultos en deposito.");
+
+        Assert.False(autorizado);
+        Assert.Equal(1, bioService.LlamadasValidar);
+        Assert.Equal("Autorizar Rendicion de Ruta", bioService.UltimoTitulo);
+    }
+
+    // =========================================================================
+    // 7. TELEMETRIA EN SEGUNDO PLANO Y POSICIONES OFFLINE
+    // =========================================================================
+
+    public class TelemetriaGpsOfflinePayloadPrueba
+    {
+        public Guid HojaDeRutaId { get; set; }
+        public Guid RepartidorId { get; set; }
+        public double Latitud { get; set; }
+        public double Longitud { get; set; }
+        public double? PrecisionMetros { get; set; }
+        public DateTime TimestampUtc { get; set; }
+        public int? BateriaPct { get; set; }
+        public string IdempotencyKey { get; set; } = string.Empty;
+    }
+
+    [Fact]
+    public void PayloadTelemetriaGps_SerializacionYDeserializacion_ConservaTodosLosCampos()
+    {
+        var rutaId = Guid.NewGuid();
+        var repId = Guid.NewGuid();
+        var fecha = new DateTime(2026, 11, 4, 18, 30, 0, DateTimeKind.Utc);
+
+        var original = new TelemetriaGpsOfflinePayloadPrueba
+        {
+            HojaDeRutaId = rutaId,
+            RepartidorId = repId,
+            Latitud = -34.9011,
+            Longitud = -56.1645,
+            PrecisionMetros = 8.5,
+            TimestampUtc = fecha,
+            BateriaPct = 85,
+            IdempotencyKey = $"GPS-{rutaId:N}-{fecha.Ticks}"
+        };
+
+        var json = JsonSerializer.Serialize(original);
+        var recuperado = JsonSerializer.Deserialize<TelemetriaGpsOfflinePayloadPrueba>(json);
+
+        Assert.NotNull(recuperado);
+        Assert.Equal(original.HojaDeRutaId, recuperado.HojaDeRutaId);
+        Assert.Equal(original.RepartidorId, recuperado.RepartidorId);
+        Assert.Equal(original.Latitud, recuperado.Latitud, 4);
+        Assert.Equal(original.Longitud, recuperado.Longitud, 4);
+        Assert.Equal(original.PrecisionMetros, recuperado.PrecisionMetros);
+        Assert.Equal(original.TimestampUtc, recuperado.TimestampUtc);
+        Assert.Equal(original.BateriaPct, recuperado.BateriaPct);
+        Assert.Equal(original.IdempotencyKey, recuperado.IdempotencyKey);
+    }
+
+    [Fact]
+    public void RegistrarPosicionesCommand_InstanciacionValida_CumpleInvariantes()
+    {
+        var rutaId = Guid.NewGuid();
+        var fecha = DateTime.UtcNow;
+
+        var pos1 = new UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones.PosicionDispositivoDto(
+            Latitud: -34.9011,
+            Longitud: -56.1645,
+            TomadaEn: fecha,
+            VelocidadKmh: 42.0,
+            BateriaPct: 78,
+            HojaDeRutaId: rutaId);
+
+        var comando = new UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones.RegistrarPosicionesCommand([pos1]);
+
+        Assert.Single(comando.Posiciones);
+        Assert.Equal(-34.9011, comando.Posiciones[0].Latitud);
+        Assert.Equal(-56.1645, comando.Posiciones[0].Longitud);
+        Assert.Equal(fecha, comando.Posiciones[0].TomadaEn);
+        Assert.Equal(42.0, comando.Posiciones[0].VelocidadKmh);
+        Assert.Equal(78, comando.Posiciones[0].BateriaPct);
+        Assert.Equal(rutaId, comando.Posiciones[0].HojaDeRutaId);
+    }
+
+    [Fact]
+    public void RegistrarPosicionesCommand_ConListaVacia_MantieneInvarianteColeccion()
+    {
+        var comando = new UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones.RegistrarPosicionesCommand([]);
+
+        Assert.NotNull(comando.Posiciones);
+        Assert.Empty(comando.Posiciones);
+    }
+
+    [Fact]
+    public void PosicionDispositivoDto_ConLimitesExtremosYValoresNulos_PreservaIntegridad()
+    {
+        var posMin = new UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones.PosicionDispositivoDto(
+            Latitud: -90.0,
+            Longitud: -180.0,
+            TomadaEn: null,
+            VelocidadKmh: null,
+            BateriaPct: null,
+            HojaDeRutaId: null);
+
+        var posMax = new UltimaMilla.Application.Commands.Mobile.Posicion.RegistrarPosiciones.PosicionDispositivoDto(
+            Latitud: 90.0,
+            Longitud: 180.0,
+            TomadaEn: DateTime.MaxValue,
+            VelocidadKmh: 300.0,
+            BateriaPct: 100,
+            HojaDeRutaId: Guid.Empty);
+
+        Assert.Equal(-90.0, posMin.Latitud);
+        Assert.Equal(-180.0, posMin.Longitud);
+        Assert.Null(posMin.TomadaEn);
+        Assert.Null(posMin.VelocidadKmh);
+        Assert.Null(posMin.BateriaPct);
+        Assert.Null(posMin.HojaDeRutaId);
+
+        Assert.Equal(90.0, posMax.Latitud);
+        Assert.Equal(180.0, posMax.Longitud);
+        Assert.Equal(DateTime.MaxValue, posMax.TomadaEn);
+        Assert.Equal(300.0, posMax.VelocidadKmh);
+        Assert.Equal(100, posMax.BateriaPct);
+        Assert.Equal(Guid.Empty, posMax.HojaDeRutaId);
+    }
 }

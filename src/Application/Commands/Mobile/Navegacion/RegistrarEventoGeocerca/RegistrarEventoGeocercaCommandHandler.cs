@@ -57,7 +57,15 @@ public class RegistrarEventoGeocercaCommandHandler : IRequestHandler<RegistrarEv
         var parada = ruta.Paradas.FirstOrDefault(p => p.Id == request.ParadaId)
             ?? throw new NotFoundException($"La parada '{request.ParadaId}' no pertenece a la hoja de ruta '{request.HojaDeRutaId}'.");
 
-        var envioId = request.EnvioId != Guid.Empty ? request.EnvioId : parada.EnvioId;
+        if (parada.EsRetiro || parada.EnvioId is null)
+        {
+            // La geocerca de una parada de retiro no es un evento de envío: se acepta sin registrar para que la sincronización no se bloquee
+            return new EventoGeocercaResultDto(
+                parada.RetiroId ?? Guid.Empty, ruta.Id, parada.Id, string.Empty, request.TipoEvento, string.Empty,
+                request.DistanciaMetros, request.TiempoPermanenciaSegundos, request.TimestampUtc ?? _clock.UtcNow, true);
+        }
+
+        var envioId = request.EnvioId != Guid.Empty ? request.EnvioId : parada.EnvioId.Value;
         if (parada.EnvioId != envioId)
             throw new DomainValidationException($"La parada '{request.ParadaId}' no corresponde al envío '{envioId}'.");
 

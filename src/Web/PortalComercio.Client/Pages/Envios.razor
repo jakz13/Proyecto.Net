@@ -295,6 +295,43 @@
                     </div>
                 </div>
 
+                <!-- Evidencia de entrega: firma y foto que dejó el repartidor -->
+                @if (evidenciasDelEnvio.Count > 0)
+                {
+                    <div class="col-12 mt-2 pt-3 border-top">
+                        <span class="small fw-bold text-uppercase text-secondary d-block mb-2">Evidencia de entrega</span>
+                        @foreach (var ev in evidenciasDelEnvio)
+                        {
+                            <div class="bg-white border rounded-2 p-2 mb-2">
+                                <div class="small text-secondary">@ev.Evidencia.FechaHora.ToLocalTime().ToString("g")</div>
+                                <div class="small mb-2">
+                                    Recibió: <strong>@(ev.Evidencia.NombreReceptor ?? "Sin nombre")</strong>
+                                    @if (!string.IsNullOrWhiteSpace(ev.Evidencia.DocumentoReceptor))
+                                    {
+                                        <span> · Documento: <span class="font-monospace">@ev.Evidencia.DocumentoReceptor</span></span>
+                                    }
+                                </div>
+                                <div class="d-flex flex-wrap gap-3">
+                                    @if (ev.Firma is not null)
+                                    {
+                                        <figure class="mb-0">
+                                            <img src="@ev.Firma" alt="Firma del receptor" class="border rounded bg-white" style="max-height: 110px; max-width: 220px;" />
+                                            <figcaption class="small text-secondary">Firma</figcaption>
+                                        </figure>
+                                    }
+                                    @if (ev.Foto is not null)
+                                    {
+                                        <figure class="mb-0">
+                                            <img src="@ev.Foto" alt="Foto de la entrega" class="border rounded bg-white" style="max-height: 110px; max-width: 220px;" />
+                                            <figcaption class="small text-secondary">Foto</figcaption>
+                                        </figure>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
                 <!-- Avisos Webhook y Notificaciones Automáticas del Envío -->
                 <div class="col-12 mt-2 pt-3 border-top">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -723,6 +760,10 @@
     private EnvioDto? envioEnSeguimiento;
     private IReadOnlyList<EventoHistorialEnvioDto> eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
     private IReadOnlyList<AvisoHistorialDetalleDto> avisosDelEnvio = Array.Empty<AvisoHistorialDetalleDto>();
+    private IReadOnlyList<EvidenciaVista> evidenciasDelEnvio = Array.Empty<EvidenciaVista>();
+
+    /// <summary>Evidencia con sus imágenes ya convertidas a data URI (la API exige el token, así que no se enlazan por URL).</summary>
+    private sealed record EvidenciaVista(EvidenciaEntregaDto Evidencia, string? Firma, string? Foto);
     private bool estaCargandoSeguimiento = false;
     private bool estaCargandoAvisosEnvio = false;
     private bool pendienteRenderizarMapaSeguimiento = false;
@@ -822,6 +863,7 @@
             eventosSeguimiento = await EnviosApi.ObtenerHistorialEnvioAsync(envio.Id);
             pendienteRenderizarMapaSeguimiento = true;
             await CargarAvisosDelEnvioAsync(envio.Id);
+            await CargarEvidenciasDelEnvioAsync(envio.Id);
         }
         catch (Exception ex)
         {
@@ -838,8 +880,33 @@
         envioEnSeguimiento = null;
         eventosSeguimiento = Array.Empty<EventoHistorialEnvioDto>();
         avisosDelEnvio = Array.Empty<AvisoHistorialDetalleDto>();
+        evidenciasDelEnvio = Array.Empty<EvidenciaVista>();
         pendienteRenderizarMapaSeguimiento = false;
     }
+
+    private async Task CargarEvidenciasDelEnvioAsync(Guid envioId)
+    {
+        try
+        {
+            var vistas = new List<EvidenciaVista>();
+            foreach (var ev in await EnviosApi.ObtenerEvidenciasEnvioAsync(envioId))
+            {
+                var firma = ev.TieneFirma ? await EnviosApi.ObtenerImagenEvidenciaAsync(envioId, ev.IntentoId, "firma") : null;
+                var foto = ev.TieneFoto ? await EnviosApi.ObtenerImagenEvidenciaAsync(envioId, ev.IntentoId, "foto") : null;
+                vistas.Add(new EvidenciaVista(ev, ADataUri(firma), ADataUri(foto)));
+            }
+
+            evidenciasDelEnvio = vistas;
+        }
+        catch
+        {
+            // La evidencia es complementaria: si no se puede cargar, el resto del detalle sigue disponible.
+            evidenciasDelEnvio = Array.Empty<EvidenciaVista>();
+        }
+    }
+
+    private static string? ADataUri(ImagenEvidenciaDto? imagen) =>
+        imagen is null ? null : $"data:{imagen.TipoContenido};base64,{Convert.ToBase64String(imagen.Contenido)}";
 
     private async Task CargarAvisosDelEnvioAsync(Guid envioId)
     {

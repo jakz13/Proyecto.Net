@@ -47,9 +47,20 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
 
         // Se construye primero la nueva versión: si los datos son inválidos no se archiva la vigente.
         var nueva = new ReglaOperativa(
-            Guid.NewGuid(), operadorId, version, ahora, request.MaxIntentosEntrega, request.PlazoEntreIntentos,
-            tipoCanonico, request.PoliticaDevolucion ?? string.Empty, request.PlazoComprometidoEstandar,
-            request.PlazoComprometidoUrgente, null, request.MaxParadasPorRuta);
+            Guid.NewGuid(),
+            operadorId,
+            version,
+            ahora,
+            request.MaxIntentosEntrega,
+            request.PlazoEntreIntentos,
+            tipoCanonico,
+            request.PoliticaDevolucion ?? string.Empty,
+            request.PlazoComprometidoEstandar,
+            request.PlazoComprometidoUrgente,
+            null,
+            request.MaxParadasPorRuta,
+            request.AdmiteEntregaParcial,
+            request.PoliticaEntregaParcial ?? ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
 
         nueva.RegistrarComentario(request.Comentario);
         vigente?.FinalizarVigencia(ahora);

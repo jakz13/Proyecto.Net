@@ -6,8 +6,10 @@ using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Api;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
+using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Auth;
@@ -20,6 +22,7 @@ using UltimaMilla.Mobile.Views.Carga;
 using UltimaMilla.Mobile.Views.Diagnostic;
 using UltimaMilla.Mobile.Views.Entrega;
 using UltimaMilla.Mobile.Views.Ruta;
+using ZXing.Net.Maui.Controls;
 
 namespace UltimaMilla.Mobile;
 
@@ -27,9 +30,13 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        // Inicializar proveedor nativo de SQLCipher (SQLitePCLRaw.bundle_e_sqlcipher)
+        SQLitePCL.Batteries_V2.Init();
+
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseBarcodeReader()
             .ConfigureMauiHandlers(handlers =>
             {
 #if ANDROID
@@ -41,20 +48,22 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // 1. Almacenamiento Local Cifrado (RNF 6.11 - SQLite con SQLCipher)
+        // 1. Almacenamiento Local Cifrado (SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
         builder.Services.AddSingleton<IAuthService, AuthService>();
+        builder.Services.AddSingleton<IBiometricAuthService, BiometricAuthService>();
+        builder.Services.AddSingleton<INotificacionLocalService, NotificacionLocalService>();
 
-        // 1b. Motor de Sincronización Resiliente Offline-First (UC-17 a UC-21)
+        // 1b. Motor de Sincronizacion Resiliente Offline-First
         builder.Services.AddSingleton<ISyncService, SyncService>();
 
-        // 1c. Telemetría y Geolocalización en Tiempo Real con SignalR (Hito 4 / RNF 6.10, RNF 6.11)
+        // 1c. Telemetria y Geolocalizacion en Tiempo Real con SignalR
         builder.Services.AddSingleton<IRealtimeTrackingService, RealtimeTrackingService>();
         builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
         builder.Services.AddSingleton<IGeolocalizacionTrackingService, GeolocalizacionTrackingService>();
         builder.Services.AddSingleton<IRutaOptimizationService, RutaOptimizationService>();
 
-        // 2. Interceptor HTTP de Autenticación (RNF 6.3 - Inyección de Bearer token desde SecureStorage)
+        // 2. Interceptor HTTP de Autenticacion (Inyeccion de Bearer token desde SecureStorage)
         builder.Services.AddTransient<AuthDelegatingHandler>();
 
         // 3. Registro de Cliente HTTP genérico con el interceptor configurado
@@ -92,6 +101,7 @@ public static class MauiProgram
         builder.Services.AddTransient<RegistroEntregaPage>();
         builder.Services.AddTransient<IntentoFallidoPage>();
         builder.Services.AddTransient<CargaVehiculoPage>();
+        builder.Services.AddTransient<EscanerCodigoPage>();
 
         builder.Services.AddSingleton<AppShell>();
 

@@ -40,4 +40,5 @@ public record AltaEnvioResultDto(
     string Estado,
     decimal Tarifa,
     IReadOnlyList<string> IdentificacionesBultos,
-    bool Duplicado = false);
+    bool Duplicado = false,
+    bool Simulado = false);

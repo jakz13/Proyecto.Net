@@ -25,6 +25,9 @@
     <Color x:Key="InputBackground">#FFFFFF</Color>    <!-- Fondo de inputs -->
     <Color x:Key="InputBorder">#CBD5E1</Color>        <!-- Borde de inputs (Slate-300) -->
     <Color x:Key="InputBorderFocused">#2563EB</Color>
+    <Color x:Key="Neutral300">#CBD5E1</Color>
+    <Color x:Key="Neutral400">#94A3B8</Color>
+    <Color x:Key="PureWhite">#FFFFFF</Color>
 
     <!-- Tipografía / Textos -->
     <Color x:Key="TextPrimary">#0F172A</Color>        <!-- Texto principal de alto contraste (Slate-900) -->

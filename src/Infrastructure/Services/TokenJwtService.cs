@@ -41,13 +41,20 @@ public class TokenJwtService : ITokenJwtService
         _claveGlobal = ResolverClave(configuration);
     }
 
+    /// <summary>Clave con la que firma la plataforma (la del JWT), para derivar otras firmas de ella.</summary>
+    public static string ClaveDeFirma(IConfiguration configuration) => ResolverClave(configuration);
+
     private static string ResolverClave(IConfiguration configuration)
     {
         var claveConfigurada = configuration["Jwt:SecretKey"]
             ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-        if (string.IsNullOrWhiteSpace(claveConfigurada)
-            && string.Equals(configuration["Jwt:RequireConfiguredSecret"], "true", StringComparison.OrdinalIgnoreCase))
+        // La clave de desarrollo está en el repositorio, así que nunca debe firmar tokens en Production
+        var entorno = configuration["ASPNETCORE_ENVIRONMENT"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var exigirClave = string.Equals(configuration["Jwt:RequireConfiguredSecret"], "true", StringComparison.OrdinalIgnoreCase)
+                          || string.Equals(entorno, "Production", StringComparison.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(claveConfigurada) && exigirClave)
         {
             throw new InvalidOperationException("Debe configurarse 'Jwt:SecretKey' (o variable de entorno JWT_SECRET_KEY) con al menos 32 caracteres.");
         }
@@ -66,7 +73,8 @@ public class TokenJwtService : ITokenJwtService
         Perfil perfil,
         IReadOnlyCollection<string> codigosPermisos,
         TimeSpan? tiempoExpiracion = null,
-        Guid? comercioOperadorId = null)
+        Guid? comercioOperadorId = null,
+        Guid? operadorId = null)
     {
         ArgumentNullException.ThrowIfNull(usuario);
         ArgumentNullException.ThrowIfNull(perfil);
@@ -95,10 +103,13 @@ public class TokenJwtService : ITokenJwtService
             { "permisos", codigosPermisos ?? Array.Empty<string>() }
         };
 
-        if (usuario.OperadorId.HasValue)
+        // Un usuario de comercio vinculado a varios operadores puede abrir sesión en cualquiera de ellos: el operador explícito
+        // (ya validado por quien emite el token) manda sobre el operador de origen del usuario.
+        var operadorDelToken = operadorId ?? usuario.OperadorId;
+        if (operadorDelToken.HasValue)
         {
-            payload["operador_id"] = usuario.OperadorId.Value.ToString();
-            payload["tenant_id"] = usuario.OperadorId.Value.ToString();
+            payload["operador_id"] = operadorDelToken.Value.ToString();
+            payload["tenant_id"] = operadorDelToken.Value.ToString();
         }
 
         // El sistema identifica al comercio por su relación con el operador (ComercioOperador), no por el comercio a secas.
@@ -160,13 +171,13 @@ public class TokenJwtService : ITokenJwtService
             var raiz = documento.RootElement;
 
             // Validar expiración
-            if (raiz.TryGetProperty("exp", out var expElement))
-            {
-                var expSeconds = expElement.GetInt64();
-                var expDateTime = DateTimeOffset.FromUnixTimeSeconds(expSeconds).UtcDateTime;
-                if (DateTime.UtcNow > expDateTime)
-                    return null;
-            }
+            // Un token sin vencimiento nunca es válido
+            if (!raiz.TryGetProperty("exp", out var expElement) || expElement.ValueKind != JsonValueKind.Number)
+                return null;
+
+            var expDateTime = DateTimeOffset.FromUnixTimeSeconds(expElement.GetInt64()).UtcDateTime;
+            if (DateTime.UtcNow > expDateTime)
+                return null;
 
             var claims = new List<Claim>();
 

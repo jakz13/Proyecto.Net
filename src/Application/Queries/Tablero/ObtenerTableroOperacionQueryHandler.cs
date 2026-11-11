@@ -91,7 +91,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
     {
         var paradas = rutas.SelectMany(HojaDeRutaMapper.ParadasVigentes).ToList();
 
-        var envios = (await _envioRepository.GetByIdsAsync(paradas.Select(p => p.EnvioId), ct))
+        var envios = (await _envioRepository.GetByIdsAsync(paradas.IdsDeEnvios(), ct))
             .Where(e => e.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(e => e.Id);
 
@@ -121,7 +121,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
             .ToDictionary(d => d.Id);
 
         var franjas = (await _franjaHorariaRepository.GetByIdsAsync(
-                paradas.Select(p => p.FranjaHorariaId ?? envios.GetValueOrDefault(p.EnvioId)?.FranjaHorariaComprometidaId)
+                paradas.Select(p => p.FranjaHorariaId ?? (p.EnvioId.HasValue ? envios.GetValueOrDefault(p.EnvioId.Value)?.FranjaHorariaComprometidaId : null))
                     .OfType<Guid>(), ct))
             .ToDictionary(f => f.Id);
 
@@ -139,7 +139,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
         var numeroRuta = HojaDeRutaMapper.NumeroRuta(ruta);
         var nombreRepartidor = ctx.Nombres.GetValueOrDefault(repartidor.UsuarioId) ?? repartidor.Documento;
 
-        var paradas = HojaDeRutaMapper.ParadasVigentes(ruta).Where(p => ctx.Envios.ContainsKey(p.EnvioId)).ToList();
+        var paradas = HojaDeRutaMapper.ParadasVigentes(ruta).Where(p => p.EnvioId.HasValue && ctx.Envios.ContainsKey(p.EnvioId.Value)).ToList();
         var pendientes = paradas.Where(p => EstadosPendientes.Contains(p.Estado)).ToList();
 
         var riesgos = new Dictionary<Guid, EnvioRiesgoDto>();
@@ -161,7 +161,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
         var paradaActual = pendientes.FirstOrDefault(p => p.Estado == "EnSitio")
             ?? pendientes.FirstOrDefault(p => p.Estado == "EnCamino")
             ?? pendientes.FirstOrDefault();
-        var envioActual = paradaActual is null ? null : ctx.Envios[paradaActual.EnvioId];
+        var envioActual = paradaActual is null ? null : ctx.Envios[paradaActual.EnvioId!.Value];
 
         var (latitud, longitud, direccionPosicion, origen, actualizadaEn) = UbicarUnidad(paradas, pendientes, ctx);
 
@@ -184,7 +184,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
     private static (Envio Envio, DateTime Cierre, string Ventana, RiesgoVentana Riesgo)? EvaluarParada(
         Parada parada, int posicionPendiente, HojaDeRuta ruta, ContextoTablero ctx, DateTime ahoraLocal)
     {
-        var envio = ctx.Envios[parada.EnvioId];
+        var envio = ctx.Envios[parada.EnvioId!.Value];
         var franjaId = parada.FranjaHorariaId ?? envio.FranjaHorariaComprometidaId;
         if (franjaId is null || !ctx.Franjas.TryGetValue(franjaId.Value, out var franja) || franja.DiaSemana != ruta.Fecha.DayOfWeek)
             return null;
@@ -203,7 +203,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
     {
         foreach (var enSitio in pendientes.Where(p => p.Estado == "EnSitio"))
         {
-            var envio = ctx.Envios[enSitio.EnvioId];
+            var envio = ctx.Envios[enSitio.EnvioId!.Value];
             var direccion = DireccionDe(envio, ctx, enSitio.DireccionId);
             if (direccion?.Latitud is { } lat && direccion.Longitud is { } lon)
                 return (lat, lon, direccion.ToString(), OrigenEnParada, null);
@@ -211,7 +211,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
 
         var idsParadas = paradas.Select(p => p.Id).ToHashSet();
         var ultimo = paradas
-            .SelectMany(p => ctx.Envios[p.EnvioId].IntentosEntrega.Where(i => i.ParadaId == p.Id))
+            .SelectMany(p => ctx.Envios[p.EnvioId!.Value].IntentosEntrega.Where(i => i.ParadaId == p.Id))
             .Where(i => i.Latitud.HasValue && i.Longitud.HasValue && idsParadas.Contains(i.ParadaId))
             .OrderByDescending(i => i.Timestamp)
             .FirstOrDefault();
@@ -224,7 +224,7 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
 
     private static ParadaEnVivoDto ConstruirParada(Parada parada, ContextoTablero ctx, IReadOnlyDictionary<Guid, EnvioRiesgoDto> riesgos)
     {
-        var envio = ctx.Envios[parada.EnvioId];
+        var envio = ctx.Envios[parada.EnvioId!.Value];
         var direccion = DireccionDe(envio, ctx, parada.DireccionId);
         var franjaId = parada.FranjaHorariaId ?? envio.FranjaHorariaComprometidaId;
         var ventana = franjaId.HasValue && ctx.Franjas.TryGetValue(franjaId.Value, out var franja)

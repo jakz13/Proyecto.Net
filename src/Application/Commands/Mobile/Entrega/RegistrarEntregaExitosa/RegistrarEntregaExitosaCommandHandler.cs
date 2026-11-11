@@ -1,8 +1,11 @@
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
+using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Enums;
@@ -20,6 +23,7 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IFuncionalidadesService? _funcionalidades;
 
     public RegistrarEntregaExitosaCommandHandler(
         IEnvioRepository envioRepository,
@@ -29,8 +33,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         IDistributedCacheService cacheService,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IFuncionalidadesService? funcionalidades = null)
     {
+        _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
@@ -43,7 +49,6 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
 
     public async Task<EntregaExitosaResultDto> Handle(RegistrarEntregaExitosaCommand request, CancellationToken cancellationToken)
     {
-        // 1. Validaciones estructurales de entrada
         if (request.HojaDeRutaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la hoja de ruta es inválido.");
 
@@ -62,7 +67,6 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         if (string.IsNullOrWhiteSpace(request.DocumentoReceptor))
             throw new DomainValidationException("El documento del receptor es requerido.");
 
-        // 2. Carga y verificación de la Hoja de Ruta (Aislamiento Multitenant)
         var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(request.HojaDeRutaId, cancellationToken)
             ?? throw new NotFoundException($"Hoja de ruta '{request.HojaDeRutaId}' no encontrada.");
 
@@ -75,11 +79,9 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         if (parada.EnvioId != request.EnvioId)
             throw new DomainValidationException($"La parada '{request.ParadaId}' no corresponde al envío '{request.EnvioId}'.");
 
-        // 3. Carga del Envio
         var envio = await _envioRepository.GetByIdAsync(request.EnvioId, cancellationToken)
             ?? throw new NotFoundException($"Envío '{request.EnvioId}' no encontrado.");
 
-        // 4. Soporte Offline-First e Idempotencia estricta
         if (envio.EstadoActual == EstadoEnvio.Entregado || parada.Estado == "Entregada")
         {
             return new EntregaExitosaResultDto(
@@ -91,11 +93,39 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
                 parada.Estado,
                 _clock.UtcNow,
                 true,
-                "La entrega ya se encontraba registrada previamente (Operación idempotente)."
+                "La entrega ya se encontraba registrada previamente (Operación idempotente).",
+                envio.Bultos.Count,
+                envio.Bultos.Count(b => b.EstaEntregado),
+                envio.Bultos.Count(b => !b.EstaEntregado)
             );
         }
 
-        // 5. Obtención y evaluación de la Regla Operativa vigente del operador
+        // Manejo explícito de conflictos de sincronización (RF 24):
+        // si el repartidor completó la entrega física offline pero el servidor ya había retirado o reasignado el envío (UC-10),
+        // prevalece la entrega física real con su prueba y se asienta el conflicto en ConflictoSincronizacion y en el historial (UC-39).
+        // Una segunda visita sobre un envío ya entregado parcialmente es el flujo normal de la entrega por bultos, no un conflicto.
+        bool huboConflicto = (envio.EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
+            || parada.Estado == "Cancelada";
+        if (huboConflicto)
+        {
+            var conflicto = new ConflictoSincronizacion(
+                Guid.NewGuid(),
+                nameof(Envio),
+                envio.Id,
+                estadoServidor: envio.EstadoActual.ToString(),
+                estadoDispositivo: EstadoEnvio.Entregado.ToString(),
+                politicaAplicada: "PrevaleceEntregaFisicaConEvidencia",
+                resolucion: $"Entrega física completada offline con prueba por el repartidor mientras el servidor mantenía el envío en estado '{envio.EstadoActual}'. Prevalece la entrega real.");
+
+            await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
+        }
+
+        // La hoja de ruta debe estar despachada o en tránsito, salvo que se esté resolviendo un conflicto offline (UC-09 / UC-18 / UC-20)
+        if (ruta.Estado is not ("Despachada" or "EnTransito") && !huboConflicto)
+        {
+            throw new DomainValidationException($"No se puede registrar la entrega porque la hoja de ruta no se encuentra en tránsito (Estado actual: '{ruta.Estado}'). Debe escanear y despachar la carga previamente.");
+        }
+
         var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(ruta.OperadorId, cancellationToken)
             ?? new ReglaOperativa(
                 Guid.NewGuid(),
@@ -111,33 +141,88 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
 
         var fechaDispositivoUtc = request.FechaHoraDispositivoUtc ?? _clock.UtcNow;
 
-        // 6. Lógica de Dominio encapsulada: Registro de PruebaDeEntrega, IntentoEntrega y Transición de Estados
-        envio.RegistrarEntregaExitosa(
-            parada.Id,
-            reglaOperativa,
-            request.NombreReceptor,
-            request.DocumentoReceptor,
-            request.FirmaDigitalBase64,
-            request.FotoEvidenciaBase64,
-            request.Latitud,
-            request.Longitud,
-            fechaDispositivoUtc,
-            _currentTenant.UsuarioId);
+        bool tieneEscaneoPorBultos = (request.CodigosBultosEntregados is { Count: > 0 })
+            || (request.BultosNoEntregados is { Count: > 0 });
 
-        ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+        IReadOnlyList<string> codigosEntregadosResult;
+        IReadOnlyList<string> codigosNoEntregadosResult = Array.Empty<string>();
+        IReadOnlyList<string> conflictosResueltosResult = Array.Empty<string>();
 
-        // 7. Generación del Integration Event en Outbox dentro de la misma transacción atómica
+        if (tieneEscaneoPorBultos)
+        {
+            // Dejar bultos sin entregar es entrega parcial: solo si la funcionalidad está habilitada para el operador
+            if (request.BultosNoEntregados is { Count: > 0 })
+                await _funcionalidades.ExigirAsync(ruta.OperadorId, Domain.Entities.Operador.Funcionalidad.EntregaParcial, cancellationToken);
+
+            var inputsNoEntregados = new List<BultoNoEntregadoInput>();
+            foreach (var item in request.BultosNoEntregados ?? Array.Empty<BultoNoEntregadoRequestDto>())
+            {
+                var motivo = await _envioRepository.GetMotivoNoEntregaAsync(
+                    ruta.OperadorId,
+                    item.MotivoNoEntregaId,
+                    item.MotivoCodigo,
+                    cancellationToken)
+                    ?? throw new DomainValidationException(
+                        $"El motivo de no entrega indicado para el bulto '{item.CodigoBulto}' no existe en el catálogo del operador.");
+
+                inputsNoEntregados.Add(new BultoNoEntregadoInput(item.CodigoBulto, motivo, item.Observaciones));
+            }
+
+            var resultadoParcial = envio.RegistrarEntregaParcial(
+                parada.Id,
+                reglaOperativa,
+                request.CodigosBultosEntregados,
+                inputsNoEntregados,
+                request.NombreReceptor,
+                request.DocumentoReceptor,
+                request.FirmaDigitalBase64,
+                request.FotoEvidenciaBase64,
+                request.Latitud,
+                request.Longitud,
+                fechaDispositivoUtc,
+                _currentTenant.UsuarioId);
+
+            if (resultadoParcial.EstadoFinalEnvio == EstadoEnvio.Entregado)
+                ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+            else
+                ruta.RegistrarEntregaParcialEnParada(parada.Id);
+
+            codigosEntregadosResult = resultadoParcial.CodigosEntregadosEnVisita;
+            codigosNoEntregadosResult = resultadoParcial.CodigosNoEntregadosEnVisita;
+            conflictosResueltosResult = resultadoParcial.ConflictosResueltos;
+        }
+        else
+        {
+            envio.RegistrarEntregaExitosa(
+                parada.Id,
+                reglaOperativa,
+                request.NombreReceptor,
+                request.DocumentoReceptor,
+                request.FirmaDigitalBase64,
+                request.FotoEvidenciaBase64,
+                request.Latitud,
+                request.Longitud,
+                fechaDispositivoUtc,
+                _currentTenant.UsuarioId,
+                resolverConflictoReasignacion: huboConflicto);
+
+            ruta.RegistrarEntregaExitosaEnParada(parada.Id, resolverConflicto: huboConflicto);
+            codigosEntregadosResult = envio.Bultos.Where(b => b.EstaEntregado).Select(b => b.Identificacion).ToList();
+        }
+
         var payloadEvento = JsonSerializer.Serialize(new
         {
             EnvioId = envio.Id,
             HojaDeRutaId = ruta.Id,
             ParadaId = parada.Id,
             CodigoSeguimiento = envio.CodigoSeguimientoPublico,
-            Estado = EstadoEnvio.Entregado.ToString(),
+            Estado = envio.EstadoActual.ToString(),
             NombreReceptor = request.NombreReceptor.Trim(),
             DocumentoReceptor = request.DocumentoReceptor.Trim(),
             TieneFirma = !string.IsNullOrWhiteSpace(request.FirmaDigitalBase64),
             TieneFoto = !string.IsNullOrWhiteSpace(request.FotoEvidenciaBase64),
+            BultosEntregados = codigosEntregadosResult,
+            BultosNoEntregados = codigosNoEntregadosResult,
             Latitud = request.Latitud,
             Longitud = request.Longitud,
             FechaHoraDispositivoUtc = fechaDispositivoUtc,
@@ -148,22 +233,25 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             OperadorId = ruta.OperadorId
         });
 
+        var tipoEventoOutbox = envio.EstadoActual == EstadoEnvio.EntregadoParcialmente
+            ? "EnvioEntregadoParcialmenteIntegrationEvent"
+            : "EnvioEntregadoIntegrationEvent";
+
         var outboxMessage = new OutboxMessage(
             Guid.NewGuid(),
-            nameof(Domain.Entities.Envios.Envio),
+            nameof(Envio),
             envio.Id,
-            "EnvioEntregadoIntegrationEvent",
+            tipoEventoOutbox,
             payloadEvento);
 
-        // 8. Persistencia Atómica con IUnitOfWork
         await _envioRepository.UpdateAsync(envio, cancellationToken);
         await _rutaRepository.UpdateAsync(ruta, cancellationToken);
         await _outboxStorage.SaveAsync(outboxMessage, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 9. Invalidación inmediata de la caché de seguimiento público
-        await _cacheService.RemoveAsync($"seguimiento:{envio.CodigoSeguimientoPublico}", cancellationToken);
-        await _cacheService.RemoveAsync($"envio:{envio.Id}", cancellationToken);
+        await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
+        await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
+        await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
 
         if (_tableroNotifier is not null)
         {
@@ -179,6 +267,16 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             }
         }
 
+        int totalBultos = envio.Bultos.Count(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion);
+        int bultosEntregados = envio.Bultos.Count(b => b.EstaEntregado);
+        int bultosPendientes = Math.Max(0, totalBultos - bultosEntregados);
+
+        string mensajeResultado = huboConflicto
+            ? "Entrega registrada resolviendo conflicto: prevaleció la entrega física con evidencia sobre la reasignación previa en servidor."
+            : envio.EstadoActual == EstadoEnvio.EntregadoParcialmente
+                ? $"Entrega parcial registrada correctamente ({bultosEntregados} de {totalBultos} bultos entregados)."
+                : "Entrega exitosa registrada correctamente.";
+
         return new EntregaExitosaResultDto(
             envio.Id,
             ruta.Id,
@@ -188,7 +286,14 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             parada.Estado,
             fechaDispositivoUtc,
             false,
-            "Entrega exitosa registrada correctamente."
+            mensajeResultado,
+            totalBultos,
+            bultosEntregados,
+            bultosPendientes,
+            codigosEntregadosResult,
+            codigosNoEntregadosResult,
+            conflictosResueltosResult,
+            ConflictoResuelto: huboConflicto
         );
     }
 }
