@@ -1,6 +1,6 @@
-@inject MockContextoOperador ContextoOperador
+@inject UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion IdentidadOperador
 @{
-    var operadorActivo = ContextoOperador.OperadorActivo;
+    var operadorActivo = await IdentidadOperador.ObtenerAsync();
     var esAdmin = User.IsInRole("Administrador");
     var esDespachador = User.IsInRole("Despachador");
     var esOperario = User.IsInRole("Operario");

@@ -37,6 +37,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     {
         // La API lee la cadena de conexión al construir el host; se fija antes de crearlo
         Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", ConexionDeLaBase);
+        // Las pruebas inician sesión muchas veces desde la misma IP: el tope de producción las bloquearía
+        Environment.SetEnvironmentVariable("RateLimit__LoginPorMinuto", "100000");
     }
 
     protected override void Dispose(bool disposing)

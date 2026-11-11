@@ -76,8 +76,7 @@ public class MensajeFallidoCola : Entity
         if (string.IsNullOrWhiteSpace(motivo))
             throw new DomainValidationException("El motivo de descarte es obligatorio.");
 
-        // TODO: Agregar columnas DescartadoPorUsuarioId, FechaDescarte y MotivoDescarte en MensajeFallidoCola
-        // mediante migración EF Core para trazabilidad de auditoría de descarte en base de datos.
+        // El motivo y la fecha quedan registrados en el detalle del mensaje (Excepcion); no se elimina nada
         Estado = "Descartado";
         Excepcion = string.IsNullOrWhiteSpace(Excepcion)
             ? $"[Descartado manualmente en {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC. Motivo: {motivo.Trim()}]"

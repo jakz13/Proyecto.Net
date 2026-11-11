@@ -1,7 +1,7 @@
-@inject MockContextoOperador ContextoOperador
+@inject UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion IdentidadOperador
 @inject IWebHostEnvironment Entorno
 @{
-    var operadorActivo = ContextoOperador.OperadorActivo;
+    var operadorActivo = await IdentidadOperador.ObtenerAsync();
 }
 <!DOCTYPE html>
 <html lang="es">

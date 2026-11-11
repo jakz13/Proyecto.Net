@@ -25,6 +25,10 @@ public class TokenJwtService : ITokenJwtService
     // emisor y validador usen siempre la misma; si no se inicializa, rige la clave por defecto de desarrollo.
     private static string? _claveGlobal;
 
+    // Emisor y audiencia que debe traer todo token para ser aceptado (los mismos con los que se emiten)
+    private static string _emisorGlobal = "UltimaMilla.Api";
+    private static string _audienciaGlobal = "UltimaMilla.Clients";
+
     public TokenJwtService(IConfiguration configuration)
     {
         _claveSecreta = ResolverClave(configuration);
@@ -39,6 +43,8 @@ public class TokenJwtService : ITokenJwtService
     public static void InicializarClaveGlobal(IConfiguration configuration)
     {
         _claveGlobal = ResolverClave(configuration);
+        _emisorGlobal = configuration["Jwt:Issuer"] ?? "UltimaMilla.Api";
+        _audienciaGlobal = configuration["Jwt:Audience"] ?? "UltimaMilla.Clients";
     }
 
     /// <summary>Clave con la que firma la plataforma (la del JWT), para derivar otras firmas de ella.</summary>
@@ -150,6 +156,10 @@ public class TokenJwtService : ITokenJwtService
         var payloadBase64 = partes[1];
         var firmaBase64 = partes[2];
 
+        // Solo se aceptan tokens HS256: el algoritmo lo fija el servidor, nunca el token (ataque "alg: none" o de confusión de algoritmo)
+        if (!EncabezadoEsHs256(headerBase64))
+            return null;
+
         var clave = claveSecreta ?? _claveGlobal ?? ClaveSecretaPorDefecto;
         var contenidoFirmado = $"{headerBase64}.{payloadBase64}";
         var firmaEsperadaBytes = CalcularHmacSha256(contenidoFirmado, clave);
@@ -177,6 +187,17 @@ public class TokenJwtService : ITokenJwtService
 
             var expDateTime = DateTimeOffset.FromUnixTimeSeconds(expElement.GetInt64()).UtcDateTime;
             if (DateTime.UtcNow > expDateTime)
+                return null;
+
+            // Todavía no vigente (con un minuto de tolerancia por diferencias de reloj)
+            if (raiz.TryGetProperty("nbf", out var nbfElement) && nbfElement.ValueKind == JsonValueKind.Number
+                && DateTime.UtcNow < DateTimeOffset.FromUnixTimeSeconds(nbfElement.GetInt64()).UtcDateTime.AddMinutes(-1))
+                return null;
+
+            // Emisor y audiencia: un token firmado con la misma clave pero emitido para otro sistema no vale aquí
+            if (!raiz.TryGetProperty("iss", out var issElement) || issElement.GetString() != _emisorGlobal)
+                return null;
+            if (!raiz.TryGetProperty("aud", out var audElement) || audElement.GetString() != _audienciaGlobal)
                 return null;
 
             var claims = new List<Claim>();
@@ -224,6 +245,19 @@ public class TokenJwtService : ITokenJwtService
         catch
         {
             return null;
+        }
+    }
+
+    private static bool EncabezadoEsHs256(string headerBase64)
+    {
+        try
+        {
+            using var encabezado = JsonDocument.Parse(DecodificarBase64Url(headerBase64));
+            return encabezado.RootElement.TryGetProperty("alg", out var alg) && alg.GetString() == "HS256";
+        }
+        catch
+        {
+            return false;
         }
     }
 

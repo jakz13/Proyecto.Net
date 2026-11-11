@@ -103,6 +103,14 @@ builder.Services.AddRateLimiter(opciones =>
                 QueueLimit = 0
             }));
 
+    // Inicio de sesión: se acota por origen para frenar el barrido de usuarios y contraseñas (el bloqueo por cuenta, aparte, protege a cada
+    // cuenta pero permite bloquear cuentas ajenas a propósito). El tope por minuto se puede ajustar con RateLimit:LoginPorMinuto.
+    var loginPorMinuto = builder.Configuration.GetValue("RateLimit:LoginPorMinuto", 10);
+    opciones.AddPolicy(AuthEndpoints.PoliticaLimiteLogin, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            "login:" + (contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = loginPorMinuto, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
     // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
     // Limitación diferenciada: cada clave de producción tiene su propio cupo (120/min), la clave de pruebas uno menor (20/min)
     // y quien no presenta clave se acota por IP (30/min) para frenar el intento de adivinarlas.

@@ -68,13 +68,8 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
 
             bool esParadaActual = parada.Estado == "EnCamino" || parada.Estado == "EnSitio";
 
-            (double? lat, double? lon) = (envio?.CodigoSeguimientoPublico) switch
-            {
-                "ENV-2026-00108" => (-34.9058, -56.1885),
-                "ENV-2026-00109" => (-34.9145, -56.1552),
-                "ENV-2026-00110" => (-34.9238, -56.1598),
-                _ => ((double?)null, (double?)null)
-            };
+            // Esta consulta no resuelve la geolocalización de la dirección: sin coordenadas conocidas no se inventan
+            (double? lat, double? lon) = ((double?)null, (double?)null);
 
             resultado.Add(new ParadaNavegacionDto(
                 parada.Id,
