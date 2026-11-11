@@ -4,9 +4,11 @@
     var esAdmin = User.IsInRole("Administrador");
     var esDespachador = User.IsInRole("Despachador");
     var esOperario = User.IsInRole("Operario");
-    // Cada opción del menú se muestra solo si el servidor deja entrar a esa página (ver Program.cs: Operaciones y Deposito)
-    var puedeOperaciones = esAdmin || esDespachador;
-    var puedeDeposito = esAdmin || esDespachador || esOperario;
+    // Cada opción del menú se muestra solo si el servidor deja entrar a esa página y corresponde al perfil según la letra (ver Program.cs)
+    var puedeOperaciones = esDespachador;
+    var puedeDespachar = esDespachador || esOperario;
+    var puedeDeposito = esOperario;
+    var puedeSupervisar = esAdmin || esDespachador;
     var paginaActual = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
 }
 
@@ -186,10 +188,10 @@
             </li>
         }
 
-        @* Operaciones (administrador y despachador): mismas reglas que la política "Operaciones" del servidor *@
+        @* Operaciones (solo el despachador): planifica, monitorea la jornada y resuelve incidencias *@
         @if (puedeOperaciones)
         {
-            <li class="sidebar-seccion">Despacho & Rutas</li>
+            <li class="sidebar-seccion">Planificación</li>
             <li class="nav-item">
                 <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Rutas") ? "active" : "")"
                    asp-page="/Rutas/Index"
@@ -237,24 +239,12 @@
                     <span class="sidebar-texto text-truncate">Tablero en Vivo</span>
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Reportes") ? "active" : "")"
-                   asp-page="/Reportes/Index"
-                   title="Reportes de Gestión">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
-                        <line x1="18" y1="20" x2="18" y2="10"></line>
-                        <line x1="12" y1="20" x2="12" y2="4"></line>
-                        <line x1="6" y1="20" x2="6" y2="14"></line>
-                    </svg>
-                    <span class="sidebar-texto text-truncate">Reportes de Gestión</span>
-                </a>
-            </li>
         }
 
-        @* Depósito (administrador, despachador y operario): mismas reglas que la política "Deposito" del servidor *@
-        @if (puedeDeposito)
+        @* Despacho (despachador y operario): control de despacho y retiros *@
+        @if (puedeDespachar)
         {
-            <li class="sidebar-seccion">Depósito</li>
+            <li class="sidebar-seccion">Despacho</li>
             <li class="nav-item">
                 <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Despacho") ? "active" : "")"
                    asp-page="/Despacho/Index"
@@ -279,6 +269,12 @@
                     <span class="sidebar-texto text-truncate">Retiros</span>
                 </a>
             </li>
+        }
+
+        @* Depósito (solo el operario): recibe, clasifica y rinde los bultos *@
+        @if (puedeDeposito)
+        {
+            <li class="sidebar-seccion">Depósito</li>
             <li class="nav-item">
                 <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Deposito/Index") || paginaActual.StartsWith("/Deposito/Recepcion") ? "active" : "")"
                    asp-page="/Deposito/Index"
@@ -312,6 +308,24 @@
                         <path d="M9 14l2 2 4-4"></path>
                     </svg>
                     <span class="sidebar-texto text-truncate">Rendición</span>
+                </a>
+            </li>
+        }
+
+        @* Reportes de gestión (administrador y despachador) *@
+        @if (puedeSupervisar)
+        {
+            <li class="sidebar-seccion">Reportes</li>
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 @(paginaActual.StartsWith("/Reportes") ? "active" : "")"
+                   asp-page="/Reportes/Index"
+                   title="Reportes de Gestión">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span class="sidebar-texto text-truncate">Reportes de Gestión</span>
                 </a>
             </li>
         }

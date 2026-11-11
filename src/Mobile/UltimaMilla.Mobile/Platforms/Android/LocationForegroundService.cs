@@ -21,54 +21,70 @@ public class LocationForegroundService : Service
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
-        CrearCanalNotificacion();
-
-        var notificationIntent = new Intent(this, typeof(MainActivity));
-        notificationIntent.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
-        var pendingIntent = PendingIntent.GetActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
-
-        int iconResId = Resource.Mipmap.appicon != 0
-            ? Resource.Mipmap.appicon
-            : global::Android.Resource.Drawable.IcMenuMyLocation;
-
-        Notification notification;
-        if (OperatingSystem.IsAndroidVersionAtLeast(26))
+        try
         {
-            notification = new Notification.Builder(this, ChannelId)
-                .SetContentTitle("Operacion en Ruta Activa")
-                .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
-                .SetSmallIcon(iconResId)
-                .SetOngoing(true)
-                .SetContentIntent(pendingIntent)
-                .Build();
-        }
-        else
-        {
-            notification = new Notification.Builder(this)
-                .SetContentTitle("Operacion en Ruta Activa")
-                .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
-                .SetSmallIcon(iconResId)
-                .SetOngoing(true)
-                .SetContentIntent(pendingIntent)
-                .Build();
-        }
+            CrearCanalNotificacion();
 
-        if (OperatingSystem.IsAndroidVersionAtLeast(29))
-        {
-            StartForeground(NotificationId, notification, global::Android.Content.PM.ForegroundService.TypeLocation);
-        }
-        else
-        {
-            StartForeground(NotificationId, notification);
-        }
+            var notificationIntent = new Intent(this, typeof(MainActivity));
+            notificationIntent.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
+            var pendingIntent = PendingIntent.GetActivity(
+                this,
+                0,
+                notificationIntent,
+                PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
-        AdquirirWakeLock();
+            // El icono de notificación debe ser un recurso drawable válido y plano del sistema
+            // (evitando adaptive icons en mipmap que disparan BadForegroundServiceNotificationException en Android 12-14+)
+            int iconResId = global::Android.Resource.Drawable.IcMenuMyLocation;
 
-        return StartCommandResult.Sticky;
+            Notification notification;
+            if (OperatingSystem.IsAndroidVersionAtLeast(26))
+            {
+                notification = new Notification.Builder(this, ChannelId)
+                    .SetContentTitle("Operacion en Ruta Activa")
+                    .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
+                    .SetSmallIcon(iconResId)
+                    .SetOngoing(true)
+                    .SetContentIntent(pendingIntent)
+                    .Build();
+            }
+            else
+            {
+                notification = new Notification.Builder(this)
+                    .SetContentTitle("Operacion en Ruta Activa")
+                    .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
+                    .SetSmallIcon(iconResId)
+                    .SetOngoing(true)
+                    .SetContentIntent(pendingIntent)
+                    .Build();
+            }
+
+            if (OperatingSystem.IsAndroidVersionAtLeast(29))
+            {
+                StartForeground(NotificationId, notification, global::Android.Content.PM.ForegroundService.TypeLocation);
+            }
+            else
+            {
+                StartForeground(NotificationId, notification);
+            }
+
+            AdquirirWakeLock();
+
+            return StartCommandResult.Sticky;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LocationForegroundService] No se pudo iniciar el servicio en primer plano: {ex.Message}");
+            try
+            {
+                StopSelf();
+            }
+            catch
+            {
+                // Fallback defensivo ante parada anticipada
+            }
+            return StartCommandResult.NotSticky;
+        }
     }
 
     private void CrearCanalNotificacion()

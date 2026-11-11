@@ -42,6 +42,7 @@ public class GeocercasApiTests
     public async Task Geocercas_LlegadaYSalida_SeRegistranUnaSolaVezYApareceEnElSeguimientoPublico()
     {
         var admin = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
+        var despachador = await UsuariosDePrueba.DespachadorAsync(_factory);
         var comercio = await ClienteComoAsync("comercio@gmail.com", "Comercio.2026!");
         var deposito = await ClienteComoAsync("deposito@gmail.com", "Deposito.2026!");
 
@@ -76,7 +77,7 @@ public class GeocercasApiTests
             new { bultos = new[] { new { codigoBulto = bulto, prioridad = "Normal" } } }), HttpStatusCode.OK);
 
         // Hoja de ruta, carga informada por la app y despacho por el depósito
-        var ruta = await Json(await admin.PostAsJsonAsync("/api/planificacion/hojas-de-ruta", new
+        var ruta = await Json(await despachador.PostAsJsonAsync("/api/planificacion/hojas-de-ruta", new
         {
             repartidorId = repartidor.GetProperty("id").GetGuid(),
             vehiculoId = vehiculo.GetProperty("id").GetGuid(),
@@ -88,7 +89,7 @@ public class GeocercasApiTests
 
         await Json(await app.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/carga/confirmar",
             new { codigosBultosCargados = new[] { bulto }, idempotencyKey = Guid.NewGuid().ToString() }), HttpStatusCode.OK);
-        await Json(await admin.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
+        await Json(await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
 
         // LLEGADA_GEOCERCA a menos de 100 m
         var llegada = new

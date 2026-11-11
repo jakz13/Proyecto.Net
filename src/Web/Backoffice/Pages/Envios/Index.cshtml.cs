@@ -11,7 +11,7 @@ namespace UltimaMilla.Backoffice.Pages.Envios;
 /// <summary>
 /// Controlador de la vista de gestión de envíos y declaración formal de extravío (UC-43, RF-11, RF-12).
 /// </summary>
-[Authorize(Roles = "Despachador,Administrador")]
+[Authorize(Roles = "Despachador")]
 public class IndexModel : PageModel
 {
     private readonly IEnviosApi _enviosApi;

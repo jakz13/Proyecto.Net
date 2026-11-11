@@ -26,6 +26,16 @@ public class ModeloDominioTests
         Assert.False(usuario.Activo);
     }
 
+    [Theory]
+    [InlineData("Administrador de Comercio", "Comercio")]
+    [InlineData("ComercioAdmin", "Comercio")]
+    [InlineData("Comercio", "Comercio")]
+    [InlineData("Despachador", "Despachador")]
+    public void Perfil_ElRolDeAutorizacionDelComercioNoDependeDelNombreQueSeMuestra(string nombre, string rolEsperado)
+    {
+        Assert.Equal(rolEsperado, new Perfil(Guid.NewGuid(), nombre, "x").RolDeAutorizacion);
+    }
+
     [Fact]
     public void Perfil_PermiteAsignarYRemoverPermisos()
     {

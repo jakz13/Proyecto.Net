@@ -74,11 +74,11 @@
                         <td>
                             <form method="post" class="d-flex flex-wrap gap-1">
                                 <input type="hidden" name="id" value="@r.Id" />
-                                @if (r.Estado == "Retirado")
+                                @if (r.Estado == "Retirado" && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeTrabajarEnDeposito(User))
                                 {
                                     <button class="btn btn-sm btn-outline-dark" asp-page-handler="Recibir">Recibir en depósito</button>
                                 }
-                                @if (r.Estado == "EnDeposito")
+                                @if (r.Estado == "EnDeposito" && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeTrabajarEnDeposito(User))
                                 {
                                     <button class="btn btn-sm btn-success" asp-page-handler="Entregar">Entregar al comercio</button>
                                 }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Security;
@@ -242,6 +243,34 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _isRefreshing;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HayRutaAsignada))]
+    private bool _sinRutaAsignada;
+
+    public bool HayRutaAsignada => !SinRutaAsignada;
+
+    [ObservableProperty]
+    private bool _puedeFinalizarRuta;
+
+    [ObservableProperty]
+    private bool _tieneMultiplesRutas;
+
+    [ObservableProperty]
+    private HojaDeRutaSelectorItem? _hojaDeRutaSeleccionada;
+
+    public ObservableCollection<HojaDeRutaSelectorItem> HojasDeRutaDisponibles { get; } = new();
+
+    async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
+    {
+        if (value != null && !IsBusy)
+        {
+            await CargarRutaEspecificaAsync(value.Id);
+        }
+    }
+
     // =========================================================================
     // OPTIMIZACIÓN DEL ORDEN DE PARADAS (VECINO MÁS CERCANO + 2-OPT)
     // =========================================================================
@@ -411,48 +440,189 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             IsBusy = true;
 
-            if (_syncService is not null)
+            // Solicitar permisos en el hilo principal de manera secuencial y segura antes de activar telemetría o GPS
+            if (_trackingService is not null)
             {
-                var paradas = await _syncService.DescargarRutaDelDiaAsync();
-                Paradas.Clear();
-                foreach (var p in paradas)
+                try
                 {
-                    Paradas.Add(p);
+                    await _trackingService.SolicitarPermisosUbicacionAsync();
                 }
-
-                int pendientes = await _syncService.ObtenerCantidadPendientesAsync();
-                ActualizarEstadoVisualConectividad(_syncService.IsOnline, pendientes);
-            }
-            else if (_localDatabaseService is not null)
-            {
-                var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
-                Paradas.Clear();
-                if (local != null)
+                catch (Exception exTracking)
                 {
-                    foreach (var p in local.Paradas)
-                    {
-                        Paradas.Add(p);
-                    }
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al solicitar permisos GPS: {exTracking.Message}");
                 }
-                int pendientes = await _localDatabaseService.ObtenerCantidadPendientesAsync();
-                ActualizarEstadoVisualConectividad(false, pendientes);
             }
 
-            AplicarEstadosGeocercaEnParadas();
-            RecalcularProgreso();
-            if (_localDatabaseService != null)
+            if (_syncService != null && _syncService.IsOnline)
             {
-                var rutaActiva = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
-                if (rutaActiva?.Ruta != null)
+                try
                 {
-                    EstadoHojaDeRuta = rutaActiva.Ruta.Estado;
+                    await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
+                catch (Exception exSync)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al descargar rutas del servidor: {exSync.Message}");
                 }
             }
-            await EvaluarYActualizarTrackingAsync();
+
+            try
+            {
+                await CargarRutasDesdeSQLiteAsync();
+            }
+            catch (Exception exLocal)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al cargar rutas desde SQLite: {exLocal.Message}");
+            }
+
+            int pendientes = 0;
+            try
+            {
+                pendientes = _syncService != null
+                    ? await _syncService.ObtenerCantidadPendientesAsync()
+                    : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
+            }
+            catch (Exception exPendientes)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error consultando operaciones pendientes: {exPendientes.Message}");
+            }
+
+            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error general en InicializarAsync: {ex.Message}");
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task ActualizarRutasServidorAsync()
+    {
+        if (IsBusy)
+            return;
+
+        try
+        {
+            IsRefreshing = true;
+            IsBusy = true;
+
+            if (_syncService != null && _syncService.IsOnline)
+            {
+                await _syncService.SincronizarOperacionesPendientesAsync();
+                await _syncService.DescargarYActualizarRutasDelServidorAsync();
+            }
+
+            await CargarRutasDesdeSQLiteAsync();
+
+            int pendientes = _syncService != null
+                ? await _syncService.ObtenerCantidadPendientesAsync()
+                : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
+
+            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al actualizar rutas: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+            IsRefreshing = false;
+        }
+    }
+
+    public async Task CargarRutasDesdeSQLiteAsync()
+    {
+        if (_localDatabaseService == null)
+            return;
+
+        var rutasLocales = await _localDatabaseService.ListarHojasDeRutaLocalesAsync();
+        HojasDeRutaDisponibles.Clear();
+
+        foreach (var r in rutasLocales)
+        {
+            string descEstado = r.Estado switch
+            {
+                "EnTransito" => "En Tránsito",
+                "Despachada" => "Despachada",
+                "EnCarga" => "En Carga",
+                "Liberada" => "Liberada",
+                "Finalizada" => "Finalizada",
+                _ => r.Estado
+            };
+
+            HojasDeRutaDisponibles.Add(new HojaDeRutaSelectorItem(
+                r.Id,
+                r.NumeroRuta,
+                r.Estado,
+                r.TotalParadas,
+                $"{r.NumeroRuta} - {descEstado} ({r.TotalParadas} paradas)"
+            ));
+        }
+
+        TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
+
+        var rutaActiva = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada");
+
+        if (rutaActiva != null)
+        {
+            SinRutaAsignada = false;
+            HojaDeRutaSeleccionada = rutaActiva;
+            await CargarRutaEspecificaAsync(rutaActiva.Id);
+        }
+        else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Finalizada" or "Rendida"))
+        {
+            SinRutaAsignada = true;
+            Paradas.Clear();
+            HojaDeRutaSeleccionada = HojasDeRutaDisponibles.First();
+            RecalcularProgreso();
+            if (_trackingService is { IsTrackingActive: true })
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+        }
+        else
+        {
+            SinRutaAsignada = true;
+            Paradas.Clear();
+            HojaDeRutaSeleccionada = null;
+            RecalcularProgreso();
+            if (_trackingService is { IsTrackingActive: true })
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+        }
+    }
+
+    public async Task CargarRutaEspecificaAsync(Guid rutaId)
+    {
+        if (_localDatabaseService == null)
+            return;
+
+        try
+        {
+            var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
+            if (local != null)
+            {
+                Paradas.Clear();
+                foreach (var p in local.Paradas)
+                {
+                    Paradas.Add(p);
+                }
+                EstadoHojaDeRuta = local.Ruta.Estado;
+                FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
+                SinRutaAsignada = false;
+                AplicarEstadosGeocercaEnParadas();
+                RecalcularProgreso();
+                await EvaluarYActualizarTrackingAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al cargar ruta {rutaId}: {ex.Message}");
         }
     }
 
@@ -463,7 +633,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         try
         {
-            var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+            var rutaId = HojaDeRutaSeleccionada?.Id;
+            var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
             if (local != null && local.Paradas.Count > 0)
             {
                 Paradas.Clear();
@@ -476,6 +647,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             if (local?.Ruta != null)
             {
                 EstadoHojaDeRuta = local.Ruta.Estado;
+                FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
             }
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
@@ -550,18 +722,22 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             ProgresoRuta = 0;
             ResumenProgresoTexto = "0 de 0 paradas completadas";
             ProgresoPorcentajeTexto = "0%";
+            PuedeFinalizarRuta = false;
             return;
         }
 
-        int completadas = Paradas.Count(p => p.Estado == "Entregado" || p.Estado == "Fallido" || p.Estado == "EnDevolucion");
+        int completadas = Paradas.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion");
         int total = Paradas.Count;
+        int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
         ProgresoRuta = (double)completadas / total;
         ResumenProgresoTexto = $"{completadas} de {total} paradas completadas";
         ProgresoPorcentajeTexto = $"{Math.Round(ProgresoRuta * 100)}%";
 
+        PuedeFinalizarRuta = total > 0 && pendientes == 0 && EstadoHojaDeRuta != "Finalizada" && EstadoHojaDeRuta != "Rendida";
+
         if (total > 0 && completadas == total && _trackingService is { IsTrackingActive: true })
         {
-            _ = Task.Run(async () => await _trackingService.DetenerTrackingAsync());
+            _ = _trackingService.DetenerTrackingAsync();
         }
     }
 
@@ -666,24 +842,64 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task RendirHojaDeRutaAsync()
+    private async Task FinalizarHojaDeRutaAsync()
     {
-        if (IsBusy)
+        if (IsBusy || Paradas.Count == 0)
             return;
+
+        int total = Paradas.Count;
+        int entregadas = Paradas.Count(p => p.Estado == "Entregado");
+        int fallidas = Paradas.Count(p => p.Estado == "Fallido");
+        int devolucion = Paradas.Count(p => p.Estado == "EnDevolucion");
+        int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
+
+        var bultosRetorno = Paradas
+            .Where(p => p.Estado is "Fallido" or "EnDevolucion")
+            .SelectMany(p => p.Bultos)
+            .Select(b => b.Codigo)
+            .Distinct()
+            .ToList();
+
+        string mensajeResumen = $"Resumen de Hoja de Ruta:\n\n" +
+            $"- Total de paradas: {total}\n" +
+            $"- Entregadas con éxito: {entregadas}\n" +
+            $"- Fallidas / En Devolución: {fallidas + devolucion}\n" +
+            $"- Bultos a retornar a depósito: {bultosRetorno.Count}\n\n";
+
+        if (pendientes > 0)
+        {
+            mensajeResumen += $"Atención: Aún restan {pendientes} parada(s) en estado Pendiente.\n¿Desea cerrar la ruta y retornar a depósito?";
+        }
+        else
+        {
+            mensajeResumen += "¿Confirma el cierre y rendición de la hoja de ruta en depósito?";
+        }
+
+        if (Shell.Current is not null)
+        {
+            bool confirmar = await Shell.Current.DisplayAlertAsync(
+                "Finalizar Hoja de Ruta",
+                mensajeResumen,
+                "Confirmar Cierre",
+                "Cancelar");
+
+            if (!confirmar)
+                return;
+        }
 
         if (_biometricAuthService != null)
         {
             var autorizado = await _biometricAuthService.ValidarIdentidadAsync(
-                "Autorizar Rendicion de Ruta",
-                "Verifique su identidad para confirmar la entrega de bultos en deposito y cerrar la jornada.");
+                "Autorizar Rendición de Ruta",
+                "Verifique su identidad biométrica para rendir la hoja de ruta y retornar a depósito.");
 
             if (!autorizado)
             {
                 if (Shell.Current is not null)
                 {
                     await Shell.Current.DisplayAlertAsync(
-                        "Operacion Cancelada",
-                        "No se completo la validacion biometrica. La rendicion de la hoja de ruta fue cancelada.",
+                        "Operación Cancelada",
+                        "No se completó la verificación biométrica. La rendición de la hoja de ruta fue cancelada.",
                         "Entendido");
                 }
                 return;
@@ -694,35 +910,54 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             IsBusy = true;
 
-            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
+            var rutaId = HojaDeRutaSeleccionada?.Id ?? Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
+
             if (_trackingService is { IsTrackingActive: true })
             {
                 await _trackingService.DetenerTrackingAsync();
             }
 
-            if (_localDatabaseService != null && rutaId != Guid.Empty)
+            if (_syncService != null && rutaId != Guid.Empty)
             {
-                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(rutaId, "Rendida");
+                await _syncService.FinalizarHojaDeRutaAsync(rutaId, bultosRetorno, "Rendición de hoja de ruta completada en depósito");
+            }
+            else if (_localDatabaseService != null && rutaId != Guid.Empty)
+            {
+                await _localDatabaseService.FinalizarHojaDeRutaLocalAsync(rutaId);
             }
 
-            EstadoHojaDeRuta = "Rendida";
+            EstadoHojaDeRuta = "Finalizada";
 
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
-                    "Hoja de Ruta Rendida",
-                    "La rendición en depósito fue confirmada exitosamente con autenticación biométrica.",
+                    "Hoja de Ruta Finalizada",
+                    "La hoja de ruta ha sido cerrada y rendida con éxito.",
                     "Aceptar");
             }
+
+            // Consultar inmediatamente nuevas rutas asignadas en el servidor
+            if (_syncService != null && _syncService.IsOnline)
+            {
+                await _syncService.DescargarYActualizarRutasDelServidorAsync();
+            }
+
+            await CargarRutasDesdeSQLiteAsync();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al rendir ruta: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al finalizar ruta: {ex.Message}");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task RendirHojaDeRutaAsync()
+    {
+        await FinalizarHojaDeRutaAsync();
     }
 
     [RelayCommand]
@@ -892,11 +1127,23 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             double? lonActual = null;
             try
             {
-                var lastLocation = await Geolocation.Default.GetLastKnownLocationAsync();
-                if (lastLocation != null)
+                if (_trackingService?.UltimaUbicacionConocida is not null)
                 {
-                    latActual = lastLocation.Latitude;
-                    lonActual = lastLocation.Longitude;
+                    latActual = _trackingService.UltimaUbicacionConocida.Latitude;
+                    lonActual = _trackingService.UltimaUbicacionConocida.Longitude;
+                }
+                else
+                {
+                    var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+                    if (status == PermissionStatus.Granted)
+                    {
+                        var lastLocation = await Geolocation.Default.GetLastKnownLocationAsync();
+                        if (lastLocation != null)
+                        {
+                            latActual = lastLocation.Latitude;
+                            lonActual = lastLocation.Longitude;
+                        }
+                    }
                 }
             }
             catch

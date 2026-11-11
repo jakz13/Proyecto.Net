@@ -10,7 +10,7 @@ namespace UltimaMilla.Backoffice.Pages.Deposito;
 /// <summary>
 /// Modelo de página para la estación de escaneo, contraste y recepción física de bultos en depósito (UC-14, RF-10).
 /// </summary>
-[Authorize(Roles = "Operario,Despachador,Administrador")]
+[Authorize(Roles = "Operario")]
 public class RecepcionModel : PageModel
 {
     private readonly IDepositoApi _depositoApi;

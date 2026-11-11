@@ -209,7 +209,7 @@ public static class WorkerProcesosEndpoints
 
         var operacionWebhooks = app.MapGroup("/api/operacion/webhooks")
             .WithTags("Historial y Reenvío de Webhooks (UC-30)")
-            .RequireAuthorization(PoliticasApi.Operaciones);
+            .RequireAuthorization(PoliticasApi.Administracion);
 
         operacionWebhooks.MapGet("/historial", async (
             [FromQuery] Guid? comercioOperadorId,

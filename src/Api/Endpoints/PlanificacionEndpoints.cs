@@ -16,7 +16,7 @@ public static class PlanificacionEndpoints
     {
         var group = app.MapGroup("/api/planificacion/hojas-de-ruta")
             .WithTags("Planificación (UC-08, UC-09, UC-10)")
-            .RequireAuthorization(PoliticasApi.Deposito);
+            .RequireAuthorization(PoliticasApi.Despacho);
 
         group.MapPost("/", async (
             [FromBody] ArmarHojaDeRutaRequest request,

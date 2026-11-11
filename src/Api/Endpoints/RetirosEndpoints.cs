@@ -171,7 +171,7 @@ public static class RetirosEndpoints
         // =====================================================================
         var backoffice = app.MapGroup("/api/retiros")
             .WithTags("Retiro en domicilio · Backoffice (RF 38, RF 41)")
-            .RequireAuthorization(PoliticasApi.Deposito);
+            .RequireAuthorization(PoliticasApi.Despacho);
 
         backoffice.MapGet("/", (
             [FromQuery] EstadoRetiro? estado,
@@ -196,6 +196,7 @@ public static class RetirosEndpoints
             [FromRoute] Guid id,
             [FromServices] IMediator mediator,
             CancellationToken ct) => EjecutarAsync(async () => Results.Ok(await mediator.Send(new RecibirRetiroEnDepositoCommand(id), ct))))
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithName("RecibirRetiroEnDeposito")
         .WithSummary("El operario de depósito recibe los bultos retirados")
         .Produces<RetiroDetalleDto>(StatusCodes.Status200OK)
@@ -207,6 +208,7 @@ public static class RetirosEndpoints
             [FromServices] IMediator mediator,
             CancellationToken ct) => EjecutarAsync(async () =>
                 Results.Ok(await mediator.Send(new EntregarRetiroAlComercioCommand(id, request?.Receptor), ct))))
+        .RequireAuthorization(PoliticasApi.Deposito)
         .WithName("EntregarRetiroAlComercio")
         .WithSummary("Los bultos retirados llegan al comercio y se cierra el flujo")
         .Produces<RetiroDetalleDto>(StatusCodes.Status200OK)

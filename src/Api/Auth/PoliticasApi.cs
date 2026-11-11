@@ -16,19 +16,25 @@ public static class PoliticasApi
     public const string RolComercio = "Comercio";
     public const string RolPlataforma = "AdministradorPlataforma";
 
-    /// <summary>Solo el administrador del operador: usuarios, zonas, tarifas, reglas, identidad visual.</summary>
+    /// <summary>Solo el administrador (letra, sección 3): configura la operación, las zonas, las tarifas, los usuarios y las reglas de negocio.</summary>
     public const string Administracion = "Administracion";
 
-    /// <summary>Administrador y despachador: planificación, rutas, incidencias, tablero y reportes.</summary>
+    /// <summary>Solo el despachador: planifica las rutas, asigna repartidores, monitorea la jornada y resuelve incidencias.</summary>
     public const string Operaciones = "Operaciones";
 
-    /// <summary>Operación de depósito: administrador, despachador y operario.</summary>
+    /// <summary>Solo el operario de depósito: recibe, clasifica y rinde los bultos.</summary>
     public const string Deposito = "Deposito";
+
+    /// <summary>Despachador y operario: el control del despacho de las hojas de ruta y los retiros, que pasan por las dos manos.</summary>
+    public const string Despacho = "Despacho";
+
+    /// <summary>Administrador y despachador: reportes de gestión y consulta de los catálogos con los que se planifica (comercios, flota).</summary>
+    public const string Supervision = "Supervision";
 
     /// <summary>Cualquier persona del operador logístico, nunca un usuario de comercio.</summary>
     public const string PersonalDelOperador = "PersonalDelOperador";
 
-    /// <summary>Consulta de un envío y su evidencia: personal del depósito y la administración, y el comercio dueño del envío (el handler lo acota).</summary>
+    /// <summary>Consulta de un envío y su evidencia: despachador, operario y el comercio dueño del envío (el handler lo acota).</summary>
     public const string ConsultaDeEnvios = "ConsultaDeEnvios";
 
     /// <summary>El repartidor en la calle (aplicación móvil).</summary>
@@ -43,12 +49,14 @@ public static class PoliticasApi
     public static void Configurar(AuthorizationOptions opciones)
     {
         opciones.AddPolicy(Administracion, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador));
-        opciones.AddPolicy(Operaciones, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador, RolDespachador));
-        opciones.AddPolicy(Deposito, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador, RolDespachador, RolOperario));
+        opciones.AddPolicy(Operaciones, p => p.RequireAuthenticatedUser().RequireRole(RolDespachador));
+        opciones.AddPolicy(Deposito, p => p.RequireAuthenticatedUser().RequireRole(RolOperario));
+        opciones.AddPolicy(Despacho, p => p.RequireAuthenticatedUser().RequireRole(RolDespachador, RolOperario));
+        opciones.AddPolicy(Supervision, p => p.RequireAuthenticatedUser().RequireRole(RolAdministrador, RolDespachador));
         opciones.AddPolicy(PersonalDelOperador, p => p.RequireAuthenticatedUser()
             .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolRepartidor));
         opciones.AddPolicy(ConsultaDeEnvios, p => p.RequireAuthenticatedUser()
-            .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolComercio));
+            .RequireRole(RolDespachador, RolOperario, RolComercio));
         opciones.AddPolicy(Repartidor, p => p.RequireAuthenticatedUser().RequireRole(RolRepartidor));
         opciones.AddPolicy(Comercio, p => p.RequireAuthenticatedUser().RequireRole(RolComercio));
         opciones.AddPolicy(Plataforma, p => p.RequireAuthenticatedUser().RequireRole(RolPlataforma));

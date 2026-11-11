@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
+using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
@@ -156,6 +157,25 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private bool _isBusy;
 
     [ObservableProperty]
+    private bool _isRefreshing;
+
+    [ObservableProperty]
+    private bool _tieneMultiplesRutas;
+
+    [ObservableProperty]
+    private HojaDeRutaSelectorItem? _hojaDeRutaSeleccionada;
+
+    public ObservableCollection<HojaDeRutaSelectorItem> HojasDeRutaDisponibles { get; } = new();
+
+    async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
+    {
+        if (value != null && !IsBusy)
+        {
+            await CargarBultosDeRutaAsync(value.Id);
+        }
+    }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneDiscrepancias))]
     [NotifyPropertyChangedFor(nameof(ResumenEstadoTexto))]
     private string _mensajeDiscrepancia = string.Empty;
@@ -230,6 +250,97 @@ public partial class CargaVehiculoViewModel : ObservableObject
     /// <summary>Carga la ruta guardada en el dispositivo. Si todavía no hay ninguna, la pantalla lo informa en lugar de inventar datos.</summary>
     public async Task InicializarAsync()
     {
+        if (_syncService?.IsOnline == true)
+        {
+            try
+            {
+                await _syncService.DescargarYActualizarRutasDelServidorAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Error al descargar rutas en inicialización: {ex.Message}");
+            }
+        }
+
+        await CargarRutasDesdeSQLiteAsync();
+    }
+
+    [RelayCommand]
+    public async Task ActualizarRutasServidorAsync()
+    {
+        try
+        {
+            IsRefreshing = true;
+            await ActualizarDesdeServidorAsync(silencioso: false);
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    public async Task CargarRutasDesdeSQLiteAsync()
+    {
+        BultosPendientes.Clear();
+        BultosCargadosLista.Clear();
+        BultosSobrantes.Clear();
+        MensajeDiscrepancia = string.Empty;
+
+        if (_localDatabaseService is null)
+        {
+            HojaDeRutaId = Guid.Empty;
+            NumeroRuta = "Sin hoja de ruta";
+            EstadoHojaDeRuta = "Sin ruta";
+            ActualizarConteos();
+            return;
+        }
+
+        var rutasLocales = await _localDatabaseService.ListarHojasDeRutaLocalesAsync();
+        HojasDeRutaDisponibles.Clear();
+
+        foreach (var r in rutasLocales)
+        {
+            string descEstado = r.Estado switch
+            {
+                "EnTransito" => "En Tránsito",
+                "Despachada" => "Despachada",
+                "EnCarga" => "En Carga",
+                "Liberada" => "Liberada",
+                "Finalizada" => "Finalizada",
+                _ => r.Estado
+            };
+
+            HojasDeRutaDisponibles.Add(new HojaDeRutaSelectorItem(
+                r.Id,
+                r.NumeroRuta,
+                r.Estado,
+                r.TotalParadas,
+                $"{r.NumeroRuta} - {descEstado} ({r.TotalParadas} paradas)"
+            ));
+        }
+
+        TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
+
+        var rutaParaCarga = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "Liberada" or "EnCarga")
+            ?? HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "Despachada" or "EnTransito")
+            ?? HojasDeRutaDisponibles.FirstOrDefault();
+
+        if (rutaParaCarga != null)
+        {
+            HojaDeRutaSeleccionada = rutaParaCarga;
+            await CargarBultosDeRutaAsync(rutaParaCarga.Id);
+        }
+        else
+        {
+            HojaDeRutaId = Guid.Empty;
+            NumeroRuta = "Sin hoja de ruta";
+            EstadoHojaDeRuta = "Sin ruta";
+            ActualizarConteos();
+        }
+    }
+
+    public async Task CargarBultosDeRutaAsync(Guid rutaId)
+    {
         BultosPendientes.Clear();
         BultosCargadosLista.Clear();
         BultosSobrantes.Clear();
@@ -240,7 +351,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         {
             try
             {
-                rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
+                rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
             }
             catch (Exception ex)
             {
@@ -350,8 +461,8 @@ public partial class CargaVehiculoViewModel : ObservableObject
         try
         {
             await _syncService.SincronizarOperacionesPendientesAsync();
-            await _syncService.DescargarRutaDelDiaAsync();
-            await InicializarAsync();
+            await _syncService.DescargarYActualizarRutasDelServidorAsync();
+            await CargarRutasDesdeSQLiteAsync();
         }
         catch (Exception ex)
         {

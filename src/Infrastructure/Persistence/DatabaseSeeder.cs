@@ -417,6 +417,7 @@ public static class DatabaseSeeder
             var pDespacho = new Perfil(DefaultPerfilDespachadorId, "Despachador", "Armado, verificación y despacho de hojas de ruta");
             var pOperario = new Perfil(DefaultPerfilOperarioId, "Operario", "Recepción y clasificación de bultos en depósito");
             var pRepartidor = new Perfil(DefaultPerfilRepartidorId, "Repartidor", "Ejecución de entregas y devoluciones en calle");
+            // Se muestra como "Administrador de Comercio"; el rol de autorización sigue siendo "Comercio" (Perfil.RolDeAutorizacion)
             var pComercio = new Perfil(DefaultPerfilComercioId, "Administrador de Comercio", "Portal del comercio para altas de envíos y seguimiento");
 
             var permAdmin = new Permiso(Guid.Parse("20000000-0000-0000-0000-000000000001"), "OPERACION_ADMIN", "Administración del operador");

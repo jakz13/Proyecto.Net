@@ -18,7 +18,17 @@ public partial class App : Application
 
         AplicarTokensSegunDisplay();
         window.SizeChanged += (_, _) => TokensResponsive.Aplicar(this, window.Width);
-        window.Created += async (_, _) => await _appShell.VerificarSesionInicialAsync();
+        window.Created += async (_, _) =>
+        {
+            try
+            {
+                await _appShell.VerificarSesionInicialAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] Excepción en window.Created: {ex.Message}");
+            }
+        };
 
         return window;
     }

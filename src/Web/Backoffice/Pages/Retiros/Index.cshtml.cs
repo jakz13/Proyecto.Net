@@ -12,7 +12,7 @@ namespace UltimaMilla.Backoffice.Pages.Retiros;
 /// Retiros en domicilio del operador (cambio de requerimientos 2.2, RF 38 y RF 41): seguimiento por estado y acciones del operador
 /// (recibir en depósito, entregar al comercio, reprogramar, sacar de la ruta y cancelar).
 /// </summary>
-[Authorize(Roles = "Operario,Despachador,Administrador")]
+[Authorize(Roles = "Despachador,Operario")]
 public class IndexModel : PageModel
 {
     private readonly IRetirosApi _retirosApi;
@@ -36,10 +36,10 @@ public class IndexModel : PageModel
     public async Task OnGetAsync() => Resumen = await _retirosApi.ListarDelOperadorAsync(Estado);
 
     public Task<IActionResult> OnPostRecibirAsync(Guid id) =>
-        EjecutarAsync(() => _retirosApi.RecibirEnDepositoAsync(id), "Los bultos se recibieron en depósito.");
+        !PermisosBackoffice.PuedeTrabajarEnDeposito(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.RecibirEnDepositoAsync(id), "Los bultos se recibieron en depósito.");
 
     public Task<IActionResult> OnPostEntregarAsync(Guid id, string? receptor) =>
-        EjecutarAsync(() => _retirosApi.EntregarAlComercioAsync(id, receptor), "Los bultos se entregaron al comercio y el retiro quedó cerrado.");
+        !PermisosBackoffice.PuedeTrabajarEnDeposito(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.EntregarAlComercioAsync(id, receptor), "Los bultos se entregaron al comercio y el retiro quedó cerrado.");
 
     // Reprogramar, sacar de la ruta y cancelar son decisiones de planificación: el operario de depósito no las toma
     public Task<IActionResult> OnPostReprogramarAsync(Guid id) =>

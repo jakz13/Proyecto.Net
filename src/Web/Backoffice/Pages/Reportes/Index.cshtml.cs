@@ -9,7 +9,7 @@ namespace UltimaMilla.Backoffice.Pages.Reportes;
 /// <summary>
 /// Controlador de la vista de reportes de gestión operativa y comercial (UC-13, RF-30).
 /// </summary>
-[Authorize(Roles = "Despachador,Administrador")]
+[Authorize(Roles = "Administrador,Despachador")]
 public class IndexModel : PageModel
 {
     private readonly IReportesApi _reportesApi;

@@ -17,13 +17,20 @@ public partial class RutaDiaPage : ContentPage
     {
         base.OnAppearing();
 
-        await _viewModel.InicializarAsync();
-
-        // Animación de llenado suave del ProgressBar nativo
-        if (RutaProgressBar is not null)
+        try
         {
-            RutaProgressBar.Progress = 0;
-            await RutaProgressBar.ProgressTo(_viewModel.ProgresoRuta, 750, Easing.CubicOut);
+            await _viewModel.InicializarAsync();
+
+            // Animación de llenado suave del ProgressBar nativo
+            if (RutaProgressBar is not null)
+            {
+                RutaProgressBar.Progress = 0;
+                await RutaProgressBar.ProgressTo(_viewModel.ProgresoRuta, 750, Easing.CubicOut);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaPage] Excepción capturada en OnAppearing: {ex.Message}");
         }
     }
 }

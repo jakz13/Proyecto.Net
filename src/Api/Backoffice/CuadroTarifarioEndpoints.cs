@@ -18,7 +18,7 @@ public static class CuadroTarifarioEndpoints
     {
         var grupo = app.MapGroup("/api/cuadros-tarifarios")
             .WithTags("Backoffice · Cuadro tarifario")
-            .RequireAuthorization(PoliticasApi.Operaciones)
+            .RequireAuthorization(PoliticasApi.Administracion)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
         // 1. Listado del historial completo de versiones del cuadro tarifario

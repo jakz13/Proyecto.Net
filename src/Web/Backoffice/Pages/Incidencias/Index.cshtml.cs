@@ -9,7 +9,7 @@ namespace UltimaMilla.Backoffice.Pages.Incidencias;
 /// <summary>
 /// Modelo de página para la consulta, registro, seguimiento y cierre de incidencias operativas (UC-11).
 /// </summary>
-[Authorize(Roles = "Despachador,Administrador")]
+[Authorize(Roles = "Despachador")]
 public class IndexModel : PageModel
 {
     private readonly IIncidenciasApi _incidenciasApi;

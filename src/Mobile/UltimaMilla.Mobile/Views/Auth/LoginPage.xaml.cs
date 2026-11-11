@@ -13,9 +13,16 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (BindingContext is LoginViewModel vm)
+        try
         {
-            await vm.InicializarAsync();
+            if (BindingContext is LoginViewModel vm)
+            {
+                await vm.InicializarAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LoginPage] Excepción capturada en OnAppearing: {ex.Message}");
         }
     }
 }

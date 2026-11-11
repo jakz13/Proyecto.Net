@@ -78,7 +78,7 @@
 
 		<!-- MAUI Core dependencies -->
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0-preview.1.25080.5" Condition="'$(Configuration)' == 'Debug'" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 		<PackageReference Include="ZXing.Net.Maui.Controls" Version="0.10.4" />
 	</ItemGroup>
 

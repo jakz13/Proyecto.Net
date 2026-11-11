@@ -10,6 +10,11 @@ namespace UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 public record ObtenerRutaActivaRepartidorQuery() : IRequest<RutaActivaRepartidorDto>;
 
 /// <summary>
+/// Consulta todas las hojas de ruta vigentes (Liberada, EnCarga, Despachada o EnTransito) asignadas al repartidor autenticado.
+/// </summary>
+public record ObtenerRutasActivasRepartidorQuery() : IRequest<List<RutaActivaRepartidorDto>>;
+
+/// <summary>
 /// Datos completos de la hoja de ruta activa del repartidor junto con su secuencia ordenada de paradas, bultos y destinatarios.
 /// </summary>
 public record RutaActivaRepartidorDto(

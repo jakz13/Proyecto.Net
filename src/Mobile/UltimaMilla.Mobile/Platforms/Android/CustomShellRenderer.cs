@@ -32,7 +32,14 @@ public class CustomShellItemRenderer : ShellItemRenderer
 
         if (view is ViewGroup viewGroup)
         {
-            CenterBottomNavLabels(viewGroup);
+            try
+            {
+                CenterBottomNavLabels(viewGroup);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CustomShellRenderer] Error al ajustar BottomNav: {ex.Message}");
+            }
         }
 
         return view;

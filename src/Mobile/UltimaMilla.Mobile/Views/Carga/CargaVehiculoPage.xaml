@@ -9,44 +9,80 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBackground}">
 
-    <ScrollView>
-        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
+    <RefreshView IsRefreshing="{Binding IsRefreshing}" Command="{Binding ActualizarRutasServidorCommand}">
+        <ScrollView>
+            <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
 
-            <!-- ========================================================= -->
-            <!-- TARJETA DE RESUMEN DE VEHÍCULO Y RUTA                     -->
-            <!-- ========================================================= -->
-            <Border Style="{StaticResource CardView}">
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="Control de Carga en Vehículo"
-                           Style="{StaticResource H2Label}" />
-                    <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada."
-                           Style="{StaticResource BodyLabel}" />
+                <!-- ========================================================= -->
+                <!-- TARJETA DE RESUMEN DE VEHÍCULO Y RUTA                     -->
+                <!-- ========================================================= -->
+                <Border Style="{StaticResource CardView}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Control de Carga en Vehículo"
+                               Style="{StaticResource H2Label}" />
+                        <Label Text="Verificación y escaneo de bultos asignados al móvil antes de iniciar la jornada."
+                               Style="{StaticResource BodyLabel}" />
 
-                    <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,4" />
+                        <BoxView HeightRequest="1" Color="{StaticResource CardBorder}" Margin="0,4" />
 
-                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="6">
-                        <VerticalStackLayout Grid.Row="0" Grid.Column="0">
-                            <Label Text="Vehículo Asignado" Style="{StaticResource CaptionLabel}" />
-                            <Label Text="{Binding Patente}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
-                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="6">
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="0">
+                                <Label Text="Vehículo Asignado" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding Patente}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+                            </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="0" Grid.Column="1">
-                            <Label Text="Hoja de Ruta" Style="{StaticResource CaptionLabel}" />
-                            <Label Text="{Binding NumeroRuta}" FontAttributes="Bold" />
-                        </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="1">
+                                <Label Text="Hoja de Ruta" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding NumeroRuta}" FontAttributes="Bold" />
+                            </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="0">
-                            <Label Text="Capacidad" Style="{StaticResource CaptionLabel}" />
-                            <Label Text="{Binding VehiculoTipo}" Style="{StaticResource BodyLabel}" />
-                        </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="0">
+                                <Label Text="Capacidad" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding VehiculoTipo}" Style="{StaticResource BodyLabel}" />
+                            </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="1">
-                            <Label Text="Estado de Ruta" Style="{StaticResource CaptionLabel}" />
-                            <Label Text="{Binding EstadoHojaDeRuta}" FontAttributes="Bold" TextColor="{StaticResource SecondaryDark}" />
-                        </VerticalStackLayout>
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="1">
+                                <Label Text="Estado de Ruta" Style="{StaticResource CaptionLabel}" />
+                                <Label Text="{Binding EstadoHojaDeRuta}" FontAttributes="Bold" TextColor="{StaticResource SecondaryDark}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <!-- Selector de Hojas de Ruta del Repartidor (múltiples rutas del día) -->
+                        <Border IsVisible="{Binding TieneMultiplesRutas}"
+                                BackgroundColor="#F8FAFC"
+                                Stroke="#CBD5E1"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="10,6"
+                                Margin="0,6,0,0">
+                            <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Text="Ruta:"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="#334155"
+                                       VerticalOptions="Center" />
+                                <Picker Grid.Column="1"
+                                        ItemsSource="{Binding HojasDeRutaDisponibles}"
+                                        ItemDisplayBinding="{Binding TituloSelector}"
+                                        SelectedItem="{Binding HojaDeRutaSeleccionada}"
+                                        FontSize="12"
+                                        TextColor="#0F172A"
+                                        Title="Seleccionar Ruta"
+                                        VerticalOptions="Center" />
+                                <Button Grid.Column="2"
+                                        Text="Actualizar"
+                                        Command="{Binding ActualizarRutasServidorCommand}"
+                                        BackgroundColor="#0F172A"
+                                        TextColor="White"
+                                        FontSize="11"
+                                        FontAttributes="Bold"
+                                        CornerRadius="6"
+                                        HeightRequest="32"
+                                        Padding="8,0" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
 
             <!-- ========================================================= -->
             <!-- PROGRESO DE ESCANEO Y ALERTAS DE DISCREPANCIA             -->
@@ -404,5 +440,6 @@
 
         </VerticalStackLayout>
     </ScrollView>
+    </RefreshView>
 
 </ContentPage>
