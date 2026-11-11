@@ -49,6 +49,7 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
 
         var clasificaciones = request.Bultos.Select(Convertir).ToList();
 
+        envio.NormalizarBultosEnDeposito();
         envio.ClasificarBultos(clasificaciones, usuarioId);
 
         await _envioRepository.UpdateAsync(envio, cancellationToken);

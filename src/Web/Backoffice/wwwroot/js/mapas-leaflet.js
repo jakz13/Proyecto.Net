@@ -206,37 +206,96 @@
     }
 
 
-    async function geocodificarEnLineaNominatim(textoEntrada) {
-        if (!textoEntrada || typeof textoEntrada !== 'string') return null;
-        var consulta = textoEntrada.trim();
-        if (!consulta) return null;
-
-        if (!/uruguay/i.test(consulta)) {
-            consulta += ', Uruguay';
-        }
-
+    // Caché persistente de geocodificación para mostrar siempre la ubicación real ingresada
+    var CLAVE_STORAGE_GEOCACHE = 'um_geocache_v2';
+    var cacheGeocodificacion = (function () {
         try {
-            var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=uy&q=' + encodeURIComponent(consulta);
-            var respuesta = await fetch(url, {
-                headers: { 'Accept': 'application/json' }
-            });
-            if (respuesta.ok) {
-                var resultados = await respuesta.json();
-                if (resultados && resultados.length > 0) {
-                    var primer = resultados[0];
-                    var lat = Number(parseFloat(primer.lat).toFixed(4));
-                    var lng = Number(parseFloat(primer.lon).toFixed(4));
-                    var partes = (primer.display_name || '').split(',');
-                    var nombreLimpio = partes[0] ? partes[0].trim() : textoEntrada.trim();
-                    return {
-                        lat: lat,
-                        lng: lng,
-                        nombre: nombreLimpio
-                    };
-                }
+            var guardado = window.localStorage ? window.localStorage.getItem(CLAVE_STORAGE_GEOCACHE) : null;
+            return guardado ? JSON.parse(guardado) : {};
+        } catch (e) {
+            return {};
+        }
+    })();
+
+    function guardarEnCacheGeocodificacion(clave, valor) {
+        if (!clave || !valor) return;
+        cacheGeocodificacion[clave] = valor;
+        try {
+            if (window.localStorage) {
+                window.localStorage.setItem(CLAVE_STORAGE_GEOCACHE, JSON.stringify(cacheGeocodificacion));
             }
         } catch (e) {
-            // Continúa sin bloquear ante falta de conexión
+            // Ignorar si localStorage está lleno o restringido
+        }
+    }
+
+    function limpiarDireccionParaGeocodificacion(texto) {
+        return String(texto || '')
+            .replace(/\bS\/N\b/gi, ' ')
+            .replace(/\b(?:apto\.?|apartamento|oficina|of\.?|local|piso|bloque|torre|solar|manzana|mza\.?|padron|padrón)\s*[a-z0-9\-]+/gi, ' ')
+            .replace(/\([^\)]*\)/g, ' ')
+            .replace(/\bavda\.?\b/gi, 'Avenida')
+            .replace(/\bav\.?\b/gi, 'Avenida')
+            .replace(/\bbvar\.?\b/gi, 'Bulevar')
+            .replace(/\bbv\.?\b/gi, 'Bulevar')
+            .replace(/\bgral\.?\b/gi, 'General')
+            .replace(/\bcno\.?\b/gi, 'Camino')
+            .replace(/\bdr\.?\b/gi, 'Doctor')
+            .replace(/\s+,/g, ',')
+            .replace(/,+/g, ',')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    async function geocodificarEnLineaNominatim(textoEntrada) {
+        if (!textoEntrada || typeof textoEntrada !== 'string') return null;
+        var claveCache = normalizarTextoBusqueda(textoEntrada);
+        if (!claveCache) return null;
+
+        if (cacheGeocodificacion[claveCache]) {
+            return cacheGeocodificacion[claveCache];
+        }
+
+        var limpia = limpiarDireccionParaGeocodificacion(textoEntrada);
+        if (!limpia) return null;
+
+        var consultas = [];
+        var consultaPrincipal = /uruguay/i.test(limpia) ? limpia : (limpia + ', Uruguay');
+        consultas.push(consultaPrincipal);
+
+        // Si tiene número de puerta y Nominatim no encuentra el número exacto, probar con la calle y ciudad
+        var sinNumero = limpia.replace(/\b\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
+        if (sinNumero && sinNumero !== limpia) {
+            var consultaCalle = /uruguay/i.test(sinNumero) ? sinNumero : (sinNumero + ', Uruguay');
+            consultas.push(consultaCalle);
+        }
+
+        for (var c = 0; c < consultas.length; c++) {
+            try {
+                var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=uy&q=' + encodeURIComponent(consultas[c]);
+                var respuesta = await fetch(url, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (respuesta.ok) {
+                    var resultados = await respuesta.json();
+                    if (resultados && resultados.length > 0) {
+                        var primer = resultados[0];
+                        var lat = Number(parseFloat(primer.lat).toFixed(5));
+                        var lng = Number(parseFloat(primer.lon).toFixed(5));
+                        var partes = (primer.display_name || '').split(',');
+                        var nombreLimpio = partes[0] ? partes[0].trim() : textoEntrada.trim();
+                        var resultadoGeo = {
+                            lat: lat,
+                            lng: lng,
+                            nombre: nombreLimpio
+                        };
+                        guardarEnCacheGeocodificacion(claveCache, resultadoGeo);
+                        return resultadoGeo;
+                    }
+                }
+            } catch (e) {
+                // Continúa sin bloquear ante falta de conexión
+            }
         }
         return null;
     }
@@ -270,18 +329,78 @@
         return Math.abs(h);
     }
 
+    // Ejes viales principales para interpolación instantánea por altura (número de puerta) antes de que responda Nominatim
+    var CATALOGO_EJES_VIALES = [
+        { claves: ['av. italia', 'avenida italia', 'av italia'], numMin: 2300, numMax: 7500, latIni: -34.8962, lngIni: -56.1655, latFin: -34.8790, lngFin: -56.0350 },
+        { claves: ['18 de julio', 'av. 18 de julio', 'avenida 18 de julio'], numMin: 800, numMax: 2400, latIni: -34.9065, lngIni: -56.1995, latFin: -34.8967, lngFin: -56.1664 },
+        { claves: ['av. rivera', 'avenida rivera', 'rivera'], numMin: 1900, numMax: 6500, latIni: -34.9022, lngIni: -56.1745, latFin: -34.8895, lngFin: -56.0580 },
+        { claves: ['8 de octubre', 'av. 8 de octubre', 'avenida 8 de octubre'], numMin: 2200, numMax: 5000, latIni: -34.8962, lngIni: -56.1660, latFin: -34.8580, lngFin: -56.1310 },
+        { claves: ['bvar. artigas', 'bulevar artigas', 'bv. artigas', 'bv artigas'], numMin: 1, numMax: 4200, latIni: -34.9245, lngIni: -56.1618, latFin: -34.8640, lngFin: -56.1985 },
+        { claves: ['av. brasil', 'avenida brasil', 'av brasil'], numMin: 2300, numMax: 3200, latIni: -34.9080, lngIni: -56.1638, latFin: -34.9152, lngFin: -56.1460 },
+        { claves: ['agraciada', 'av. agraciada', 'avenida agraciada'], numMin: 1400, numMax: 4200, latIni: -34.8950, lngIni: -56.1930, latFin: -34.8595, lngFin: -56.2140 },
+        { claves: ['gral. flores', 'general flores', 'av. gral. flores'], numMin: 2000, numMax: 5200, latIni: -34.8885, lngIni: -56.1880, latFin: -34.8440, lngFin: -56.1480 },
+        { claves: ['giannattasio', 'av. giannattasio', 'avenida giannattasio'], numMin: 1, numMax: 32000, latIni: -34.8750, lngIni: -56.0280, latFin: -34.7950, lngFin: -55.9050 }
+    ];
+
     function resolverCoordenadasMontevideo(direccion, zona, semillaExtra) {
+        var claveCache = normalizarTextoBusqueda(direccion);
+        if (claveCache && cacheGeocodificacion[claveCache]) {
+            return {
+                lat: cacheGeocodificacion[claveCache].lat,
+                lng: cacheGeocodificacion[claveCache].lng
+            };
+        }
+
         var dirNorm = String(direccion || '').toLowerCase().trim();
         var zonaNorm = String(zona || '').toLowerCase().trim();
         var h = hashTexto(dirNorm + '|' + (semillaExtra || ''));
         var offsetLat = ((h % 140) - 70) * 0.000045;
         var offsetLng = (((h >> 4) % 140) - 70) * 0.000045;
 
+        // Extraer número de puerta si existe en la dirección
+        var matchNum = dirNorm.match(/\b(\d{1,5})\b/);
+        var numPuerta = matchNum ? parseInt(matchNum[1], 10) : null;
+
+        // 1. Coincidencia exacta en catálogo con número de puerta
         for (var i = 0; i < CATALOGO_DIRECCIONES.length; i++) {
-            if (dirNorm.indexOf(CATALOGO_DIRECCIONES[i].clave) !== -1) {
+            var itemCat = CATALOGO_DIRECCIONES[i];
+            var catTieneNumero = /\d/.test(itemCat.clave);
+            if (catTieneNumero && dirNorm.indexOf(itemCat.clave) !== -1) {
                 return {
-                    lat: CATALOGO_DIRECCIONES[i].lat + offsetLat,
-                    lng: CATALOGO_DIRECCIONES[i].lng + offsetLng
+                    lat: itemCat.lat + offsetLat * 0.3,
+                    lng: itemCat.lng + offsetLng * 0.3
+                };
+            }
+        }
+
+        // 2. Interpolación sobre ejes viales según número de puerta
+        if (numPuerta !== null && !isNaN(numPuerta)) {
+            for (var e = 0; e < CATALOGO_EJES_VIALES.length; e++) {
+                var eje = CATALOGO_EJES_VIALES[e];
+                var coincideEje = false;
+                for (var k = 0; k < eje.claves.length; k++) {
+                    if (dirNorm.indexOf(eje.claves[k]) !== -1) {
+                        coincideEje = true;
+                        break;
+                    }
+                }
+                if (coincideEje) {
+                    var frac = (numPuerta - eje.numMin) / Math.max(1, (eje.numMax - eje.numMin));
+                    frac = Math.max(0, Math.min(1, frac));
+                    return {
+                        lat: Number((eje.latIni + (eje.latFin - eje.latIni) * frac).toFixed(5)),
+                        lng: Number((eje.lngIni + (eje.lngFin - eje.lngIni) * frac).toFixed(5))
+                    };
+                }
+            }
+        }
+
+        // 3. Coincidencia general por calle en catálogo
+        for (var c = 0; c < CATALOGO_DIRECCIONES.length; c++) {
+            if (dirNorm.indexOf(CATALOGO_DIRECCIONES[c].clave) !== -1) {
+                return {
+                    lat: CATALOGO_DIRECCIONES[c].lat + offsetLat,
+                    lng: CATALOGO_DIRECCIONES[c].lng + offsetLng
                 };
             }
         }
@@ -296,7 +415,7 @@
             }
         }
 
-        // Posición segura en el área urbana central de Montevideo (evitando el Río de la Plata)
+        // Posición segura en el área urbana central de Montevideo mientras resuelve el geocodificador en línea
         var baseLat = -34.8920 - ((h % 180) * 0.00011);
         var baseLng = -56.1850 + (((h >> 3) % 420) * 0.00014);
         return { lat: baseLat, lng: baseLng };
@@ -718,6 +837,18 @@
         markerDestino.bindPopup(htmlPopupDestino);
 
         mapa.fitBounds(puntosAjuste, { padding: [38, 38], maxZoom: 15 });
+
+        // Si el envío no traía coordenadas explícitas y aún no estaba en caché de geocodificación, resolver dirección real en línea
+        var claveCacheEnvio = normalizarTextoBusqueda(direccion);
+        if (!(envio.latitud && envio.longitud) && claveCacheEnvio && !cacheGeocodificacion[claveCacheEnvio]) {
+            geocodificarEnLineaNominatim(direccion).then(function (geo) {
+                if (!geo || instanciasMapas[idContenedor] !== mapa) return;
+                renderizarMapaSeguimientoEnvio(idContenedor, Object.assign({}, envio, {
+                    latitud: geo.lat,
+                    longitud: geo.lng
+                }));
+            });
+        }
     }
 
     /**
@@ -881,6 +1012,27 @@
             mapa.setView(vistaPrevia.centro, vistaPrevia.zoom, { animate: false });
         } else if (puntosTotales.length > 1) {
             mapa.fitBounds(puntosTotales, { padding: [36, 36], maxZoom: 14 });
+        }
+
+        // Geocodificar en segundo plano las paradas de flota cuya dirección aún no esté en caché
+        var promesasFlota = [];
+        listaVehiculos.forEach(function (v) {
+            var paradasVeh = v.paradas || v.Paradas || [];
+            paradasVeh.forEach(function (par) {
+                var dirPar = par.direccion || par.Direccion || '';
+                var clavePar = normalizarTextoBusqueda(dirPar);
+                if (!(par.latitud || par.Latitud) && clavePar && !cacheGeocodificacion[clavePar]) {
+                    promesasFlota.push(geocodificarEnLineaNominatim(dirPar));
+                }
+            });
+        });
+        if (promesasFlota.length > 0) {
+            Promise.all(promesasFlota).then(function (resultados) {
+                var huboNuevas = resultados.some(function (r) { return r !== null; });
+                if (huboNuevas && instanciasMapas[idContenedor] === mapa) {
+                    renderizarMapaTableroFlota(idContenedor, vehiculos, callbackSeleccion);
+                }
+            });
         }
     }
 
@@ -1068,6 +1220,25 @@
 
         if (puntosPolilinea.length > 1) {
             mapa.fitBounds(puntosPolilinea, { padding: [38, 38], maxZoom: 15 });
+        }
+
+        // Resolver en línea mediante Nominatim cualquier parada cuya dirección ingresada aún no esté geocodificada en caché
+        var promesasParadas = [];
+        paradas.forEach(function (p) {
+            var direccion = p.direccion || p.Direccion || '';
+            var clave = normalizarTextoBusqueda(direccion);
+            if (!(p.latitud && p.longitud) && clave && !cacheGeocodificacion[clave]) {
+                promesasParadas.push(geocodificarEnLineaNominatim(direccion));
+            }
+        });
+
+        if (promesasParadas.length > 0) {
+            Promise.all(promesasParadas).then(function (resultados) {
+                var resueltas = resultados.some(function (r) { return r !== null; });
+                if (resueltas && instanciasMapas[idContenedor] === mapa) {
+                    renderizarMapaDetalleRuta(idContenedor, hojaDeRuta);
+                }
+            });
         }
     }
 

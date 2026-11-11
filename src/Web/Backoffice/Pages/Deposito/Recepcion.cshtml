@@ -46,7 +46,9 @@ else if (resultado != null && resultado.Recepcionado)
                         <ul class="list-unstyled mb-0 small">
                             <li class="d-flex justify-content-between py-1 border-bottom">
                                 <span>Bultos correctos recibidos:</span>
-                                <strong class="text-success font-monospace">@resultado.Correctos.Count (@string.Join(", ", resultado.Correctos))</strong>
+                                <strong class="text-success font-monospace">
+                                    @(resultado.Correctos.Count > 0 ? $"{resultado.Correctos.Count} ({string.Join(", ", resultado.Correctos)})" : "0 (Ninguno)")
+                                </strong>
                             </li>
                             <li class="d-flex justify-content-between py-1 border-bottom">
                                 <span>Bultos dañados documentados:</span>
@@ -73,6 +75,12 @@ else if (resultado != null && resultado.Recepcionado)
 
             <!-- Acciones siguientes -->
             <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <a asp-page="/Deposito/Clasificacion" asp-route-id="@resultado.EnvioId" class="btn btn-primary px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Clasificar Bultos en Depósito</span>
+                </a>
                 <a asp-page="/Deposito/Index" class="btn btn-dark px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -203,7 +211,7 @@ else
                             <tbody id="tablaBultosDeclarados">
                                 @foreach (var bulto in envio.Bultos)
                                 {
-                                    <tr id="fila-bulto-@bulto.Identificacion" class="fila-declarada" data-codigo="@bulto.Identificacion">
+                                    <tr id="fila-bulto-@bulto.Identificacion" class="fila-declarada table-success" data-codigo="@bulto.Identificacion">
                                         <td class="ps-3 font-monospace fw-bold text-dark">
                                             @bulto.Identificacion
                                         </td>
@@ -215,16 +223,22 @@ else
                                             }
                                         </td>
                                         <td>
-                                            <span class="text-secondary small" id="badge-estado-@bulto.Identificacion">
-                                                Pendiente de escaneo
-                                            </span>
+                                            <div class="form-check form-switch d-inline-flex align-items-center gap-2 mb-0">
+                                                <input class="form-check-input chk-recibido" type="checkbox"
+                                                       id="chk-recibido-@bulto.Identificacion"
+                                                       checked
+                                                       onchange="alternarRecibido('@bulto.Identificacion')">
+                                                <label class="form-check-label text-success small fw-semibold" id="badge-estado-@bulto.Identificacion" for="chk-recibido-@bulto.Identificacion">
+                                                    Escaneado correcto
+                                                </label>
+                                            </div>
                                         </td>
                                         <td class="text-end pe-3">
                                             <div class="form-check form-switch d-inline-block mb-0">
                                                 <input class="form-check-input chk-danado" type="checkbox"
                                                        id="chk-danado-@bulto.Identificacion"
                                                        onchange="alternarDanado('@bulto.Identificacion')"
-                                                       disabled title="Debe escanear el bulto primero para marcarlo dañado">
+                                                       title="Marcar si el bulto arribó con daños físicos">
                                                 <label class="form-check-label small text-danger fw-semibold" for="chk-danado-@bulto.Identificacion" style="font-size: 0.75rem;">
                                                     Dañado / Averiado
                                                 </label>
@@ -345,6 +359,8 @@ else
         var bultosEscaneados = new Set();
         var bultosDanados = new Set();
         var bultosSobrantes = new Set();
+        var escaneadosPreviosCsv = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Formulario?.CodigosEscaneadosCsv ?? ""));
+        var danadosPreviosCsv = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Formulario?.CodigosDanadosCsv ?? ""));
 
         document.addEventListener('DOMContentLoaded', function () {
             var inputCodigo = document.getElementById('inputCodigoBulto');
@@ -354,6 +370,43 @@ else
                         e.preventDefault();
                         procesarEscaneoManual();
                     }
+                });
+            }
+
+            var formRecepcion = document.getElementById('formRecepcionDeposito');
+            if (formRecepcion) {
+                formRecepcion.addEventListener('submit', function () {
+                    if (inputCodigo && (inputCodigo.value || '').trim().length > 0) {
+                        procesarEscaneoManual();
+                    }
+                    actualizarInterfaz();
+                });
+            }
+
+            if (escaneadosPreviosCsv && escaneadosPreviosCsv.trim().length > 0) {
+                escaneadosPreviosCsv.split(',').forEach(function (c) {
+                    var limpio = c.trim().toUpperCase();
+                    if (limpio) {
+                        bultosEscaneados.add(limpio);
+                        if (!bultosDeclarados.includes(limpio)) {
+                            bultosSobrantes.add(limpio);
+                        }
+                    }
+                });
+                if (danadosPreviosCsv && danadosPreviosCsv.trim().length > 0) {
+                    danadosPreviosCsv.split(',').forEach(function (c) {
+                        var limpio = c.trim().toUpperCase();
+                        if (limpio) {
+                            bultosDanados.add(limpio);
+                            var chkD = document.getElementById('chk-danado-' + limpio);
+                            if (chkD) chkD.checked = true;
+                        }
+                    });
+                }
+            } else {
+                // Por defecto todos los bultos declarados inician marcados como presentes en recepción
+                bultosDeclarados.forEach(function (b) {
+                    bultosEscaneados.add(b);
                 });
             }
 
@@ -430,6 +483,22 @@ else
             actualizarInterfaz();
         }
 
+        function alternarRecibido(codigo) {
+            var chk = document.getElementById('chk-recibido-' + codigo);
+            if (!chk) return;
+
+            if (chk.checked) {
+                bultosEscaneados.add(codigo);
+            } else {
+                bultosEscaneados.delete(codigo);
+                bultosDanados.delete(codigo);
+                var chkDanado = document.getElementById('chk-danado-' + codigo);
+                if (chkDanado) chkDanado.checked = false;
+            }
+
+            actualizarInterfaz();
+        }
+
         function alternarDanado(codigo) {
             var chk = document.getElementById('chk-danado-' + codigo);
             if (!chk) return;
@@ -488,8 +557,12 @@ else
                 var estaDanado = bultosDanados.has(codigo);
                 var fila = document.getElementById('fila-bulto-' + codigo);
                 var badge = document.getElementById('badge-estado-' + codigo);
+                var chkRecibido = document.getElementById('chk-recibido-' + codigo);
                 var chkDanado = document.getElementById('chk-danado-' + codigo);
 
+                if (chkRecibido) {
+                    chkRecibido.checked = estaEscaneado;
+                }
                 if (chkDanado) {
                     chkDanado.disabled = !estaEscaneado;
                 }
@@ -497,21 +570,21 @@ else
                 if (!estaEscaneado) {
                     faltantes++;
                     if (badge) {
-                        badge.className = 'text-secondary small';
-                        badge.textContent = 'Pendiente de escaneo';
+                        badge.className = 'form-check-label text-secondary small';
+                        badge.textContent = 'Faltante / No arribó';
                     }
-                    if (fila) fila.className = 'fila-declarada';
+                    if (fila) fila.className = 'fila-declarada table-warning';
                 } else if (estaDanado) {
                     danados++;
                     if (badge) {
-                        badge.className = 'text-danger small fw-semibold';
+                        badge.className = 'form-check-label text-danger small fw-semibold';
                         badge.textContent = 'Escaneado con daños';
                     }
                     if (fila) fila.className = 'fila-declarada table-danger';
                 } else {
                     correctos++;
                     if (badge) {
-                        badge.className = 'text-success small fw-semibold';
+                        badge.className = 'form-check-label text-success small fw-semibold';
                         badge.textContent = 'Escaneado correcto';
                     }
                     if (fila) fila.className = 'fila-declarada table-success';

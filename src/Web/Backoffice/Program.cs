@@ -79,13 +79,10 @@ if (!string.IsNullOrWhiteSpace(rutaClaves))
         .PersistKeysToFileSystem(new DirectoryInfo(rutaClaves));
 }
 
-// Con el modo demo apagado, las llamadas a la API llevan el JWT de la sesión del usuario
-if (!LoginModel.ModoDemoActivo(builder.Configuration, builder.Environment))
-{
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddTransient<TokenApiHandler>();
-    builder.Services.ConfigureHttpClientDefaults(cliente => cliente.AddHttpMessageHandler<TokenApiHandler>());
-}
+// Registro del manejador de tokens para llamadas salientes a la API
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<TokenApiHandler>();
+builder.Services.ConfigureHttpClientDefaults(cliente => cliente.AddHttpMessageHandler<TokenApiHandler>());
 
 if (usarMocks)
 {

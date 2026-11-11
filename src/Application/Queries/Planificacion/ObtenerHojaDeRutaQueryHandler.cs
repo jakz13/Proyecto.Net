@@ -14,6 +14,7 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
     private readonly IRepartidorRepository _repartidorRepository;
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public ObtenerHojaDeRutaQueryHandler(
         IRutaRepository rutaRepository,
@@ -21,7 +22,8 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
         IVehiculoRepository vehiculoRepository,
         IRepartidorRepository repartidorRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IRetiroRepository? retiroRepository = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -29,6 +31,7 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
         _repartidorRepository = repartidorRepository;
         _franjaHorariaRepository = franjaHorariaRepository;
         _currentTenant = currentTenant;
+        _retiroRepository = retiroRepository;
     }
 
     public async Task<HojaDeRutaDetalleDto> Handle(ObtenerHojaDeRutaQuery request, CancellationToken cancellationToken)
@@ -59,21 +62,35 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
                 paradas.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value), cancellationToken))
             .ToDictionary(f => f.Id);
 
-        var detalleParadas = paradas
-            .Where(p => p.EnvioId.HasValue && envios.ContainsKey(p.EnvioId.Value))
-            .Select(p =>
-            {
-                var envio = envios[p.EnvioId!.Value];
-                string? ventana = null;
-                if (p.FranjaHorariaId.HasValue && franjas.TryGetValue(p.FranjaHorariaId.Value, out var franja))
-                    ventana = HojaDeRutaMapper.FormatearVentana(franja);
+        var idsRetiros = paradas.Where(p => p.RetiroId.HasValue).Select(p => p.RetiroId!.Value).Distinct().ToList();
+        var retiros = (_retiroRepository is not null && idsRetiros.Count > 0)
+            ? (await _retiroRepository.GetByIdsAsync(idsRetiros, cancellationToken))
+                .Where(r => r.OperadorId == _currentTenant.OperadorId)
+                .ToDictionary(r => r.Id)
+            : new Dictionary<Guid, Domain.Entities.Retiros.Retiro>();
 
-                return new ParadaDetalleDto(
+        var detalleParadas = new List<ParadaDetalleDto>();
+        foreach (var p in paradas)
+        {
+            string? ventana = null;
+            if (p.FranjaHorariaId.HasValue && franjas.TryGetValue(p.FranjaHorariaId.Value, out var franja))
+                ventana = HojaDeRutaMapper.FormatearVentana(franja);
+
+            if (p.EnvioId.HasValue && envios.TryGetValue(p.EnvioId.Value, out var envio))
+            {
+                detalleParadas.Add(new ParadaDetalleDto(
                     p.Id, p.Orden, envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString(), p.Estado,
                     envio.NombreDestinatario, envio.DireccionDestino, envio.ZonaClasificadaId, ventana,
-                    envio.PesoTotal, envio.VolumenTotal);
-            })
-            .ToList();
+                    envio.PesoTotal, envio.VolumenTotal));
+            }
+            else if (p.RetiroId.HasValue && retiros.TryGetValue(p.RetiroId.Value, out var retiro))
+            {
+                detalleParadas.Add(new ParadaDetalleDto(
+                    p.Id, p.Orden, retiro.Id, retiro.CodigoSeguimientoPublico, retiro.EstadoActual.ToString(), p.Estado,
+                    retiro.NombreContacto, retiro.DireccionRetiro, null, ventana,
+                    retiro.PesoTotal, retiro.VolumenTotal));
+            }
+        }
 
         return new HojaDeRutaDetalleDto(
             HojaDeRutaMapper.Resumir(ruta, envios, vehiculos, repartidores),

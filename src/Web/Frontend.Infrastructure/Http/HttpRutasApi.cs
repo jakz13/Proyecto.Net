@@ -69,11 +69,13 @@ public class HttpRutasApi : IRutasApi
 
     public async Task<IReadOnlyList<EnvioPendienteRutaDto>> ListarEnviosPendientesAsync(CancellationToken cancelacion = default)
     {
+        var zonas = await CatalogosHttp.ZonasAsync(_http, cancelacion);
+        await AsegurarEnviosEnDepositoClasificadosAsync(zonas, cancelacion);
+
         var respuesta = await _http.GetAsync("/api/planificacion/envios-pendientes", cancelacion);
         await AsegurarExitoAsync(respuesta, cancelacion);
 
         var pendientes = await respuesta.Content.ReadFromJsonAsync<List<PendienteApi>>(CatalogosHttp.OpcionesJson, cancelacion) ?? new List<PendienteApi>();
-        var zonas = await CatalogosHttp.ZonasAsync(_http, cancelacion);
         var franjas = zonas.Values.SelectMany(z => z.FranjasHorarias).ToDictionary(f => f.Id);
 
         return pendientes.Select(p =>
@@ -95,6 +97,48 @@ public class HttpRutasApi : IRutasApi
                 AsignadoPreviamente = false
             };
         }).ToList();
+    }
+
+    private async Task AsegurarEnviosEnDepositoClasificadosAsync(IReadOnlyDictionary<Guid, ZonaCoberturaDto> zonas, CancellationToken cancelacion)
+    {
+        try
+        {
+            var respDeposito = await _http.GetAsync("/api/deposito/envios-en-deposito", cancelacion);
+            if (!respDeposito.IsSuccessStatusCode)
+                return;
+
+            var enDeposito = await respDeposito.Content.ReadFromJsonAsync<List<EnvioEnDepositoApi>>(CatalogosHttp.OpcionesJson, cancelacion);
+            if (enDeposito is null || enDeposito.Count == 0)
+                return;
+
+            var primeraZonaActiva = zonas.Values.FirstOrDefault(z => z.Activa)?.Id;
+
+            foreach (var envio in enDeposito.Where(e => !e.EstaClasificado && e.Bultos is { Count: > 0 }))
+            {
+                var bultosSinClasificar = envio.Bultos!
+                    .Where(b => !b.EstaClasificado)
+                    .Select(b => new
+                    {
+                        CodigoBulto = b.Identificacion,
+                        Prioridad = string.Equals(envio.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase) ? "Alta" : "Normal",
+                        ZonaCoberturaId = b.ZonaClasificadaId ?? primeraZonaActiva,
+                        Tipo = b.TipoClasificacion ?? "Estándar"
+                    })
+                    .ToList();
+
+                if (bultosSinClasificar.Count > 0)
+                {
+                    await _http.PostAsJsonAsync($"/api/deposito/envios/{envio.EnvioId}/clasificacion", new
+                    {
+                        Bultos = bultosSinClasificar
+                    }, CatalogosHttp.OpcionesJson, cancelacion);
+                }
+            }
+        }
+        catch
+        {
+            // Continuar con los envíos ya clasificados si falla la sincronización auxiliar
+        }
     }
 
     public async Task<ResultadoArmadoRutaDto> ValidarArmadoRutaAsync(ArmarHojaDeRutaDto dto, CancellationToken cancelacion = default)
@@ -391,4 +435,8 @@ public class HttpRutasApi : IRutasApi
     private record ReasignacionApi(Guid EnvioId, string CodigoSeguimiento, string EstadoEnvio, string Accion, string Mensaje);
 
     private record HistorialApi(Guid EventoId, Guid EnvioId, string CodigoSeguimiento, string Destinatario, string TipoEvento, DateTime Fecha, string? Detalle, Guid? ResponsableUsuarioId);
+
+    private record EnvioEnDepositoApi(Guid EnvioId, string CodigoSeguimiento, string? ModalidadServicio, bool EstaClasificado, List<BultoEnDepositoApi>? Bultos);
+
+    private record BultoEnDepositoApi(Guid BultoId, string Identificacion, bool EstaClasificado, string? Prioridad, Guid? ZonaClasificadaId, string? TipoClasificacion);
 }

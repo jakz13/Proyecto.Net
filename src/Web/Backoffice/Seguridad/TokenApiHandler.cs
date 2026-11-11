@@ -24,6 +24,18 @@ public sealed class TokenApiHandler : DelegatingHandler
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+        else if (request.Headers.Authorization is null)
+        {
+            // En desarrollo local o demo sin token JWT explícito, enviar token dev y cabecera de tenant
+            var tenantId = _httpContextAccessor.HttpContext?.User.FindFirst("tenant_id")?.Value
+                ?? _httpContextAccessor.HttpContext?.User.FindFirst("operador_id")?.Value;
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                request.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+                request.Headers.TryAddWithoutValidation("X-Operador-Id", tenantId);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "dev-token");
+            }
+        }
 
         return base.SendAsync(request, cancellationToken);
     }

@@ -634,6 +634,26 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         return resultado;
     }
 
+    /// <summary>
+    /// Si el envío se encuentra en depósito pero por una recepción sin códigos escaneados quedó sin ningún bulto
+    /// en estado Recibido o Dañado, restablece sus bultos a Recibido para permitir su clasificación y armado de ruta.
+    /// </summary>
+    public bool NormalizarBultosEnDeposito()
+    {
+        if (EstadoActual != EstadoEnvio.EnDeposito || _bultos.Count == 0)
+            return false;
+
+        if (_bultos.Any(b => b.EstadoBulto is MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.PendienteReenvio))
+            return false;
+
+        foreach (var bulto in _bultos)
+        {
+            bulto.ActualizarEstado(MaquinaEstadosBulto.Recibido);
+        }
+
+        return true;
+    }
+
     public void RegistrarDiscrepancia(
         Guid? bultoId,
         string tipoDiscrepancia,

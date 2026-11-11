@@ -25,6 +25,8 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
         return enviosEnDeposito
             .Select(envio =>
             {
+                envio.NormalizarBultosEnDeposito();
+
                 var bultosRecibidosODanados = envio.Bultos
                     .Where(b => b.EstadoBulto is "Recibido" or "Danado")
                     .ToList();

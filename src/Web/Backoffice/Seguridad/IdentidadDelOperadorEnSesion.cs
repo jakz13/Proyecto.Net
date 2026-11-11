@@ -29,6 +29,22 @@ public sealed class IdentidadDelOperadorEnSesion
         _logger = logger;
     }
 
+    public void InvalidarCache(string? operadorId = null)
+    {
+        var operador = operadorId ?? _contexto.HttpContext?.User.FindFirst("operador_id")?.Value ?? "sin-operador";
+        _cache.Remove(operador);
+        _cache.Remove("sin-operador");
+        _cache.Remove("OP-01");
+        _cache.Remove("OP-02");
+    }
+
+    public void ActualizarEnCache(IdentidadVisualDto nuevaIdentidad)
+    {
+        var operador = _contexto.HttpContext?.User.FindFirst("operador_id")?.Value ?? nuevaIdentidad.OperadorId;
+        _cache.Set(operador, nuevaIdentidad, Vigencia);
+        _cache.Set("sin-operador", nuevaIdentidad, Vigencia);
+    }
+
     public async Task<IdentidadVisualDto> ObtenerAsync()
     {
         var operador = _contexto.HttpContext?.User.FindFirst("operador_id")?.Value ?? "sin-operador";

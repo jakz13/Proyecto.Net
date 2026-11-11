@@ -14,8 +14,7 @@ public record CrearEnvioDto
 
     public string? DocumentoDestinatario { get; set; }
 
-    [Required(ErrorMessage = "La dirección de entrega es obligatoria.")]
-    [StringLength(200, MinimumLength = 5, ErrorMessage = "La dirección debe contener al menos 5 caracteres.")]
+    [StringLength(200, ErrorMessage = "La dirección no puede superar los 200 caracteres.")]
     public string DireccionDestino { get; set; } = string.Empty;
 
     public string? Calle { get; set; }

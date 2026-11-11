@@ -239,7 +239,13 @@ public static class PlanificacionEndpoints
         {
             try
             {
-                var resultado = await mediator.Send(new DespacharHojaDeRutaCommand(hojaDeRutaId, request?.Observaciones), ct);
+                var resultado = await mediator.Send(
+                    new DespacharHojaDeRutaCommand(
+                        hojaDeRutaId,
+                        request?.Observaciones,
+                        request?.EnviosNoCargadosIds,
+                        request?.ConfirmarCargaEnMuelle ?? false),
+                    ct);
                 return Results.Ok(resultado);
             }
             catch (DomainValidationException ex)
@@ -273,7 +279,10 @@ public static class PlanificacionEndpoints
     }
 }
 
-public record DespacharHojaDeRutaRequest(string? Observaciones = null);
+public record DespacharHojaDeRutaRequest(
+    string? Observaciones = null,
+    List<Guid>? EnviosNoCargadosIds = null,
+    bool ConfirmarCargaEnMuelle = false);
 
 public record ReasignarEnvioRequest(
     string? Accion = null,

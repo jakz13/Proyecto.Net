@@ -344,29 +344,63 @@ public class HttpEnviosApi : IEnviosApi
     {
         ArgumentNullException.ThrowIfNull(nuevoEnvio);
 
-        string calle = nuevoEnvio.Calle ?? "";
-        string numero = nuevoEnvio.Numero ?? "";
+        string calle = (nuevoEnvio.Calle ?? string.Empty).Trim();
+        string numero = (nuevoEnvio.Numero ?? string.Empty).Trim();
+        string ciudad = string.IsNullOrWhiteSpace(nuevoEnvio.Ciudad) ? "Montevideo" : nuevoEnvio.Ciudad.Trim();
+
+        if (string.IsNullOrWhiteSpace(calle) && !string.IsNullOrWhiteSpace(nuevoEnvio.DireccionDestino))
+        {
+            var partesComa = nuevoEnvio.DireccionDestino.Split(',', 2, StringSplitOptions.TrimEntries);
+            var calleYNumero = partesComa[0];
+            if (partesComa.Length > 1 && !string.IsNullOrWhiteSpace(partesComa[1]))
+            {
+                ciudad = partesComa[1];
+            }
+
+            var coincidencia = System.Text.RegularExpressions.Regex.Match(calleYNumero, @"^(.*?)\s+(\d+.*)$");
+            if (coincidencia.Success)
+            {
+                calle = coincidencia.Groups[1].Value.Trim();
+                if (string.IsNullOrWhiteSpace(numero))
+                {
+                    numero = coincidencia.Groups[2].Value.Trim();
+                }
+            }
+            else
+            {
+                calle = calleYNumero.Trim();
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(calle) && string.IsNullOrWhiteSpace(numero))
+        {
+            var coincidencia = System.Text.RegularExpressions.Regex.Match(calle, @"^(.*?)\s+(\d+.*)$");
+            if (coincidencia.Success)
+            {
+                calle = coincidencia.Groups[1].Value.Trim();
+                numero = coincidencia.Groups[2].Value.Trim();
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(calle))
         {
-            var partesDireccion = nuevoEnvio.DireccionDestino.Split(' ', 2);
-            calle = partesDireccion.Length > 0 ? partesDireccion[0] : "Calle Principal";
-            numero = partesDireccion.Length > 1 ? partesDireccion[1] : "1000";
+            calle = "Calle Principal";
         }
 
         var bultosPayload = (nuevoEnvio.Bultos != null && nuevoEnvio.Bultos.Count > 0)
             ? nuevoEnvio.Bultos.Select(b => new { Peso = b.Peso, Alto = b.Alto, Ancho = b.Ancho, Profundo = b.Profundo }).ToArray()
             : new[] { new { Peso = nuevoEnvio.PesoKg ?? 1m, Alto = 10m, Ancho = 10m, Profundo = 10m } };
 
+        var parteNumTexto = string.IsNullOrWhiteSpace(numero) ? string.Empty : $" {numero}";
         var direccionCompleta = !string.IsNullOrWhiteSpace(nuevoEnvio.DireccionDestino)
             ? nuevoEnvio.DireccionDestino
-            : $"{calle} {numero}, {nuevoEnvio.Ciudad}".Trim();
+            : $"{calle}{parteNumTexto}, {ciudad}".Trim();
 
         var payload = new
         {
             NombreDestinatario = nuevoEnvio.NombreDestinatario,
             Calle = calle,
             Numero = string.IsNullOrWhiteSpace(numero) ? "S/N" : numero,
-            Ciudad = string.IsNullOrWhiteSpace(nuevoEnvio.Ciudad) ? "Montevideo" : nuevoEnvio.Ciudad,
+            Ciudad = ciudad,
             Telefono = nuevoEnvio.TelefonoDestinatario,
             Email = nuevoEnvio.EmailDestinatario,
             Documento = nuevoEnvio.DocumentoDestinatario,

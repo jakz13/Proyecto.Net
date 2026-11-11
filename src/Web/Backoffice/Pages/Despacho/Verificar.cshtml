@@ -318,7 +318,7 @@ else
         function alternarEstadoCarga(envioId) {
             var chk = document.getElementById('chk_' + envioId);
             var lbl = document.getElementById('lbl_' + envioId);
-            var panel = document.getElementById('panel_no_carga_@Model.Control?.HojaDeRutaId' ? document.getElementById('panel_no_carga_' + envioId) : null);
+            var panel = document.getElementById('panel_no_carga_' + envioId);
             var fila = document.getElementById('fila-bulto-' + envioId);
 
             if (chk.checked) {

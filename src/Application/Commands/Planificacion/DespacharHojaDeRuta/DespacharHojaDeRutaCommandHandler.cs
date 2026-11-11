@@ -71,6 +71,21 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
         var tieneRetiros = paradasVigentes.Any(p => p.EsRetiro);
 
+        if (request.ConfirmarCargaEnMuelle && ruta.Estado is "Liberada" or "EnCarga")
+        {
+            var enviosExcluidos = request.EnviosNoCargadosIds?.ToHashSet() ?? new HashSet<Guid>();
+            var bultosCargadosEnMuelle = envios
+                .Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta && !enviosExcluidos.Contains(e.Id))
+                .SelectMany(e => e.Bultos.Where(b => b.EstaDisponibleParaRuta))
+                .Select(b => b.Id)
+                .ToList();
+
+            if (bultosCargadosEnMuelle.Count > 0 || (ruta.Estado == "EnCarga" && enviosExcluidos.Count > 0))
+            {
+                ruta.RegistrarCargaEscaneada(bultosCargadosEnMuelle);
+            }
+        }
+
         if (ruta.Estado != "EnCarga" && !(ruta.Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"La hoja de ruta está en estado '{ruta.Estado}': la carga del vehículo debe estar escaneada y sincronizada antes de despachar.");
 

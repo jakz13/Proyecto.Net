@@ -17,11 +17,19 @@ public class IndexModel : PageModel
 {
     private readonly IIdentidadVisualApi _identidadApi;
     private readonly IWebHostEnvironment _entorno;
+    private readonly UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion _identidadOperador;
+    private readonly UltimaMilla.Frontend.Infrastructure.Mocks.MockContextoOperador? _contextoOperador;
 
-    public IndexModel(IIdentidadVisualApi identidadApi, IWebHostEnvironment entorno)
+    public IndexModel(
+        IIdentidadVisualApi identidadApi,
+        IWebHostEnvironment entorno,
+        UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion identidadOperador,
+        UltimaMilla.Frontend.Infrastructure.Mocks.MockContextoOperador? contextoOperador = null)
     {
         _identidadApi = identidadApi;
         _entorno = entorno;
+        _identidadOperador = identidadOperador;
+        _contextoOperador = contextoOperador;
     }
 
     public IdentidadVisualDto IdentidadActual { get; set; } = new();
@@ -171,6 +179,10 @@ public class IndexModel : PageModel
         try
         {
             var actualizada = await _identidadApi.ActualizarIdentidadVisualAsync(Modelo);
+            _identidadOperador.InvalidarCache();
+            _identidadOperador.ActualizarEnCache(actualizada);
+            _contextoOperador?.ActualizarIdentidad(actualizada);
+
             MensajeExito = $"Identidad visual de '{actualizada.NombreComercial}' guardada exitosamente. Se aplicó en el panel lateral, portal del comercio, seguimiento público y comunicaciones (RF-05).";
             return RedirectToPage();
         }
@@ -204,7 +216,11 @@ public class IndexModel : PageModel
                 MensajeComunicaciones = "Gracias por confiar en TransLogística Express. Tu paquete está en camino."
             };
 
-            await _identidadApi.ActualizarIdentidadVisualAsync(valoresPorDefecto);
+            var restablecida = await _identidadApi.ActualizarIdentidadVisualAsync(valoresPorDefecto);
+            _identidadOperador.InvalidarCache();
+            _identidadOperador.ActualizarEnCache(restablecida);
+            _contextoOperador?.ActualizarIdentidad(restablecida);
+
             MensajeExito = "Identidad visual y paleta de colores restablecidas a los valores de marca iniciales.";
             return RedirectToPage();
         }

@@ -57,6 +57,7 @@ public class RecepcionModel : PageModel
         }
 
         Formulario.EnvioId = Envio.EnvioId;
+        Formulario.CodigosEscaneadosCsv = string.Join(",", Envio.Bultos.Select(b => b.Identificacion));
         return Page();
     }
 
@@ -76,6 +77,20 @@ public class RecepcionModel : PageModel
         var danados = (Formulario.CodigosDanadosCsv ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+
+        if (escaneados.Count == 0)
+        {
+            if (string.IsNullOrWhiteSpace(Formulario.Observaciones) && danados.Count == 0)
+            {
+                escaneados = Envio.Bultos.Select(b => b.Identificacion).ToList();
+                Formulario.CodigosEscaneadosCsv = string.Join(",", escaneados);
+            }
+            else
+            {
+                ErroresValidacion.Add("Debe recepcionar al menos un bulto físico (marque o escanee los bultos arribados) antes de confirmar la recepción en depósito.");
+                return Page();
+            }
+        }
 
         var solicitud = new RecepcionarBultosRequestDto(
             escaneados,

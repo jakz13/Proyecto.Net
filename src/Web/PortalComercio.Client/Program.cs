@@ -24,9 +24,8 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredServ
 
 // DelegatingHandler para JWT y CorrelationId
 builder.Services.AddTransient<JwtAuthorizationHandler>();
-// Con login real, todos los clientes HTTP del portal deben enviar el JWT de la sesión
-if (!modoDemo)
-    builder.Services.ConfigureHttpClientDefaults(b => b.AddHttpMessageHandler<JwtAuthorizationHandler>());
+// Todos los clientes HTTP del portal deben enviar el JWT de la sesión
+builder.Services.ConfigureHttpClientDefaults(b => b.AddHttpMessageHandler<JwtAuthorizationHandler>());
 
 builder.Services.AddHttpClient("UltimaMillaApi", cliente =>
 {

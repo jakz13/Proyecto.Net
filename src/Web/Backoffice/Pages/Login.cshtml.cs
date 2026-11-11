@@ -69,13 +69,15 @@ public class LoginModel : PageModel
         if (ModoDemo)
         {
             // Demo/desarrollo local: se autentica con el rol elegido emitiendo la Cookie con Claims
+            var idOperadorGuid = ResolverOperadorGuid(_contextoOperador.OperadorActivo.OperadorId).ToString();
             var claimsDemo = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
                 new(ClaimTypes.Name, NombreUsuario),
                 new(ClaimTypes.Role, RolSeleccionado),
-                new("operador_id", _contextoOperador.OperadorActivo.OperadorId),
-                new("tenant_id", ResolverOperadorGuid(_contextoOperador.OperadorActivo.OperadorId).ToString())
+                new("operador_id", idOperadorGuid),
+                new("tenant_id", idOperadorGuid),
+                new("codigo_operador", _contextoOperador.OperadorActivo.OperadorId)
             };
 
             await IniciarSesionConCookieAsync(claimsDemo);

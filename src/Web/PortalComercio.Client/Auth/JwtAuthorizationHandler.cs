@@ -24,6 +24,11 @@ public class JwtAuthorizationHandler : DelegatingHandler
         {
             peticion.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+        else if (peticion.Headers.Authorization is null)
+        {
+            // Token de desarrollo para peticiones anónimas en entorno local
+            peticion.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "dev-token");
+        }
 
         // 2. Encabezado de correlación para observabilidad distribuida (Requerimiento 13)
         if (!peticion.Headers.Contains("X-Correlation-Id"))

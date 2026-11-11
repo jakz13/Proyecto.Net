@@ -57,25 +57,31 @@ public class HttpDespachoApi : IDespachoApi
             return Array.Empty<HojaDeRutaDto>();
         }
 
-        return rutasResumen.Select(r => new HojaDeRutaDto
+        var repartidores = await CatalogosHttp.RepartidoresAsync(_clienteHttp, cancelacion);
+
+        return rutasResumen.Select(r =>
         {
-            Id = r.HojaDeRutaId,
-            NumeroRuta = r.NumeroRuta,
-            Fecha = r.Fecha,
-            Estado = r.Estado,
-            RepartidorId = r.RepartidorId ?? Guid.Empty,
-            RepartidorNombre = r.RepartidorDocumento ?? "Repartidor asignado",
-            VehiculoId = r.VehiculoId ?? Guid.Empty,
-            VehiculoMatricula = r.VehiculoPatente ?? string.Empty,
-            VehiculoModelo = r.VehiculoTipo ?? string.Empty,
-            CapacidadPesoMaxKg = r.CapacidadPesoKg,
-            CapacidadVolumenMaxM3 = r.CapacidadVolumenM3,
-            PesoTotalKg = r.PesoTotalKg,
-            VolumenTotalM3 = r.VolumenTotalM3,
-            CantidadParadas = r.CantidadParadas,
-            FechaLiberacion = r.FechaLiberacion,
-            FechaDespacho = r.FechaDespacho,
-            SelloModificacion = r.SelloModificacion.ToString()
+            var rep = r.RepartidorId.HasValue ? repartidores.GetValueOrDefault(r.RepartidorId.Value) : null;
+            return new HojaDeRutaDto
+            {
+                Id = r.HojaDeRutaId,
+                NumeroRuta = r.NumeroRuta,
+                Fecha = r.Fecha,
+                Estado = r.Estado,
+                RepartidorId = r.RepartidorId ?? Guid.Empty,
+                RepartidorNombre = rep?.NombreCompleto ?? r.RepartidorDocumento ?? "Repartidor asignado",
+                VehiculoId = r.VehiculoId ?? Guid.Empty,
+                VehiculoMatricula = r.VehiculoPatente ?? string.Empty,
+                VehiculoModelo = r.VehiculoTipo ?? string.Empty,
+                CapacidadPesoMaxKg = r.CapacidadPesoKg,
+                CapacidadVolumenMaxM3 = r.CapacidadVolumenM3,
+                PesoTotalKg = r.PesoTotalKg,
+                VolumenTotalM3 = r.VolumenTotalM3,
+                CantidadParadas = r.CantidadParadas,
+                FechaLiberacion = r.FechaLiberacion,
+                FechaDespacho = r.FechaDespacho,
+                SelloModificacion = r.SelloModificacion.ToString()
+            };
         }).ToList();
     }
 
@@ -113,6 +119,11 @@ public class HttpDespachoApi : IDespachoApi
             return null;
         }
 
+        var repartidores = await CatalogosHttp.RepartidoresAsync(_clienteHttp, cancelacion);
+        var repartidor = resultadoApi.RepartidorId.HasValue
+            ? repartidores.GetValueOrDefault(resultadoApi.RepartidorId.Value)
+            : null;
+
         return new VerificacionDespachoDto
         {
             HojaDeRutaId = resultadoApi.HojaDeRutaId,
@@ -120,6 +131,7 @@ public class HttpDespachoApi : IDespachoApi
             Fecha = resultadoApi.Fecha,
             EstadoRuta = resultadoApi.EstadoRuta,
             RepartidorId = resultadoApi.RepartidorId ?? Guid.Empty,
+            RepartidorNombre = repartidor?.NombreCompleto ?? "Repartidor asignado",
             VehiculoId = resultadoApi.VehiculoId ?? Guid.Empty,
             VehiculoMatricula = resultadoApi.VehiculoPatente ?? string.Empty,
             CapacidadPesoMaxKg = resultadoApi.CapacidadPesoKg,
@@ -149,8 +161,30 @@ public class HttpDespachoApi : IDespachoApi
     {
         ArgumentNullException.ThrowIfNull(dto);
 
+        if (dto.SimularRutaPreviaSinRendir)
+        {
+            const string msgSimulacion = "El repartidor asignado posee una hoja de ruta previa sin rendir en depósito (UC-16). Debe registrar su rendición antes de autorizar una nueva salida.";
+            return new ResultadoDespachoDto
+            {
+                Exitoso = false,
+                Mensaje = msgSimulacion,
+                Errores = new List<string> { msgSimulacion }
+            };
+        }
+
         var url = $"/api/planificacion/hojas-de-ruta/{dto.HojaDeRutaId}/despacho";
-        var cargaUtil = new { Observaciones = dto.ObservacionesSalida };
+        var enviosNoCargadosIds = (dto.BultosNoCargados ?? new List<BultoNoCargadoItemDto>())
+            .Where(b => b.EnvioId != Guid.Empty)
+            .Select(b => b.EnvioId)
+            .Distinct()
+            .ToList();
+
+        var cargaUtil = new
+        {
+            Observaciones = dto.ObservacionesSalida,
+            EnviosNoCargadosIds = enviosNoCargadosIds,
+            ConfirmarCargaEnMuelle = true
+        };
 
         HttpResponseMessage respuesta;
         try
@@ -159,43 +193,123 @@ public class HttpDespachoApi : IDespachoApi
         }
         catch (HttpRequestException ex)
         {
-            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de red al despachar la hoja de ruta: {ex.Message}");
+            var msgRed = $"Error de red al despachar la hoja de ruta: {ex.Message}";
+            return new ResultadoDespachoDto
+            {
+                Exitoso = false,
+                Mensaje = msgRed,
+                Errores = new List<string> { msgRed }
+            };
         }
 
         if (respuesta.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new ApiExcepcion(HttpStatusCode.Conflict, "La hoja de ruta fue modificada por otro usuario o ya fue despachada.");
+            var detalleConflicto = HttpIncidenciasApi.ExtraerMensaje(await respuesta.Content.ReadAsStringAsync(cancelacion))
+                ?? "La hoja de ruta fue modificada por otro usuario o ya fue despachada.";
+            return new ResultadoDespachoDto
+            {
+                Exitoso = false,
+                Mensaje = detalleConflicto,
+                Errores = new List<string> { detalleConflicto }
+            };
         }
 
         if (!respuesta.IsSuccessStatusCode)
         {
-            var detalleError = await respuesta.Content.ReadAsStringAsync(cancelacion);
-            throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(detalleError) ? $"Error HTTP {respuesta.StatusCode}" : detalleError);
+            var cuerpoError = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            var detalleError = HttpIncidenciasApi.ExtraerMensaje(cuerpoError)
+                ?? (string.IsNullOrWhiteSpace(cuerpoError) ? $"Error HTTP {(int)respuesta.StatusCode}" : cuerpoError);
+            return new ResultadoDespachoDto
+            {
+                Exitoso = false,
+                Mensaje = detalleError,
+                Errores = new List<string> { detalleError }
+            };
         }
 
         var resultadoApi = await respuesta.Content.ReadFromJsonAsync<DespachoResultApiDto>(OpcionesJson, cancelacion);
         if (resultadoApi is null)
         {
-            throw new ApiExcepcion(HttpStatusCode.InternalServerError, "No fue posible deserializar la confirmación de despacho.");
+            const string msgDeserializacion = "No fue posible procesar la confirmación de despacho recibida del servidor.";
+            return new ResultadoDespachoDto
+            {
+                Exitoso = false,
+                Mensaje = msgDeserializacion,
+                Errores = new List<string> { msgDeserializacion }
+            };
         }
+
+        var retiradosCount = resultadoApi.EnviosRetirados?.Count ?? 0;
+        var numeroRuta = $"HR-{(resultadoApi.FechaDespacho ?? DateTime.UtcNow):yyyyMMdd}-{resultadoApi.HojaDeRutaId.ToString()[..4].ToUpperInvariant()}";
 
         return new ResultadoDespachoDto
         {
             Exitoso = true,
-            Mensaje = $"Hoja de ruta {resultadoApi.NumeroRuta} despachada con éxito. Envíos en tránsito: {resultadoApi.EnviosDespachados}. Reintegrados a depósito: {resultadoApi.EnviosDevueltosADeposito}.",
+            Mensaje = !string.IsNullOrWhiteSpace(resultadoApi.Mensaje)
+                ? resultadoApi.Mensaje
+                : $"Hoja de ruta {numeroRuta} despachada con éxito. Envíos en tránsito: {resultadoApi.EnviosEnTransito}. Reintegrados a depósito: {retiradosCount}.",
             HojaDeRutaId = resultadoApi.HojaDeRutaId,
-            NumeroRuta = resultadoApi.NumeroRuta,
-            EnviosEnTransitoCount = resultadoApi.EnviosDespachados,
-            EnviosReintegradosDepositoCount = resultadoApi.EnviosDevueltosADeposito
+            NumeroRuta = numeroRuta,
+            EnviosEnTransitoCount = resultadoApi.EnviosEnTransito,
+            EnviosReintegradosDepositoCount = retiradosCount
         };
     }
 
     /// <summary>
     /// Registra la rendición de una ruta previa si se requiere desbloquear al repartidor.
     /// </summary>
-    public Task<bool> RendirRutaPreviaAsync(string numeroRuta, CancellationToken cancelacion = default)
+    public async Task<bool> RendirRutaPreviaAsync(string numeroRuta, CancellationToken cancelacion = default)
     {
-        return Task.FromResult(true);
+        if (string.IsNullOrWhiteSpace(numeroRuta))
+            return false;
+
+        try
+        {
+            var respPendientes = await _clienteHttp.GetAsync("/api/deposito/hojas-de-ruta-pendientes-rendicion", cancelacion);
+            if (!respPendientes.IsSuccessStatusCode)
+                return false;
+
+            var pendientes = await respPendientes.Content.ReadFromJsonAsync<List<RutaPendienteRendicionApiDto>>(OpcionesJson, cancelacion);
+            var coincidencia = pendientes?.FirstOrDefault(r =>
+                string.Equals(r.NumeroRuta, numeroRuta.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (coincidencia is null)
+                return false;
+
+            var respDetalle = await _clienteHttp.GetAsync($"/api/deposito/hojas-de-ruta/{coincidencia.HojaDeRutaId}/rendicion", cancelacion);
+            List<string> codigosDevueltos = new();
+            string motivoInterno = "RETORNO_SIN_INTENTO";
+
+            if (respDetalle.IsSuccessStatusCode)
+            {
+                var detalle = await respDetalle.Content.ReadFromJsonAsync<DetalleRendicionApiDto>(OpcionesJson, cancelacion);
+                if (detalle?.BultosEsperadosRetorno is { Count: > 0 })
+                {
+                    codigosDevueltos = detalle.BultosEsperadosRetorno.Select(b => b.Identificacion).ToList();
+                }
+                if (detalle?.MotivosDisponibles is { Count: > 0 })
+                {
+                    motivoInterno = detalle.MotivosDisponibles[0].Codigo;
+                }
+            }
+
+            var respRendir = await _clienteHttp.PostAsJsonAsync(
+                $"/api/deposito/hojas-de-ruta/{coincidencia.HojaDeRutaId}/rendicion",
+                new
+                {
+                    CodigosBultosDevueltos = codigosDevueltos,
+                    MotivoInternoCodigo = motivoInterno,
+                    Observaciones = "Rendición registrada desde verificación de despacho para habilitar nueva salida."
+                },
+                OpcionesJson,
+                cancelacion);
+
+            return respRendir.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // DTOs auxiliares internos para deserialización limpia de la API backend
@@ -247,10 +361,22 @@ public class HttpDespachoApi : IDespachoApi
 
     private record DespachoResultApiDto(
         Guid HojaDeRutaId,
-        string NumeroRuta,
         string Estado,
-        int EnviosDespachados,
-        int EnviosDevueltosADeposito,
-        DateTime FechaDespacho,
-        Guid SelloModificacion);
+        DateTime? FechaDespacho,
+        int EnviosEnTransito,
+        List<EnvioRetiradoApiDto>? EnviosRetirados,
+        bool Idempotente,
+        string? Mensaje);
+
+    private record EnvioRetiradoApiDto(Guid EnvioId, string CodigoSeguimiento, string Motivo);
+
+    private record RutaPendienteRendicionApiDto(Guid HojaDeRutaId, string NumeroRuta);
+
+    private record DetalleRendicionApiDto(
+        List<BultoEsperadoRendicionApiDto>? BultosEsperadosRetorno,
+        List<MotivoRendicionApiDto>? MotivosDisponibles);
+
+    private record BultoEsperadoRendicionApiDto(string Identificacion);
+
+    private record MotivoRendicionApiDto(string Codigo);
 }

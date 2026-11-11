@@ -5,7 +5,9 @@ namespace UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 /// <summary>Confirmación de la salida del vehículo por parte del operario de depósito.</summary>
 public record DespacharHojaDeRutaCommand(
     Guid HojaDeRutaId,
-    string? Observaciones = null
+    string? Observaciones = null,
+    IReadOnlyCollection<Guid>? EnviosNoCargadosIds = null,
+    bool ConfirmarCargaEnMuelle = false
 ) : IRequest<DespachoResultDto>;
 
 public record DespachoResultDto(

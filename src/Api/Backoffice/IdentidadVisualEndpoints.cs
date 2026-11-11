@@ -18,14 +18,13 @@ public static partial class IdentidadVisualEndpoints
     public static IEndpointRouteBuilder MapIdentidadVisualEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/v1/identidad-visual")
-            .WithTags("Backoffice · Identidad visual")
-            .RequireAuthorization()
-            .ExigirParaEscritura(PoliticasApi.Administracion);
+            .WithTags("Backoffice · Identidad visual");
 
         grupo.MapGet("/", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
             Results.Ok(await ObtenerAsync(db, tenant.OperadorId, ct))))
         .WithName("ObtenerIdentidadVisual")
-        .WithSummary("Identidad visual del operador en sesión");
+        .WithSummary("Identidad visual del operador en sesión")
+        .AllowAnonymous();
 
         grupo.MapGet("/operadores-demo", (AppDbContext db, IConfiguration configuracion, IWebHostEnvironment entorno, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
@@ -111,7 +110,7 @@ public static partial class IdentidadVisualEndpoints
 
             operador.ActualizarDatos(operador.RazonSocial, nombre);
 
-            var identidad = await db.IdentidadesVisuales.FirstOrDefaultAsync(i => i.OperadorId == tenant.OperadorId, ct);
+            var identidad = await db.IdentidadesVisuales.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.OperadorId == tenant.OperadorId, ct);
             var colorPrimario = dto.ColorPrimario!.ToUpperInvariant();
             var colorSecundario = dto.ColorSecundario!.ToUpperInvariant();
 
@@ -133,6 +132,7 @@ public static partial class IdentidadVisualEndpoints
 
             return Results.Ok(Mapear(operador, identidad));
         }))
+        .RequireAuthorization(PoliticasApi.Administracion)
         .WithName("ActualizarIdentidadVisual")
         .WithSummary("Modificar la identidad visual del operador");
 
@@ -142,7 +142,7 @@ public static partial class IdentidadVisualEndpoints
     private static async Task<IdentidadVisualDto> ObtenerAsync(AppDbContext db, Guid operadorId, CancellationToken ct)
     {
         var operador = await db.Operadores.AsNoTracking().FirstOrDefaultAsync(o => o.Id == operadorId, ct);
-        var identidad = await db.IdentidadesVisuales.AsNoTracking().FirstOrDefaultAsync(i => i.OperadorId == operadorId, ct);
+        var identidad = await db.IdentidadesVisuales.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(i => i.OperadorId == operadorId, ct);
         return Mapear(operador, identidad, operadorId);
     }
 

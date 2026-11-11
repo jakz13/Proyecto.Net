@@ -12,6 +12,12 @@ namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 /// </summary>
 public class MockSeguimientoApi : ISeguimientoApi
 {
+    private readonly MockContextoOperador _contextoOperador;
+
+    public MockSeguimientoApi(MockContextoOperador? contextoOperador = null)
+    {
+        _contextoOperador = contextoOperador ?? new MockContextoOperador();
+    }
     private static readonly Dictionary<string, SeguimientoPublicoDto> EnviosPublicos = new(StringComparer.OrdinalIgnoreCase)
     {
         ["TRK-2026-0001"] = new SeguimientoPublicoDto
@@ -190,6 +196,18 @@ public class MockSeguimientoApi : ISeguimientoApi
 
         if (EnviosPublicos.TryGetValue(codigoLimpio, out var seguimiento))
         {
+            var operador = _contextoOperador.OperadorActivo;
+            if (operador != null)
+            {
+                seguimiento = seguimiento with
+                {
+                    OperadorNombre = operador.NombreComercial,
+                    OperadorColorPrimario = operador.ColorPrimario,
+                    OperadorColorSecundario = operador.ColorSecundario,
+                    OperadorLogoUrl = operador.LogoUrl
+                };
+            }
+
             return Task.FromResult<SeguimientoPublicoDto?>(seguimiento);
         }
 

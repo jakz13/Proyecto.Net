@@ -51,24 +51,50 @@ public class VerificarModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancelacion)
     {
-        var operarioNombre = User.Identity?.Name ?? "Operario de depósito";
-        var resultado = await _despachoApi.ConfirmarDespachoAsync(Formulario, operarioNombre, cancelacion);
-
-        if (!resultado.Exitoso)
+        try
         {
-            ErroresValidacion = resultado.Errores;
+            var operarioNombre = User.Identity?.Name ?? "Operario de depósito";
+            var resultado = await _despachoApi.ConfirmarDespachoAsync(Formulario, operarioNombre, cancelacion);
+
+            if (!resultado.Exitoso)
+            {
+                ErroresValidacion = resultado.Errores.Count > 0
+                    ? resultado.Errores
+                    : new List<string> { resultado.Mensaje };
+                Control = await _despachoApi.ObtenerControlDespachoAsync(Formulario.HojaDeRutaId, cancelacion);
+                return Page();
+            }
+
+            TempData["MensajeExito"] = resultado.Mensaje;
+            return RedirectToPage("/Despacho/Comprobante", new { id = Formulario.HojaDeRutaId });
+        }
+        catch (Exception ex)
+        {
+            ErroresValidacion = new List<string> { ex.Message };
             Control = await _despachoApi.ObtenerControlDespachoAsync(Formulario.HojaDeRutaId, cancelacion);
             return Page();
         }
-
-        TempData["MensajeExito"] = resultado.Mensaje;
-        return RedirectToPage("/Despacho/Comprobante", new { id = Formulario.HojaDeRutaId });
     }
 
     public async Task<IActionResult> OnPostRendirRutaPreviaAsync(string numeroRuta, CancellationToken cancelacion)
     {
-        await _despachoApi.RendirRutaPreviaAsync(numeroRuta, cancelacion);
-        TempData["MensajeExito"] = $"Rendición de la hoja de ruta previa '{numeroRuta}' registrada en depósito. El repartidor quedó habilitado para una nueva salida.";
+        try
+        {
+            var exito = await _despachoApi.RendirRutaPreviaAsync(numeroRuta, cancelacion);
+            if (exito)
+            {
+                TempData["MensajeExito"] = $"Rendición de la hoja de ruta previa '{numeroRuta}' registrada en depósito. El repartidor quedó habilitado para una nueva salida.";
+            }
+            else
+            {
+                TempData["MensajeError"] = $"No se pudo registrar automáticamente la rendición de la ruta previa '{numeroRuta}'. Verifique su estado en Rendición de Rutas.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["MensajeError"] = ex.Message;
+        }
+
         return RedirectToPage("/Despacho/Verificar", new { id = Formulario.HojaDeRutaId });
     }
 }

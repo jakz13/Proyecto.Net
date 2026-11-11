@@ -413,10 +413,19 @@ else
 
         try
         {
+            // Validar que exista al menos calle o dirección de referencia
+            if (string.IsNullOrWhiteSpace(modelo.Calle) && string.IsNullOrWhiteSpace(modelo.DireccionDestino))
+            {
+                mensajeError = "Debe ingresar la calle o dirección de entrega del destinatario.";
+                return;
+            }
+
             // Sincronizar campo DireccionDestino si solo se completó calle y número
             if (string.IsNullOrWhiteSpace(modelo.DireccionDestino) && !string.IsNullOrWhiteSpace(modelo.Calle))
             {
-                modelo.DireccionDestino = $"{modelo.Calle} {modelo.Numero}, {modelo.Ciudad}".Trim();
+                var parteNumero = string.IsNullOrWhiteSpace(modelo.Numero) ? string.Empty : $" {modelo.Numero.Trim()}";
+                var parteCiudad = string.IsNullOrWhiteSpace(modelo.Ciudad) ? "Montevideo" : modelo.Ciudad.Trim();
+                modelo.DireccionDestino = $"{modelo.Calle.Trim()}{parteNumero}, {parteCiudad}";
             }
 
             if (modelo.Bultos.Count == 0)
