@@ -7,6 +7,7 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
 # Variables requeridas en .env.prod: DOMINIO, POSTGRES_PASSWORD, RABBITMQ_PASSWORD, JWT_SECRET
+# Opcionales: SEED_PASSWORD_DEMO (cuentas de demostración), SEED_API_KEY_DEMO, RECEPTOR_PRUEBA_AVISOS=true (solo durante una demostración)
 # Solo Caddy publica puertos (80/443). Todo lo demás queda en la red interna.
 x-api: &api
   image: ultimamilla/api:latest
@@ -28,6 +29,12 @@ x-api: &api
     Jwt__RequireConfiguredSecret: "true"
     # Anti-SSRF: los avisos a comercios no salen hacia redes internas, salvo el receptor de prueba propio
     Avisos__HostsPermitidos: "api1,api2"
+    # Cuentas y claves de demostración: en producción solo se crean con una contraseña propia (mínimo 12 caracteres, SEED_PASSWORD_DEMO);
+    # las que ya existieran con la contraseña publicada en el repositorio se reemplazan al arrancar. Sin la variable no se crea ninguna cuenta.
+    SEED_PASSWORD_DEMO: ${SEED_PASSWORD_DEMO:-}
+    SEED_API_KEY_DEMO: ${SEED_API_KEY_DEMO:-}
+    # Receptor anónimo de pruebas de avisos (/api/testing/webhook-receiver): apagado salvo que se lo habilite para una demostración
+    Avisos__ReceptorDePrueba__Habilitado: ${RECEPTOR_PRUEBA_AVISOS:-false}
     DOTNET_GCConserveMemory: "7"
     DOTNET_TieredPGO: "0"
   mem_limit: 256m

@@ -27,15 +27,32 @@ Auditoría hecha sobre todo el repositorio (secretos, endpoints anónimos, entra
 - `/metrics` no se publica: Caddy no lo enruta, solo Prometheus lo consulta por la red interna.
 - Seguimiento público: respuesta idéntica para códigos válidos e inexistentes y límite de tasa por IP.
 
+## Segunda auditoría (10/11): lo que se corrigió
+Se revisó el proyecto como lo haría alguien que lo ataca. Cada punto tiene su prueba.
+| Hallazgo | Corrección |
+|---|---|
+| **Crítico.** El seeder creaba en producción cuentas con las contraseñas publicadas en el repositorio (`admin@gmail.com`…) y claves de API de demostración | `PoliticaDeSemillas`: en producción no se crea ninguna cuenta sin `SEED_PASSWORD_DEMO` (≥ 12 caracteres); las claves de API de demostración son aleatorias; al arrancar se **rotan** las cuentas y claves que aún tengan el valor publicado. Pruebas: `PoliticaDeSemillasTests` |
+| Paquete `SignalR.StackExchangeRedis` con vulnerabilidad alta (GHSA-wr8v-9x5q-ggcm) | Actualizado a 10.0.15; `dotnet list package --vulnerable` sin resultados |
+| Swagger de la API interna público | El contrato interno solo se publica en desarrollo; en el servidor queda el de la API pública (`/swagger/integracion`) |
+| Modo demo "fail-open" (activo si faltaba la variable) | Seguro por defecto: sin `Auth:PermitirModoDemo` definido, solo existe en el entorno Development (`ModoDemo`) |
+| Endpoint anónimo `POST /api/mobile/v1/demo/reset` que modificaba datos | **Eliminado** (con los métodos de reinicio de demostración del dominio) |
+| Receptor de pruebas de avisos anónimo, con clave fija y estado en memoria del proceso (incoherente con 2 instancias) | Solo existe si se lo habilita (`Avisos:ReceptorDePrueba:Habilitado`, por defecto solo en desarrollo; en el servidor, `RECEPTOR_PRUEBA_AVISOS=true` durante una demostración). Su estado vive en el caché distribuido |
+| Sin política de contraseñas | `PoliticaDePassword`: ≥ 10 caracteres, tres tipos de caracteres, sin contraseñas triviales; se aplica al alta de usuarios y de repartidores y al cambio de contraseña. Pruebas: `PoliticaDePasswordTests` |
+| Inicio de sesión sin límite por origen | Límite por IP (10 por minuto, `RateLimit:LoginPorMinuto`) además del bloqueo por cuenta. Prueba: `LimiteDeLoginApiTests` |
+| Validación del JWT incompleta | Algoritmo fijo HS256 (rechaza `none`, HS512, RS256), `nbf`, emisor y audiencia obligatorios. Pruebas: `TokenJwtServiceTests` |
+| El menú del Backoffice mostraba la marca de demostración a todos los operadores | La marca (nombre, logo, colores) se pide a la API con el token del usuario: cada operador ve la suya |
+| Datos de demostración dentro del código de producción (coordenadas por código `ENV-2026-0010x`, teléfono y franja por defecto) | Eliminados |
+| App móvil con credenciales del repartidor, evidencia, firma y GPS inventados y clave de cifrado fija en DEBUG | Eliminados (ver `docs/Plan_de_Cierre.md`); la clave de desarrollo es aleatoria por equipo |
+| `docker-compose.yml` de desarrollo publicaba Postgres, Redis y RabbitMQ con credenciales por defecto en todas las interfaces | Los puertos se publican solo en `127.0.0.1` |
+| Archivos sueltos en la raíz (copias de la letra, `dotnet-install.ps1`), página de privacidad de plantilla, `.vscode/` | Eliminados o ignorados; la letra queda una sola vez en `docs/` |
+
 ## Riesgos aceptados (decirlos antes de que los encuentren)
-1. **Cuentas de demostración con contraseña conocida** (`admin@gmail.com`, etc.): el ambiente es de laboratorio y el profesor las necesita. Al desplegar un ambiente real se define `SEED_PASSWORD_DEMO` y todas nacen con esa. Las contraseñas de la VM real (Grafana, base, JWT) están en `.env.prod`, fuera del repositorio.
-2. **Swagger público en producción**: es la documentación de la API pública. No expone datos; los endpoints exigen token.
-3. **Receptor de prueba de avisos (`/api/testing/webhook-receiver`)** anónimo con una clave de firma de demostración: es la herramienta del escenario de defensa (9.3). Guarda solo los últimos 50 avisos en memoria y limita el tamaño.
-4. **Límite de tasa por instancia**: con 2 instancias el límite real es el doble (aclarado en el documento de cambios, 3.1).
-5. **`AllowedHosts: *`** y cadena de conexión local en `appsettings.json`: son valores de desarrollo; en el servidor la cadena viene de variables de entorno y el tráfico externo pasa siempre por Caddy.
-6. **Modo demo en `localhost`**: acepta una identidad de demostración sin login. Está apagado en el servidor (`Auth:PermitirModoDemo=false`).
-7. **Sin purga del outbox procesado**: crecimiento de tabla, no un riesgo de seguridad.
-8. **Contraseña de demostración en la app móvil** (`AuthService.DemoRepartidorPassword`): solo rellena el formulario en modo demo.
+1. **Límite de tasa por instancia**: con 2 instancias el límite real es el doble (aclarado en el documento de cambios, 3.1).
+2. **`AllowedHosts: *` y sin Content-Security-Policy en el Backoffice y los portales** (la API sí la tiene): el tráfico externo pasa siempre por Caddy, que solo atiende los dominios configurados. Una política CSP estricta exige probar cada pantalla (mapas, gráficos, Blazor) en un navegador; queda como mejora.
+3. **Sin purga del outbox procesado**: crecimiento de tabla, no un riesgo de seguridad.
+4. **Modo demo en `localhost`**: en el entorno Development se acepta una identidad de demostración sin login; no existe fuera de él salvo que se lo fuerce con `Auth__PermitirModoDemo=true`.
+5. **JWT propio en lugar de `Microsoft.IdentityModel`**: se validan firma (comparación en tiempo constante), algoritmo, vencimiento, `nbf`, emisor y audiencia, con pruebas; migrar a la librería estándar es una mejora de mantenimiento.
+6. **Excepciones capturadas sin registrar** en los avisos en tiempo real posteriores a guardar (`catch` con comentario): son deliberadas, el cambio ya está confirmado y el aviso es complementario.
 
 ## Cómo se verifica
 ```bash
