@@ -161,11 +161,11 @@ else if (cuenta is not null)
     private string? filtroConcepto;
     private string? filtroEstadoLiquidacion;
 
-    private IReadOnlyList<MovimientoCuentaDto> MovimientosFiltrados
+    private IReadOnlyList<MovimientoCuentaCorrienteDto> MovimientosFiltrados
     {
         get
         {
-            if (cuenta == null || cuenta.Movimientos == null) return Array.Empty<MovimientoCuentaDto>();
+            if (cuenta == null || cuenta.Movimientos == null) return Array.Empty<MovimientoCuentaCorrienteDto>();
 
             var consulta = cuenta.Movimientos.AsEnumerable();
 
@@ -197,12 +197,14 @@ else if (cuenta is not null)
 
             if (filtroFechaDesde.HasValue)
             {
-                consulta = consulta.Where(l => l.PeriodoHasta.Date >= filtroFechaDesde.Value.Date);
+                var desde = DateOnly.FromDateTime(filtroFechaDesde.Value);
+                consulta = consulta.Where(l => l.PeriodoHasta >= desde);
             }
 
             if (filtroFechaHasta.HasValue)
             {
-                consulta = consulta.Where(l => l.PeriodoDesde.Date <= filtroFechaHasta.Value.Date);
+                var hasta = DateOnly.FromDateTime(filtroFechaHasta.Value);
+                consulta = consulta.Where(l => l.PeriodoDesde <= hasta);
             }
 
             if (!string.IsNullOrWhiteSpace(filtroEstadoLiquidacion))
@@ -221,6 +223,9 @@ else if (cuenta is not null)
         filtroConcepto = null;
         filtroEstadoLiquidacion = null;
     }
+
+    protected override async Task OnInitializedAsync()
+    {
         try
         {
             cuenta = await CuentaApi.ObtenerCuentaCorrienteAsync();
