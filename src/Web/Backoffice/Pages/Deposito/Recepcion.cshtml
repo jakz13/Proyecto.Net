@@ -331,6 +331,9 @@ else
     <partial name="_ValidationScriptsPartial" />
     <script>
         // Códigos declarados desde el modelo
+        var codigoSeguimientoEnvio = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((envio?.CodigoSeguimiento ?? "").Trim().ToUpperInvariant()));
+        var codigoInicialUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((Model.CodigoEscaneado ?? "").Trim().ToUpperInvariant()));
+
         var bultosDeclarados = [
             @if (envio != null)
             {
@@ -353,6 +356,12 @@ else
                     }
                 });
             }
+
+            // Si se redirigió con un código escaneado desde el muelle de arribos, registrarlo automáticamente
+            if (codigoInicialUrl) {
+                registrarEscaneo(codigoInicialUrl);
+            }
+
             actualizarInterfaz();
         });
 
@@ -369,15 +378,55 @@ else
         }
 
         function registrarEscaneo(codigo) {
-            bultosEscaneados.add(codigo);
+            if (!codigo) return;
+            var texto = codigo.trim().toUpperCase();
 
-            if (bultosDeclarados.includes(codigo)) {
-                // Es un bulto declarado correcto
-            } else {
-                // Es un sobrante no declarado
-                bultosSobrantes.add(codigo);
+            // 1. Si el operario escaneó el código principal de seguimiento de la etiqueta (ej: TRK-2026-0001)
+            if (texto === codigoSeguimientoEnvio) {
+                bultosDeclarados.forEach(function (b) {
+                    bultosEscaneados.add(b);
+                });
+                actualizarInterfaz();
+                return;
             }
 
+            // 2. Si coincide directamente con un bulto declarado
+            if (bultosDeclarados.includes(texto)) {
+                bultosEscaneados.add(texto);
+                actualizarInterfaz();
+                return;
+            }
+
+            // 3. Si coincide parcialmente con etiquetas generadas por el comercio (ej: TRK-2026-0001-B01 vs BLT-01 o -B01)
+            var encontrado = false;
+            for (var i = 0; i < bultosDeclarados.length; i++) {
+                var bDecl = bultosDeclarados[i];
+                if (texto.endsWith(bDecl) || bDecl.endsWith(texto) || texto.indexOf(bDecl) >= 0) {
+                    bultosEscaneados.add(bDecl);
+                    encontrado = true;
+                    break;
+                }
+            }
+
+            if (encontrado) {
+                actualizarInterfaz();
+                return;
+            }
+
+            // 4. Si la etiqueta indica un índice de bulto (ej: sufijo -B01, -B1) y hay bultos suficientes
+            var coincidenciaIndice = texto.match(/-B0*(\d+)$/i);
+            if (coincidenciaIndice && coincidenciaIndice[1]) {
+                var indiceBulto = parseInt(coincidenciaIndice[1], 10) - 1;
+                if (indiceBulto >= 0 && indiceBulto < bultosDeclarados.length) {
+                    bultosEscaneados.add(bultosDeclarados[indiceBulto]);
+                    actualizarInterfaz();
+                    return;
+                }
+            }
+
+            // 5. Es un sobrante no declarado
+            bultosEscaneados.add(texto);
+            bultosSobrantes.add(texto);
             actualizarInterfaz();
         }
 

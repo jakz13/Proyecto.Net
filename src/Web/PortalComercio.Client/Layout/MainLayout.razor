@@ -130,6 +130,22 @@
 
             <!-- Contenido Principal -->
             <main class="col-12 col-md-9 col-lg-10">
+                @if (comercioDadoDeBaja)
+                {
+                    <div class="alert alert-danger shadow-sm border-danger p-3 mb-4 rounded-3 d-flex align-items-center gap-3" role="alert">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger flex-shrink-0">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <div>
+                            <h2 class="h6 fw-bold mb-1 text-danger">Comercio Dado de Baja / Inactivo</h2>
+                            <div class="small text-danger-emphasis">
+                                Este comercio se encuentra actualmente dado de baja por el operador logístico. Las acciones operativas (registro de nuevos envíos, importación masiva y solicitud de retiros) han sido suspendidas.
+                            </div>
+                        </div>
+                    </div>
+                }
                 @Body
             </main>
         </div>
@@ -150,6 +166,7 @@
 
     // Verdadero cuando la lista de operadores viene de la sesión real del comercio (no del selector de la demo)
     private bool sesionReal;
+    private bool comercioDadoDeBaja;
 
     private async Task CerrarSesionAsync()
     {
@@ -204,11 +221,17 @@
         {
             var delComercio = await IdentidadApi.ObtenerOperadoresDelComercioAsync();
             operadoresDisponibles = delComercio.Operadores;
+            comercioDadoDeBaja = (operadoresDisponibles.Count == 0);
             sesionReal = true;
             return;
         }
-        catch
+        catch (Exception ex)
         {
+            if (ex.Message.Contains("dado de baja", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("inactivo", StringComparison.OrdinalIgnoreCase))
+            {
+                comercioDadoDeBaja = true;
+            }
             sesionReal = false;
         }
 

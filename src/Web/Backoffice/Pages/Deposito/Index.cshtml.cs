@@ -39,12 +39,29 @@ public class IndexModel : PageModel
 
         if (!string.IsNullOrWhiteSpace(TerminoBusqueda))
         {
-            var termino = TerminoBusqueda.Trim().ToLowerInvariant();
+            var termino = TerminoBusqueda.Trim();
+
+            // Si el operario escaneó una etiqueta de bulto o de envío generada por el comercio, buscar coincidencia directa
+            var coincidenciaDirecta = todos.FirstOrDefault(e =>
+                string.Equals(e.CodigoSeguimiento, termino, StringComparison.OrdinalIgnoreCase) ||
+                e.Bultos.Any(b => string.Equals(b.Identificacion, termino, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals($"{e.CodigoSeguimiento}-{b.Identificacion}", termino, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(b.Identificacion, termino.Replace($"{e.CodigoSeguimiento}-", ""), StringComparison.OrdinalIgnoreCase)) ||
+                (termino.StartsWith(e.CodigoSeguimiento, StringComparison.OrdinalIgnoreCase) && termino.Length > e.CodigoSeguimiento.Length)
+            );
+
+            if (coincidenciaDirecta != null)
+            {
+                // Redirección inmediata a la estación de escaneo y recepción
+                return RedirectToPage("/Deposito/Recepcion", new { id = coincidenciaDirecta.EnvioId, codigoEscaneado = termino });
+            }
+
+            var terminoMin = termino.ToLowerInvariant();
             todos = todos.Where(e =>
-                e.CodigoSeguimiento.ToLowerInvariant().Contains(termino) ||
-                e.NombreDestinatario.ToLowerInvariant().Contains(termino) ||
-                e.DireccionDestino.ToLowerInvariant().Contains(termino) ||
-                e.Bultos.Any(b => b.Identificacion.ToLowerInvariant().Contains(termino))
+                e.CodigoSeguimiento.ToLowerInvariant().Contains(terminoMin) ||
+                e.NombreDestinatario.ToLowerInvariant().Contains(terminoMin) ||
+                e.DireccionDestino.ToLowerInvariant().Contains(terminoMin) ||
+                e.Bultos.Any(b => b.Identificacion.ToLowerInvariant().Contains(terminoMin))
             ).ToList();
         }
 

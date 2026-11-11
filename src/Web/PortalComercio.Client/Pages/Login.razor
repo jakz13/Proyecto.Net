@@ -59,6 +59,11 @@
                 error = "Cuenta bloqueada temporalmente por intentos fallidos. Intente más tarde.";
                 return;
             }
+            if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                error = "Este comercio u operador se encuentra dado de baja. Comuníquese con el operador logístico.";
+                return;
+            }
             if (!respuesta.IsSuccessStatusCode)
             {
                 error = "No se pudo iniciar sesión. Verifique sus datos e intente nuevamente.";
@@ -71,9 +76,13 @@
                 error = "Respuesta inválida del servidor.";
                 return;
             }
-            if (!string.Equals(resultado.Perfil, "Comercio", StringComparison.OrdinalIgnoreCase))
+
+            var perfilNormalizado = (resultado.Perfil ?? string.Empty).Trim();
+            if (!perfilNormalizado.Equals("Comercio", StringComparison.OrdinalIgnoreCase) &&
+                !perfilNormalizado.Equals("Administrador de Comercio", StringComparison.OrdinalIgnoreCase) &&
+                !perfilNormalizado.Equals("ComercioAdmin", StringComparison.OrdinalIgnoreCase))
             {
-                error = "Este portal es solo para usuarios de comercios.";
+                error = "Este portal es exclusivo para usuarios administradores de comercios clientes.";
                 return;
             }
 

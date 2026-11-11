@@ -29,18 +29,25 @@ public class RecepcionModel : PageModel
 
     public List<string> ErroresValidacion { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(Guid? id, string? codigo, CancellationToken cancelacion)
+    [BindProperty(SupportsGet = true)]
+    public string? CodigoEscaneado { get; set; }
+
+    public async Task<IActionResult> OnGetAsync(Guid? id, string? codigo, string? codigoEscaneado, CancellationToken cancelacion)
     {
+        CodigoEscaneado = codigoEscaneado ?? codigo;
+
         if (id.HasValue && id.Value != Guid.Empty)
         {
             Envio = await _depositoApi.ObtenerEnvioParaRecepcionAsync(id.Value, cancelacion);
         }
-        else if (!string.IsNullOrWhiteSpace(codigo))
+        else if (!string.IsNullOrWhiteSpace(CodigoEscaneado))
         {
             var todos = await _depositoApi.ListarEnviosAdmitidosAsync(cancelacion);
+            var termino = CodigoEscaneado.Trim();
             Envio = todos.FirstOrDefault(e =>
-                e.CodigoSeguimiento.Equals(codigo.Trim(), StringComparison.OrdinalIgnoreCase) ||
-                e.Bultos.Any(b => b.Identificacion.Equals(codigo.Trim(), StringComparison.OrdinalIgnoreCase)));
+                e.CodigoSeguimiento.Equals(termino, StringComparison.OrdinalIgnoreCase) ||
+                e.Bultos.Any(b => b.Identificacion.Equals(termino, StringComparison.OrdinalIgnoreCase) ||
+                                  $"{e.CodigoSeguimiento}-{b.Identificacion}".Equals(termino, StringComparison.OrdinalIgnoreCase)));
         }
 
         if (Envio == null)

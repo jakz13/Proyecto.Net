@@ -109,6 +109,12 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         {
             var relacion = await _comercioOperadorRepository.ObtenerRelacionParaSesionAsync(
                 usuario.ComercioId.Value, usuario.OperadorId.Value, cancellationToken);
+
+            if (relacion is not null && !relacion.EstaActivo)
+            {
+                throw new CuentaInactivaException("El comercio asociado se encuentra dado de baja. No tiene autorización para ingresar al portal.");
+            }
+
             comercioOperadorId = relacion?.Id;
         }
 

@@ -196,6 +196,9 @@ public class MockComerciosApi : IComerciosApi
             SelloModificacion = Guid.NewGuid().ToString("N")
         };
 
+        // Sincronizar el estado de los usuarios u operarios del comercio dado de baja
+        MockUsuariosApi.SincronizarEstadoUsuariosPorComercio(id, activo);
+
         return Task.CompletedTask;
     }
 }

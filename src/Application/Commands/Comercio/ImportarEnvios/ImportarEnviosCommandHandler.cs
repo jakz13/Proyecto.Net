@@ -15,19 +15,22 @@ public class ImportarEnviosCommandHandler : IRequestHandler<ImportarEnviosComman
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ImportarEnviosCommandHandler(
         AltaEnvioProcesador procesador,
         ILoteImportacionRepository loteRepository,
         ICurrentTenant currentTenant,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _procesador = procesador;
         _loteRepository = loteRepository;
         _currentTenant = currentTenant;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<ResultadoImportacionDto> Handle(ImportarEnviosCommand request, CancellationToken cancellationToken)
@@ -36,6 +39,15 @@ public class ImportarEnviosCommandHandler : IRequestHandler<ImportarEnviosComman
 
         var comercioOperadorId = _currentTenant.ComercioOperadorId
             ?? throw new UnauthorizedAccessException("Acceso denegado: el usuario no pertenece a un comercio.");
+
+        if (_comercioOperadorRepository != null)
+        {
+            var relacion = await _comercioOperadorRepository.GetByIdAsync(comercioOperadorId, cancellationToken);
+            if (relacion != null && !relacion.EstaActivo)
+            {
+                throw new DomainValidationException("El comercio se encuentra dado de baja o inactivo. No se permite importar envíos.");
+            }
+        }
 
         if (request.Filas is null || request.Filas.Count == 0)
             throw new DomainValidationException("El archivo no contiene registros para importar.");

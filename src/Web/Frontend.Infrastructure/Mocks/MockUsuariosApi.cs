@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
@@ -33,8 +33,14 @@ public class MockUsuariosApi : IUsuariosApi
         },
         new PerfilDto
         {
+            Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+            Nombre = "Repartidor",
+            Descripcion = "Reparto de envíos en calle y ejecución de hoja de ruta."
+        },
+        new PerfilDto
+        {
             Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-            Nombre = "ComercioAdmin",
+            Nombre = "Administrador de Comercio",
             Descripcion = "Administración y despacho de envíos para un comercio cliente."
         }
     };
@@ -86,10 +92,23 @@ public class MockUsuariosApi : IUsuariosApi
             Nombre = "Ana Fernández",
             Email = "ana@gmail.com",
             PerfilId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-            NombrePerfil = "ComercioAdmin",
+            NombrePerfil = "Administrador de Comercio",
             OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
             ComercioId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
             NombreComercio = "Distribuidora Central",
+            Activo = true,
+            FechaAlta = DateTime.UtcNow.AddMonths(-1)
+        },
+        new UsuarioDto
+        {
+            Id = Guid.Parse("45454545-4545-4545-4545-454545454545"),
+            Nombre = "Martín Rodríguez",
+            Email = "martin.repartidor@gmail.com",
+            PerfilId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+            NombrePerfil = "Repartidor",
+            OperadorId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            ComercioId = null,
+            NombreComercio = null,
             Activo = true,
             FechaAlta = DateTime.UtcNow.AddMonths(-1)
         },
@@ -264,5 +283,19 @@ public class MockUsuariosApi : IUsuariosApi
     public Task<IReadOnlyList<PerfilDto>> ListarPerfilesAsync(CancellationToken cancelacion = default)
     {
         return Task.FromResult<IReadOnlyList<PerfilDto>>(PerfilesEnMemoria.AsReadOnly());
+    }
+
+    /// <summary>
+    /// Sincroniza el estado activo de los usuarios vinculados a un comercio cuando este cambia de estado (baja o reactivación).
+    /// </summary>
+    public static void SincronizarEstadoUsuariosPorComercio(Guid comercioId, bool activo)
+    {
+        for (var i = 0; i < UsuariosEnMemoria.Count; i++)
+        {
+            if (UsuariosEnMemoria[i].ComercioId == comercioId)
+            {
+                UsuariosEnMemoria[i] = UsuariosEnMemoria[i] with { Activo = activo };
+            }
+        }
     }
 }

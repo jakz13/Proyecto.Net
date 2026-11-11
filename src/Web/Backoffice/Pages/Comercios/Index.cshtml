@@ -343,7 +343,9 @@ else
                                             "Administrador" => "bg-dark-subtle text-dark border",
                                             "Despachador" => "bg-primary-subtle text-primary border border-primary-subtle",
                                             "Operario" => "bg-warning-subtle text-dark border border-warning-subtle",
-                                            _ => "bg-info-subtle text-dark border border-info-subtle"
+                                            "Repartidor" => "bg-success-subtle text-success border border-success-subtle",
+                                            "Administrador de Comercio" or "Comercio" or "ComercioAdmin" => "bg-info-subtle text-info-emphasis border border-info-subtle",
+                                            _ => "bg-secondary-subtle text-secondary border border-secondary-subtle"
                                         };
                                     }
                                     <span class="badge @badgeClase px-2 py-1">

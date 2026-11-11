@@ -88,6 +88,18 @@ public class ClasificacionModel : PageModel
             return Page();
         }
 
+        // Validación explícita de asignación de zona de cobertura obligatoria por bulto
+        var bultosSinZona = Formulario.Bultos
+            .Where(b => !b.ZonaCoberturaId.HasValue || b.ZonaCoberturaId.Value == Guid.Empty)
+            .ToList();
+
+        if (bultosSinZona.Count > 0)
+        {
+            var codigos = string.Join(", ", bultosSinZona.Select(b => string.IsNullOrWhiteSpace(b.CodigoBulto) ? "Bulto sin código" : b.CodigoBulto));
+            ErroresValidacion.Add($"No se puede registrar la clasificación: cada bulto debe tener asignada obligatoriamente una zona de cobertura válida. Bulto(s) sin zona: {codigos}.");
+            return Page();
+        }
+
         var items = Formulario.Bultos.Select(b => new ItemClasificacionBultoDto(
             b.CodigoBulto,
             string.IsNullOrWhiteSpace(b.Prioridad) ? "Normal" : b.Prioridad.Trim(),
