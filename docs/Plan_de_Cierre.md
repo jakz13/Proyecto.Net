@@ -60,3 +60,12 @@ Frontend
   - El menú lateral se reestructuró en tres grupos que reflejan las políticas del servidor (Administración, Operaciones, Depósito): al administrador le faltaban Rutas, Despacho, Retiros e Incidencias; al despachador, Depósito; al operario, Retiros.
   - Prueba nueva `tests/UltimaMilla.Backoffice.Tests/AccesoPorPerfilTests.cs`: inicia sesión con cada rol, rastrea todos los enlaces alcanzables, verifica la tabla de permisos por pantalla y que el menú sea exactamente el esperado. Falla con el código anterior (comprobado). Está en `UltimaMilla.Backend.slnf`, así que el pipeline la ejecuta.
   - Límite conocido: el rastreo usa datos de demostración; los botones que solo aparecen con ciertos datos (Rendición con una ruta rendida, comprobante de despacho) se corrigieron por lectura del código.
+
+## Mobile: cierre a cargo de Claude (autorizado el 10/11, Joaquín no disponible)
+Rama de trabajo: `main` (la app está integrada ahí). Verificar compilando: `dotnet build src/Mobile/UltimaMilla.Mobile/UltimaMilla.Mobile.csproj -f net10.0-windows10.0.19041.0 -p:OutDir=<carpeta temporal>\` (con la app abierta el exe queda bloqueado; OutDir evita el choque). No se puede probar la UI en esta sesión: se compila y se razona, falta prueba manual en el equipo.
+- [ ] Etapa 1 — quitar datos de demostración: `DemoDataDefaults`, credenciales del repartidor incrustadas (`AuthService.Demo*`, botón y autorrelleno del login), siembra/reinicio de demo, bultos de demo en carga, parada de demo en detalle, simulaciones de geocerca, firma/evidencia demo, clave de cifrado fija en DEBUG
+- [ ] Etapa 2 — sincronización: la app no debe despachar su propia ruta (el despacho lo hace el despachador, la app recibía 403 y lo ignoraba); esperar el estado "Despachada" del servidor antes de iniciar recorrido; reconciliar paradas locales con las del servidor
+- [ ] Etapa 3 — entrega parcial por bultos (RF 31-36) con cola offline
+- [ ] Etapa 4 — retiro en domicilio (RF 37-41): paradas de tipo Retiro, registro con escaneo, foto, firma y "no realizado", offline
+- [ ] Etapa 5 — `GET /api/funcionalidades` para ocultar lo deshabilitado; presentación (textos, estados vacíos, errores visibles)
+- [ ] Etapa 6 — documentar (README de la app, análisis de batería de geocercas, tabla de optimización medida)
