@@ -125,7 +125,7 @@
             <div class="panel-estandar-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h2 class="h6 fw-bold mb-0 text-dark">Registro de Mensajes en Cola</h2>
 
-                @* Conmutador disponible ÚNICAMENTE en entorno Development (UC-42) *@
+                @* Conmutador disponible ÚNICAMENTE en entorno Development *@
                 @if (Entorno.IsDevelopment())
                 {
                     <div class="d-flex align-items-center gap-2 bg-light border border-warning-subtle rounded px-2 py-1 shadow-sm">
@@ -482,7 +482,7 @@
 
                 <div class="modal-body p-4">
                     <p class="small text-secondary mb-3">
-                        El mensaje no será eliminado de la base de datos: pasará al estado <strong>Descartado</strong> y quedará registrado en el historial para consultas posteriores (UC-42).
+                        El mensaje no será eliminado de la base de datos: pasará al estado <strong>Descartado</strong> y quedará registrado en el historial para consultas posteriores.
                     </p>
 
                     <div class="p-2 bg-light rounded border mb-3 small">
@@ -515,7 +515,7 @@
 </div>
 
 <!-- =========================================================================
-     Modal de Confirmación para Reintento Manual (UC-42)
+     Modal de Confirmación para Reintento Manual
      ========================================================================= -->
 <div class="modal fade" id="modalConfirmarReintento" tabindex="-1" aria-labelledby="modalConfirmarReintentoTitulo" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -531,7 +531,7 @@
                     </div>
                     <div>
                         <h3 class="h6 fw-bold mb-0 text-dark" id="modalConfirmarReintentoTitulo">Confirmar Reintento de Procesamiento</h3>
-                        <span class="small text-secondary">Caso de uso UC-42: Reprocesamiento manual de mensajes</span>
+                        <span class="small text-secondary">Reprocesamiento manual de mensajes</span>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar modal"></button>
@@ -582,7 +582,7 @@
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                     <div>
-                        <strong>Modo simulación activo:</strong> Se forzará un fallo de timeout para comprobar la resiliencia de la cola (UC-42).
+                        <strong>Modo simulación activo:</strong> Se forzará un fallo de timeout para comprobar la resiliencia de la cola.
                     </div>
                 </div>
             </div>
