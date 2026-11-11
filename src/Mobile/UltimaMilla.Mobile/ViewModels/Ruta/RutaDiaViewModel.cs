@@ -443,21 +443,54 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             // Solicitar permisos en el hilo principal de manera secuencial y segura antes de activar telemetría o GPS
             if (_trackingService is not null)
             {
-                await _trackingService.SolicitarPermisosUbicacionAsync();
+                try
+                {
+                    await _trackingService.SolicitarPermisosUbicacionAsync();
+                }
+                catch (Exception exTracking)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al solicitar permisos GPS: {exTracking.Message}");
+                }
             }
 
             if (_syncService != null && _syncService.IsOnline)
             {
-                await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                try
+                {
+                    await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
+                catch (Exception exSync)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al descargar rutas del servidor: {exSync.Message}");
+                }
             }
 
-            await CargarRutasDesdeSQLiteAsync();
+            try
+            {
+                await CargarRutasDesdeSQLiteAsync();
+            }
+            catch (Exception exLocal)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al cargar rutas desde SQLite: {exLocal.Message}");
+            }
 
-            int pendientes = _syncService != null
-                ? await _syncService.ObtenerCantidadPendientesAsync()
-                : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
+            int pendientes = 0;
+            try
+            {
+                pendientes = _syncService != null
+                    ? await _syncService.ObtenerCantidadPendientesAsync()
+                    : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
+            }
+            catch (Exception exPendientes)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error consultando operaciones pendientes: {exPendientes.Message}");
+            }
 
             ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error general en InicializarAsync: {ex.Message}");
         }
         finally
         {

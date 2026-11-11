@@ -33,9 +33,9 @@ public class LocationForegroundService : Service
                 notificationIntent,
                 PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
-            int iconResId = Resource.Mipmap.appicon != 0
-                ? Resource.Mipmap.appicon
-                : global::Android.Resource.Drawable.IcMenuMyLocation;
+            // El icono de notificación debe ser un recurso drawable válido y plano del sistema
+            // (evitando adaptive icons en mipmap que disparan BadForegroundServiceNotificationException en Android 12-14+)
+            int iconResId = global::Android.Resource.Drawable.IcMenuMyLocation;
 
             Notification notification;
             if (OperatingSystem.IsAndroidVersionAtLeast(26))

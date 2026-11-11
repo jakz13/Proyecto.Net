@@ -39,14 +39,25 @@ public partial class AppShell : Shell
             {
                 await GoToAsync("//RutaDiaPage");
             }
-            else
+            else if (CurrentState?.Location?.ToString() != "//LoginPage")
             {
                 await GoToAsync("//LoginPage");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            await GoToAsync("//LoginPage");
+            System.Diagnostics.Debug.WriteLine($"[AppShell] Error al verificar sesión inicial: {ex.Message}");
+            try
+            {
+                if (CurrentState?.Location?.ToString() != "//LoginPage")
+                {
+                    await GoToAsync("//LoginPage");
+                }
+            }
+            catch
+            {
+                // Fallback silencioso si ya se encuentra en LoginPage por defecto
+            }
         }
     }
 }

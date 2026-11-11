@@ -301,45 +301,44 @@
         <!-- ========================================================= -->
         <!-- CONTENIDO PRINCIPAL: PARADAS Y ESTADO DE RUTAS           -->
         <!-- ========================================================= -->
-        <RefreshView Grid.Row="1"
-                     IsRefreshing="{Binding IsRefreshing}"
-                     Command="{Binding ActualizarRutasServidorCommand}">
-            <Grid>
-                <!-- Estado Vacío: Sin Ruta Asignada o Todas Finalizadas -->
-                <ScrollView IsVisible="{Binding SinRutaAsignada}">
-                    <VerticalStackLayout Spacing="16"
-                                         VerticalOptions="Center"
-                                         HorizontalOptions="Center"
-                                         Padding="24">
-                        <Border Stroke="#CBD5E1"
-                                StrokeThickness="1"
-                                StrokeShape="RoundRectangle 16"
-                                BackgroundColor="#F8FAFC"
-                                Padding="24"
-                                MaximumWidthRequest="400">
-                            <VerticalStackLayout Spacing="14" HorizontalOptions="Center">
-                                <Label Text="Hoja de ruta finalizada. No posee nuevas rutas asignadas por el momento."
-                                       FontSize="15"
-                                       FontAttributes="Bold"
-                                       TextColor="#1E293B"
-                                       HorizontalTextAlignment="Center" />
-                                <Label Text="Las entregas y retornos de su última hoja de ruta han sido completados y rendidos en depósito. Si la central le asigna un nuevo viaje, toque el botón a continuación para sincronizar."
-                                       FontSize="12"
-                                       TextColor="#64748B"
-                                       HorizontalTextAlignment="Center" />
-                                <Button Text="Buscar Nueva Ruta Asignada"
-                                        Command="{Binding ActualizarRutasServidorCommand}"
-                                        Style="{StaticResource PrimaryButton}"
-                                        HeightRequest="46"
-                                        Margin="0,8,0,0" />
-                            </VerticalStackLayout>
-                        </Border>
-                    </VerticalStackLayout>
-                </ScrollView>
+        <Grid Grid.Row="1">
+            <!-- Estado Vacío: Sin Ruta Asignada o Todas Finalizadas -->
+            <ScrollView IsVisible="{Binding SinRutaAsignada}">
+                <VerticalStackLayout Spacing="16"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="Center"
+                                     Padding="24">
+                    <Border Stroke="#CBD5E1"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 16"
+                            BackgroundColor="#F8FAFC"
+                            Padding="24"
+                            MaximumWidthRequest="400">
+                        <VerticalStackLayout Spacing="14" HorizontalOptions="Center">
+                            <Label Text="Hoja de ruta finalizada. No posee nuevas rutas asignadas por el momento."
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="#1E293B"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Text="Las entregas y retornos de su última hoja de ruta han sido completados y rendidos en depósito. Si la central le asigna un nuevo viaje, toque el botón a continuación para sincronizar."
+                                   FontSize="12"
+                                   TextColor="#64748B"
+                                   HorizontalTextAlignment="Center" />
+                            <Button Text="Buscar Nueva Ruta Asignada"
+                                    Command="{Binding ActualizarRutasServidorCommand}"
+                                    Style="{StaticResource PrimaryButton}"
+                                    HeightRequest="46"
+                                    Margin="0,8,0,0" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
 
-                <!-- LISTA DE PARADAS (TARJETAS CORPORATIVAS Y ERGONÓMICAS) -->
-                <CollectionView IsVisible="{Binding HayRutaAsignada}"
-                                ItemsSource="{Binding Paradas}"
+            <!-- LISTA DE PARADAS (DENTRO DE REFRESHVIEW CON HIJO SCROLLABLE ÚNICO DIRECTO) -->
+            <RefreshView IsVisible="{Binding HayRutaAsignada}"
+                         IsRefreshing="{Binding IsRefreshing}"
+                         Command="{Binding ActualizarRutasServidorCommand}">
+                <CollectionView ItemsSource="{Binding Paradas}"
                                 SelectionMode="None"
                                 Margin="{DynamicResource MargenListaParadas}">
 
@@ -515,8 +514,8 @@
                         </VerticalStackLayout>
                     </CollectionView.Footer>
                 </CollectionView>
-            </Grid>
-        </RefreshView>
+            </RefreshView>
+        </Grid>
 
     </Grid>
 
