@@ -20,12 +20,14 @@ public class LoginModel : PageModel
 
     private readonly MockContextoOperador _contextoOperador;
     private readonly IConfiguration _configuracion;
+    private readonly IHostEnvironment _entorno;
     private readonly IHttpClientFactory? _httpFactory;
 
-    public LoginModel(MockContextoOperador contextoOperador, IConfiguration configuracion, IHttpClientFactory? httpFactory = null)
+    public LoginModel(MockContextoOperador contextoOperador, IConfiguration configuracion, IHostEnvironment entorno, IHttpClientFactory? httpFactory = null)
     {
         _contextoOperador = contextoOperador;
         _configuracion = configuracion;
+        _entorno = entorno;
         _httpFactory = httpFactory;
     }
 
@@ -33,7 +35,7 @@ public class LoginModel : PageModel
     /// Con el modo demo activo (desarrollo local, por defecto) se elige el rol sin contraseña.
     /// En el servidor se apaga con <c>Auth__PermitirModoDemo=false</c> y el acceso pasa por el login real de la API.
     /// </summary>
-    public bool ModoDemo => ModoDemoActivo(_configuracion);
+    public bool ModoDemo => ModoDemoActivo(_configuracion, _entorno);
 
     [BindProperty]
     public string RolSeleccionado { get; set; } = "Administrador";
@@ -51,8 +53,9 @@ public class LoginModel : PageModel
 
     public string? ReturnUrl { get; set; }
 
-    public static bool ModoDemoActivo(IConfiguration configuracion) =>
-        configuracion.GetValue("Auth:PermitirModoDemo", true);
+    /// <summary>Seguro por defecto: sin la variable definida, el modo demo solo existe en el entorno Development.</summary>
+    public static bool ModoDemoActivo(IConfiguration configuracion, IHostEnvironment entorno) =>
+        configuracion.GetValue<bool?>("Auth:PermitirModoDemo") ?? entorno.IsDevelopment();
 
     public void OnGet(string? returnUrl = null)
     {

@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Operador;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Identidad;
@@ -50,8 +51,8 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
         if (string.IsNullOrWhiteSpace(solicitud.Nombre))
             throw new DomainValidationException("El nombre del usuario no puede ser vacío.");
 
-        if (string.IsNullOrWhiteSpace(solicitud.Password))
-            throw new DomainValidationException("La contraseña del usuario no puede ser vacía.");
+        if (PoliticaDePassword.Validar(solicitud.Password) is { } motivoPassword)
+            throw new DomainValidationException(motivoPassword);
 
         if (solicitud.PerfilId == Guid.Empty)
             throw new DomainValidationException("Debe seleccionar un perfil válido.");

@@ -103,14 +103,14 @@ public class AdministracionBackofficeApiTests
 
         var creado = await api.CrearUsuarioAsync(new CrearUsuarioDto
         {
-            Nombre = "Usuario Prueba", Email = email, Password = "secreto123", PerfilId = despachador.Id
+            Nombre = "Usuario Prueba", Email = email, Password = "Secreto.Seguro123", PerfilId = despachador.Id
         });
         Assert.Equal("Despachador", creado.NombrePerfil);
         Assert.True(creado.Activo);
 
         var duplicado = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearUsuarioAsync(new CrearUsuarioDto
         {
-            Nombre = "Otro", Email = email.ToUpperInvariant(), Password = "secreto123", PerfilId = despachador.Id
+            Nombre = "Otro", Email = email.ToUpperInvariant(), Password = "Secreto.Seguro123", PerfilId = despachador.Id
         }));
         Assert.Equal(HttpStatusCode.BadRequest, duplicado.CodigoEstado);
 

@@ -192,10 +192,10 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "No está configurado el perfil Repartidor.");
 
             // El repartidor ingresa a la app con un usuario propio; la contraseña provisional se cambia en el primer ingreso
-            // No existe una contraseña por defecto conocida: se exige elegir una (mínimo 8 caracteres)
+            // No existe una contraseña por defecto conocida: se exige elegir una que cumpla la política de contraseñas
             var passwordInicial = dto.Password?.Trim() ?? string.Empty;
-            if (passwordInicial.Length < 8)
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "La contraseña provisoria del repartidor es obligatoria y debe tener al menos 8 caracteres.");
+            if (UltimaMilla.Application.Common.PoliticaDePassword.Validar(passwordInicial) is { } motivoPassword)
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, motivoPassword);
             var usuario = new Usuario(Guid.NewGuid(), dto.NombreCompleto, email, hasher.HashearPassword(passwordInicial),
                 perfil.Id, tenant.OperadorId);
             var repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, tenant.OperadorId, dto.Documento, dto.Telefono, dto.VehiculoAsignadoId, estado);
@@ -238,6 +238,9 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, errorVehiculo);
 
             usuario?.ActualizarDatos(dto.NombreCompleto, email);
+            if (!string.IsNullOrWhiteSpace(dto.NuevaPassword) && UltimaMilla.Application.Common.PoliticaDePassword.Validar(dto.NuevaPassword) is { } motivoNueva)
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, motivoNueva);
+
             if (!string.IsNullOrWhiteSpace(dto.NuevaPassword) && usuario is not null)
             {
                 usuario.CambiarPassword(hasher.HashearPassword(dto.NuevaPassword.Trim()));

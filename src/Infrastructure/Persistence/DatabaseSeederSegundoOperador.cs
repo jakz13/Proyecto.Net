@@ -59,7 +59,7 @@ public static class DatabaseSeederSegundoOperador
         if (!await context.ComerciosOperadores.IgnoreQueryFilters().AnyAsync(c => c.Id == ComercioOperadorId, cancellationToken))
         {
             await context.ComerciosOperadores.AddAsync(
-                new ComercioOperador(ComercioOperadorId, ComercioId, OperadorId, ComercioOperador.CalcularHuellaClaveApi(ClaveApiDemo), "Activo"),
+                new ComercioOperador(ComercioOperadorId, ComercioId, OperadorId, ComercioOperador.CalcularHuellaClaveApi(PoliticaDeSemillas.ClaveApiDe(ClaveApiDemo)), "Activo"),
                 cancellationToken);
         }
 
@@ -127,15 +127,19 @@ public static class DatabaseSeederSegundoOperador
 
     private static async Task SembrarUsuariosAsync(AppDbContext context, CancellationToken ct)
     {
+        // En producción estas cuentas no se crean con una contraseña publicada (ver PoliticaDeSemillas)
+        if (!PoliticaDeSemillas.DebeSembrarUsuarios)
+            return;
+
         // El mismo servicio que verifica el inicio de sesión: un hash en otro formato impide entrar (y antes hacía fallar el login con un 500).
         var hasher = new PasswordHasherService();
         var existentes = await context.Usuarios.Where(u => u.Email == EmailAdministrador || u.Email == EmailDespachador).ToListAsync(ct);
 
         // Las semillas anteriores guardaron el hash con otro formato ("iteraciones.sal.hash"): se corrige para que esos usuarios puedan entrar.
         foreach (var usuario in existentes.Where(u => u.PasswordHash.Contains('.')))
-            usuario.CambiarPassword(hasher.HashearPassword(DatabaseSeederAdministracion.PasswordDemo));
+            usuario.CambiarPassword(hasher.HashearPassword(PoliticaDeSemillas.PasswordDe(DatabaseSeederAdministracion.PasswordDemo)));
 
-        var hash = hasher.HashearPassword(DatabaseSeederAdministracion.PasswordDemo);
+        var hash = hasher.HashearPassword(PoliticaDeSemillas.PasswordDe(DatabaseSeederAdministracion.PasswordDemo));
         var usuarios = new[]
         {
             new Usuario(UsuarioAdministradorId, "Lucía Fernández (Express)", EmailAdministrador, hash,

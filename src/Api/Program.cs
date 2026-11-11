@@ -287,12 +287,29 @@ app.UseSerilogRequestLogging(opciones =>
 });
 
 // Configure the HTTP request pipeline
-// Swagger enabled in both Development and Production for intermediate milestone testing
+// La documentación pública (API de integración para comercios) se publica siempre; el contrato completo de la API interna
+// (todos los endpoints del backoffice, administración y móvil) solo en desarrollo: en un servidor es un mapa para quien ataca.
+var documentarApiInterna = app.Environment.IsDevelopment();
+if (!documentarApiInterna)
+{
+    app.Use(async (contexto, siguiente) =>
+    {
+        if (contexto.Request.Path.StartsWithSegments("/swagger/v1"))
+        {
+            contexto.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        await siguiente();
+    });
+}
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/integracion/swagger.json", "API pública para comercios (v1)");
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
+    if (documentarApiInterna)
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
     c.DocumentTitle = "Última Milla · API Docs";
     c.DocExpansion(DocExpansion.List);
     c.DefaultModelsExpandDepth(-1);

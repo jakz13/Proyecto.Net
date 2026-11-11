@@ -27,10 +27,10 @@ public static partial class IdentidadVisualEndpoints
         .WithName("ObtenerIdentidadVisual")
         .WithSummary("Identidad visual del operador en sesión");
 
-        grupo.MapGet("/operadores-demo", (AppDbContext db, IConfiguration configuracion, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+        grupo.MapGet("/operadores-demo", (AppDbContext db, IConfiguration configuracion, IWebHostEnvironment entorno, CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             // Listar a todos los operadores sin sesión solo tiene sentido en la demo local; en el servidor se oculta
-            if (!configuracion.GetValue("Auth:PermitirModoDemo", true))
+            if (!ModoDemo.Permitido(configuracion, entorno))
                 return Results.NotFound();
 
             var operadorIds = await db.Operadores.AsNoTracking().OrderBy(o => o.NombreComercial).Select(o => o.Id).ToListAsync(ct);

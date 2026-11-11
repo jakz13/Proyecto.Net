@@ -55,13 +55,24 @@ public static class DatabaseSeeder
     public static readonly Guid DefaultCuadroTarifarioId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
     /// <summary>
-    /// Contraseña de las cuentas de demostración. Por defecto la conocida de la documentación (ambiente de laboratorio);
-    /// al desplegar un ambiente real se define SEED_PASSWORD_DEMO (mínimo 8 caracteres) y todas las cuentas nacen con esa.
+    /// Contraseña de las cuentas de demostración: la de la documentación fuera de producción, o la que define el despliegue
+    /// (<c>SEED_PASSWORD_DEMO</c>). Ver <see cref="PoliticaDeSemillas"/>.
     /// </summary>
-    private static string PasswordDemo(string porDefecto) =>
-        Environment.GetEnvironmentVariable("SEED_PASSWORD_DEMO") is { Length: >= 8 } definida ? definida : porDefecto;
+    private static string PasswordDemo(string porDefecto) => PoliticaDeSemillas.PasswordDe(porDefecto);
 
+    /// <summary>Siembra los datos de demostración según <see cref="PoliticaDeSemillas"/> y rota las credenciales que quedaron con valores publicados.</summary>
     public static async Task SeedAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        await SembrarDatosAsync(context, logger, cancellationToken);
+
+        using var _ = context.HabilitarEscrituraAdministrativa();
+        await PoliticaDeSemillas.RotarCredencialesPublicadasAsync(context, logger, cancellationToken);
+    }
+
+    private static async Task SembrarDatosAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(logger);
@@ -115,7 +126,7 @@ public static class DatabaseSeeder
                 DefaultComercioOperadorId,
                 DefaultComercioId,
                 DefaultOperadorId,
-                claveApi: ComercioOperador.CalcularHuellaClaveApi(ClaveApiDemo),
+                claveApi: ComercioOperador.CalcularHuellaClaveApi(PoliticaDeSemillas.ClaveApiDe(ClaveApiDemo)),
                 estado: "Activo"
             );
             await context.ComerciosOperadores.AddAsync(comercioOperador, cancellationToken);
@@ -479,12 +490,19 @@ public static class DatabaseSeeder
             new(Guid.Parse("70000000-0000-0000-0000-000000000006"), "Administrador TransLogística", "admin2@gmail.com", hasher.HashearPassword(PasswordDemo("Admin.2026!")), DefaultPerfilAdminId, operadorId: Operador2Id)
         };
 
-        foreach (var u in usuarios)
+        if (PoliticaDeSemillas.DebeSembrarUsuarios)
         {
-            if (!await context.Usuarios.AnyAsync(usr => usr.Email == u.Email, cancellationToken))
+            foreach (var u in usuarios)
             {
-                await context.Usuarios.AddAsync(u, cancellationToken);
+                if (!await context.Usuarios.AnyAsync(usr => usr.Email == u.Email, cancellationToken))
+                {
+                    await context.Usuarios.AddAsync(u, cancellationToken);
+                }
             }
+        }
+        else
+        {
+            logger.LogWarning("Semillas: en producción no se crean las cuentas de demostración sin {Variable} (mínimo 12 caracteres).", PoliticaDeSemillas.VariablePassword);
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -497,7 +515,7 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        if (!await context.Usuarios.AnyAsync(u => u.Email == EmailAdministradorPlataforma, cancellationToken))
+        if (PoliticaDeSemillas.DebeSembrarUsuarios && !await context.Usuarios.AnyAsync(u => u.Email == EmailAdministradorPlataforma, cancellationToken))
         {
             await context.Usuarios.AddAsync(
                 new Usuario(UsuarioAdministradorPlataformaId, "Administrador de la Plataforma", EmailAdministradorPlataforma,

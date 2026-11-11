@@ -75,7 +75,7 @@ if (!string.IsNullOrWhiteSpace(rutaClaves))
 }
 
 // Con el modo demo apagado, las llamadas a la API llevan el JWT de la sesión del usuario
-if (!LoginModel.ModoDemoActivo(builder.Configuration))
+if (!LoginModel.ModoDemoActivo(builder.Configuration, builder.Environment))
 {
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddTransient<TokenApiHandler>();

@@ -1181,26 +1181,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         SelloModificacion = Guid.NewGuid();
         return nuevoEvento;
     }
-
-    public void ReiniciarParaDemoEnTransito(Guid hojaDeRutaId)
-    {
-        HojaDeRutaId = hojaDeRutaId;
-        EstadoActual = EstadoEnvio.EnTransito;
-        SelloModificacion = Guid.NewGuid();
-        _intentosEntrega.Clear();
-        _eventos.RemoveAll(e => e.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "ReinicioDemo" or "EntregaParcial");
-        foreach (var bulto in _bultos)
-        {
-            bulto.ReiniciarEstadoParaDemo();
-        }
-        _eventos.Add(new EventoEnvio(
-            Guid.NewGuid(),
-            Id,
-            "ReinicioDemo",
-            null,
-            EstadoEnvio.EnTransito,
-            "DemoReset"));
-    }
 }
 
 /// <summary>Datos de un bulto no entregado en la parada junto con su motivo del catálogo del operador (RF-32).</summary>

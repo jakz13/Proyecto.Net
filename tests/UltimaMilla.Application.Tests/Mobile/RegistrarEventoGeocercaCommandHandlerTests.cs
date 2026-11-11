@@ -122,12 +122,6 @@ public class RegistrarEventoGeocercaCommandHandlerTests
         Assert.NotNull(seguimientoDto);
         Assert.Contains(seguimientoDto!.HistorialEventos, h => h.DescripcionPublica.Contains("Repartidor ingresó a la zona de entrega"));
         Assert.Contains(seguimientoDto.HistorialEventos, h => h.DescripcionPublica.Contains("Repartidor salió de la zona de entrega (Permanencia: 120s)"));
-
-        // 5. Verificar que ReiniciarParaDemoEnTransito limpia los eventos de geocerca
-        envio.ReiniciarParaDemoEnTransito(HojaDeRutaId);
-        var seguimientoTrasReset = await seguimientoHandler.Handle(new ConsultarSeguimientoPublicoQuery("ENV-2026-00108"), CancellationToken.None);
-        Assert.NotNull(seguimientoTrasReset);
-        Assert.DoesNotContain(seguimientoTrasReset!.HistorialEventos, h => h.DescripcionPublica.Contains("zona de entrega"));
     }
 
     [Fact]
