@@ -9,7 +9,7 @@
     <div>
         <div class="d-flex align-items-center gap-2">
             <h1 class="h4 fw-bold text-dark mb-0">Observabilidad y Tablero Técnico</h1>
-            <partial name="_BotonAyuda" model='"Supervisión integral de telemetría, métricas de infraestructura y rendimiento de la plataforma (§6.12, UC-44). Muestra latencias percentilares, estado de RabbitMQ, fallos de avisos y ratio de caché."' />
+            <partial name="_BotonAyuda" model='"Supervisión integral de telemetría, métricas de infraestructura y rendimiento de la plataforma. Muestra latencias percentilares, estado de RabbitMQ, fallos de avisos y ratio de caché."' />
         </div>
         <p class="text-secondary small mb-0 mt-1">
             Métricas de OpenTelemetry, logs estructurados de Serilog y tablero técnico de Grafana / Prometheus.
@@ -36,102 +36,70 @@
 </div>
 
 <!-- =========================================================================
-     MÉTRICAS TÉCNICAS OBLIGATORIAS POR LA ESPECIFICACIÓN (§6.12)
+     MÉTRICAS TÉCNICAS DE OBSERVABILIDAD
      ========================================================================= -->
 <div class="row g-3 mb-4">
     <!-- 1. Tiempo Medio de Respuesta -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Tiempo Medio de Respuesta</span>
-                <span class="badge bg-success-subtle text-success small">Óptimo</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Tiempo Medio de Respuesta</div>
             <div class="h3 fw-bold mb-0 text-dark">42 <span class="fs-6 text-muted font-monospace">ms</span></div>
-            <div class="text-muted small mt-1">Media móvil global de la API</div>
         </div>
     </div>
 
     <!-- 2. Percentiles 95 y 99 de Latencia -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Percentiles de Latencia</span>
-                <span class="badge bg-primary-subtle text-primary small">p95 / p99</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Percentiles de Latencia (p95 / p99)</div>
             <div class="h3 fw-bold mb-0 text-primary">110 / 185 <span class="fs-6 text-muted font-monospace">ms</span></div>
-            <div class="text-muted small mt-1">p95: 110ms · p99: 185ms (Límite 2s)</div>
         </div>
     </div>
 
     <!-- 3. Tasa de Errores HTTP -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Tasa de Errores HTTP</span>
-                <span class="badge bg-success-subtle text-success small">5xx &lt; 0.1%</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Tasa de Errores HTTP</div>
             <div class="h3 fw-bold mb-0 text-success">0.08%</div>
-            <div class="text-muted small mt-1">Disponibilidad de API &gt; 99.9%</div>
         </div>
     </div>
 
     <!-- 4. Profundidad de la Cola RabbitMQ -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Profundidad Cola RabbitMQ</span>
-                <span class="badge bg-secondary-subtle text-secondary small">Worker Queue</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Profundidad Cola RabbitMQ</div>
             <div class="h3 fw-bold mb-0 text-dark">0 <span class="fs-6 text-muted">msgs</span></div>
-            <div class="text-muted small mt-1">Consumo en tiempo real sin encolamiento</div>
         </div>
     </div>
 
     <!-- 5. Sincronizaciones Offline Pendientes -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Sincronizaciones Móviles</span>
-                <span class="badge bg-success-subtle text-success small">App Repartidor</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Sincronizaciones Móviles</div>
             <div class="h3 fw-bold mb-0 text-dark">0 <span class="fs-6 text-muted">lotes</span></div>
-            <div class="text-muted small mt-1">Lotes móviles procesados con éxito</div>
         </div>
     </div>
 
     <!-- 6. Avisos a Comercios Fallidos -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Avisos Webhook Fallidos</span>
-                <span class="badge bg-secondary-subtle text-secondary small">Webhooks</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Avisos Webhook Fallidos</div>
             <div class="h3 fw-bold mb-0 text-success">0 <span class="fs-6 text-muted">fallos</span></div>
-            <div class="text-muted small mt-1">Tasa de entrega en comercios al 100%</div>
         </div>
     </div>
 
     <!-- 7. Relación de Aciertos del Caché (Cache Hit Ratio) -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Aciertos Caché (Redis)</span>
-                <span class="badge bg-success-subtle text-success small">Hit Ratio</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Aciertos Caché (Redis)</div>
             <div class="h3 fw-bold mb-0 text-success">94.6%</div>
-            <div class="text-muted small mt-1">Seguimiento público y tarifas cacheados</div>
         </div>
     </div>
 
     <!-- 8. Correlación de Extremo a Extremo -->
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-secondary small fw-semibold">Trazabilidad End-to-End</span>
-                <span class="badge bg-info-subtle text-info small">X-Correlation-Id</span>
-            </div>
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white d-flex flex-column justify-content-center">
+            <div class="text-secondary small fw-semibold mb-1">Trazabilidad End-to-End</div>
             <div class="h5 fw-bold mb-0 text-dark">Activa</div>
-            <div class="text-muted small mt-1">App móvil → API → Outbox → Worker</div>
         </div>
     </div>
 </div>
