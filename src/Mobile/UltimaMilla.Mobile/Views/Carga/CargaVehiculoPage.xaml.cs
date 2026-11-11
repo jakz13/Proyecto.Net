@@ -25,10 +25,17 @@ public partial class CargaVehiculoPage : ContentPage
         try
         {
             await _viewModel.InicializarAsync();
+            _viewModel.IniciarVigilanciaDespacho();
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[CargaVehiculoPage] Excepción al inicializar: {ex.Message}");
         }
+    }
+
+    protected override void OnDisappearing()
+    {
+        _viewModel.DetenerVigilanciaDespacho();
+        base.OnDisappearing();
     }
 }

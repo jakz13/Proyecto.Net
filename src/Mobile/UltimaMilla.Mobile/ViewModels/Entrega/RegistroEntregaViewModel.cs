@@ -1,48 +1,36 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
+using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
-using UltimaMilla.Mobile.Services.Media;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Views.Carga;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
 
-[QueryProperty(nameof(ParadaSeleccionada), "Parada")]
-[QueryProperty(nameof(ParadaIdParam), "ParadaId")]
-[QueryProperty(nameof(EnvioIdParam), "EnvioId")]
-[QueryProperty(nameof(CodigoSeguimientoParam), "CodigoSeguimiento")]
-[QueryProperty(nameof(NombreDestinatarioParam), "NombreDestinatario")]
-[QueryProperty(nameof(DireccionParam), "Direccion")]
-public partial class RegistroEntregaViewModel : ObservableObject
+/// <summary>Un bulto de la parada con la marca de si se entrega ahora (entrega parcial, RF 31 a 36).</summary>
+public partial class BultoEntregaItemViewModel : ObservableObject
 {
-    public const string OpcionTomarFoto = "Tomar Foto con Cámara";
-    public const string OpcionSeleccionarGaleria = "Seleccionar de la Galería";
-#if DEBUG
-    public const string OpcionGenerarDemo = "Generar Evidencia de Prueba (Demo)";
-#endif
+    public string Codigo { get; init; } = string.Empty;
+    public decimal PesoKg { get; init; }
 
+    [ObservableProperty]
+    private bool _entregado = true;
+
+    public string PesoTexto => PesoKg > 0 ? $"{PesoKg:F1} kg" : string.Empty;
+}
+
+[QueryProperty(nameof(ParadaSeleccionada), "Parada")]
+public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
+{
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
 
     [ObservableProperty]
     private ParadaItemViewModel? _paradaSeleccionada;
-
-    [ObservableProperty]
-    private string? _paradaIdParam;
-
-    [ObservableProperty]
-    private string? _envioIdParam;
-
-    [ObservableProperty]
-    private string? _codigoSeguimientoParam;
-
-    [ObservableProperty]
-    private string? _nombreDestinatarioParam;
-
-    [ObservableProperty]
-    private string? _direccionParam;
 
     [ObservableProperty]
     private string _nombreReceptor = string.Empty;
@@ -51,50 +39,33 @@ public partial class RegistroEntregaViewModel : ObservableObject
     private string _documentoReceptor = string.Empty;
 
     [ObservableProperty]
-    private bool _tieneFirma;
+    private string _motivoSeleccionado = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NoTieneFoto))]
-    private bool _tieneFoto;
-
-    public bool NoTieneFoto => !TieneFoto;
+    private string _observacionesPendientes = string.Empty;
 
     [ObservableProperty]
-    private ImageSource? _fotoPreviewSource;
+    [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
+    [NotifyPropertyChangedFor(nameof(EsEntregaParcial))]
+    [NotifyPropertyChangedFor(nameof(TituloGuardar))]
+    private int _bultosMarcados;
 
-    [ObservableProperty]
-    private string? _fotoEvidenciaBase64;
+    public ObservableCollection<BultoEntregaItemViewModel> Bultos { get; } = new();
 
-    [ObservableProperty]
-    private string _fotoStatusText = "Ninguna foto adjunta";
+    public ObservableCollection<string> MotivosNoEntrega { get; } = new();
 
-    [ObservableProperty]
-    private string _firmaStatusText = "Toque o dibuje para firmar";
+    private readonly List<MotivoNoEntregaLocal> _motivosCatalogo = new();
 
-    [ObservableProperty]
-    private double? _latitudActual;
+    /// <summary>La selección por bulto solo se ofrece si el operador tiene habilitada la entrega parcial.</summary>
+    public bool TieneVariosBultos => Bultos.Count > 1 && (_syncService?.FuncionalidadHabilitada("entrega-parcial") ?? true);
 
-    [ObservableProperty]
-    private double? _longitudActual;
+    public bool EsEntregaParcial => Bultos.Count > 0 && BultosMarcados > 0 && BultosMarcados < Bultos.Count;
 
-    [ObservableProperty]
-    private string _posicionGpsTexto = "Consultando ubicación GPS...";
+    public string ResumenBultosTexto => Bultos.Count == 0
+        ? "Esta parada no tiene bultos informados."
+        : $"{BultosMarcados} de {Bultos.Count} bulto(s) se entregan ahora";
 
-    [ObservableProperty]
-    private string _fechaHoraCapturaTexto = string.Empty;
-
-    [ObservableProperty]
-    private DateTime _fechaHoraDispositivoUtc = DateTime.UtcNow;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsNotBusy))]
-    private bool _isBusy;
-
-    public bool IsNotBusy => !IsBusy;
-
-    public Func<Task<string?>>? ObtenerFirmaAsyncCallback { get; set; }
-    public Action? LimpiarFirmaAction { get; set; }
-    public Action? CargarFirmaDemoAction { get; set; }
+    public string TituloGuardar => EsEntregaParcial ? "Guardar entrega parcial" : "Guardar entrega";
 
     public RegistroEntregaViewModel() : this(null, null)
     {
@@ -104,385 +75,101 @@ public partial class RegistroEntregaViewModel : ObservableObject
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
-
-        _nombreReceptor = string.Empty;
-        _documentoReceptor = "4.123.456-7"; // Valor por defecto sobrio
-        _fechaHoraCapturaTexto = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
     }
 
     partial void OnParadaSeleccionadaChanged(ParadaItemViewModel? value)
     {
-        if (value is not null)
-        {
-            if (!string.IsNullOrWhiteSpace(value.Destinatario))
-            {
-                NombreReceptor = value.Destinatario.Trim();
-            }
+        if (value is null)
+            return;
 
-            if (string.IsNullOrWhiteSpace(DocumentoReceptor))
+        if (!string.IsNullOrWhiteSpace(value.Destinatario))
+            NombreReceptor = value.Destinatario.Trim();
+
+        Bultos.Clear();
+        foreach (var bulto in value.Bultos)
+        {
+            var item = new BultoEntregaItemViewModel { Codigo = bulto.Codigo, PesoKg = bulto.PesoKg };
+            item.PropertyChanged += (_, e) =>
             {
-                DocumentoReceptor = "4.123.456-7";
-            }
+                if (e.PropertyName == nameof(BultoEntregaItemViewModel.Entregado))
+                    RecalcularMarcados();
+            };
+            Bultos.Add(item);
         }
+
+        OnPropertyChanged(nameof(TieneVariosBultos));
+        RecalcularMarcados();
+        _ = CargarMotivosAsync();
     }
 
-    partial void OnNombreDestinatarioParamChanged(string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(NombreReceptor))
-        {
-            NombreReceptor = value.Trim();
-        }
-    }
+    private void RecalcularMarcados() => BultosMarcados = Bultos.Count(b => b.Entregado);
 
-    /// <summary>
-    /// Consulta la geolocalización actual y actualiza la fecha/hora del dispositivo para auditoría.
-    /// </summary>
-    public async Task ActualizarUbicacionYFechaAsync()
+    private async Task CargarMotivosAsync()
     {
+        if (_localDatabaseService is null)
+            return;
+
         try
         {
-            var ahoraLocal = DateTime.Now;
-            FechaHoraDispositivoUtc = DateTime.UtcNow;
-            FechaHoraCapturaTexto = ahoraLocal.ToString("dd/MM/yyyy HH:mm:ss");
-
-            Location? location = null;
-            try
+            _motivosCatalogo.Clear();
+            MotivosNoEntrega.Clear();
+            foreach (var motivo in await _localDatabaseService.ObtenerMotivosNoEntregaAsync())
             {
-                location = await Geolocation.Default.GetLastKnownLocationAsync();
-                if (location is null)
-                {
-                    var req = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5));
-                    location = await Geolocation.Default.GetLocationAsync(req);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] GPS no disponible: {ex.Message}");
+                _motivosCatalogo.Add(motivo);
+                MotivosNoEntrega.Add(motivo.Descripcion);
             }
 
-            if (location is not null)
+            if (string.IsNullOrEmpty(MotivoSeleccionado) && MotivosNoEntrega.Count > 0)
+                MotivoSeleccionado = MotivosNoEntrega[0];
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] No se pudo leer el catálogo de motivos: {ex.Message}");
+        }
+    }
+
+    /// <summary>Escanear un bulto lo marca como entregado; uno que no pertenece a la parada se rechaza.</summary>
+    [RelayCommand]
+    private async Task EscanearBultoAsync()
+    {
+        if (Shell.Current is null || Bultos.Count == 0)
+            return;
+
+        try
+        {
+            var permiso = await Permissions.CheckStatusAsync<Permissions.Camera>();
+            if (permiso != PermissionStatus.Granted)
+                permiso = await Permissions.RequestAsync<Permissions.Camera>();
+
+            string? codigo;
+            if (permiso == PermissionStatus.Granted)
             {
-                LatitudActual = location.Latitude;
-                LongitudActual = location.Longitude;
-            }
-            else if (ParadaSeleccionada?.Latitud != null && ParadaSeleccionada.Latitud != 0)
-            {
-                LatitudActual = ParadaSeleccionada.Latitud;
-                LongitudActual = ParadaSeleccionada.Longitud;
+                var escaner = new EscanerCodigoPage();
+                await Shell.Current.Navigation.PushModalAsync(escaner);
+                codigo = await escaner.ResultadoEscaneoTask;
             }
             else
             {
-                // Coordenadas de contingencia urbana
-                LatitudActual = -34.9011;
-                LongitudActual = -56.1645;
+                codigo = await Shell.Current.DisplayPromptAsync("Ingreso manual", "Ingrese el código del bulto:", "Validar", "Cancelar", "Código del bulto");
             }
 
-            PosicionGpsTexto = $"Lat: {LatitudActual:F4}, Lon: {LongitudActual:F4}";
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error actualizando auditoría: {ex.Message}");
-            PosicionGpsTexto = "GPS no disponible (Modo manual)";
-            FechaHoraCapturaTexto = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
-        }
-    }
+            if (string.IsNullOrWhiteSpace(codigo))
+                return;
 
-    [RelayCommand]
-    private async Task AbrirCamaraAsync()
-    {
-        if (IsBusy)
-            return;
-
-        if (Shell.Current is null)
-        {
-#if DEBUG
-            await AplicarEvidenciaDemoAsync();
-#endif
-            return;
-        }
-
-#if DEBUG
-        var opcion = await Shell.Current.DisplayActionSheetAsync(
-            "Adjuntar Evidencia Fotográfica",
-            "Cancelar",
-            null,
-            OpcionTomarFoto,
-            OpcionSeleccionarGaleria,
-            OpcionGenerarDemo);
-#else
-        var opcion = await Shell.Current.DisplayActionSheetAsync(
-            "Adjuntar Evidencia Fotográfica",
-            "Cancelar",
-            null,
-            OpcionTomarFoto,
-            OpcionSeleccionarGaleria);
-#endif
-
-        if (string.IsNullOrWhiteSpace(opcion) || opcion == "Cancelar")
-            return;
-
-        switch (opcion)
-        {
-            case OpcionTomarFoto:
-                await CapturarFotoConCamaraAsync();
-                break;
-
-            case OpcionSeleccionarGaleria:
-                await SeleccionarFotoDeGaleriaAsync();
-                break;
-
-#if DEBUG
-            case OpcionGenerarDemo:
-                await AplicarEvidenciaDemoAsync();
-                break;
-#endif
-        }
-    }
-
-    [RelayCommand]
-    private void QuitarFoto()
-    {
-        FotoEvidenciaBase64 = null;
-        FotoPreviewSource = null;
-        TieneFoto = false;
-        FotoStatusText = "Ninguna foto adjunta";
-    }
-
-    private async Task CapturarFotoConCamaraAsync()
-    {
-        try
-        {
-            if (!MediaPicker.Default.IsCaptureSupported)
+            var bulto = Bultos.FirstOrDefault(b => b.Codigo.Equals(codigo.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (bulto is null)
             {
-                await OfrecerAlternativaSinCamaraAsync(
-                    "La captura directa con cámara no está soportada o no hay una cámara disponible en este dispositivo.");
+                await AvisarAsync("Bulto no encontrado", $"El bulto {codigo.Trim().ToUpperInvariant()} no pertenece a esta parada.");
                 return;
             }
 
-            var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
-            if (status != PermissionStatus.Granted)
-            {
-                status = await Permissions.RequestAsync<Permissions.Camera>();
-            }
-
-            if (status != PermissionStatus.Granted)
-            {
-                if (Shell.Current is not null)
-                {
-                    bool usarAlternativa = await Shell.Current.DisplayAlertAsync(
-                        "Permiso de Cámara Denegado",
-                        "No se concedió el permiso de cámara. ¿Desea seleccionar una imagen de la galería o generar una evidencia de prueba?",
-                        "Seleccionar de Galería",
-                        "Cancelar");
-
-                    if (usarAlternativa)
-                    {
-                        await SeleccionarFotoDeGaleriaAsync();
-                    }
-                }
-                return;
-            }
-
-            var photo = await MediaPicker.Default.CapturePhotoAsync(new MediaPickerOptions
-            {
-                Title = $"POD_{DateTime.UtcNow:yyyyMMdd_HHmmss}.jpg"
-            });
-
-            if (photo is null)
-                return;
-
-            await ProcesarArchivoFotoAsync(photo);
-        }
-        catch (FeatureNotSupportedException)
-        {
-            await OfrecerAlternativaSinCamaraAsync(
-                "El dispositivo actual no dispone de aplicación o hardware de cámara compatible.");
-        }
-        catch (PermissionException)
-        {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Permiso Requerido",
-                    "El sistema bloqueó el acceso a la cámara. Verifique los permisos de la aplicación en Ajustes.",
-                    "Entendido");
-            }
+            bulto.Entregado = true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en CapturarFotoConCamaraAsync: {ex.Message}");
-            await OfrecerAlternativaSinCamaraAsync(
-                "No fue posible iniciar la cámara del dispositivo en este momento.");
+            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error al escanear: {ex.Message}");
+            await AvisarAsync("Escaneo no disponible", "No fue posible abrir el lector. Marque los bultos manualmente en la lista.");
         }
-    }
-
-    private async Task SeleccionarFotoDeGaleriaAsync()
-    {
-        try
-        {
-            var photo = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
-            {
-                Title = "Seleccione fotografía de evidencia"
-            });
-
-            if (photo is null)
-                return;
-
-            await ProcesarArchivoFotoAsync(photo);
-        }
-        catch (PermissionException)
-        {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Permiso de Galería Requerido",
-                    "No se otorgó permiso para leer imágenes del dispositivo.",
-                    "Entendido");
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en SeleccionarFotoDeGaleriaAsync: {ex.Message}");
-            if (Shell.Current is not null)
-            {
-#if DEBUG
-                bool usarDemo = await Shell.Current.DisplayAlertAsync(
-                    "Error al Abrir Galería",
-                    "No se pudo cargar la imagen desde el selector de archivos. ¿Desea generar una evidencia de prueba (Demo)?",
-                    "Generar Demo",
-                    "Cancelar");
-
-                if (usarDemo)
-                {
-                    await AplicarEvidenciaDemoAsync();
-                }
-#else
-                await Shell.Current.DisplayAlertAsync(
-                    "Error al Abrir Galería",
-                    "No se pudo cargar la imagen desde el selector de archivos del dispositivo.",
-                    "Entendido");
-#endif
-            }
-        }
-    }
-
-    private async Task OfrecerAlternativaSinCamaraAsync(string motivo)
-    {
-        if (Shell.Current is null)
-        {
-#if DEBUG
-            await AplicarEvidenciaDemoAsync();
-#endif
-            return;
-        }
-
-#if DEBUG
-        string accion = await Shell.Current.DisplayActionSheetAsync(
-            motivo,
-            "Cancelar",
-            null,
-            OpcionSeleccionarGaleria,
-            OpcionGenerarDemo);
-
-        if (accion == OpcionSeleccionarGaleria)
-        {
-            await SeleccionarFotoDeGaleriaAsync();
-        }
-        else if (accion == OpcionGenerarDemo)
-        {
-            await AplicarEvidenciaDemoAsync();
-        }
-#else
-        bool seleccionarGaleria = await Shell.Current.DisplayAlertAsync(
-            "Cámara No Disponible",
-            $"{motivo}\n\n¿Desea seleccionar una imagen desde la galería?",
-            "Seleccionar de Galería",
-            "Cancelar");
-
-        if (seleccionarGaleria)
-        {
-            await SeleccionarFotoDeGaleriaAsync();
-        }
-#endif
-    }
-
-    private async Task ProcesarArchivoFotoAsync(FileResult photo)
-    {
-        try
-        {
-            await using var stream = await photo.OpenReadAsync();
-            var resultado = await ImageCompressionService.ComprimirFotoAsync(stream);
-
-            if (resultado.CompressedBytes.Length == 0)
-            {
-                if (Shell.Current is not null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Archivo Vacío",
-                        "La fotografía seleccionada no contiene datos válidos.",
-                        "Entendido");
-                }
-                return;
-            }
-
-            FotoEvidenciaBase64 = resultado.Base64DataUri;
-            FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(resultado.CompressedBytes));
-            TieneFoto = true;
-            FotoStatusText = resultado.ResumenCompresion;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error al procesar fotografía: {ex.Message}");
-            FotoEvidenciaBase64 = null;
-            FotoPreviewSource = null;
-            TieneFoto = false;
-            FotoStatusText = "Error al procesar la fotografía";
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Error de Imagen",
-                    "No fue posible procesar y comprimir la imagen seleccionada.",
-                    "Entendido");
-            }
-        }
-    }
-
-#if DEBUG
-    private async Task AplicarEvidenciaDemoAsync()
-    {
-        try
-        {
-            var resultado = await ImageCompressionService.GenerarEvidenciaDemoAsync();
-            FotoEvidenciaBase64 = resultado.Base64DataUri;
-            FotoPreviewSource = ImageSource.FromStream(() => new MemoryStream(resultado.CompressedBytes));
-            TieneFoto = true;
-            FotoStatusText = resultado.ResumenCompresion;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error en AplicarEvidenciaDemoAsync: {ex.Message}");
-            FotoEvidenciaBase64 = null;
-            FotoPreviewSource = null;
-            TieneFoto = false;
-            FotoStatusText = "Error al generar fotografía de prueba";
-        }
-    }
-#endif
-
-    [RelayCommand]
-    private void SimularFirma()
-    {
-        CargarFirmaDemoAction?.Invoke();
-        TieneFirma = true;
-        FirmaStatusText = "Firma digital capturada (Demo)";
-    }
-
-    [RelayCommand]
-    private void LimpiarFirma()
-    {
-        LimpiarFirmaAction?.Invoke();
-        TieneFirma = false;
-        FirmaStatusText = "Toque o dibuje para firmar";
     }
 
     [RelayCommand]
@@ -491,113 +178,129 @@ public partial class RegistroEntregaViewModel : ObservableObject
         if (IsBusy)
             return;
 
+        var parada = ParadaSeleccionada;
+        if (parada is null || parada.Id == Guid.Empty)
+        {
+            await AvisarAsync("Parada no disponible", "No se pudo identificar la parada. Vuelva a la hoja de ruta e intente nuevamente.");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(NombreReceptor) || string.IsNullOrWhiteSpace(DocumentoReceptor))
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Campos Requeridos",
-                    "Por favor, complete el nombre y documento del receptor.",
-                    "Entendido");
-            }
+            await AvisarAsync("Campos requeridos", "Complete el nombre y el documento de quien recibe.");
             return;
         }
 
         if (!TieneFirma)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Firma Requerida",
-                    "Debe registrar la firma del receptor antes de confirmar la entrega.",
-                    "Entendido");
-            }
+            await AvisarAsync("Firma requerida", "Debe registrar la firma del receptor antes de confirmar la entrega.");
             return;
+        }
+
+        if (Bultos.Count > 0 && BultosMarcados == 0)
+        {
+            await AvisarAsync("Ningún bulto entregado", "Si no se entregó ningún bulto, registre un intento fallido desde el detalle de la parada.");
+            return;
+        }
+
+        var parcial = EsEntregaParcial;
+        MotivoNoEntregaLocal? motivo = null;
+        if (parcial)
+        {
+            motivo = _motivosCatalogo.FirstOrDefault(m => string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
+            if (motivo is null)
+            {
+                await AvisarAsync(
+                    "Motivo requerido",
+                    "Seleccione el motivo por el que algunos bultos no se entregan. Si la lista está vacía, descargue la hoja de ruta con conexión para obtener el catálogo del operador.");
+                return;
+            }
         }
 
         try
         {
             IsBusy = true;
 
-            var parada = ParadaSeleccionada;
-            var hojaDeRutaId = (parada?.HojaDeRutaId != null && parada.HojaDeRutaId != Guid.Empty)
-                ? parada.HojaDeRutaId
-                : DemoDataDefaults.DefaultHojaDeRutaId;
-
-            var paradaId = (parada?.Id != null && parada.Id != Guid.Empty)
-                ? parada.Id
-                : (parada?.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
-                    _ => DemoDataDefaults.Parada2Id
-                });
-
-            var envioId = (parada?.EnvioId != null && parada.EnvioId != Guid.Empty)
-                ? parada.EnvioId
-                : (parada?.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
-                    _ => DemoDataDefaults.Envio2Id
-                });
-
-            var idempotencyKey = $"ENTREGA-{paradaId:N}-{DateTime.UtcNow.Ticks}";
-
-            // 1. Auditoría exacta al confirmar: coordenadas GPS y fecha/hora UTC
+            // Auditoría exacta al confirmar: posición real y hora del dispositivo
             await ActualizarUbicacionYFechaAsync();
 
-            // 2. Obtener firma digital capturada del lienzo táctil
-            string? firmaBase64 = null;
-            if (ObtenerFirmaAsyncCallback != null)
+            var firmaBase64 = await ObtenerFirmaBase64Async();
+            if (firmaBase64 is null)
             {
-                firmaBase64 = await ObtenerFirmaAsyncCallback.Invoke();
+                await AvisarAsync("Firma no disponible", "No se pudo capturar la firma dibujada. Límpiela y vuelva a firmar.");
+                return;
             }
 
-            if (string.IsNullOrWhiteSpace(firmaBase64) && TieneFirma)
+            var fotoBase64 = TieneFoto ? FotoEvidenciaBase64 : null;
+            var idempotencyKey = $"ENTREGA-{parada.Id:N}";
+
+            string tipoOperacion;
+            string cargaJson;
+            var jsonOpciones = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            if (parcial)
             {
-                // Fallback de imagen 1x1 en caso extremo
-                firmaBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+                var entregados = Bultos.Where(b => b.Entregado).Select(b => b.Codigo).ToList();
+                var payload = new EntregaParcialOfflinePayload
+                {
+                    HojaDeRutaId = parada.HojaDeRutaId,
+                    ParadaId = parada.Id,
+                    EnvioId = parada.EnvioId,
+                    IdempotencyKey = idempotencyKey,
+                    CodigosBultosEntregados = entregados,
+                    BultosNoEntregados = Bultos.Where(b => !b.Entregado).Select(b => new BultoNoEntregadoOfflinePayload
+                    {
+                        CodigoBulto = b.Codigo,
+                        MotivoCodigo = motivo!.Codigo,
+                        MotivoNoEntregaId = motivo.Id,
+                        Observaciones = string.IsNullOrWhiteSpace(ObservacionesPendientes) ? null : ObservacionesPendientes.Trim()
+                    }).ToList(),
+                    NombreReceptor = NombreReceptor.Trim(),
+                    DocumentoReceptor = DocumentoReceptor.Trim(),
+                    FirmaDigitalBase64 = firmaBase64,
+                    FotoEvidenciaBase64 = fotoBase64,
+                    Latitud = LatitudActual,
+                    Longitud = LongitudActual,
+                    FechaHoraDispositivoUtc = FechaHoraDispositivoUtc
+                };
+                tipoOperacion = TiposOperacionOffline.EntregaParcial;
+                cargaJson = JsonSerializer.Serialize(payload, jsonOpciones);
+
+                if (_localDatabaseService is not null)
+                {
+                    await _localDatabaseService.EncolarOperacionAsync(tipoOperacion, cargaJson);
+                    await _localDatabaseService.MarcarEntregaParcialLocalAsync(parada.Id, entregados);
+                }
+            }
+            else
+            {
+                var payload = new EntregaExitosaOfflinePayload
+                {
+                    HojaDeRutaId = parada.HojaDeRutaId,
+                    ParadaId = parada.Id,
+                    EnvioId = parada.EnvioId,
+                    IdempotencyKey = idempotencyKey,
+                    NombreReceptor = NombreReceptor.Trim(),
+                    DocumentoReceptor = DocumentoReceptor.Trim(),
+                    FirmaDigitalBase64 = firmaBase64,
+                    FotoEvidenciaBase64 = fotoBase64,
+                    Latitud = LatitudActual,
+                    Longitud = LongitudActual,
+                    FechaHoraDispositivoUtc = FechaHoraDispositivoUtc
+                };
+                tipoOperacion = TiposOperacionOffline.EntregaExitosa;
+                cargaJson = JsonSerializer.Serialize(payload, jsonOpciones);
+
+                if (_localDatabaseService is not null)
+                {
+                    await _localDatabaseService.EncolarOperacionAsync(tipoOperacion, cargaJson);
+                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, "Entregado");
+                }
             }
 
-            // 3. Obtener fotografía comprimida (JPEG máx 1024px, 70% calidad) si existe
-            string? fotoBase64 = TieneFoto ? FotoEvidenciaBase64 : null;
+            parada.Estado = "Entregado";
 
-            // 4. Payload offline completo para persistencia SQLite y sincronización
-            var payload = new EntregaExitosaOfflinePayload
-            {
-                HojaDeRutaId = hojaDeRutaId,
-                ParadaId = paradaId,
-                EnvioId = envioId,
-                IdempotencyKey = idempotencyKey,
-                NombreReceptor = NombreReceptor.Trim(),
-                DocumentoReceptor = DocumentoReceptor.Trim(),
-                FirmaDigitalBase64 = firmaBase64,
-                FotoEvidenciaBase64 = fotoBase64,
-                Latitud = LatitudActual ?? ((parada?.Latitud != null && parada.Latitud != 0) ? parada.Latitud : -34.9011),
-                Longitud = LongitudActual ?? ((parada?.Longitud != null && parada.Longitud != 0) ? parada.Longitud : -56.1645),
-                FechaHoraDispositivoUtc = FechaHoraDispositivoUtc
-            };
-
-            // 5. Guardar en cola offline cifrada y actualizar estado local SQLite
-            if (_localDatabaseService is not null)
-            {
-                await _localDatabaseService.EncolarOperacionAsync(
-                    TiposOperacionOffline.EntregaExitosa,
-                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
-
-                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Entregado");
-            }
-
-            // 6. Actualizar estado en modelo en memoria
-            if (parada is not null)
-            {
-                parada.Estado = "Entregado";
-            }
-
-            // 7. Si la app está Online, disparar sincronización en background
+            // Si hay conexión, se envía enseguida; si no, queda en la cola y se reenvía al recuperar la señal
             if (_syncService?.IsOnline == true)
             {
                 _ = Task.Run(async () =>
@@ -606,26 +309,24 @@ public partial class RegistroEntregaViewModel : ObservableObject
                     {
                         await _syncService.SincronizarOperacionesPendientesAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Fallback silente en background
+                        System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Sincronización en segundo plano: {ex.Message}");
                     }
                 });
             }
 
-            await Task.Delay(250);
-
             if (Shell.Current is not null)
             {
-                string infoRed = (_syncService?.IsOnline == true)
-                    ? "Sincronizando entrega con la central en tiempo real."
-                    : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
+                var infoRed = _syncService?.IsOnline == true
+                    ? "Se está enviando a la central."
+                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
+                var titulo = parcial ? "Entrega parcial registrada" : "Entrega registrada";
+                var detalle = parcial
+                    ? $"Se entregaron {BultosMarcados} de {Bultos.Count} bulto(s) a {NombreReceptor.Trim()}. El resto queda pendiente según la política del operador."
+                    : $"Entrega registrada para {NombreReceptor.Trim()}.";
 
-                await Shell.Current.DisplayAlertAsync(
-                    "Entrega Registrada",
-                    $"Comprobante de entrega registrado exitosamente para {NombreReceptor.Trim()}.\n\n{infoRed}",
-                    "Finalizar");
-
+                await Shell.Current.DisplayAlertAsync(titulo, $"{detalle}\n\n{infoRed}", "Finalizar");
                 await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }

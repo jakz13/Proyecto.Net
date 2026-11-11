@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Entrega;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -23,6 +24,8 @@ public partial class DetalleParadaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
     [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
+    [NotifyPropertyChangedFor(nameof(EsRetiro))]
+    [NotifyPropertyChangedFor(nameof(EsEntrega))]
     private ParadaItemViewModel? _parada;
 
     [ObservableProperty]
@@ -37,11 +40,16 @@ public partial class DetalleParadaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
     [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
     [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
+    [NotifyPropertyChangedFor(nameof(RutaActivaEnCalle))]
+    [NotifyPropertyChangedFor(nameof(PuedeAccionar))]
     private string _estadoHojaDeRuta = "EnTransito";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
     private ObservableCollection<BultoItemViewModel> _bultos = new();
+
+    public bool EsRetiro => Parada?.EsRetiro == true;
+    public bool EsEntrega => !EsRetiro;
 
     public bool TieneNotasComercio => !string.IsNullOrWhiteSpace(Parada?.NotasComercio);
 
@@ -62,13 +70,14 @@ public partial class DetalleParadaViewModel : ObservableObject
         get
         {
             if (!RutaActivaEnCalle)
-                return "Pendiente de Carga en Depósito. Debe escanear y confirmar la carga en la pestaña Carga antes de realizar entregas.";
+                return "La hoja de ruta todavía no está en calle. Escanee y confirme la carga, y espere el despacho del depósito.";
             return string.Empty;
         }
     }
 
     public bool PuedeRegistrarRetiroDevolucion =>
         Parada is not null &&
+        !Parada.EsRetiro &&
         Parada.Estado != "Entregado" &&
         Parada.Estado != "EnDevolucion" &&
         !IsBusy;
@@ -86,7 +95,7 @@ public partial class DetalleParadaViewModel : ObservableObject
 
             var totalPeso = lista.Sum(b => b.PesoKg);
             int total = lista.Count();
-            return $"{total} bulto(s) • {totalPeso:F1} kg";
+            return totalPeso > 0 ? $"{total} bulto(s) • {totalPeso:F1} kg" : $"{total} bulto(s)";
         }
     }
 
@@ -98,35 +107,6 @@ public partial class DetalleParadaViewModel : ObservableObject
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
-
-        // Mock por defecto para previsualización directa
-        _parada = new ParadaItemViewModel
-        {
-            Id = DemoDataDefaults.Parada2Id,
-            HojaDeRutaId = DemoDataDefaults.DefaultHojaDeRutaId,
-            EnvioId = DemoDataDefaults.Envio2Id,
-            Orden = 2,
-            Direccion = "Bvar. España 2678, Apto 501",
-            Ciudad = "Pocitos, Montevideo",
-            Destinatario = "Lucía Fernández",
-            Telefono = "+598 99 765 432",
-            CantidadBultos = 1,
-            Estado = "Pendiente",
-            HoraEstimada = "10:15",
-            CodigoSeguimiento = "ENV-2026-00109",
-            NotasComercio = "Llamar al móvil 5 minutos antes de llegar. Producto frágil, mantener posición vertical y no dejar en el piso exterior.",
-            Latitud = -34.9124,
-            Longitud = -56.1589,
-            Bultos = new List<BultoItemViewModel>
-            {
-                new() { Codigo = "BLT-002-A", Descripcion = "Caja cristalería y vajilla fina", PesoKg = 1.8m, EsFragil = true }
-            }
-        };
-
-        foreach (var b in _parada.Bultos)
-        {
-            _bultos.Add(b);
-        }
     }
 
     partial void OnParadaChanged(ParadaItemViewModel? value)
@@ -139,6 +119,8 @@ public partial class DetalleParadaViewModel : ObservableObject
         if (p == null)
             return;
 
+        Bultos.Clear();
+
         if (_localDatabaseService != null)
         {
             var rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
@@ -147,37 +129,20 @@ public partial class DetalleParadaViewModel : ObservableObject
                 EstadoHojaDeRuta = rutaLocal.Ruta.Estado;
             }
 
-            var paradaDb = rutaLocal?.Paradas.FirstOrDefault(x => x.Id == p.Id || x.CodigoSeguimiento == p.CodigoSeguimiento);
-            Bultos.Clear();
-            if (paradaDb != null && paradaDb.Bultos.Count > 0)
+            var paradaDb = rutaLocal?.Paradas.FirstOrDefault(x => x.Id == p.Id);
+            foreach (var b in (paradaDb?.Bultos ?? p.Bultos))
             {
-                foreach (var b in paradaDb.Bultos)
-                {
-                    Bultos.Add(b);
-                }
-            }
-            else
-            {
-                foreach (var b in p.Bultos)
-                {
-                    Bultos.Add(b);
-                }
+                Bultos.Add(b);
             }
         }
         else
         {
-            Bultos.Clear();
             foreach (var b in p.Bultos)
             {
                 Bultos.Add(b);
             }
         }
 
-        ActualizarEstadoBultos();
-    }
-
-    private void ActualizarEstadoBultos()
-    {
         OnPropertyChanged(nameof(PuedeConfirmarEntrega));
         OnPropertyChanged(nameof(MostrarAvisoBloqueo));
         OnPropertyChanged(nameof(MensajeBloqueoEntrega));
@@ -192,13 +157,14 @@ public partial class DetalleParadaViewModel : ObservableObject
 
         try
         {
-            var destination = (Parada.Latitud != 0 && Parada.Longitud != 0)
+            var tieneCoordenadas = Parada.Latitud != 0 && Parada.Longitud != 0;
+            var destination = tieneCoordenadas
                 ? $"{Parada.Latitud.ToString(System.Globalization.CultureInfo.InvariantCulture)},{Parada.Longitud.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
                 : Uri.EscapeDataString($"{Parada.Direccion}, {Parada.Ciudad}");
 
             // En Windows, la app UWP 'Mapas' fue discontinuada por Microsoft.
             // Abrimos directamente la ruta en Google Maps en el navegador predeterminado para navegación inmediata.
-            if (DeviceInfo.Platform == DevicePlatform.WinUI)
+            if (DeviceInfo.Platform == DevicePlatform.WinUI || !tieneCoordenadas)
             {
                 var mapsUrl = $"https://www.google.com/maps/dir/?api=1&destination={destination}";
                 await Launcher.Default.OpenAsync(mapsUrl);
@@ -215,8 +181,9 @@ public partial class DetalleParadaViewModel : ObservableObject
                 await Map.Default.OpenAsync(location, options);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[DetalleParadaViewModel] No se pudo abrir el mapa nativo: {ex.Message}");
             var fallbackDest = Uri.EscapeDataString($"{Parada.Direccion}, {Parada.Ciudad}");
             await Launcher.Default.OpenAsync($"https://www.google.com/maps/dir/?api=1&destination={fallbackDest}");
         }
@@ -233,7 +200,7 @@ public partial class DetalleParadaViewModel : ObservableObject
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
-                    "Entrega Bloqueada",
+                    "Entrega bloqueada",
                     MensajeBloqueoEntrega,
                     "Entendido");
             }
@@ -242,12 +209,31 @@ public partial class DetalleParadaViewModel : ObservableObject
 
         await Shell.Current.GoToAsync(nameof(RegistroEntregaPage), new Dictionary<string, object>
         {
-            { "Parada", Parada },
-            { "ParadaId", Parada.Id.ToString() },
-            { "EnvioId", Parada.EnvioId.ToString() },
-            { "CodigoSeguimiento", Parada.CodigoSeguimiento },
-            { "NombreDestinatario", Parada.Destinatario },
-            { "Direccion", Parada.Direccion }
+            { "Parada", Parada }
+        });
+    }
+
+    [RelayCommand]
+    private async Task IrARegistrarRetiroAsync()
+    {
+        if (Parada is null)
+            return;
+
+        if (!PuedeConfirmarEntrega)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Retiro bloqueado",
+                    MensajeBloqueoEntrega,
+                    "Entendido");
+            }
+            return;
+        }
+
+        await Shell.Current.GoToAsync(nameof(RegistroRetiroPage), new Dictionary<string, object>
+        {
+            { "Parada", Parada }
         });
     }
 
@@ -266,20 +252,20 @@ public partial class DetalleParadaViewModel : ObservableObject
     [RelayCommand]
     private async Task RegistrarRetiroDevolucionAsync()
     {
-        if (IsBusy || Parada is null)
+        if (IsBusy || Parada is null || Parada.Id == Guid.Empty)
             return;
 
-        string observaciones = "Retiro de bulto en calle para retorno a depósito";
+        string observaciones = "Bulto retirado para devolución a depósito";
 
         if (Shell.Current is not null)
         {
             var input = await Shell.Current.DisplayPromptAsync(
-                "Retiro de Devolución",
+                "Retiro de devolución",
                 "Indique observaciones del retiro del bulto para su retorno al depósito:",
-                "Confirmar Retiro",
+                "Confirmar retiro",
                 "Cancelar",
-                "Ej: Bulto retirado en domicilio para devolución",
-                initialValue: "Bulto retirado para devolución a depósito");
+                "Observaciones",
+                initialValue: observaciones);
 
             if (input is null)
                 return;
@@ -293,38 +279,16 @@ public partial class DetalleParadaViewModel : ObservableObject
             IsBusy = true;
 
             var parada = Parada;
-            var hojaDeRutaId = (parada.HojaDeRutaId != Guid.Empty)
-                ? parada.HojaDeRutaId
-                : DemoDataDefaults.DefaultHojaDeRutaId;
-
-            var paradaId = (parada.Id != Guid.Empty)
-                ? parada.Id
-                : (parada.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
-                    _ => DemoDataDefaults.Parada3Id
-                });
-
-            var envioId = (parada.EnvioId != Guid.Empty)
-                ? parada.EnvioId
-                : (parada.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
-                    _ => DemoDataDefaults.Envio3Id
-                });
+            var ubicacion = await UbicacionDispositivo.ObtenerAsync();
 
             var payload = new RetiroDevolucionOfflinePayload
             {
-                HojaDeRutaId = hojaDeRutaId,
-                ParadaId = paradaId,
-                EnvioId = envioId,
-                IdempotencyKey = $"RET-DEV-{paradaId:N}-{DateTime.UtcNow.Ticks}",
-                Latitud = parada.Latitud != 0 ? parada.Latitud : -34.9271,
-                Longitud = parada.Longitud != 0 ? parada.Longitud : -56.1534,
+                HojaDeRutaId = parada.HojaDeRutaId,
+                ParadaId = parada.Id,
+                EnvioId = parada.EnvioId,
+                IdempotencyKey = $"RET-DEV-{parada.Id:N}",
+                Latitud = ubicacion?.Latitude,
+                Longitud = ubicacion?.Longitude,
                 FechaHoraDispositivoUtc = DateTime.UtcNow,
                 Observaciones = observaciones
             };
@@ -335,7 +299,7 @@ public partial class DetalleParadaViewModel : ObservableObject
                     TiposOperacionOffline.RetiroDevolucion,
                     JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
 
-                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "EnDevolucion");
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, "EnDevolucion");
             }
 
             parada.Estado = "EnDevolucion";
@@ -350,23 +314,21 @@ public partial class DetalleParadaViewModel : ObservableObject
                     {
                         await _syncService.SincronizarOperacionesPendientesAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Fallback silente en background
+                        System.Diagnostics.Debug.WriteLine($"[DetalleParadaViewModel] Sincronización en segundo plano: {ex.Message}");
                     }
                 });
             }
 
-            await Task.Delay(200);
-
             if (Shell.Current is not null)
             {
                 string infoRed = (_syncService?.IsOnline == true)
-                    ? "Sincronizando retiro de devolución con la central en tiempo real."
-                    : "Guardado en SQLite cifrado local. Se sincronizará automáticamente al restablecerse la red.";
+                    ? "Se está enviando a la central."
+                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Retiro de Devolución Registrado",
+                    "Retiro de devolución registrado",
                     $"El retiro de bulto(s) del envío {parada.CodigoSeguimiento} para retorno a depósito fue registrado.\n\n{infoRed}",
                     "Aceptar");
 

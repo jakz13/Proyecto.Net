@@ -14,6 +14,11 @@ public class ParadaLocal
     [Indexed]
     public Guid EnvioId { get; set; }
 
+    /// <summary>"Entrega" o "Retiro" (retiro en domicilio).</summary>
+    public string Tipo { get; set; } = "Entrega";
+
+    public Guid? RetiroId { get; set; }
+
     public int Orden { get; set; }
 
     public int OrdenVisita { get; set; }

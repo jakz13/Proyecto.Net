@@ -63,9 +63,10 @@ Frontend
 
 ## Mobile: cierre a cargo de Claude (autorizado el 10/11, Joaquín no disponible)
 Rama de trabajo: `main` (la app está integrada ahí). Verificar compilando: `dotnet build src/Mobile/UltimaMilla.Mobile/UltimaMilla.Mobile.csproj -f net10.0-windows10.0.19041.0 -p:OutDir=<carpeta temporal>\` (con la app abierta el exe queda bloqueado; OutDir evita el choque). No se puede probar la UI en esta sesión: se compila y se razona, falta prueba manual en el equipo.
-- [ ] Etapa 1 — quitar datos de demostración: `DemoDataDefaults`, credenciales del repartidor incrustadas (`AuthService.Demo*`, botón y autorrelleno del login), siembra/reinicio de demo, bultos de demo en carga, parada de demo en detalle, simulaciones de geocerca, firma/evidencia demo, clave de cifrado fija en DEBUG
-- [ ] Etapa 2 — sincronización: la app no debe despachar su propia ruta (el despacho lo hace el despachador, la app recibía 403 y lo ignoraba); esperar el estado "Despachada" del servidor antes de iniciar recorrido; reconciliar paradas locales con las del servidor
-- [ ] Etapa 3 — entrega parcial por bultos (RF 31-36) con cola offline
-- [ ] Etapa 4 — retiro en domicilio (RF 37-41): paradas de tipo Retiro, registro con escaneo, foto, firma y "no realizado", offline
-- [ ] Etapa 5 — `GET /api/funcionalidades` para ocultar lo deshabilitado; presentación (textos, estados vacíos, errores visibles)
+- [x] Etapa 1 — quitar datos de demostración: `DemoDataDefaults`, credenciales del repartidor incrustadas (`AuthService.Demo*`, botón y autorrelleno del login), siembra/reinicio de demo, bultos de demo en carga, parada de demo en detalle, simulaciones de geocerca, firma/evidencia demo, clave de cifrado fija en DEBUG
+- [x] Etapa 2 — sincronización: la app no debe despachar su propia ruta (el despacho lo hace el despachador, la app recibía 403 y lo ignoraba); esperar el estado "Despachada" del servidor antes de iniciar recorrido; reconciliar paradas locales con las del servidor
+- [x] Etapa 3 — entrega parcial por bultos (RF 31-36) con cola offline
+- [x] Etapa 4 — retiro en domicilio (RF 37-41): paradas de tipo Retiro, registro con escaneo, foto, firma y "no realizado", offline
+- [x] Etapa 5 — `GET /api/funcionalidades` para ocultar lo deshabilitado; presentación (textos, estados vacíos, errores visibles)
 - [ ] Etapa 6 — documentar (README de la app, análisis de batería de geocercas, tabla de optimización medida)
+- 10/11 — Mobile etapas 1 a 5 hechas y compilando en Windows (sin probar la UI: falta prueba manual). Cambios clave: la app ya no se despacha sola (carga -> "EnCarga" -> espera al despachador, con consulta automática cada 15 s), sin `DemoDataDefaults` ni credenciales/evidencia/firma/GPS inventados, entrega parcial por bultos, pantalla de retiro (`RegistroRetiroPage`), cola offline para los tres, reconciliación de paradas con el servidor, limpieza de la ruta local al cerrar sesión, funcionalidades del operador.

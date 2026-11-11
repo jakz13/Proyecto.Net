@@ -24,7 +24,6 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private Task? _trackingLoopTask;
     private Location? _ultimaUbicacion;
     private bool _isTrackingActive;
-    private bool _modoSimulacionManualActivo;
 
     private int _lecturasGpsRealizadas;
     private string _perfilAdaptativoActual = "Modo Aproximación (500 m a 2000 m)";
@@ -104,11 +103,6 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
     public async Task<Location?> ObtenerUbicacionActualAsync(CancellationToken cancellationToken = default)
     {
-        if (_modoSimulacionManualActivo && _ultimaUbicacion is not null)
-        {
-            return _ultimaUbicacion;
-        }
-
         try
         {
             var tienePermiso = await SolicitarPermisosUbicacionAsync();
@@ -142,18 +136,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             _logger.LogWarning(ex, "Fallo temporal al consultar GPS nativo.");
         }
 
-#if DEBUG
-        // Posición inicial en tránsito por Centro (~645m de Parada 1) cuando el emulador/PC no provee GPS físico
-        _ultimaUbicacion ??= new Location(-34.9000, DemoDataDefaults.Parada1Longitud)
-        {
-            Accuracy = 12.0,
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
+        // Sin GPS no hay posición: se devuelve la última lectura real, si la hubo, y nunca una coordenada inventada
         return _ultimaUbicacion;
-#else
-        return null;
-#endif
     }
 
     public async Task IniciarTrackingAsync(Guid hojaDeRutaId, Guid repartidorId, CancellationToken cancellationToken = default)
@@ -216,30 +200,6 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 }
             }
         }, ct);
-    }
-
-    public async Task<EvaluacionGeocercasResult> SimularPosicionGpsAsync(
-        double latitud,
-        double longitud,
-        DateTime? timestampUtc = null,
-        CancellationToken cancellationToken = default)
-    {
-        var ahora = timestampUtc ?? DateTime.UtcNow;
-        _modoSimulacionManualActivo = true;
-        _ultimaUbicacion = new Location(latitud, longitud)
-        {
-            Accuracy = 5.0,
-            Timestamp = new DateTimeOffset(ahora, TimeSpan.Zero)
-        };
-
-        return await ProcesarUbicacionYAdaptarMuestreoAsync(
-            DemoDataDefaults.DefaultHojaDeRutaId,
-            DemoDataDefaults.DefaultRepartidorId,
-            latitud,
-            longitud,
-            5.0,
-            ahora,
-            cancellationToken);
     }
 
     private async Task<EvaluacionGeocercasResult> ProcesarUbicacionYAdaptarMuestreoAsync(

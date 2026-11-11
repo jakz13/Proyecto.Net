@@ -51,6 +51,12 @@ public partial class ParadaItemViewModel : ObservableObject
     public Guid HojaDeRutaId { get; set; } = Guid.Empty;
     public Guid EnvioId { get; init; } = Guid.Empty;
 
+    /// <summary>"Entrega" o "Retiro" (retiro en domicilio).</summary>
+    public string Tipo { get; init; } = "Entrega";
+    public Guid? RetiroId { get; init; }
+    public bool EsRetiro => string.Equals(Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+    public string TipoTexto => EsRetiro ? "RETIRO" : "ENTREGA";
+
     [ObservableProperty]
     private int _orden;
 
@@ -124,7 +130,7 @@ public partial class ParadaItemViewModel : ObservableObject
 
     public string EstadoTextoBadge => Estado switch
     {
-        "Entregado" => "Entregado",
+        "Entregado" => EsRetiro ? "Retirado" : "Entregado",
         "EnDevolucion" => "En Devolución",
         "Fallido" => "Fallido",
         _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
@@ -486,15 +492,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             return;
 
         bool hayParadasPendientes = Paradas.Any(p => p.Estado == "Pendiente");
+        bool rutaEnCalle = EstadoHojaDeRuta is "Despachada" or "EnTransito";
 
-        if (hayParadasPendientes)
+        if (hayParadasPendientes && rutaEnCalle)
         {
             var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-            var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId);
-            if (rutaId == Guid.Empty)
-                rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+            var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
 
-            var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
+            // Sin ruta o sin repartidor identificado no hay a quién atribuirle la telemetría
+            if (rutaId == Guid.Empty || _authService?.RepartidorId is not { } repartidorId || repartidorId == Guid.Empty)
+                return;
 
             if (!_trackingService.IsTrackingActive)
             {
@@ -527,7 +534,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         }
         else
         {
-            string motivo = IsOfflineSimulado ? "Offline (Demo)" : "Modo Offline";
+            string motivo = IsOfflineSimulado ? "Sin conexión (manual)" : "Modo Offline";
             TextoBadgeConectividad = pendientes > 0 ? $"{motivo} ({pendientes} pend.)" : motivo;
             BadgeConectividadBgColor = Color.FromArgb("#FEF2F2");
             BadgeConectividadBorderColor = Color.FromArgb("#FCA5A5");
@@ -571,22 +578,20 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         ColaOfflineCount = pendientes;
 
         string opcionToggle = (_syncService?.IsOfflineSimulado ?? false)
-            ? "Desactivar Modo Offline (Pasar a Online)"
-            : "Activar Modo Offline Simulado (Demo)";
+            ? "Volver a conectarse"
+            : "Trabajar sin conexión";
 
-        const string opcionRendirRuta = "Rendir Hoja de Ruta en Depósito";
-        const string opcionSync = "Sincronizar Ahora con Backend";
-        const string opcionReset = "Reiniciar Datos de Demo (Local + Backend)";
-        const string opcionCerrarSesion = "Cerrar Sesión";
+        const string opcionRendirRuta = "Informar llegada al depósito (rendición)";
+        const string opcionSync = "Sincronizar ahora";
+        const string opcionCerrarSesion = "Cerrar sesión";
 
         var seleccion = await Shell.Current.DisplayActionSheetAsync(
-            $"Conectividad y Cola Offline ({pendientes} pendientes)",
+            $"Conectividad y cola ({pendientes} pendientes)",
             "Cerrar",
             null,
             opcionToggle,
             opcionRendirRuta,
             opcionSync,
-            opcionReset,
             opcionCerrarSesion);
 
         if (seleccion == opcionRendirRuta)
@@ -604,8 +609,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 ActualizarEstadoVisualConectividad(true, pendientesRestantes);
                 await RefrescarParadasDesdeSQLiteAsync();
 
-                string mensaje = $"Modo Online activado.\n{syncRes.Mensaje}";
-                await Shell.Current.DisplayAlertAsync("Sincronización al Volver a Línea", mensaje, "Aceptar");
+                string mensaje = $"Conexión restablecida.\n{syncRes.Mensaje}";
+                await Shell.Current.DisplayAlertAsync("Sincronización al volver a línea", mensaje, "Aceptar");
             }
             else
             {
@@ -613,7 +618,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 ActualizarEstadoVisualConectividad(false, p);
                 await Shell.Current.DisplayAlertAsync(
                     "Modo de Conexión",
-                    "Modo Offline Simulado activado para demostración. Las operaciones se registrarán de forma 100% local en SQLite cifrado.",
+                    "Trabajando sin conexión. Las operaciones se guardan en el dispositivo (base cifrada) y se envían cuando se vuelva a conectar.",
                     "Aceptar");
             }
 
@@ -625,7 +630,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             {
                 await Shell.Current.DisplayAlertAsync(
                     "No es posible sincronizar",
-                    "El dispositivo se encuentra en Modo Offline. Desactive el modo offline simulado para transferir la cola al backend.",
+                    "El dispositivo no tiene conexión. Vuelva a conectarse para enviar la cola al servidor.",
                     "Entendido");
                 return;
             }
@@ -635,32 +640,6 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             ActualizarEstadoVisualConectividad(true, pendientesRestantes);
             await Shell.Current.DisplayAlertAsync("Sincronización de Cola", resultado.Mensaje, "Aceptar");
             await RefrescarParadasDesdeSQLiteAsync();
-        }
-        else if (seleccion == opcionReset && _syncService is not null)
-        {
-            bool confirmar = await Shell.Current.DisplayAlertAsync(
-                "Reiniciar Datos de Demo",
-                "¿Desea restablecer los envíos ENV-2026-00108, ENV-2026-00109 y ENV-2026-00110 a estado 'EnTransito' (4) en PostgreSQL y limpiar SQLite local (cola en 0)?",
-                "Sí, reiniciar demo",
-                "Cancelar");
-
-            if (confirmar)
-            {
-                IsBusy = true;
-                try
-                {
-                    _geofenceService?.ReiniciarEstadosMemoria();
-                    MostrarResumenOptimizacion = false;
-                    var res = await _syncService.ReiniciarDemoCompletaAsync();
-                    ActualizarEstadoVisualConectividad(_syncService.IsOnline, 0);
-                    await RefrescarParadasDesdeSQLiteAsync();
-                    await Shell.Current.DisplayAlertAsync("Reinicio de Demo", res, "Aceptar");
-                }
-                finally
-                {
-                    IsBusy = false;
-                }
-            }
         }
         else if (seleccion == opcionCerrarSesion)
         {
@@ -715,7 +694,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             IsBusy = true;
 
-            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
+            var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
             if (_trackingService is { IsTrackingActive: true })
             {
                 await _trackingService.DetenerTrackingAsync();
@@ -830,89 +809,19 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (Shell.Current is null || _trackingService is null)
             return;
 
-        const string opcionEntrada = "Simular Entrada a Geocerca - Parada 1 (45m)";
-        const string opcionSalida = "Simular Salida de Geocerca - Parada 1 (220m)";
         const string opcionAnalisis = "Ver Análisis de Batería e Historial de Geocercas";
         string opcionToggleGps = _trackingService.IsTrackingActive
             ? "Pausar Rastreo GPS Automático"
             : "Activar Rastreo GPS Automático";
 
         var seleccion = await Shell.Current.DisplayActionSheetAsync(
-            "Geocercas y Muestreo Adaptativo de Batería",
+            "Geocercas y consumo de batería",
             "Cerrar",
             null,
-            opcionEntrada,
-            opcionSalida,
             opcionAnalisis,
             opcionToggleGps);
 
-        if (seleccion == opcionEntrada)
-        {
-            var evaluacion = await _trackingService.SimularPosicionGpsAsync(
-                DemoDataDefaults.Parada1SimulacionEntrada45mLat,
-                DemoDataDefaults.Parada1SimulacionEntrada45mLon);
-
-            AplicarEstadosGeocercaEnParadas(evaluacion);
-            ActualizarEstadoVisualTracking(true);
-
-            int pendientes = _syncService != null ? await _syncService.ObtenerCantidadPendientesAsync() : 0;
-            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
-
-            var estadoParada1 = evaluacion.EstadosPorParada.FirstOrDefault(p => p.Orden == 1 || p.CodigoSeguimiento == "ENV-2026-00108");
-            double distanciaCalculada = estadoParada1?.DistanciaMetros ?? 45.0;
-            bool disparoNuevo = evaluacion.EventosDisparados.Any(e => e.TipoEvento == "LLEGADA_GEOCERCA");
-            string estadoSync = (_syncService?.IsOnline ?? false)
-                ? "Sincronizado con el backend (POST /geocerca)"
-                : "Guardado en SQLite local y encolado en OperacionOfflineLocal (Modo Offline)";
-
-            string detalleEvento = disparoNuevo
-                ? "Evento disparado: LLEGADA_GEOCERCA (Radio de entrada < 100m)"
-                : "Histéresis activa: El repartidor ya se encontraba dentro de la geocerca (< 100m), no se duplicó el evento de entrada.";
-
-            await Shell.Current.DisplayAlertAsync(
-                "Geocerca Detectada - Parada 1",
-                $"Posición GPS inyectada frente a Av. 18 de Julio 1450 (ENV-2026-00108).\n\n" +
-                $"- Distancia Haversine calculada: {distanciaCalculada:F1} metros\n" +
-                $"- Estado de Parada 1: En Geocerca (<100m)\n" +
-                $"- {detalleEvento}\n" +
-                $"- Perfil de muestreo: {_trackingService.PerfilAdaptativoActual}\n" +
-                $"- Persistencia: {estadoSync}",
-                "Aceptar");
-        }
-        else if (seleccion == opcionSalida)
-        {
-            var evaluacion = await _trackingService.SimularPosicionGpsAsync(
-                DemoDataDefaults.Parada1SimulacionSalida220mLat,
-                DemoDataDefaults.Parada1SimulacionSalida220mLon);
-
-            AplicarEstadosGeocercaEnParadas(evaluacion);
-
-            int pendientes = _syncService != null ? await _syncService.ObtenerCantidadPendientesAsync() : 0;
-            ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
-
-            var estadoParada1 = evaluacion.EstadosPorParada.FirstOrDefault(p => p.Orden == 1 || p.CodigoSeguimiento == "ENV-2026-00108");
-            double distanciaCalculada = estadoParada1?.DistanciaMetros ?? 220.0;
-            var eventoSalida = evaluacion.EventosDisparados.FirstOrDefault(e => e.TipoEvento == "SALIDA_GEOCERCA");
-            int permanenciaSeg = eventoSalida?.TiempoPermanenciaSegundos ?? estadoParada1?.UltimoTiempoPermanenciaSegundos ?? 0;
-
-            string estadoSync = (_syncService?.IsOnline ?? false)
-                ? "Sincronizado con el backend (POST /geocerca)"
-                : "Guardado en SQLite local y encolado en OperacionOfflineLocal (Modo Offline)";
-
-            string detalleSalida = eventoSalida != null
-                ? $"Evento disparado: SALIDA_GEOCERCA (Radio de salida > 150m)\n- Tiempo de permanencia registrado: {permanenciaSeg} segundos"
-                : "Nota de histéresis: El repartidor no tenía una entrada activa previa en Parada 1. Simule primero la entrada (45m) y luego la salida (220m).";
-
-            await Shell.Current.DisplayAlertAsync(
-                "Salida de Geocerca - Parada 1",
-                $"Posición GPS inyectada a las afueras de Av. 18 de Julio 1450 (ENV-2026-00108).\n\n" +
-                $"- Distancia Haversine calculada: {distanciaCalculada:F1} metros\n" +
-                $"- {detalleSalida}\n" +
-                $"- Perfil de muestreo: {_trackingService.PerfilAdaptativoActual}\n" +
-                $"- Persistencia: {estadoSync}",
-                "Aceptar");
-        }
-        else if (seleccion == opcionAnalisis)
+        if (seleccion == opcionAnalisis)
         {
             var informe = await _trackingService.ObtenerInformeBateriaEHistorialGeocercasAsync();
             await Shell.Current.DisplayAlertAsync(
@@ -932,11 +841,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             }
             else
             {
-                var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? DemoDataDefaults.DefaultHojaDeRutaId;
-                if (rutaId == Guid.Empty)
-                    rutaId = DemoDataDefaults.DefaultHojaDeRutaId;
+                var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
+                if (rutaId == Guid.Empty || _authService?.RepartidorId is not { } repartidorId || repartidorId == Guid.Empty)
+                {
+                    await Shell.Current.DisplayAlertAsync(
+                        "Rastreo GPS",
+                        "No hay una hoja de ruta descargada o no se identificó al repartidor: no se puede iniciar el rastreo.",
+                        "Entendido");
+                    return;
+                }
 
-                var repartidorId = (_authService?.RepartidorId is { } rId && rId != Guid.Empty) ? rId : DemoDataDefaults.DefaultRepartidorId;
                 await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
                 string modoSegundoPlano = _trackingService.ForegroundServiceActivo
                     ? "\nModo segundo plano: Activo con soporte de pantalla apagada (Servicio en primer plano Android)."

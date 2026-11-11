@@ -291,10 +291,16 @@
                                         StrokeShape="RoundRectangle 8"
                                         Padding="8,3"
                                         VerticalOptions="Center">
-                                    <Label Text="{Binding Orden, StringFormat='Parada {0}'}"
-                                           TextColor="{StaticResource Primary}"
-                                           FontAttributes="Bold"
-                                           FontSize="12" />
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="{Binding Orden, StringFormat='Parada {0}'}"
+                                               TextColor="{StaticResource Primary}"
+                                               FontAttributes="Bold"
+                                               FontSize="12" />
+                                        <Label Text="{Binding TipoTexto}"
+                                               TextColor="{StaticResource Primary}"
+                                               FontAttributes="Bold"
+                                               FontSize="11" />
+                                    </HorizontalStackLayout>
                                 </Border>
 
                                 <Label Grid.Column="1"

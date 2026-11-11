@@ -31,6 +31,57 @@
             </Border>
 
             <!-- ========================================================= -->
+            <!-- BULTOS DE LA PARADA: ENTREGA TOTAL O PARCIAL              -->
+            <!-- ========================================================= -->
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding TieneVariosBultos}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Bultos que se entregan"
+                           Style="{StaticResource H3Label}" />
+                    <Label Text="Todos vienen marcados. Desmarque los que no se entregan ahora, o escanee un bulto para confirmarlo."
+                           Style="{StaticResource CaptionLabel}" />
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bultos}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BultoEntregaItemViewModel">
+                                <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding Entregado, Mode=TwoWay}" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding Codigo}" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Grid.Column="2" Text="{Binding PesoTexto}" Style="{StaticResource CaptionLabel}" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding ResumenBultosTexto}"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource Primary}" />
+
+                    <Button Text="Escanear bulto"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding EscanearBultoCommand}"
+                            HeightRequest="42"
+                            FontSize="13" />
+
+                    <!-- Solo en entrega parcial: motivo de los bultos que quedan pendientes -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding EsEntregaParcial}">
+                        <Label Text="Motivo de los bultos no entregados *"
+                               FontSize="13"
+                               FontAttributes="Bold" />
+                        <Border Style="{StaticResource InputContainer}">
+                            <Picker ItemsSource="{Binding MotivosNoEntrega}"
+                                    SelectedItem="{Binding MotivoSeleccionado, Mode=TwoWay}"
+                                    Title="Seleccione el motivo" />
+                        </Border>
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding ObservacionesPendientes}"
+                                   Placeholder="Observaciones (opcional)"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================= -->
             <!-- FORMULARIO DE DATOS DEL RECEPTOR                          -->
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
@@ -59,7 +110,7 @@
 
                         <Border Style="{StaticResource InputContainer}">
                             <Entry Text="{Binding DocumentoReceptor}"
-                                   Placeholder="Ej. 4.123.456-7"
+                                   Placeholder="Documento de identidad"
                                    Keyboard="Numeric"
                                    ClearButtonVisibility="WhileEditing" />
                         </Border>
@@ -82,13 +133,6 @@
                                Margin="0,0,8,4" />
 
                         <HorizontalStackLayout Spacing="8" Margin="0,0,0,4">
-                            <Button Text="Firma Demo"
-                                    Style="{StaticResource SecondaryButton}"
-                                    HeightRequest="36"
-                                    Padding="10,0"
-                                    FontSize="12"
-                                    Command="{Binding SimularFirmaCommand}" />
-
                             <Button Text="Limpiar Firma"
                                     Style="{StaticResource SecondaryButton}"
                                     HeightRequest="36"
@@ -240,7 +284,7 @@
             <!-- ========================================================= -->
             <!-- BOTÓN PRINCIPAL DE ACCIÓN: GUARDAR ENTREGA                -->
             <!-- ========================================================= -->
-            <Button Text="Guardar Entrega"
+            <Button Text="{Binding TituloGuardar}"
                     Style="{StaticResource SuccessButton}"
                     Command="{Binding GuardarEntregaCommand}"
                     IsEnabled="{Binding IsNotBusy}"

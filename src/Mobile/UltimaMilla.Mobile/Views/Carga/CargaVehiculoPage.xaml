@@ -109,7 +109,7 @@
                                 HeightRequest="44"
                                 BackgroundColor="{StaticResource InputBackground}">
                             <Entry Text="{Binding CodigoEscaneoInput, Mode=TwoWay}"
-                                   Placeholder="Código de bulto (ej: BLT-001-A)"
+                                   Placeholder="Código del bulto"
                                    PlaceholderColor="{StaticResource TextMuted}"
                                    TextColor="{StaticResource TextPrimary}"
                                    ReturnCommand="{Binding EscanearCodigoManualCommand}"
@@ -133,10 +133,9 @@
                                 HeightRequest="40"
                                 FontSize="12" />
 
-                        <Button Text="Simular Escaneo Completo"
+                        <Button Text="Actualizar"
                                 Style="{StaticResource SecondaryButton}"
-                                Command="{Binding SimularEscaneoCompletoCommand}"
-                                IsVisible="{Binding TieneBultosPendientes}"
+                                Command="{Binding ActualizarCommand}"
                                 HeightRequest="40"
                                 FontSize="12" />
                     </controls:AdaptiveRow>
@@ -372,16 +371,28 @@
             <!-- BOTONES DE ACCIÓN PRINCIPAL (SALIDA / DESPACHO)           -->
             <!-- ========================================================= -->
             <VerticalStackLayout Spacing="8" Margin="0,12,0,24">
-                <!-- Botón para confirmar carga y despachar vehículo -->
-                <Button Text="Confirmar Carga y Despachar Vehículo"
+                <!-- Estado frente al depósito: sin ruta, esperando despacho o ruta despachada -->
+                <Border BackgroundColor="#EFF6FF"
+                        Stroke="#93C5FD"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="12,10"
+                        IsVisible="{Binding EsperandoDespacho}">
+                    <Label Text="{Binding MensajeEstadoDespacho}"
+                           FontSize="12"
+                           TextColor="#1E3A8A" />
+                </Border>
+
+                <!-- Botón para informar la carga al depósito (el despacho lo hace el despachador) -->
+                <Button Text="Confirmar carga"
                         Style="{StaticResource SuccessButton}"
-                        Command="{Binding ConfirmarCargaYDespacharCommand}"
+                        Command="{Binding ConfirmarCargaCommand}"
                         IsEnabled="{Binding PuedeConfirmarCarga}"
                         IsVisible="{Binding EsRutaLiberada}"
                         HeightRequest="52"
                         FontSize="14" />
 
-                <!-- Botón para iniciar recorrido cuando ya está despachada -->
+                <!-- Botón para iniciar recorrido: solo cuando el depósito despachó la ruta -->
                 <Button Text="Iniciar Recorrido en Calle"
                         Style="{StaticResource PrimaryButton}"
                         Command="{Binding IniciarRecorridoCommand}"

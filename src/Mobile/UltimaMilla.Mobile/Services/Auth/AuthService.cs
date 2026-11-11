@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Configuration;
+using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Services.Handlers;
 
@@ -42,11 +43,10 @@ public class AuthService : IAuthService
     public const string TenantIdKey = "auth_tenant_id";
     public const string ExpiraUtcKey = "auth_exp_utc";
     public const string PasswordHashKey = "auth_password_hash";
-    public const string DemoRepartidorEmail = "repartidor@gmail.com";
-    public const string DemoRepartidorPassword = "Repartidor.2026!";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AuthService> _logger;
+    private readonly ILocalDatabaseService _localDatabaseService;
 
     public string? AccessToken { get; private set; }
     public Guid? RepartidorId { get; private set; }
@@ -55,10 +55,11 @@ public class AuthService : IAuthService
     public string? Email { get; private set; }
     public Guid? TenantId { get; private set; }
 
-    public AuthService(IHttpClientFactory httpClientFactory, ILogger<AuthService> logger)
+    public AuthService(IHttpClientFactory httpClientFactory, ILogger<AuthService> logger, ILocalDatabaseService localDatabaseService)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _localDatabaseService = localDatabaseService;
     }
 
     public async Task<ResultadoLogin> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -242,6 +243,20 @@ public class AuthService : IAuthService
     public async Task CerrarSesionAsync()
     {
         await LimpiarCredencialesAsync();
+
+        // El siguiente repartidor no debe ver la hoja de ruta del anterior. Si quedan operaciones sin enviar se conserva todo
+        // para no perderlas; se limpia apenas se sincronicen.
+        try
+        {
+            if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+            {
+                await _localDatabaseService.LimpiarDatosDeRutaAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo limpiar la hoja de ruta local al cerrar sesión.");
+        }
 
         if (Shell.Current is not null)
         {
