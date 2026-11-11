@@ -99,7 +99,7 @@ public class TokenJwtService : ITokenJwtService
             { "sub", usuario.Id.ToString() },
             { "name", usuario.Nombre },
             { "email", usuario.Email },
-            { "role", perfil.Nombre },
+            { "role", perfil.RolDeAutorizacion },
             { "perfil_id", perfil.Id.ToString() },
             { "iss", _emisor },
             { "aud", _audiencia },

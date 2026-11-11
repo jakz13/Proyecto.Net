@@ -13,6 +13,16 @@ public class Perfil : AggregateRoot
 
     protected Perfil() { }
 
+    /// <summary>
+    /// Rol con el que viaja el perfil en el token y con el que la API autoriza. El perfil del comercio se muestra como
+    /// "Administrador de Comercio", pero su rol de autorización es "Comercio": renombrar el perfil no cambia lo que puede hacer.
+    /// </summary>
+    public string RolDeAutorizacion =>
+        Nombre.Equals("Administrador de Comercio", StringComparison.OrdinalIgnoreCase)
+        || Nombre.Equals("ComercioAdmin", StringComparison.OrdinalIgnoreCase)
+            ? "Comercio"
+            : Nombre;
+
     public Perfil(Guid id, string nombre, string descripcion) : base(id)
     {
         if (id == Guid.Empty)
