@@ -80,55 +80,6 @@ public class SignaturePadDrawable : IDrawable
         }
     }
 
-    /// <summary>
-    /// Genera trazos fluidos de firma de demostración para pruebas visuales en pantalla.
-    /// </summary>
-    public void CargarTrazoDemo()
-    {
-        lock (_syncLock)
-        {
-            _trazoActual = null;
-            Trazos.Clear();
-
-            // Trazo 1: Rúbrica inicial
-            var t1 = new List<PointF>
-            {
-                new(40f, 120f),
-                new(55f, 90f),
-                new(70f, 60f),
-                new(85f, 115f),
-                new(100f, 75f),
-                new(115f, 105f),
-                new(135f, 90f),
-                new(160f, 100f)
-            };
-            Trazos.Add(t1);
-
-            // Trazo 2: Cruzado central
-            var t2 = new List<PointF>
-            {
-                new(65f, 90f),
-                new(95f, 88f),
-                new(125f, 92f),
-                new(150f, 90f)
-            };
-            Trazos.Add(t2);
-
-            // Trazo 3: Trazo inferior dinámico
-            var t3 = new List<PointF>
-            {
-                new(165f, 95f),
-                new(190f, 80f),
-                new(215f, 110f),
-                new(245f, 85f),
-                new(275f, 105f),
-                new(305f, 95f),
-                new(330f, 110f)
-            };
-            Trazos.Add(t3);
-        }
-    }
-
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
         try

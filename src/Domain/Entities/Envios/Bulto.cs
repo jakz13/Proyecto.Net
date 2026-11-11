@@ -159,14 +159,6 @@ public class Bulto : Entity
         EstadoBulto = MaquinaEstadosBulto.Devuelto;
     }
 
-    /// <summary>Restablece el bulto como cargado en vehículo únicamente para reinicio de demostraciones.</summary>
-    public void ReiniciarEstadoParaDemo()
-    {
-        EstadoBulto = MaquinaEstadosBulto.CargadoEnVehiculo;
-        MotivoNoEntregaCodigo = null;
-        PruebaDeEntregaId = null;
-    }
-
     /// <summary>Valida que el bulto admita la clasificación indicada y devuelve el tipo normalizado.</summary>
     public string? ValidarClasificacion(PrioridadBulto prioridad, Guid? zonaCoberturaId, string? tipo)
     {

@@ -178,18 +178,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
                 : (direccion?.ToString() ?? retiro?.DireccionRetiro ?? "Dirección sin especificar");
 
             (double? lat, double? lon) = (direccion?.Latitud, direccion?.Longitud);
-            if (!lat.HasValue || !lon.HasValue)
-            {
-                (lat, lon) = codigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => (-34.9058, -56.1885),
-                    "ENV-2026-00109" => (-34.9145, -56.1552),
-                    "ENV-2026-00110" => (-34.9238, -56.1598),
-                    _ => ((double?)null, (double?)null)
-                };
-            }
+            // Sin coordenadas registradas la parada no se geolocaliza: la app la muestra sin mapa en lugar de ubicarla en un lugar inventado
 
-            string ventanaHoraria = "09:00 - 13:00";
+            string? ventanaHoraria = null;
             if (parada.FranjaHorariaId.HasValue && franjasDict.TryGetValue(parada.FranjaHorariaId.Value, out var franja))
             {
                 ventanaHoraria = $"{franja.HoraInicio:HH\\:mm} - {franja.HoraFin:HH\\:mm}";
@@ -197,7 +188,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
 
             var contacto = new DestinatarioContactoDto(
                 Nombre: destinatario?.Nombre ?? envio?.NombreDestinatario ?? retiro?.NombreContacto ?? "Destinatario no especificado",
-                Telefono: destinatario?.Telefono ?? retiro?.TelefonoContacto ?? "+598 99 123 456",
+                Telefono: destinatario?.Telefono ?? retiro?.TelefonoContacto,
                 Email: destinatario?.Email ?? retiro?.EmailContacto,
                 ReferenciaEntrega: direccion?.Referencia
             );

@@ -153,7 +153,7 @@ public class IndexModel : PageModel
 
                 Modelo.LogoUrl = $"/uploads/logos/{nombreArchivo}";
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 MensajeError = "No se pudo guardar la imagen subida.";
                 await CargarIdentidadAsync();

@@ -8,6 +8,8 @@ namespace UltimaMilla.Api.Endpoints;
 
 public static class AuthEndpoints
 {
+    public const string PoliticaLimiteLogin = "limite-login";
+
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/auth")
@@ -44,6 +46,7 @@ public static class AuthEndpoints
 
         group.MapPost("/login", loginHandler)
             .AllowAnonymous()
+            .RequireRateLimiting(PoliticaLimiteLogin)
             .WithName("IniciarSesion")
             .WithSummary("Iniciar sesión y obtener token JWT (UC-40)")
             .WithDescription("Valida las credenciales del usuario, previene fuerza bruta bloqueando temporalmente tras reiterados fallos, y emite el token JWT con su perfil, operador y comercio asignado.")
@@ -52,10 +55,12 @@ public static class AuthEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status423Locked)
             .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status429TooManyRequests)
             .WithOpenApi();
 
         app.MapPost("/api/auth/login", loginHandler)
             .AllowAnonymous()
+            .RequireRateLimiting(PoliticaLimiteLogin)
             .WithTags("Autenticación y Autorización (UC-40)")
             .ExcludeFromDescription();
 

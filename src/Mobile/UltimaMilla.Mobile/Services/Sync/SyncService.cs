@@ -42,7 +42,12 @@ public interface ISyncService
     Task<SyncResult> SincronizarOperacionesPendientesAsync(CancellationToken cancellationToken = default);
     Task AlternarModoOfflineSimuladoAsync();
     Task<int> ObtenerCantidadPendientesAsync();
-    Task<string> ReiniciarDemoCompletaAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Indica si el operador tiene habilitada una funcionalidad ("entrega-parcial", "retiro-en-domicilio"…), según la última consulta
+    /// al servidor. Mientras no se haya podido consultar, se considera habilitada: no se oculta nada por falta de datos.
+    /// </summary>
+    bool FuncionalidadHabilitada(string clave);
 }
 
 public class SyncService : ISyncService, IDisposable
@@ -136,6 +141,28 @@ public class SyncService : ISyncService, IDisposable
         return await _localDatabaseService.ObtenerCantidadPendientesAsync();
     }
 
+    private Dictionary<string, bool> _funcionalidades = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool FuncionalidadHabilitada(string clave) =>
+        !_funcionalidades.TryGetValue(clave, out var habilitada) || habilitada;
+
+    /// <summary>Consulta las funcionalidades activas del operador (GET /api/funcionalidades). Un fallo no interrumpe la descarga de la ruta.</summary>
+    private async Task ActualizarFuncionalidadesAsync(HttpClient client, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var respuesta = await client.GetFromJsonAsync<Dictionary<string, bool>>("/api/funcionalidades", JsonOptions, cancellationToken);
+            if (respuesta is not null)
+            {
+                _funcionalidades = new Dictionary<string, bool>(respuesta, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudieron consultar las funcionalidades del operador; se mantienen las últimas conocidas.");
+        }
+    }
+
     /// <summary>
     /// Descarga dinámicamente la hoja de ruta activa del repartidor autenticado desde GET /api/mobile/v1/rutas/activa
     /// y la persiste en SQLite cifrado. Si el dispositivo está en modo offline o sin señal, recupera la última ruta sincronizada en SQLite.
@@ -148,6 +175,8 @@ public class SyncService : ISyncService, IDisposable
             {
                 var client = _httpClientFactory.CreateClient("BackendApi");
                 client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+                await ActualizarFuncionalidadesAsync(client, cancellationToken);
 
                 // 1. Consultar endpoint autenticado de ruta activa del repartidor
                 var responseActiva = await client.GetAsync("/api/mobile/v1/rutas/activa", cancellationToken);
@@ -180,7 +209,8 @@ public class SyncService : ISyncService, IDisposable
                             rutaActiva.HojaDeRutaId,
                             rutaActiva.Paradas,
                             motivosLocal,
-                            estadoRuta: rutaActiva.Estado);
+                            estadoRuta: rutaActiva.Estado,
+                            numeroRuta: rutaActiva.NumeroRuta);
 
                         _logger.LogInformation(
                             "Hoja de ruta activa {RutaId} descargada para el repartidor {RepartidorId} ({Count} paradas).",
@@ -199,6 +229,11 @@ public class SyncService : ISyncService, IDisposable
                 else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound && !hojaDeRutaId.HasValue)
                 {
                     _logger.LogInformation("El repartidor autenticado no posee una hoja de ruta activa en el servidor (404).");
+                    // Si ya no tiene ruta (por ejemplo, la rindieron) y no queda nada por enviar, se descarta la copia local vieja
+                    if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                    {
+                        await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                    }
                     await NotificarCambioEstadoAsync("Sin hoja de ruta activa asignada.");
                     return new List<ParadaItemViewModel>();
                 }
@@ -398,16 +433,8 @@ public class SyncService : ISyncService, IDisposable
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "ConfirmarCarga", detallesErrores, cancellationToken);
                                 if (ok)
                                 {
+                                    // El despacho de la ruta lo hace el despachador desde el depósito: la app solo informa la carga
                                     exitosas++;
-                                    try
-                                    {
-                                        var despachoUrl = $"/api/planificacion/hojas-de-ruta/{targetRutaId}/despacho";
-                                        await client.PostAsJsonAsync(despachoUrl, new { Observaciones = payload.ObservacionesDiscrepancia }, cancellationToken);
-                                    }
-                                    catch (Exception exDespacho)
-                                    {
-                                        _logger.LogWarning(exDespacho, "No se pudo invocar el despacho automático tras confirmar carga para la ruta {RutaId}.", targetRutaId);
-                                    }
                                 }
                                 else
                                 {
@@ -559,6 +586,106 @@ public class SyncService : ISyncService, IDisposable
                                     detallesErrores.Add(detalle);
                                     erroresNegocio++;
                                 }
+                            }
+                            break;
+                        }
+
+                        case TiposOperacionOffline.EntregaParcial:
+                        {
+                            var payload = JsonSerializer.Deserialize<EntregaParcialOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
+
+                                var req = new
+                                {
+                                    EnvioId = payload.EnvioId,
+                                    IdempotencyKey = payload.IdempotencyKey,
+                                    CodigosBultosEntregados = payload.CodigosBultosEntregados,
+                                    BultosNoEntregados = payload.BultosNoEntregados.Select(b => new
+                                    {
+                                        CodigoBulto = b.CodigoBulto,
+                                        MotivoCodigo = b.MotivoCodigo,
+                                        MotivoNoEntregaId = b.MotivoNoEntregaId,
+                                        Observaciones = b.Observaciones
+                                    }).ToList(),
+                                    NombreReceptor = payload.NombreReceptor,
+                                    DocumentoReceptor = payload.DocumentoReceptor,
+                                    FirmaDigitalBase64 = payload.FirmaDigitalBase64,
+                                    FotoEvidenciaBase64 = payload.FotoEvidenciaBase64,
+                                    Latitud = payload.Latitud,
+                                    Longitud = payload.Longitud,
+                                    FechaHoraDispositivoUtc = payload.FechaHoraDispositivoUtc
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/entrega-parcial";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "EntregaParcial", detallesErrores, cancellationToken);
+                                if (ok) exitosas++; else erroresNegocio++;
+                            }
+                            break;
+                        }
+
+                        case TiposOperacionOffline.RetiroRealizado:
+                        {
+                            var payload = JsonSerializer.Deserialize<RetiroRealizadoOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
+
+                                var req = new
+                                {
+                                    RetiroId = payload.RetiroId,
+                                    IdempotencyKey = payload.IdempotencyKey,
+                                    CodigosBultosEscaneados = payload.CodigosBultosEscaneados,
+                                    FotoEstadoBase64 = payload.FotoEstadoBase64,
+                                    FirmaBase64 = payload.FirmaBase64,
+                                    NombreEntrega = payload.NombreEntrega,
+                                    DocumentoEntrega = payload.DocumentoEntrega,
+                                    Latitud = payload.Latitud,
+                                    Longitud = payload.Longitud,
+                                    FechaHoraDispositivoUtc = payload.FechaHoraDispositivoUtc
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/retiro";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroRealizado", detallesErrores, cancellationToken);
+                                if (ok)
+                                {
+                                    // Si el servidor cambió el retiro mientras no había conexión, prevalece lo hecho en el domicilio (conflictoResuelto)
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
+                        case TiposOperacionOffline.RetiroNoRealizado:
+                        {
+                            var payload = JsonSerializer.Deserialize<RetiroNoRealizadoOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                if (payload.HojaDeRutaId == Guid.Empty) payload.HojaDeRutaId = rutaActivaId;
+
+                                var req = new
+                                {
+                                    RetiroId = payload.RetiroId,
+                                    IdempotencyKey = payload.IdempotencyKey,
+                                    MotivoCodigo = payload.MotivoCodigo,
+                                    MotivoNoEntregaId = payload.MotivoNoEntregaId,
+                                    Observaciones = payload.Observaciones,
+                                    Latitud = payload.Latitud,
+                                    Longitud = payload.Longitud,
+                                    FechaHoraDispositivoUtc = payload.FechaHoraDispositivoUtc
+                                };
+
+                                var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/retiro/no-realizado";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroNoRealizado", detallesErrores, cancellationToken);
+                                if (ok) exitosas++; else erroresNegocio++;
                             }
                             break;
                         }
@@ -777,39 +904,6 @@ public class SyncService : ISyncService, IDisposable
         await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
         detallesErrores.Add(detalle);
         return false;
-    }
-
-    public async Task<string> ReiniciarDemoCompletaAsync(CancellationToken cancellationToken = default)
-    {
-        string msgBackend = string.Empty;
-        try
-        {
-            var client = _httpClientFactory.CreateClient("BackendApi");
-            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
-            var response = await client.PostAsync("/api/mobile/v1/demo/reset", null, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                msgBackend = "Backend (PostgreSQL) reiniciado: ENV-2026-00108, ENV-2026-00109 y ENV-2026-00110 restaurados a EnTransito (4).\n";
-            }
-            else
-            {
-                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                msgBackend = $"Aviso backend: HTTP {(int)response.StatusCode} - {errorBody}\n";
-            }
-        }
-        catch (Exception ex)
-        {
-            msgBackend = $"Aviso: No fue posible contactar backend ({ex.Message}). Continuando con reinicio local.\n";
-        }
-
-        await _localDatabaseService.ReiniciarDatosDemoLocalAsync();
-        if (IsOnline)
-        {
-            await DescargarRutaDelDiaAsync(null, cancellationToken);
-        }
-        await NotificarCambioEstadoAsync("Datos de demo reiniciados local y remotamente.");
-
-        return $"{msgBackend}Base SQLite local reiniciada con éxito (cola en 0).";
     }
 
     private async Task NotificarCambioEstadoAsync(string? mensaje = null)

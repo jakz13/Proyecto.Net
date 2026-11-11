@@ -61,12 +61,6 @@ public interface IGeolocalizacionTrackingService : IAsyncDisposable
 
     Task DetenerTrackingAsync();
 
-    Task<EvaluacionGeocercasResult> SimularPosicionGpsAsync(
-        double latitud,
-        double longitud,
-        DateTime? timestampUtc = null,
-        CancellationToken cancellationToken = default);
-
     TelemetriaBateriaGeocercaDto ObtenerTelemetriaBateriaActual();
 
     Task<string> ObtenerInformeBateriaEHistorialGeocercasAsync();

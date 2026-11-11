@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,18 +24,46 @@ namespace UltimaMilla.Api.Endpoints;
 public static class WorkerProcesosEndpoints
 {
     private const int MaximoBytesPayload = 64 * 1024;
-    private const int MaximoRecibidosEnMemoria = 50;
+    private const int MaximoRecibidos = 50;
+    private const string ClaveCacheConfiguracion = "testing:webhook-receiver:configuracion";
+    private const string ClaveCacheRecibidos = "testing:webhook-receiver:recibidos";
+    private static readonly TimeSpan VigenciaEstadoPrueba = TimeSpan.FromHours(6);
 
-    private static readonly ConcurrentQueue<WebhookRecibidoDto> Recibidos = new();
-    private static volatile int _codigoRespuestaSimulado = StatusCodes.Status200OK;
-    private static volatile string _claveFirmaEsperada = "secreto-demo-comercio";
+    /// <summary>
+    /// El receptor de prueba es una herramienta de verificación (escenario de la defensa): recibe sin sesión, porque quien llama es el worker,
+    /// así que <b>solo existe si se lo habilita</b> (<c>Avisos:ReceptorDePrueba:Habilitado</c>; por defecto, solo en desarrollo).
+    /// Su estado vive en el caché distribuido, no en memoria del proceso: con dos instancias de la API ambas ven lo mismo.
+    /// </summary>
+    public static bool ReceptorDePruebaHabilitado(IConfiguration configuracion, IHostEnvironment entorno) =>
+        configuracion.GetValue<bool?>("Avisos:ReceptorDePrueba:Habilitado") ?? ModoDemo.Permitido(configuracion, entorno);
+
+    private sealed record ConfiguracionReceptor(int CodigoRespuestaHttp, string ClaveFirma);
+
+    private static async Task<ConfiguracionReceptor> LeerConfiguracionAsync(IDistributedCacheService cache, IConfiguration configuracion, CancellationToken ct) =>
+        await cache.GetAsync<ConfiguracionReceptor>(ClaveCacheConfiguracion, ct)
+        ?? new ConfiguracionReceptor(StatusCodes.Status200OK, configuracion["Avisos:ReceptorDePrueba:Clave"] ?? "secreto-demo-comercio");
 
     public static IEndpointRouteBuilder MapWorkerProcesosEndpoints(this IEndpointRouteBuilder app)
+    {
+        var configuracionApp = app.ServiceProvider.GetRequiredService<IConfiguration>();
+        if (ReceptorDePruebaHabilitado(configuracionApp, app.ServiceProvider.GetRequiredService<IHostEnvironment>()))
+        {
+            MapReceptorDePrueba(app);
+        }
+
+        return MapSuscripcionesYProcesos(app);
+    }
+
+    private static void MapReceptorDePrueba(IEndpointRouteBuilder app)
     {
         var receptor = app.MapGroup("/api/testing/webhook-receiver")
             .WithTags("Receptor de prueba de Webhooks (§6.9)");
 
-        receptor.MapPost("/", async (HttpRequest request, CancellationToken ct) =>
+        receptor.MapPost("/", async (
+            HttpRequest request,
+            [FromServices] IDistributedCacheService cache,
+            [FromServices] IConfiguration configuracion,
+            CancellationToken ct) =>
         {
             if (request.ContentLength is > MaximoBytesPayload)
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
@@ -50,48 +77,58 @@ public static class WorkerProcesosEndpoints
             var payload = new string(buffer, 0, leidos);
             var firma = request.Headers[FirmaWebhook.CabeceraFirma].FirstOrDefault();
             var avisoId = request.Headers[FirmaWebhook.CabeceraIdAviso].FirstOrDefault();
-            var clave = _claveFirmaEsperada;
-            var firmaValida = !string.IsNullOrWhiteSpace(clave) && FirmaWebhook.EsValida(clave, payload, firma);
-            var codigo = _codigoRespuestaSimulado;
+            var estado = await LeerConfiguracionAsync(cache, configuracion, ct);
+            var firmaValida = !string.IsNullOrWhiteSpace(estado.ClaveFirma) && FirmaWebhook.EsValida(estado.ClaveFirma, payload, firma);
 
-            Recibidos.Enqueue(new WebhookRecibidoDto(
+            var recibidos = await cache.GetAsync<List<WebhookRecibidoDto>>(ClaveCacheRecibidos, ct) ?? new List<WebhookRecibidoDto>();
+            recibidos.Add(new WebhookRecibidoDto(
                 Guid.TryParse(avisoId, out var id) ? id : null,
                 DateTime.UtcNow,
-                codigo,
+                estado.CodigoRespuestaHttp,
                 firma,
                 firmaValida,
                 payload));
+            if (recibidos.Count > MaximoRecibidos)
+                recibidos.RemoveRange(0, recibidos.Count - MaximoRecibidos);
+            await cache.SetAsync(ClaveCacheRecibidos, recibidos, VigenciaEstadoPrueba, ct);
 
-            while (Recibidos.Count > MaximoRecibidosEnMemoria && Recibidos.TryDequeue(out _))
-            {
-            }
-
-            return Results.Json(new { recibido = codigo is >= 200 and < 300, firmaValida }, statusCode: codigo);
+            return Results.Json(new { recibido = estado.CodigoRespuestaHttp is >= 200 and < 300, firmaValida }, statusCode: estado.CodigoRespuestaHttp);
         })
         .AllowAnonymous()
         .WithName("RecibirWebhookDePrueba")
         .WithSummary("Receptor de prueba para avisos automáticos a comercios (§6.9)");
 
-        receptor.MapPut("/configuracion", ([FromBody] ConfigurarReceptorWebhookRequest req) =>
+        receptor.MapPut("/configuracion", async (
+            [FromBody] ConfigurarReceptorWebhookRequest req,
+            [FromServices] IDistributedCacheService cache,
+            [FromServices] IConfiguration configuracion,
+            CancellationToken ct) =>
         {
             if (req.CodigoRespuestaHttp is < 200 or > 599)
                 return Results.BadRequest(new { error = "El código HTTP simulado debe estar entre 200 y 599." });
 
-            _codigoRespuestaSimulado = req.CodigoRespuestaHttp;
-            if (!string.IsNullOrWhiteSpace(req.ClaveFirma))
-                _claveFirmaEsperada = req.ClaveFirma.Trim();
+            var actual = await LeerConfiguracionAsync(cache, configuracion, ct);
+            var clave = string.IsNullOrWhiteSpace(req.ClaveFirma) ? actual.ClaveFirma : req.ClaveFirma.Trim();
+            await cache.SetAsync(ClaveCacheConfiguracion, new ConfiguracionReceptor(req.CodigoRespuestaHttp, clave), VigenciaEstadoPrueba, ct);
 
-            return Results.Ok(new { codigoRespuestaHttp = _codigoRespuestaSimulado });
+            return Results.Ok(new { codigoRespuestaHttp = req.CodigoRespuestaHttp });
         })
         .RequireAuthorization(PoliticasApi.Administracion)
         .WithName("ConfigurarReceptorWebhookDePrueba")
         .WithSummary("Configurar el modo de respuesta (200 OK o falla 5xx) del receptor de prueba");
 
-        receptor.MapGet("/recibidos", () => Results.Ok(Recibidos.Reverse().ToList()))
+        receptor.MapGet("/recibidos", async ([FromServices] IDistributedCacheService cache, CancellationToken ct) =>
+            {
+                var recibidos = await cache.GetAsync<List<WebhookRecibidoDto>>(ClaveCacheRecibidos, ct) ?? new List<WebhookRecibidoDto>();
+                return Results.Ok(Enumerable.Reverse(recibidos).ToList());
+            })
             .RequireAuthorization(PoliticasApi.Administracion)
             .WithName("ListarWebhooksRecibidosDePrueba")
             .WithSummary("Consultar los avisos recibidos por el receptor de prueba y la validez de su firma");
+    }
 
+    private static IEndpointRouteBuilder MapSuscripcionesYProcesos(IEndpointRouteBuilder app)
+    {
         var suscripciones = app.MapGroup("/api/comercio/webhooks/suscripciones")
             .WithTags("Suscripciones de Webhooks del Comercio (UC-36)")
             .RequireAuthorization(PoliticasApi.Comercio);

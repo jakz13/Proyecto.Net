@@ -123,11 +123,12 @@ public class DevMobileAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
     }
 
     /// <summary>
-    /// Lee <c>Auth:PermitirModoDemo</c> (por defecto <c>true</c>, para desarrollo local). En el servidor se apaga
-    /// con la variable de entorno <c>Auth__PermitirModoDemo=false</c>.
+    /// Ver <see cref="ModoDemo"/>: por defecto solo en desarrollo; <c>Auth__PermitirModoDemo</c> lo fuerza en uno u otro sentido.
     /// </summary>
     private bool ModoDemoPermitido() =>
-        Context.RequestServices.GetRequiredService<IConfiguration>().GetValue("Auth:PermitirModoDemo", true);
+        ModoDemo.Permitido(
+            Context.RequestServices.GetRequiredService<IConfiguration>(),
+            Context.RequestServices.GetRequiredService<IHostEnvironment>());
 
     private static ClaimsPrincipal? ExtraerClaimsDeTokenDemo(string token)
     {

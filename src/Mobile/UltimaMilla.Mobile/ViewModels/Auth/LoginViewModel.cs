@@ -92,15 +92,6 @@ public partial class LoginViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CargarCredencialesDemo()
-    {
-        ErrorMessage = null;
-        Usuario = AuthService.DemoRepartidorEmail;
-        Password = AuthService.DemoRepartidorPassword;
-        StatusMessage = "Credenciales de demostración cargadas.";
-    }
-
-    [RelayCommand]
     private async Task LoginAsync()
     {
         if (IsBusy)
@@ -228,14 +219,9 @@ public partial class LoginViewModel : ObservableObject
                 return;
             }
 
-            // Si no hay sesión previa en SecureStorage, cargar credenciales demo por defecto
-            if (string.IsNullOrWhiteSpace(Usuario))
-            {
-                Usuario = AuthService.DemoRepartidorEmail;
-                Password = AuthService.DemoRepartidorPassword;
-            }
-
-            await LoginAsync();
+            // Sin una sesión guardada no hay con qué reanudar: se piden las credenciales
+            StatusMessage = null;
+            ErrorMessage = "No hay una sesión guardada en este dispositivo. Ingrese su usuario y contraseña.";
         }
         catch (Exception ex)
         {

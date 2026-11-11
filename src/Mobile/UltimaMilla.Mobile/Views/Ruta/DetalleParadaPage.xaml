@@ -269,6 +269,16 @@
                         Style="{StaticResource SuccessButton}"
                         Command="{Binding IrAConfirmarEntregaCommand}"
                         IsEnabled="{Binding PuedeConfirmarEntrega}"
+                        IsVisible="{Binding EsEntrega}"
+                        HeightRequest="46"
+                        FontSize="14.5" />
+
+                <!-- 1b. Retiro en domicilio: escaneo de bultos, foto y firma -->
+                <Button Text="Registrar Retiro"
+                        Style="{StaticResource SuccessButton}"
+                        Command="{Binding IrARegistrarRetiroCommand}"
+                        IsEnabled="{Binding PuedeConfirmarEntrega}"
+                        IsVisible="{Binding EsRetiro}"
                         HeightRequest="46"
                         FontSize="14.5" />
 
@@ -277,6 +287,7 @@
                         Style="{StaticResource DangerOutlineButton}"
                         Command="{Binding IrARegistrarFalloCommand}"
                         IsEnabled="{Binding PuedeAccionar}"
+                        IsVisible="{Binding EsEntrega}"
                         HeightRequest="46"
                         FontSize="14.5" />
 
@@ -285,6 +296,7 @@
                         Style="{StaticResource SecondaryButton}"
                         Command="{Binding RegistrarRetiroDevolucionCommand}"
                         IsEnabled="{Binding PuedeRegistrarRetiroDevolucion}"
+                        IsVisible="{Binding EsEntrega}"
                         HeightRequest="42"
                         MinimumHeightRequest="40"
                         Padding="12,6"

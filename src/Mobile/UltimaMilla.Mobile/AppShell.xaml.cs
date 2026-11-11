@@ -21,6 +21,7 @@ public partial class AppShell : Shell
         // Registro de rutas secundarias para navegación jerárquica (GoToAsync)
         Routing.RegisterRoute(nameof(DetalleParadaPage), typeof(DetalleParadaPage));
         Routing.RegisterRoute(nameof(RegistroEntregaPage), typeof(RegistroEntregaPage));
+        Routing.RegisterRoute(nameof(RegistroRetiroPage), typeof(RegistroRetiroPage));
         Routing.RegisterRoute(nameof(IntentoFallidoPage), typeof(IntentoFallidoPage));
     }
 

@@ -26,12 +26,6 @@ public partial class RegistroEntregaPage : ContentPage
             FirmaGraphicsView.Invalidate();
         };
 
-        viewModel.CargarFirmaDemoAction = () =>
-        {
-            _drawable.CargarTrazoDemo();
-            FirmaGraphicsView.Invalidate();
-        };
-
         viewModel.ObtenerFirmaAsyncCallback = async () =>
         {
             if (!_drawable.TieneFirma)

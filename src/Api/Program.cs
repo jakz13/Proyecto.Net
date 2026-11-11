@@ -103,6 +103,14 @@ builder.Services.AddRateLimiter(opciones =>
                 QueueLimit = 0
             }));
 
+    // Inicio de sesión: se acota por origen para frenar el barrido de usuarios y contraseñas (el bloqueo por cuenta, aparte, protege a cada
+    // cuenta pero permite bloquear cuentas ajenas a propósito). El tope por minuto se puede ajustar con RateLimit:LoginPorMinuto.
+    var loginPorMinuto = builder.Configuration.GetValue("RateLimit:LoginPorMinuto", 10);
+    opciones.AddPolicy(AuthEndpoints.PoliticaLimiteLogin, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            "login:" + (contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = loginPorMinuto, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
     // La integración por API es de mayor volumen que la consulta pública, pero también se acota por origen
     // Limitación diferenciada: cada clave de producción tiene su propio cupo (120/min), la clave de pruebas uno menor (20/min)
     // y quien no presenta clave se acota por IP (30/min) para frenar el intento de adivinarlas.
@@ -287,12 +295,29 @@ app.UseSerilogRequestLogging(opciones =>
 });
 
 // Configure the HTTP request pipeline
-// Swagger enabled in both Development and Production for intermediate milestone testing
+// La documentación pública (API de integración para comercios) se publica siempre; el contrato completo de la API interna
+// (todos los endpoints del backoffice, administración y móvil) solo en desarrollo: en un servidor es un mapa para quien ataca.
+var documentarApiInterna = app.Environment.IsDevelopment();
+if (!documentarApiInterna)
+{
+    app.Use(async (contexto, siguiente) =>
+    {
+        if (contexto.Request.Path.StartsWithSegments("/swagger/v1"))
+        {
+            contexto.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        await siguiente();
+    });
+}
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/integracion/swagger.json", "API pública para comercios (v1)");
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
+    if (documentarApiInterna)
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API completa (interna)");
     c.DocumentTitle = "Última Milla · API Docs";
     c.DocExpansion(DocExpansion.List);
     c.DefaultModelsExpandDepth(-1);

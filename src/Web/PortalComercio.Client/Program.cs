@@ -9,9 +9,9 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 // Configuración de URL y modo mock desde /appsettings.json (servido dinámicamente por el host)
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
 var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", false);
-// Modo demo (por defecto, desarrollo local): token precargado, sin pedir usuario ni contraseña.
-// En el servidor se apaga con Auth__PermitirModoDemo=false y el acceso pasa por el login real.
-var modoDemo = builder.Configuration.GetValue("Auth:PermitirModoDemo", true);
+// Modo demo (solo desarrollo local): token precargado, sin pedir usuario ni contraseña. El host manda este valor; si no llega definido,
+// solo se permite en Development. En el servidor el acceso pasa siempre por el login real.
+var modoDemo = builder.Configuration.GetValue<bool?>("Auth:PermitirModoDemo") ?? builder.HostEnvironment.IsDevelopment();
 
 // Soporte de autorización en Blazor WebAssembly
 builder.Services.AddAuthorizationCore();

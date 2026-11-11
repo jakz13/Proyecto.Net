@@ -92,7 +92,7 @@ public class GestionUsuariosHandlerTests
         var comando = new CrearUsuarioCommand(
             "Usuario Comercio",
             "comercio@test.com",
-            "Clave123",
+            "Clave.Segura123",
             _perfilOperador.Id,
             comercio.Id);
 
@@ -126,7 +126,7 @@ public class GestionUsuariosHandlerTests
         var comando = new CrearUsuarioCommand(
             "Usuario",
             "u@test.com",
-            "Clave123",
+            "Clave.Segura123",
             _perfilOperador.Id,
             comercio.Id);
 
@@ -156,7 +156,7 @@ public class GestionUsuariosHandlerTests
             _inquilinoActual,
             _unidadDeTrabajo);
 
-        var comando = new CrearUsuarioCommand("Nuevo", "duplicado@correo.com", "Clave123", _perfilAdmin.Id);
+        var comando = new CrearUsuarioCommand("Nuevo", "duplicado@correo.com", "Clave.Segura123", _perfilAdmin.Id);
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(comando, CancellationToken.None));
@@ -174,7 +174,7 @@ public class GestionUsuariosHandlerTests
             _inquilinoActual,
             _unidadDeTrabajo);
 
-        var comando = new CrearUsuarioCommand("Nombre", "email@test.com", "Clave123", Guid.NewGuid());
+        var comando = new CrearUsuarioCommand("Nombre", "email@test.com", "Clave.Segura123", Guid.NewGuid());
 
         var ex = await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(comando, CancellationToken.None));
         Assert.Contains("El perfil seleccionado no existe", ex.Message);
@@ -193,7 +193,7 @@ public class GestionUsuariosHandlerTests
             _inquilinoActual,
             _unidadDeTrabajo);
 
-        var comando = new CrearUsuarioCommand("Nombre", "email@test.com", "Clave123", _perfilAdmin.Id);
+        var comando = new CrearUsuarioCommand("Nombre", "email@test.com", "Clave.Segura123", _perfilAdmin.Id);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(comando, CancellationToken.None));
     }

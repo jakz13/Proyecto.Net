@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using UltimaMilla.Backoffice.Seguridad;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos.Envios;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
@@ -20,6 +21,7 @@ public class IndexModel : PageModel
         _usuariosApi = usuariosApi;
     }
 
+    public bool MuestraAdministracion { get; private set; }
     public int TotalComercios { get; set; }
     public int TotalUsuarios { get; set; }
     public int TotalEnvios { get; set; }
@@ -27,24 +29,29 @@ public class IndexModel : PageModel
 
     public async Task OnGetAsync()
     {
-        try
+        // Comercios y usuarios se administran solo desde el perfil de administrador: a los demás perfiles no se les consulta ni se les ofrece
+        MuestraAdministracion = PermisosBackoffice.PuedeAdministrar(User);
+        if (MuestraAdministracion)
         {
-            var comercios = await _comerciosApi.ListarComerciosAsync(pagina: 1, tamanoPagina: 1);
-            TotalComercios = comercios.TotalRegistros;
-        }
-        catch
-        {
-            TotalComercios = 0;
-        }
+            try
+            {
+                var comercios = await _comerciosApi.ListarComerciosAsync(pagina: 1, tamanoPagina: 1);
+                TotalComercios = comercios.TotalRegistros;
+            }
+            catch
+            {
+                TotalComercios = 0;
+            }
 
-        try
-        {
-            var usuarios = await _usuariosApi.ListarUsuariosAsync(new FiltroUsuariosDto { Pagina = 1, TamanoPagina = 1 });
-            TotalUsuarios = usuarios.TotalRegistros;
-        }
-        catch
-        {
-            TotalUsuarios = 0;
+            try
+            {
+                var usuarios = await _usuariosApi.ListarUsuariosAsync(new FiltroUsuariosDto { Pagina = 1, TamanoPagina = 1 });
+                TotalUsuarios = usuarios.TotalRegistros;
+            }
+            catch
+            {
+                TotalUsuarios = 0;
+            }
         }
 
         try

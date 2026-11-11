@@ -65,13 +65,17 @@ else
                         </svg>
                         <span>Volver a Salidas</span>
                     </a>
-                    <a asp-page="/Rutas/Detalle" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                        <span>Ver Hoja de Ruta</span>
-                    </a>
+                    @* El detalle de la hoja de ruta es del administrador y del despachador, no del operario *@
+                    @if (UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
+                    {
+                        <a asp-page="/Rutas/Detalle" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <span>Ver Hoja de Ruta</span>
+                        </a>
+                    }
                 </div>
             </div>
         </div>

@@ -13,7 +13,8 @@
       "tests/UltimaMilla.Domain.Tests/UltimaMilla.Domain.Tests.csproj",
       "tests/UltimaMilla.Application.Tests/UltimaMilla.Application.Tests.csproj",
       "tests/UltimaMilla.Integration.Tests/UltimaMilla.Integration.Tests.csproj",
-      "tests/UltimaMilla.Architecture.Tests/UltimaMilla.Architecture.Tests.csproj"
+      "tests/UltimaMilla.Architecture.Tests/UltimaMilla.Architecture.Tests.csproj",
+      "tests/UltimaMilla.Backoffice.Tests/UltimaMilla.Backoffice.Tests.csproj"
     ]
   }
 }

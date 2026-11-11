@@ -103,14 +103,14 @@ public class AdministracionBackofficeApiTests
 
         var creado = await api.CrearUsuarioAsync(new CrearUsuarioDto
         {
-            Nombre = "Usuario Prueba", Email = email, Password = "secreto123", PerfilId = despachador.Id
+            Nombre = "Usuario Prueba", Email = email, Password = "Secreto.Seguro123", PerfilId = despachador.Id
         });
         Assert.Equal("Despachador", creado.NombrePerfil);
         Assert.True(creado.Activo);
 
         var duplicado = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearUsuarioAsync(new CrearUsuarioDto
         {
-            Nombre = "Otro", Email = email.ToUpperInvariant(), Password = "secreto123", PerfilId = despachador.Id
+            Nombre = "Otro", Email = email.ToUpperInvariant(), Password = "Secreto.Seguro123", PerfilId = despachador.Id
         }));
         Assert.Equal(HttpStatusCode.BadRequest, duplicado.CodigoEstado);
 
@@ -420,8 +420,9 @@ public class AdministracionBackofficeApiTests
         Assert.Equal(1, exito.Exitosos);
         Assert.Equal("Resuelto", (await api.ObtenerMensajePorIdAsync(primero.Id))!.Estado);
 
-        Assert.True(await api.DescartarMensajeAsync(segundo.Id));
-        Assert.False(await api.DescartarMensajeAsync(segundo.Id));
+        Assert.True(await api.DescartarMensajeAsync(segundo.Id, "Descartado en prueba de integración"));
+        // El descarte es lógico (queda registrado con su motivo): un mensaje inexistente no se descarta
+        Assert.False(await api.DescartarMensajeAsync(Guid.NewGuid(), "Descartado en prueba de integración"));
 
         Assert.True(await api.LimpiarMensajesResueltosAsync() >= 1);
         Assert.Null(await ObtenerOrNullAsync(api, primero.Id));

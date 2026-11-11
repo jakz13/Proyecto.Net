@@ -126,12 +126,6 @@ public class GeofenceService : IGeofenceService
             var rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
             if (rutaLocal == null || rutaLocal.Paradas.Count == 0)
             {
-                await _localDatabaseService.SeedRutaDemoSiEstaVaciaAsync();
-                rutaLocal = await _localDatabaseService.ObtenerRutaActivaLocalAsync();
-            }
-
-            if (rutaLocal == null || rutaLocal.Paradas.Count == 0)
-            {
                 return new EvaluacionGeocercasResult();
             }
 
@@ -144,11 +138,11 @@ public class GeofenceService : IGeofenceService
 
             foreach (var parada in rutaLocal.Paradas.OrderBy(p => p.Orden))
             {
-                var (latParada, lonParada) = (parada.Latitud != 0 && parada.Longitud != 0)
-                    ? (parada.Latitud, parada.Longitud)
-                    : DemoDataDefaults.ObtenerCoordenadasPorParada(parada.CodigoSeguimiento, parada.Orden);
+                // Una parada sin coordenadas no puede tener geocerca: se omite en lugar de inventarle una posición
+                if (parada.Latitud == 0 && parada.Longitud == 0)
+                    continue;
 
-                var ubicacionParada = new Location(latParada, lonParada);
+                var ubicacionParada = new Location(parada.Latitud, parada.Longitud);
 
                 // Cálculo exacto en metros con fórmula de Haversine (Location.CalculateDistance)
                 double distanciaKm = Location.CalculateDistance(
@@ -184,7 +178,7 @@ public class GeofenceService : IGeofenceService
 
                     var eventoEntrada = new EventoGeocercaLocal
                     {
-                        HojaDeRutaId = parada.HojaDeRutaId != Guid.Empty ? parada.HojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId,
+                        HojaDeRutaId = parada.HojaDeRutaId,
                         ParadaId = parada.Id,
                         EnvioId = parada.EnvioId,
                         CodigoSeguimiento = parada.CodigoSeguimiento,
@@ -223,7 +217,7 @@ public class GeofenceService : IGeofenceService
 
                     var eventoSalida = new EventoGeocercaLocal
                     {
-                        HojaDeRutaId = parada.HojaDeRutaId != Guid.Empty ? parada.HojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId,
+                        HojaDeRutaId = parada.HojaDeRutaId,
                         ParadaId = parada.Id,
                         EnvioId = parada.EnvioId,
                         CodigoSeguimiento = parada.CodigoSeguimiento,

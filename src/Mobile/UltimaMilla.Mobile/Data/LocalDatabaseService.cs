@@ -29,18 +29,18 @@ public interface ILocalDatabaseService
     Task<int> ObtenerCantidadPendientesAsync();
 
     // Persistencia y consulta de hoja de ruta local (UC-17, UC-18, UC-19, UC-20, UC-21)
-    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null);
+    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync();
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
+    Task MarcarEntregaParcialLocalAsync(Guid paradaId, IReadOnlyCollection<string> codigosEntregados);
     Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado);
     Task MarcarBultoVerificadoCargaAsync(Guid bultoId, bool verificado);
     Task MarcarBultoVerificadoEntregaAsync(Guid bultoId, bool verificado);
     Task MarcarBultosParadaVerificadosEntregaAsync(Guid paradaId, bool verificado);
-    Task ConfirmarCargaYDespacharLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados);
+    Task ConfirmarCargaLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados);
+    Task LimpiarDatosDeRutaAsync();
     Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas);
     Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync();
-    Task SeedRutaDemoSiEstaVaciaAsync();
-    Task ReiniciarDatosDemoLocalAsync();
     Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento);
     Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50);
     Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
@@ -59,7 +59,7 @@ public class LocalDatabaseService : ILocalDatabaseService
     private const string DatabaseFileName = "ultimamilla_cipher_v1.db3";
 
 #if DEBUG
-    private const string FallbackDeterministicKey = "SuperSecretKey2026_DeterministicFallbackKey";
+    private const string ClaveDesarrolloPreferencia = "sqlite_db_dev_key";
 #endif
 
     private SQLiteAsyncConnection? _database;
@@ -87,7 +87,7 @@ public class LocalDatabaseService : ILocalDatabaseService
     /// <summary>
     /// Obtiene la clave criptográfica desde SecureStorage del dispositivo (RNF 6.3 y RNF 6.11).
     /// Si aún no existe, genera una clave aleatoria de 32 bytes (256 bits), la almacena de forma segura y la retorna.
-    /// En modo DEBUG incluye fallback determinista si el entorno de ejecución no soporta SecureStorage.
+    /// En modo DEBUG usa una clave aleatoria local si el entorno de ejecución no soporta SecureStorage.
     /// En modo RELEASE se elimina la clave fija y se exige SecureStorage bajo excepción explícita impidiendo claves débiles.
     /// </summary>
     private static async Task<string> GetOrGenerateEncryptionKeyAsync()
@@ -108,8 +108,16 @@ public class LocalDatabaseService : ILocalDatabaseService
         catch (Exception ex)
         {
 #if DEBUG
-            System.Diagnostics.Debug.WriteLine($"[LocalDatabaseService] SecureStorage no disponible en DEBUG, usando fallback determinista: {ex.Message}");
-            return FallbackDeterministicKey;
+            // Solo desarrollo (por ejemplo Windows sin empaquetar, donde SecureStorage puede no estar disponible):
+            // clave aleatoria propia del equipo, nunca un valor fijo incluido en el código.
+            System.Diagnostics.Debug.WriteLine($"[LocalDatabaseService] SecureStorage no disponible en DEBUG, usando clave aleatoria local: {ex.Message}");
+            var claveDev = Preferences.Default.Get<string?>(ClaveDesarrolloPreferencia, null);
+            if (string.IsNullOrWhiteSpace(claveDev))
+            {
+                claveDev = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+                Preferences.Default.Set(ClaveDesarrolloPreferencia, claveDev);
+            }
+            return claveDev;
 #else
             throw new InvalidOperationException(
                 "Fallo crítico de seguridad: No se pudo acceder a SecureStorage para obtener o almacenar la clave de cifrado de la base de datos local en producción.",
@@ -359,13 +367,16 @@ public class LocalDatabaseService : ILocalDatabaseService
             .CountAsync();
     }
 
-    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null)
+    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null)
     {
+        if (hojaDeRutaId == Guid.Empty)
+            throw new ArgumentException("La hoja de ruta descargada no trae identificador.", nameof(hojaDeRutaId));
+
         await InitAsync();
 
         await Db.RunInTransactionAsync(conn =>
         {
-            // 1. Upsert Hoja de Ruta
+            // 1. Hoja de ruta: el estado y el número los manda siempre el servidor
             var ruta = conn.Find<HojaDeRutaLocal>(hojaDeRutaId);
             if (ruta == null)
             {
@@ -373,8 +384,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 {
                     Id = hojaDeRutaId,
                     Fecha = DateTime.Today,
-                    Estado = !string.IsNullOrWhiteSpace(estadoRuta) ? estadoRuta : "Despachada",
-                    NumeroRuta = $"HR-{DateTime.Today:yyyyMMdd}-01",
+                    Estado = !string.IsNullOrWhiteSpace(estadoRuta) ? estadoRuta : "Liberada",
+                    NumeroRuta = numeroRuta ?? string.Empty,
                     TotalParadas = paradas.Count,
                     FechaDescargaUtc = DateTime.UtcNow
                 };
@@ -383,62 +394,70 @@ public class LocalDatabaseService : ILocalDatabaseService
             else
             {
                 if (!string.IsNullOrWhiteSpace(estadoRuta))
-                {
                     ruta.Estado = estadoRuta;
-                }
+                if (!string.IsNullOrWhiteSpace(numeroRuta))
+                    ruta.NumeroRuta = numeroRuta;
                 ruta.TotalParadas = paradas.Count;
                 ruta.FechaDescargaUtc = DateTime.UtcNow;
                 conn.Update(ruta);
             }
 
-            // 2. Upsert Paradas, Envios y Bultos
+            bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
+
+            // 2. Paradas que el servidor ya no incluye (reasignadas o retiradas de la ruta) y que no tienen nada pendiente de enviar
+            var idsServidor = paradas.Where(p => p.ParadaId != Guid.Empty).Select(p => p.ParadaId).ToHashSet();
+            var obsoletas = conn.Table<ParadaLocal>()
+                .Where(p => p.HojaDeRutaId == hojaDeRutaId)
+                .ToList()
+                .Where(p => !idsServidor.Contains(p.Id) && p.Estado == "Pendiente")
+                .ToList();
+            foreach (var obsoleta in obsoletas)
+            {
+                foreach (var bulto in conn.Table<BultoLocal>().Where(b => b.ParadaId == obsoleta.Id).ToList())
+                    conn.Delete(bulto);
+                foreach (var envioObsoleto in conn.Table<EnvioLocal>().Where(e => e.ParadaId == obsoleta.Id).ToList())
+                    conn.Delete(envioObsoleto);
+                conn.Delete(obsoleta);
+            }
+
+            // 3. Paradas, envíos y bultos de lo que manda el servidor
             foreach (var p in paradas)
             {
-                var paradaId = p.ParadaId != Guid.Empty
-                    ? p.ParadaId
-                    : (p.CodigoSeguimiento == "ENV-2026-00108" ? DemoDataDefaults.Parada1Id :
-                       p.CodigoSeguimiento == "ENV-2026-00109" ? DemoDataDefaults.Parada2Id :
-                       p.CodigoSeguimiento == "ENV-2026-00110" ? DemoDataDefaults.Parada3Id :
-                       (p.Orden == 1 ? DemoDataDefaults.Parada1Id : p.Orden == 2 ? DemoDataDefaults.Parada2Id : DemoDataDefaults.Parada3Id));
+                if (p.ParadaId == Guid.Empty)
+                    continue; // una parada sin identificador no se puede operar ni sincronizar
 
-                var envioId = p.EnvioId != Guid.Empty
-                    ? p.EnvioId
-                    : (p.CodigoSeguimiento == "ENV-2026-00108" ? DemoDataDefaults.Envio1Id :
-                       p.CodigoSeguimiento == "ENV-2026-00109" ? DemoDataDefaults.Envio2Id :
-                       p.CodigoSeguimiento == "ENV-2026-00110" ? DemoDataDefaults.Envio3Id :
-                       (p.Orden == 1 ? DemoDataDefaults.Envio1Id : p.Orden == 2 ? DemoDataDefaults.Envio2Id : DemoDataDefaults.Envio3Id));
+                var paradaId = p.ParadaId;
+                var esRetiro = string.Equals(p.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+                // Una parada de retiro no tiene envío: se identifica por el retiro
+                var envioId = esRetiro ? (p.RetiroId ?? p.ParadaId) : p.EnvioId;
 
                 var paradaLocal = conn.Find<ParadaLocal>(paradaId);
                 bool isNew = paradaLocal == null;
                 paradaLocal ??= new ParadaLocal { Id = paradaId };
 
-                paradaLocal.HojaDeRutaId = hojaDeRutaId != Guid.Empty ? hojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId;
+                paradaLocal.HojaDeRutaId = hojaDeRutaId;
                 paradaLocal.EnvioId = envioId;
-                if (isNew || paradaLocal.Orden <= 0)
-                {
-                    paradaLocal.Orden = p.Orden;
-                    paradaLocal.OrdenVisita = p.Orden;
-                }
-                
-                // Preservar estado completado local si aún no se sincroniza
-                if (isNew || (paradaLocal.Estado != "Entregado" && paradaLocal.Estado != "Fallido" && paradaLocal.Estado != "EnDevolucion"))
-                {
-                    paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
-                }
+                paradaLocal.Tipo = esRetiro ? "Retiro" : "Entrega";
+                paradaLocal.RetiroId = esRetiro ? p.RetiroId : null;
+                paradaLocal.Orden = p.Orden;
+                paradaLocal.OrdenVisita = isNew || paradaLocal.OrdenVisita <= 0 ? p.Orden : paradaLocal.OrdenVisita;
 
-                paradaLocal.CodigoSeguimiento = !string.IsNullOrWhiteSpace(p.CodigoSeguimiento) ? p.CodigoSeguimiento : $"ENV-2026-{107 + p.Orden:D5}";
-                paradaLocal.Direccion = p.DireccionFormateada;
-                paradaLocal.Ciudad = ExtraerCiudad(p.DireccionFormateada);
-                paradaLocal.DestinatarioNombre = p.Destinatario?.Nombre ?? "Destinatario";
-                paradaLocal.DestinatarioTelefono = p.Destinatario?.Telefono ?? "+598 99 123 456";
+                // Lo completado en el dispositivo y todavía no sincronizado no se pisa con el estado viejo del servidor
+                if (isNew || paradaLocal.Estado is not ("Entregado" or "Fallido" or "EnDevolucion"))
+                    paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
+
+                paradaLocal.CodigoSeguimiento = p.CodigoSeguimiento ?? string.Empty;
+                paradaLocal.Direccion = p.DireccionFormateada ?? string.Empty;
+                paradaLocal.Ciudad = ExtraerCiudad(paradaLocal.Direccion);
+                paradaLocal.DestinatarioNombre = p.Destinatario?.Nombre ?? string.Empty;
+                paradaLocal.DestinatarioTelefono = p.Destinatario?.Telefono;
                 paradaLocal.DestinatarioEmail = p.Destinatario?.Email;
                 paradaLocal.NotasComercio = p.Destinatario?.ReferenciaEntrega ?? string.Empty;
-                var (latDef, lonDef) = DemoDataDefaults.ObtenerCoordenadasPorParada(paradaLocal.CodigoSeguimiento, p.Orden);
-                paradaLocal.Latitud = p.Latitud ?? latDef;
-                paradaLocal.Longitud = p.Longitud ?? lonDef;
-                paradaLocal.VentanaHoraria = p.VentanaHoraria ?? "09:00 - 13:00";
-                paradaLocal.HoraEstimada = $"{8 + p.Orden:D2}:30";
-                paradaLocal.CantidadBultos = p.ResumenBultos?.CantidadBultos ?? 1;
+                paradaLocal.Latitud = p.Latitud ?? 0;
+                paradaLocal.Longitud = p.Longitud ?? 0;
+                paradaLocal.VentanaHoraria = p.VentanaHoraria;
+                paradaLocal.HoraEstimada = string.Empty;
+                paradaLocal.CantidadBultos = p.ResumenBultos?.CantidadBultos ?? 0;
                 paradaLocal.EsParadaActual = p.EsParadaActual;
 
                 if (isNew)
@@ -446,98 +465,95 @@ public class LocalDatabaseService : ILocalDatabaseService
                 else
                     conn.Update(paradaLocal);
 
-                bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
                 bool bultoYaCargado = rutaYaDespachada || paradaLocal.Estado is "Entregado" or "Fallido" or "EnDevolucion";
 
-                // Envio
-                var envioLocal = conn.Find<EnvioLocal>(envioId);
-                if (envioLocal == null)
+                // Envío (solo de las entregas)
+                if (!esRetiro)
                 {
-                    envioLocal = new EnvioLocal
+                    var envioLocal = conn.Find<EnvioLocal>(envioId);
+                    if (envioLocal == null)
                     {
-                        Id = envioId,
-                        ParadaId = paradaId,
-                        CodigoSeguimiento = paradaLocal.CodigoSeguimiento,
-                        Destinatario = paradaLocal.DestinatarioNombre,
-                        Direccion = paradaLocal.Direccion,
-                        Modalidad = "Estandar",
-                        Estado = paradaLocal.Estado != "Pendiente"
-                            ? paradaLocal.Estado
-                            : (rutaYaDespachada ? "EnTransito" : "AsignadoARuta")
-                    };
-                    conn.Insert(envioLocal);
-                }
-                else
-                {
-                    envioLocal.ParadaId = paradaId;
-                    if (paradaLocal.Estado != "Pendiente")
-                        envioLocal.Estado = paradaLocal.Estado;
-                    else if (rutaYaDespachada)
-                        envioLocal.Estado = "EnTransito";
-                    else if (ruta.Estado == "Liberada")
-                        envioLocal.Estado = "AsignadoARuta";
-                    conn.Update(envioLocal);
-                }
-
-                // Bultos
-                if (p.ResumenBultos?.CodigosBultos != null && p.ResumenBultos.CodigosBultos.Count > 0)
-                {
-                    foreach (var codBulto in p.ResumenBultos.CodigosBultos)
-                    {
-                        var bultoExistente = conn.Table<BultoLocal>()
-                            .Where(b => (b.EnvioId == envioId || b.ParadaId == paradaId) && b.Codigo == codBulto)
-                            .FirstOrDefault();
-
-                        if (bultoExistente == null)
+                        conn.Insert(new EnvioLocal
                         {
-                            var bultoLocal = new BultoLocal
-                            {
-                                Id = Guid.NewGuid(),
-                                EnvioId = envioId,
-                                ParadaId = paradaId,
-                                Codigo = codBulto,
-                                Identificacion = codBulto,
-                                Descripcion = $"Bulto {codBulto}",
-                                Peso = p.ResumenBultos.PesoTotalKg > 0 ? (p.ResumenBultos.PesoTotalKg / p.ResumenBultos.CantidadBultos) : 1.5m,
-                                EsFragil = false,
-                                VerificadoEnCarga = bultoYaCargado,
-                                VerificadoEnEntrega = paradaLocal.Estado == "Entregado"
-                            };
-                            conn.Insert(bultoLocal);
-                        }
+                            Id = envioId,
+                            ParadaId = paradaId,
+                            CodigoSeguimiento = paradaLocal.CodigoSeguimiento,
+                            Destinatario = paradaLocal.DestinatarioNombre,
+                            Direccion = paradaLocal.Direccion,
+                            Modalidad = "Estandar",
+                            Estado = paradaLocal.Estado != "Pendiente" ? paradaLocal.Estado : (rutaYaDespachada ? "EnTransito" : "AsignadoARuta")
+                        });
+                    }
+                    else
+                    {
+                        envioLocal.ParadaId = paradaId;
+                        if (paradaLocal.Estado != "Pendiente")
+                            envioLocal.Estado = paradaLocal.Estado;
+                        else if (rutaYaDespachada)
+                            envioLocal.Estado = "EnTransito";
                         else
+                            envioLocal.Estado = "AsignadoARuta";
+                        conn.Update(envioLocal);
+                    }
+                }
+
+                // Bultos: los que manda el servidor; los que ya no vienen (y no se entregaron) se eliminan
+                var codigos = p.ResumenBultos?.CodigosBultos ?? new List<string>();
+                var existentes = conn.Table<BultoLocal>().Where(b => b.ParadaId == paradaId).ToList();
+                foreach (var sobrante in existentes.Where(b => !codigos.Contains(b.Codigo) && !b.VerificadoEnEntrega))
+                    conn.Delete(sobrante);
+
+                var pesoPorBulto = codigos.Count > 0 && p.ResumenBultos is { PesoTotalKg: > 0 }
+                    ? p.ResumenBultos.PesoTotalKg / codigos.Count
+                    : 0m;
+
+                foreach (var codBulto in codigos)
+                {
+                    var bultoExistente = existentes.FirstOrDefault(b => b.Codigo == codBulto);
+                    if (bultoExistente == null)
+                    {
+                        conn.Insert(new BultoLocal
                         {
-                            bultoExistente.EnvioId = envioId;
-                            bultoExistente.ParadaId = paradaId;
-                            if (bultoYaCargado)
-                            {
-                                bultoExistente.VerificadoEnCarga = true;
-                            }
-                            else if (ruta.Estado == "Liberada" && isNew)
-                            {
-                                bultoExistente.VerificadoEnCarga = false;
-                            }
-                            conn.Update(bultoExistente);
-                        }
+                            Id = Guid.NewGuid(),
+                            EnvioId = envioId,
+                            ParadaId = paradaId,
+                            Codigo = codBulto,
+                            Identificacion = codBulto,
+                            Descripcion = codBulto,
+                            Peso = pesoPorBulto,
+                            EsFragil = false,
+                            VerificadoEnCarga = bultoYaCargado,
+                            VerificadoEnEntrega = paradaLocal.Estado == "Entregado"
+                        });
+                    }
+                    else
+                    {
+                        bultoExistente.EnvioId = envioId;
+                        // Lo escaneado en el dispositivo se conserva; solo se sube la marca si el servidor ya despachó la ruta
+                        if (bultoYaCargado)
+                            bultoExistente.VerificadoEnCarga = true;
+                        conn.Update(bultoExistente);
                     }
                 }
             }
 
-            // 3. Catálogo de Motivos de No Entrega
-            var motivosList = motivos ?? DemoDataDefaults.ObtenerCatalogoMotivos();
-            foreach (var m in motivosList)
+            // 4. Catálogo de motivos de no entrega: el del operador, tal como lo manda el servidor
+            if (motivos != null)
             {
-                var existingMotivo = conn.Find<MotivoNoEntregaLocal>(m.Id);
-                if (existingMotivo == null)
+                foreach (var m in motivos)
                 {
-                    conn.Insert(m);
-                }
-                else
-                {
-                    existingMotivo.Codigo = m.Codigo;
-                    existingMotivo.Descripcion = m.Descripcion;
-                    existingMotivo.Activo = m.Activo;
-                    conn.Update(existingMotivo);
+                    var existingMotivo = conn.Find<MotivoNoEntregaLocal>(m.Id);
+                    if (existingMotivo == null)
+                    {
+                        conn.Insert(m);
+                    }
+                    else
+                    {
+                        existingMotivo.Codigo = m.Codigo;
+                        existingMotivo.Descripcion = m.Descripcion;
+                        existingMotivo.Activo = m.Activo;
+                        conn.Update(existingMotivo);
+                    }
                 }
             }
         });
@@ -567,7 +583,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         foreach (var p in paradas)
         {
             var bultos = await Db.Table<BultoLocal>()
-                .Where(b => b.ParadaId == p.Id || b.EnvioId == p.EnvioId)
+                .Where(b => b.ParadaId == p.Id)
                 .ToListAsync();
 
             bool bultoDebeEstarCargado = rutaYaDespachada || p.Estado is "Entregado" or "Fallido" or "EnDevolucion";
@@ -594,64 +610,13 @@ public class LocalDatabaseService : ILocalDatabaseService
                 VerificadoEnEntrega = b.VerificadoEnEntrega
             }).ToList();
 
-            if (bultoItems.Count == 0 && p.CantidadBultos > 0)
+            resultParadas.Add(new ParadaItemViewModel
             {
-                for (int i = 1; i <= p.CantidadBultos; i++)
-                {
-                    bultoItems.Add(new BultoItemViewModel
-                    {
-                        Id = Guid.NewGuid(),
-                        ParadaId = p.Id,
-                        EnvioId = p.EnvioId,
-                        Codigo = $"{p.CodigoSeguimiento}-B{i}",
-                        Descripcion = $"Bulto {i}",
-                        PesoKg = 1.5m,
-                        EsFragil = false,
-                        VerificadoEnCarga = bultoDebeEstarCargado,
-                        VerificadoEnEntrega = p.Estado == "Entregado"
-                    });
-                }
-            }
-
-            var hojaRutaIdReal = p.HojaDeRutaId != Guid.Empty
-                ? p.HojaDeRutaId
-                : (ruta.Id != Guid.Empty ? ruta.Id : DemoDataDefaults.DefaultHojaDeRutaId);
-
-            var paradaIdReal = p.Id != Guid.Empty
-                ? p.Id
-                : p.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
-                    _ => p.Orden == 1 ? DemoDataDefaults.Parada1Id : (p.Orden == 2 ? DemoDataDefaults.Parada2Id : DemoDataDefaults.Parada3Id)
-                };
-
-            var envioIdReal = p.EnvioId != Guid.Empty
-                ? p.EnvioId
-                : p.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
-                    _ => p.Orden == 1 ? DemoDataDefaults.Envio1Id : (p.Orden == 2 ? DemoDataDefaults.Envio2Id : DemoDataDefaults.Envio3Id)
-                };
-
-            var codigoSeguimientoReal = !string.IsNullOrWhiteSpace(p.CodigoSeguimiento)
-                ? p.CodigoSeguimiento
-                : p.Orden switch
-                {
-                    1 => "ENV-2026-00108",
-                    2 => "ENV-2026-00109",
-                    3 => "ENV-2026-00110",
-                    _ => $"ENV-2026-{107 + p.Orden:D5}"
-                };
-
-            var vm = new ParadaItemViewModel
-            {
-                Id = paradaIdReal,
-                HojaDeRutaId = hojaRutaIdReal,
-                EnvioId = envioIdReal,
+                Id = p.Id,
+                HojaDeRutaId = ruta.Id,
+                EnvioId = p.EnvioId,
+                Tipo = string.IsNullOrWhiteSpace(p.Tipo) ? "Entrega" : p.Tipo,
+                RetiroId = p.RetiroId,
                 Orden = p.Orden,
                 Direccion = p.Direccion,
                 Ciudad = p.Ciudad,
@@ -660,16 +625,14 @@ public class LocalDatabaseService : ILocalDatabaseService
                 CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
                 Estado = p.Estado,
                 EnPrecarga = enPrecarga,
-                HoraEstimada = string.IsNullOrEmpty(p.HoraEstimada) ? $"{8 + p.Orden:D2}:30" : p.HoraEstimada,
-                VentanaHoraria = !string.IsNullOrWhiteSpace(p.VentanaHoraria) ? p.VentanaHoraria : "09:00 - 13:00",
-                CodigoSeguimiento = codigoSeguimientoReal,
+                HoraEstimada = p.HoraEstimada,
+                VentanaHoraria = !string.IsNullOrWhiteSpace(p.VentanaHoraria) ? p.VentanaHoraria : "Sin franja asignada",
+                CodigoSeguimiento = p.CodigoSeguimiento,
                 NotasComercio = p.NotasComercio ?? string.Empty,
-                Latitud = p.Latitud != 0 ? p.Latitud : DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Latitud,
-                Longitud = p.Longitud != 0 ? p.Longitud : DemoDataDefaults.ObtenerCoordenadasPorParada(codigoSeguimientoReal, p.Orden).Longitud,
+                Latitud = p.Latitud,
+                Longitud = p.Longitud,
                 Bultos = bultoItems
-            };
-
-            resultParadas.Add(vm);
+            });
         }
 
         return new RutaActivaLocalDto
@@ -677,6 +640,20 @@ public class LocalDatabaseService : ILocalDatabaseService
             Ruta = ruta,
             Paradas = resultParadas
         };
+    }
+
+    /// <summary>Borra la ruta y todo lo derivado de ella (al cerrar sesión: el siguiente repartidor no debe ver datos del anterior). La cola de operaciones sin enviar se conserva.</summary>
+    public async Task LimpiarDatosDeRutaAsync()
+    {
+        await InitAsync();
+        await Db.RunInTransactionAsync(conn =>
+        {
+            conn.DeleteAll<BultoLocal>();
+            conn.DeleteAll<EnvioLocal>();
+            conn.DeleteAll<ParadaLocal>();
+            conn.DeleteAll<HojaDeRutaLocal>();
+            conn.DeleteAll<MotivoNoEntregaLocal>();
+        });
     }
 
     public async Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado)
@@ -711,6 +688,29 @@ public class LocalDatabaseService : ILocalDatabaseService
                     await Db.UpdateAsync(b);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Entrega parcial: la parada se da por atendida y solo los bultos entregados quedan marcados como tales;
+    /// los demás siguen pendientes (el servidor aplica la política del operador: nueva visita o devolución).
+    /// </summary>
+    public async Task MarcarEntregaParcialLocalAsync(Guid paradaId, IReadOnlyCollection<string> codigosEntregados)
+    {
+        await InitAsync();
+        var entregados = new HashSet<string>(codigosEntregados.Select(c => c.Trim()), StringComparer.OrdinalIgnoreCase);
+
+        var parada = await Db.FindAsync<ParadaLocal>(paradaId);
+        if (parada == null)
+            return;
+
+        parada.Estado = "Entregado";
+        await Db.UpdateAsync(parada);
+
+        foreach (var bulto in await Db.Table<BultoLocal>().Where(b => b.ParadaId == paradaId).ToListAsync())
+        {
+            bulto.VerificadoEnEntrega = entregados.Contains(bulto.Codigo.Trim());
+            await Db.UpdateAsync(bulto);
         }
     }
 
@@ -765,7 +765,11 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
-    public async Task ConfirmarCargaYDespacharLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados)
+    /// <summary>
+    /// Registra en el dispositivo los bultos escaneados al cargar el vehículo. La hoja de ruta queda "EnCarga": quien la despacha es el
+    /// despachador desde el depósito, y el estado "Despachada" solo lo fija el servidor (la app lo recibe al descargar la ruta).
+    /// </summary>
+    public async Task ConfirmarCargaLocalAsync(Guid hojaDeRutaId, IReadOnlyCollection<string> codigosCargados)
     {
         await InitAsync();
 
@@ -773,64 +777,26 @@ public class LocalDatabaseService : ILocalDatabaseService
             (codigosCargados ?? Array.Empty<string>()).Select(c => c.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
-        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId)
-            ?? await Db.Table<HojaDeRutaLocal>().OrderByDescending(r => r.FechaDescargaUtc).FirstOrDefaultAsync();
-
+        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
         if (ruta == null)
             return;
 
-        var paradas = await Db.Table<ParadaLocal>()
-            .Where(p => p.HojaDeRutaId == ruta.Id)
-            .OrderBy(p => p.Orden)
-            .ToListAsync();
-
+        var paradas = await Db.Table<ParadaLocal>().Where(p => p.HojaDeRutaId == ruta.Id).ToListAsync();
         foreach (var parada in paradas)
         {
-            var bultosParada = await Db.Table<BultoLocal>()
-                .Where(b => b.ParadaId == parada.Id)
-                .ToListAsync();
-
+            var bultosParada = await Db.Table<BultoLocal>().Where(b => b.ParadaId == parada.Id).ToListAsync();
             foreach (var b in bultosParada)
             {
                 b.VerificadoEnCarga = setCodigos.Contains(b.Codigo.Trim());
                 await Db.UpdateAsync(b);
             }
-
-            bool todosBultosCargados = bultosParada.Count > 0 && bultosParada.All(b => b.VerificadoEnCarga);
-
-            var envio = await Db.Table<EnvioLocal>()
-                .Where(e => e.ParadaId == parada.Id)
-                .FirstOrDefaultAsync();
-
-            if (todosBultosCargados)
-            {
-                if (parada.Estado is "AsignadoARuta" or "Cancelada" or "EnDeposito")
-                {
-                    parada.Estado = "Pendiente";
-                    await Db.UpdateAsync(parada);
-                }
-                if (envio != null && envio.Estado is "AsignadoARuta" or "EnDeposito")
-                {
-                    envio.Estado = "EnTransito";
-                    await Db.UpdateAsync(envio);
-                }
-            }
-            else
-            {
-                // UC-09 / UC-18: Envíos cuyos bultos no se escanearon en su totalidad no pasan a la ruta activa y quedan En Depósito
-                parada.Estado = "Cancelada";
-                await Db.UpdateAsync(parada);
-
-                if (envio != null)
-                {
-                    envio.Estado = "EnDeposito";
-                    await Db.UpdateAsync(envio);
-                }
-            }
         }
 
-        ruta.Estado = "Despachada";
-        await Db.UpdateAsync(ruta);
+        if (ruta.Estado is "Liberada" or "Borrador")
+        {
+            ruta.Estado = "EnCarga";
+            await Db.UpdateAsync(ruta);
+        }
     }
 
     public async Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas)
@@ -870,70 +836,8 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync()
     {
         await InitAsync();
-        var motivos = await Db.Table<MotivoNoEntregaLocal>().ToListAsync();
-        if (motivos.Count == 0)
-        {
-            var defaults = DemoDataDefaults.ObtenerCatalogoMotivos();
-            await Db.InsertAllAsync(defaults);
-            return defaults;
-        }
-        return motivos;
-    }
-
-    public async Task SeedRutaDemoSiEstaVaciaAsync()
-    {
-        await InitAsync();
-        var count = await Db.Table<HojaDeRutaLocal>().CountAsync();
-        if (count > 0)
-            return;
-
-        var paradasDemo = new List<ParadaNavegacionDto>
-        {
-            new(
-                ParadaId: DemoDataDefaults.Parada1Id,
-                EnvioId: DemoDataDefaults.Envio1Id,
-                Orden: 1,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00108",
-                DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
-                Latitud: DemoDataDefaults.Parada1Latitud,
-                Longitud: DemoDataDefaults.Parada1Longitud,
-                VentanaHoraria: "09:00 - 10:00",
-                Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
-                ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
-                EsParadaActual: false
-            ),
-            new(
-                ParadaId: DemoDataDefaults.Parada2Id,
-                EnvioId: DemoDataDefaults.Envio2Id,
-                Orden: 2,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00109",
-                DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
-                Latitud: DemoDataDefaults.Parada2Latitud,
-                Longitud: DemoDataDefaults.Parada2Longitud,
-                VentanaHoraria: "10:00 - 11:00",
-                Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
-                ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
-                EsParadaActual: true
-            ),
-            new(
-                ParadaId: DemoDataDefaults.Parada3Id,
-                EnvioId: DemoDataDefaults.Envio3Id,
-                Orden: 3,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00110",
-                DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
-                Latitud: DemoDataDefaults.Parada3Latitud,
-                Longitud: DemoDataDefaults.Parada3Longitud,
-                VentanaHoraria: "11:00 - 12:00",
-                Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
-                ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),
-                EsParadaActual: false
-            )
-        };
-
-        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo, estadoRuta: "Despachada");
+        // El catálogo es del operador y llega con la ruta; sin ruta descargada no hay motivos que ofrecer
+        return await Db.Table<MotivoNoEntregaLocal>().Where(m => m.Activo).ToListAsync();
     }
 
     private static string MapearEstadoParada(string estado)
@@ -956,7 +860,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         {
             return partes[^1].Trim();
         }
-        return "Montevideo";
+        return string.Empty;
     }
 
     public async Task<EventoGeocercaLocal> RegistrarEventoGeocercaLocalAsync(EventoGeocercaLocal evento)
@@ -968,7 +872,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         var payload = new EventoGeocercaOfflinePayload
         {
             EventoLocalId = evento.Id,
-            HojaDeRutaId = evento.HojaDeRutaId != Guid.Empty ? evento.HojaDeRutaId : DemoDataDefaults.DefaultHojaDeRutaId,
+            HojaDeRutaId = evento.HojaDeRutaId,
             ParadaId = evento.ParadaId,
             EnvioId = evento.EnvioId,
             CodigoSeguimiento = evento.CodigoSeguimiento,
@@ -1003,69 +907,5 @@ public class LocalDatabaseService : ILocalDatabaseService
             item.Sincronizado = true;
             await Db.UpdateAsync(item);
         }
-    }
-
-    public async Task ReiniciarDatosDemoLocalAsync()
-    {
-        await InitAsync();
-
-        await Db.RunInTransactionAsync(conn =>
-        {
-            conn.DeleteAll<EventoGeocercaLocal>();
-            conn.DeleteAll<OperacionOfflineLocal>();
-            conn.DeleteAll<BultoLocal>();
-            conn.DeleteAll<EnvioLocal>();
-            conn.DeleteAll<ParadaLocal>();
-            conn.DeleteAll<HojaDeRutaLocal>();
-        });
-
-        // Regenerar la ruta demo limpia con todas las paradas listas para operar
-        var paradasDemo = new List<ParadaNavegacionDto>
-        {
-            new(
-                ParadaId: DemoDataDefaults.Parada1Id,
-                EnvioId: DemoDataDefaults.Envio1Id,
-                Orden: 1,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00108",
-                DireccionFormateada: "Av. 18 de Julio 1450, Apto 402, Centro, Montevideo",
-                Latitud: DemoDataDefaults.Parada1Latitud,
-                Longitud: DemoDataDefaults.Parada1Longitud,
-                VentanaHoraria: "09:00 - 10:00",
-                Destinatario: new DestinatarioContactoDto("Martín Rodríguez", "+598 99 123 456", "martin@demo.uy", "Tocar timbre 402. Si no atiende, dejar en portería."),
-                ResumenBultos: new ResumenBultosParadaDto(2, new List<string> { "BLT-001-A", "BLT-001-B" }, 2.7m),
-                EsParadaActual: true
-            ),
-            new(
-                ParadaId: DemoDataDefaults.Parada2Id,
-                EnvioId: DemoDataDefaults.Envio2Id,
-                Orden: 2,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00109",
-                DireccionFormateada: "Bvar. España 2678, Apto 501, Pocitos, Montevideo",
-                Latitud: DemoDataDefaults.Parada2Latitud,
-                Longitud: DemoDataDefaults.Parada2Longitud,
-                VentanaHoraria: "10:00 - 11:00",
-                Destinatario: new DestinatarioContactoDto("Lucía Fernández", "+598 99 765 432", "lucia@demo.uy", "Llamar al móvil 5 minutos antes. Producto frágil."),
-                ResumenBultos: new ResumenBultosParadaDto(1, new List<string> { "BLT-002-A" }, 1.8m),
-                EsParadaActual: false
-            ),
-            new(
-                ParadaId: DemoDataDefaults.Parada3Id,
-                EnvioId: DemoDataDefaults.Envio3Id,
-                Orden: 3,
-                EstadoParada: "Pendiente",
-                CodigoSeguimiento: "ENV-2026-00110",
-                DireccionFormateada: "Rambla Gandhi 456, Piso 8, Punta Carretas, Montevideo",
-                Latitud: DemoDataDefaults.Parada3Latitud,
-                Longitud: DemoDataDefaults.Parada3Longitud,
-                VentanaHoraria: "11:00 - 12:00",
-                Destinatario: new DestinatarioContactoDto("Esteban Morales", "+598 98 999 111", "esteban@demo.uy", "Horario estricto. Solicitar C.I. obligatoria."),
-                ResumenBultos: new ResumenBultosParadaDto(3, new List<string> { "BLT-003-A", "BLT-003-B", "BLT-003-C" }, 7.3m),
-                EsParadaActual: false
-            )
-        };
-
-        await GuardarRutaDescargadaAsync(DemoDataDefaults.DefaultHojaDeRutaId, paradasDemo, estadoRuta: "Despachada");
     }
 }

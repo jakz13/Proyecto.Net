@@ -44,11 +44,11 @@
 
                     <!-- Resumen del domicilio y destinatario -->
                     <VerticalStackLayout Spacing="2">
-                        <Label Text="{Binding Parada.Direccion, FallbackValue='Bvar. España 2678, Pocitos'}"
+                        <Label Text="{Binding Parada.Direccion}"
                                FontAttributes="Bold"
                                FontSize="14"
                                TextColor="{StaticResource TextPrimary}" />
-                        <Label Text="{Binding Parada.Destinatario, StringFormat='Destinatario: {0}', FallbackValue='Destinatario: Lucía Fernández'}"
+                        <Label Text="{Binding Parada.Destinatario, StringFormat='Destinatario: {0}'}"
                                Style="{StaticResource CaptionLabel}" />
                     </VerticalStackLayout>
                 </VerticalStackLayout>

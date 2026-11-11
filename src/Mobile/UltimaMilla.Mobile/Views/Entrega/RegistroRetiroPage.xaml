@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             x:Class="UltimaMilla.Mobile.Views.Entrega.RegistroRetiroPage"
+             x:DataType="vm:RegistroRetiroViewModel"
+             Title="Registrar Retiro"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
+
+            <!-- Resumen del retiro -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Retiro en domicilio"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource Primary}" />
+                    <Label Text="{Binding Parada.Direccion}"
+                           Style="{StaticResource H3Label}" />
+                    <Label Text="{Binding Parada.Destinatario, StringFormat='Contacto: {0}'}"
+                           Style="{StaticResource CaptionLabel}" />
+                    <Label Text="{Binding Parada.NotasComercio}"
+                           Style="{StaticResource CaptionLabel}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Escaneo de los bultos a retirar -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Bultos a retirar"
+                           Style="{StaticResource H3Label}" />
+                    <Label Text="Escanee cada bulto retirado: deben estar todos para registrar el retiro."
+                           Style="{StaticResource CaptionLabel}" />
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bultos}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BultoRetiroItemViewModel">
+                                <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                                    <Label Grid.Column="0" Text="{Binding Codigo}" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding EstadoTexto}" Style="{StaticResource CaptionLabel}" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding ResumenBultosTexto}"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource Primary}" />
+
+                    <Button Text="Escanear con cámara"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding EscanearConCamaraCommand}"
+                            HeightRequest="44"
+                            FontSize="13" />
+
+                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                        <Border Grid.Column="0" Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding CodigoManual, Mode=TwoWay}"
+                                   Placeholder="Ingreso manual del código"
+                                   ReturnCommand="{Binding ValidarCodigoManualCommand}"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                Text="Validar"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ValidarCodigoManualCommand}"
+                                HeightRequest="44"
+                                Padding="16,0"
+                                FontSize="13" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Quién entrega los bultos -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Datos de quien entrega los bultos"
+                           Style="{StaticResource H3Label}" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Nombre y apellido *" FontSize="13" FontAttributes="Bold" />
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding NombreEntrega}"
+                                   Placeholder="Nombre completo"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Documento (opcional)" FontSize="13" FontAttributes="Bold" />
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding DocumentoEntrega}"
+                                   Placeholder="Documento de identidad"
+                                   Keyboard="Numeric"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Firma -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Firma de quien entrega *"
+                           Style="{StaticResource H3Label}" />
+                    <Border HeightRequest="180"
+                            Stroke="{StaticResource InputBorder}"
+                            StrokeThickness="1.5"
+                            StrokeShape="RoundRectangle 10"
+                            BackgroundColor="#FFFFFF"
+                            Padding="0">
+                        <GraphicsView x:Name="FirmaGraphicsView"
+                                      HeightRequest="180"
+                                      HorizontalOptions="Fill"
+                                      VerticalOptions="Fill" />
+                    </Border>
+                    <Button Text="Limpiar firma"
+                            Style="{StaticResource DangerOutlineButton}"
+                            HeightRequest="36"
+                            Padding="14,0"
+                            FontSize="12"
+                            HorizontalOptions="Center"
+                            Command="{Binding LimpiarFirmaCommand}" />
+                    <Label Text="{Binding FirmaStatusText}"
+                           Style="{StaticResource CaptionLabel}"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Fotografía del estado de los bultos -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Fotografía del estado de los bultos *"
+                           Style="{StaticResource H3Label}" />
+
+                    <Button Text="Capturar / Adjuntar fotografía"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding AbrirCamaraCommand}"
+                            IsVisible="{Binding NoTieneFoto}" />
+
+                    <Border IsVisible="{Binding TieneFoto}"
+                            BackgroundColor="#F8FAFC"
+                            Stroke="{StaticResource CardBorder}"
+                            StrokeThickness="1.2"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="10">
+                        <VerticalStackLayout Spacing="10">
+                            <Image Source="{Binding FotoPreviewSource}"
+                                   Aspect="AspectFit"
+                                   HeightRequest="170" />
+                            <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                                <Button Grid.Column="0"
+                                        Text="Reemplazar foto"
+                                        Style="{StaticResource SecondaryButton}"
+                                        HeightRequest="42"
+                                        FontSize="13"
+                                        Command="{Binding AbrirCamaraCommand}" />
+                                <Button Grid.Column="1"
+                                        Text="Quitar foto"
+                                        Style="{StaticResource DangerOutlineButton}"
+                                        HeightRequest="42"
+                                        FontSize="13"
+                                        Command="{Binding QuitarFotoCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="{Binding FotoStatusText}"
+                           Style="{StaticResource CaptionLabel}"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Auditoría de captura -->
+            <Border Style="{StaticResource CardView}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Auditoría de captura" Style="{StaticResource H3Label}" />
+                    <Label Text="{Binding PosicionGpsTexto}" FontAttributes="Bold" FontSize="12" />
+                    <Label Text="{Binding FechaHoraCapturaTexto}" FontAttributes="Bold" FontSize="12" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Acción principal -->
+            <Button Text="Registrar retiro"
+                    Style="{StaticResource SuccessButton}"
+                    Command="{Binding GuardarRetiroCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    HeightRequest="52"
+                    FontSize="16" />
+
+            <!-- Si no se pudo retirar -->
+            <Button Text="No se pudo realizar el retiro"
+                    Style="{StaticResource DangerOutlineButton}"
+                    Command="{Binding AlternarNoRealizadoCommand}"
+                    IsVisible="{Binding NoMostrarNoRealizado}"
+                    HeightRequest="46" />
+
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding MostrarNoRealizado}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Motivo por el que no se pudo retirar *" Style="{StaticResource H3Label}" />
+                    <Border Style="{StaticResource InputContainer}">
+                        <Picker ItemsSource="{Binding MotivosNoRetiro}"
+                                SelectedItem="{Binding MotivoSeleccionado, Mode=TwoWay}"
+                                Title="Seleccione el motivo" />
+                    </Border>
+                    <Border Style="{StaticResource InputContainer}">
+                        <Entry Text="{Binding ObservacionesNoRealizado}"
+                               Placeholder="Observaciones (opcional)"
+                               ClearButtonVisibility="WhileEditing" />
+                    </Border>
+                    <Button Text="Registrar retiro no realizado"
+                            Style="{StaticResource DangerOutlineButton}"
+                            Command="{Binding RegistrarNoRealizadoCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HeightRequest="46" />
+                    <Button Text="Cancelar"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding AlternarNoRealizadoCommand}"
+                            HeightRequest="40" />
+                </VerticalStackLayout>
+            </Border>
+
+            <BoxView HeightRequest="16" Color="Transparent" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

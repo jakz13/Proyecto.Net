@@ -53,6 +53,11 @@ builder.Services.AddRazorPages(opciones =>
 // Fábrica de clientes HTTP (requerida por LoginModel y clientes de integración)
 builder.Services.AddHttpClient();
 
+// Marca del operador de la sesión (nombre, logo y colores), pedida a la API y guardada brevemente
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion>();
+
 var urlBaseApi = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
 var usarMocks = builder.Configuration.GetValue<bool>("UsarMocks", true);
 
@@ -75,7 +80,7 @@ if (!string.IsNullOrWhiteSpace(rutaClaves))
 }
 
 // Con el modo demo apagado, las llamadas a la API llevan el JWT de la sesión del usuario
-if (!LoginModel.ModoDemoActivo(builder.Configuration))
+if (!LoginModel.ModoDemoActivo(builder.Configuration, builder.Environment))
 {
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddTransient<TokenApiHandler>();

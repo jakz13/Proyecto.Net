@@ -10,8 +10,11 @@ using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
 
+/// <summary>
+/// Intento de entrega fallido (UC-21): motivo del catálogo del operador, observaciones, fotografía real de la fachada y posición real.
+/// </summary>
 [QueryProperty(nameof(Parada), "Parada")]
-public partial class IntentoFallidoViewModel : ObservableObject
+public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
@@ -26,16 +29,7 @@ public partial class IntentoFallidoViewModel : ObservableObject
     private string _observaciones = string.Empty;
 
     [ObservableProperty]
-    private bool _tieneFoto;
-
-    [ObservableProperty]
-    private string _fotoStatusText = "Ninguna foto adjunta";
-
-    [ObservableProperty]
-    private string _coordenadasGps = "-34.9124, -56.1589 (Precisión ±4m)";
-
-    [ObservableProperty]
-    private bool _isBusy;
+    private string _coordenadasGps = "Consultando ubicación GPS...";
 
     public ObservableCollection<string> MotivosNoEntrega { get; } = new();
 
@@ -53,18 +47,32 @@ public partial class IntentoFallidoViewModel : ObservableObject
         _ = CargarMotivosAsync();
     }
 
+    partial void OnParadaChanged(ParadaItemViewModel? value)
+    {
+        _ = CargarMotivosAsync();
+        _ = ActualizarPosicionAsync();
+    }
+
+    public async Task ActualizarPosicionAsync()
+    {
+        await ActualizarUbicacionYFechaAsync();
+        CoordenadasGps = PosicionGpsTexto;
+    }
+
+    /// <summary>El catálogo es el del operador, descargado con la hoja de ruta. Sin catálogo no se puede registrar un fallo.</summary>
     public async Task CargarMotivosAsync()
     {
+        if (_localDatabaseService is null)
+            return;
+
         try
         {
-            var motivos = _localDatabaseService != null
-                ? await _localDatabaseService.ObtenerMotivosNoEntregaAsync()
-                : DemoDataDefaults.ObtenerCatalogoMotivos();
+            var motivos = await _localDatabaseService.ObtenerMotivosNoEntregaAsync();
 
             _motivosCatalogo.Clear();
             MotivosNoEntrega.Clear();
 
-            foreach (var m in motivos.Where(x => x.Activo))
+            foreach (var m in motivos)
             {
                 _motivosCatalogo.Add(m);
                 MotivosNoEntrega.Add(m.Descripcion);
@@ -75,14 +83,9 @@ public partial class IntentoFallidoViewModel : ObservableObject
                 MotivoSeleccionado = MotivosNoEntrega[0];
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Carga catálogo básico ante cualquier inconsistencia
-            foreach (var m in DemoDataDefaults.ObtenerCatalogoMotivos())
-            {
-                _motivosCatalogo.Add(m);
-                MotivosNoEntrega.Add(m.Descripcion);
-            }
+            System.Diagnostics.Debug.WriteLine($"[IntentoFallidoViewModel] No se pudo leer el catálogo de motivos: {ex.Message}");
         }
     }
 
@@ -92,16 +95,7 @@ public partial class IntentoFallidoViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        TieneFoto = true;
-        FotoStatusText = "Evidencia adjunta: fachada_visita_fallida_01.jpg";
-
-        if (Shell.Current is not null)
-        {
-            await Shell.Current.DisplayAlertAsync(
-                "Cámara de Evidencia",
-                "Fotografía de fachada/timbre capturada y geolocalizada con éxito para respaldo del intento de entrega.",
-                "Continuar");
-        }
+        await CapturarFotoAsync();
     }
 
     [RelayCommand]
@@ -110,27 +104,28 @@ public partial class IntentoFallidoViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        if (string.IsNullOrWhiteSpace(MotivoSeleccionado))
+        var parada = Parada;
+        if (parada is null || parada.Id == Guid.Empty)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Motivo requerido",
-                    "Por favor, seleccione el motivo de no entrega del listado para registrar el intento fallido.",
-                    "Entendido");
-            }
+            await AvisarAsync("Parada no disponible", "No se pudo identificar la parada. Vuelva a la hoja de ruta e intente nuevamente.");
+            return;
+        }
+
+        var motivo = _motivosCatalogo.FirstOrDefault(m =>
+            string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(m.Codigo, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
+
+        if (motivo is null)
+        {
+            await AvisarAsync(
+                "Motivo requerido",
+                "Seleccione el motivo de no entrega. Si la lista está vacía, descargue la hoja de ruta con conexión para obtener el catálogo del operador.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(Observaciones))
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Observaciones requeridas",
-                    "Por favor, detalle brevemente la situación ocurrida en el domicilio antes de registrar la incidencia.",
-                    "Entendido");
-            }
+            await AvisarAsync("Observaciones requeridas", "Detalle brevemente la situación ocurrida en el domicilio antes de registrar la incidencia.");
             return;
         }
 
@@ -138,77 +133,37 @@ public partial class IntentoFallidoViewModel : ObservableObject
         {
             IsBusy = true;
 
-            var parada = Parada;
-            var hojaDeRutaId = (parada?.HojaDeRutaId != null && parada.HojaDeRutaId != Guid.Empty)
-                ? parada.HojaDeRutaId
-                : DemoDataDefaults.DefaultHojaDeRutaId;
+            await ActualizarPosicionAsync();
 
-            var paradaId = (parada?.Id != null && parada.Id != Guid.Empty)
-                ? parada.Id
-                : (parada?.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Parada1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Parada2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Parada3Id,
-                    _ => DemoDataDefaults.Parada3Id
-                });
-
-            var envioId = (parada?.EnvioId != null && parada.EnvioId != Guid.Empty)
-                ? parada.EnvioId
-                : (parada?.CodigoSeguimiento switch
-                {
-                    "ENV-2026-00108" => DemoDataDefaults.Envio1Id,
-                    "ENV-2026-00109" => DemoDataDefaults.Envio2Id,
-                    "ENV-2026-00110" => DemoDataDefaults.Envio3Id,
-                    _ => DemoDataDefaults.Envio3Id
-                });
-
-            var catalogoFallback = DemoDataDefaults.ObtenerCatalogoMotivos();
-            var motivoMatch = _motivosCatalogo.FirstOrDefault(m =>
-                string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(m.Codigo, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase))
-                ?? catalogoFallback.FirstOrDefault(m =>
-                string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(m.Codigo, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
-
-            var motivoId = motivoMatch?.Id ?? catalogoFallback[0].Id;
-            var motivoCodigo = !string.IsNullOrWhiteSpace(motivoMatch?.Codigo) ? motivoMatch.Codigo : "CLI_AUSENTE";
-
-            var idempotencyKey = $"FALLO-{paradaId:N}-{DateTime.UtcNow.Ticks}";
-
-            // Contrato idéntico a RegistrarIntentoFallidoCommand (UC-21)
             var payload = new IntentoFallidoOfflinePayload
             {
-                HojaDeRutaId = hojaDeRutaId,
-                ParadaId = paradaId,
-                EnvioId = envioId,
-                IdempotencyKey = idempotencyKey,
-                MotivoNoEntregaId = motivoId,
-                MotivoCodigo = motivoCodigo,
+                HojaDeRutaId = parada.HojaDeRutaId,
+                ParadaId = parada.Id,
+                EnvioId = parada.EnvioId,
+                IdempotencyKey = $"FALLO-{parada.Id:N}-{DateTime.UtcNow.Ticks}",
+                MotivoNoEntregaId = motivo.Id,
+                MotivoCodigo = motivo.Codigo,
                 Observaciones = Observaciones.Trim(),
-                FotoEvidenciaBase64 = TieneFoto ? "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" : null,
-                Latitud = (parada?.Latitud != null && parada.Latitud != 0) ? parada.Latitud : -34.9271,
-                Longitud = (parada?.Longitud != null && parada.Longitud != 0) ? parada.Longitud : -56.1534,
+                FotoEvidenciaBase64 = TieneFoto ? FotoEvidenciaBase64 : null,
+                Latitud = LatitudActual,
+                Longitud = LongitudActual,
                 FechaHoraDispositivoUtc = DateTime.UtcNow
             };
 
-            // 1. Encolar en base SQLite cifrada y actualizar estado local
+            // 1. Encolar en la base cifrada y actualizar el estado local
             if (_localDatabaseService is not null)
             {
                 await _localDatabaseService.EncolarOperacionAsync(
                     TiposOperacionOffline.FalloEntrega,
                     JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
 
-                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(paradaId, "Fallido");
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, "Fallido");
             }
 
-            // 2. Actualizar estado en memoria
-            if (parada is not null)
-            {
-                parada.Estado = "Fallido";
-            }
+            // 2. Estado en memoria
+            parada.Estado = "Fallido";
 
-            // 3. Disparar sincronización si estamos Online
+            // 3. Sincronizar si hay conexión
             if (_syncService?.IsOnline == true)
             {
                 _ = Task.Run(async () =>
@@ -217,23 +172,21 @@ public partial class IntentoFallidoViewModel : ObservableObject
                     {
                         await _syncService.SincronizarOperacionesPendientesAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Fallback silente en background
+                        System.Diagnostics.Debug.WriteLine($"[IntentoFallidoViewModel] Sincronización en segundo plano: {ex.Message}");
                     }
                 });
             }
 
-            await Task.Delay(250);
-
             if (Shell.Current is not null)
             {
-                string infoRed = (_syncService?.IsOnline == true)
-                    ? "Sincronizando incidencia con la central y resolviendo reglas operativas."
-                    : "Guardado en SQLite cifrado local. Se resolverá la regla operativa (reprogramación / devolución) al sincronizar.";
+                var infoRed = _syncService?.IsOnline == true
+                    ? "Se está enviando a la central, que aplicará la regla operativa (reprogramación o devolución)."
+                    : "Guardado en el dispositivo. Se resolverá la regla operativa al recuperar la conexión.";
 
                 await Shell.Current.DisplayAlertAsync(
-                    "Intento Fallido Registrado",
+                    "Intento fallido registrado",
                     $"El intento fallido por '{MotivoSeleccionado}' fue guardado.\n\n{infoRed}",
                     "Aceptar");
 
