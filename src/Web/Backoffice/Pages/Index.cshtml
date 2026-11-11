@@ -18,26 +18,29 @@
 
 <!-- Tarjetas de Métricas Rápidas Estandarizadas con Componentes -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-md-3">
-        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
-            "Comercios Clientes",
-            Model.TotalComercios.ToString(),
-            "Comercios clientes registrados en la red del operador logístico.",
-            "text-dark",
-            "Gestionar Comercios →",
-            Url.Page("/Comercios/Index", new { tab = "comercios" })
-        )' />
-    </div>
-    <div class="col-sm-6 col-md-3">
-        <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
-            "Usuarios del Operador",
-            Model.TotalUsuarios.ToString(),
-            "Cuentas internas del operador con perfiles asignados (RF-31).",
-            "text-dark",
-            "Gestionar Usuarios →",
-            Url.Page("/Comercios/Index", new { tab = "usuarios" })
-        )' />
-    </div>
+    @if (Model.MuestraAdministracion)
+    {
+        <div class="col-sm-6 col-md-3">
+            <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+                "Comercios Clientes",
+                Model.TotalComercios.ToString(),
+                "Comercios clientes registrados en la red del operador logístico.",
+                "text-dark",
+                "Gestionar Comercios →",
+                Url.Page("/Comercios/Index", new { tab = "comercios" })
+            )' />
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
+                "Usuarios del Operador",
+                Model.TotalUsuarios.ToString(),
+                "Cuentas internas del operador con perfiles asignados (RF-31).",
+                "text-dark",
+                "Gestionar Usuarios →",
+                Url.Page("/Comercios/Index", new { tab = "usuarios" })
+            )' />
+        </div>
+    }
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
             "Total Envíos",

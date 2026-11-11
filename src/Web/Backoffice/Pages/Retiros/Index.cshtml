@@ -19,7 +19,10 @@
         <h1 class="h4 fw-bold text-dark mb-0">Retiros en domicilio</h1>
         <partial name="_BotonAyuda" model='"A pedido del comercio, el operador retira bultos en el domicilio del comprador y los hace llegar al comercio. Los retiros se planifican en hojas de ruta mixtas junto con las entregas."' />
     </div>
-    <a class="btn btn-dark btn-sm px-3 py-2" asp-page="/Rutas/Armar">Armar hoja de ruta</a>
+    @if (UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
+    {
+        <a class="btn btn-dark btn-sm px-3 py-2" asp-page="/Rutas/Armar">Armar hoja de ruta</a>
+    }
 </div>
 
 @if (!string.IsNullOrEmpty(Model.MensajeExito))
@@ -79,15 +82,16 @@
                                 {
                                     <button class="btn btn-sm btn-success" asp-page-handler="Entregar">Entregar al comercio</button>
                                 }
-                                @if (r.Estado == "NoRetirado")
+                                @* Reprogramar, sacar de la ruta y cancelar son decisiones de planificación: administrador y despachador *@
+                                @if (r.Estado == "NoRetirado" && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
                                 {
                                     <button class="btn btn-sm btn-outline-primary" asp-page-handler="Reprogramar">Nueva visita</button>
                                 }
-                                @if (r.Estado == "AsignadoARuta")
+                                @if (r.Estado == "AsignadoARuta" && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
                                 {
                                     <button class="btn btn-sm btn-outline-secondary" asp-page-handler="SacarDeRuta">Sacar de la ruta</button>
                                 }
-                                @if (r.Estado is "Solicitado" or "NoRetirado")
+                                @if ((r.Estado is "Solicitado" or "NoRetirado") && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
                                 {
                                     <input type="hidden" name="motivo" value="Cancelado por el operador" />
                                     <button class="btn btn-sm btn-outline-danger" asp-page-handler="Cancelar" onclick="return confirm('¿Cancelar este retiro?');">Cancelar</button>

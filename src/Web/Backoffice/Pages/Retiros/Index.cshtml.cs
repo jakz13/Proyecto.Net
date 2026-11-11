@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using UltimaMilla.Backoffice.Seguridad;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos.Retiros;
 using UltimaMilla.Frontend.Infrastructure.Excepciones;
@@ -40,14 +41,15 @@ public class IndexModel : PageModel
     public Task<IActionResult> OnPostEntregarAsync(Guid id, string? receptor) =>
         EjecutarAsync(() => _retirosApi.EntregarAlComercioAsync(id, receptor), "Los bultos se entregaron al comercio y el retiro quedó cerrado.");
 
+    // Reprogramar, sacar de la ruta y cancelar son decisiones de planificación: el operario de depósito no las toma
     public Task<IActionResult> OnPostReprogramarAsync(Guid id) =>
-        EjecutarAsync(() => _retirosApi.ReprogramarAsync(id), "El retiro volvió a quedar solicitado para una nueva visita.");
+        !PermisosBackoffice.PuedeOperar(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.ReprogramarAsync(id), "El retiro volvió a quedar solicitado para una nueva visita.");
 
     public Task<IActionResult> OnPostSacarDeRutaAsync(Guid id) =>
-        EjecutarAsync(() => _retirosApi.SacarDeRutaAsync(id), "El retiro se sacó de la hoja de ruta.");
+        !PermisosBackoffice.PuedeOperar(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.SacarDeRutaAsync(id), "El retiro se sacó de la hoja de ruta.");
 
     public Task<IActionResult> OnPostCancelarAsync(Guid id, string? motivo) =>
-        EjecutarAsync(() => _retirosApi.CancelarDelOperadorAsync(id, motivo ?? string.Empty), "El retiro se canceló.");
+        !PermisosBackoffice.PuedeOperar(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.CancelarDelOperadorAsync(id, motivo ?? string.Empty), "El retiro se canceló.");
 
     private async Task<IActionResult> EjecutarAsync(Func<Task<RetiroDetalleDto>> accion, string exito)
     {
