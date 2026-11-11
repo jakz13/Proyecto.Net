@@ -29,8 +29,10 @@ public interface ILocalDatabaseService
     Task<int> ObtenerCantidadPendientesAsync();
 
     // Persistencia y consulta de hoja de ruta local (UC-17, UC-18, UC-19, UC-20, UC-21)
-    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null);
-    Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync();
+    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null, DateTime? fechaRuta = null);
+    Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync(Guid? hojaDeRutaId = null);
+    Task<List<HojaDeRutaLocal>> ListarHojasDeRutaLocalesAsync();
+    Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId);
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
     Task MarcarEntregaParcialLocalAsync(Guid paradaId, IReadOnlyCollection<string> codigosEntregados);
     Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado);
@@ -367,7 +369,13 @@ public class LocalDatabaseService : ILocalDatabaseService
             .CountAsync();
     }
 
-    public async Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null)
+    public async Task GuardarRutaDescargadaAsync(
+        Guid hojaDeRutaId,
+        List<ParadaNavegacionDto> paradas,
+        List<MotivoNoEntregaLocal>? motivos = null,
+        string? estadoRuta = null,
+        string? numeroRuta = null,
+        DateTime? fechaRuta = null)
     {
         if (hojaDeRutaId == Guid.Empty)
             throw new ArgumentException("La hoja de ruta descargada no trae identificador.", nameof(hojaDeRutaId));
@@ -383,9 +391,9 @@ public class LocalDatabaseService : ILocalDatabaseService
                 ruta = new HojaDeRutaLocal
                 {
                     Id = hojaDeRutaId,
-                    Fecha = DateTime.Today,
+                    Fecha = fechaRuta ?? DateTime.Today,
                     Estado = !string.IsNullOrWhiteSpace(estadoRuta) ? estadoRuta : "Liberada",
-                    NumeroRuta = numeroRuta ?? string.Empty,
+                    NumeroRuta = !string.IsNullOrWhiteSpace(numeroRuta) ? numeroRuta : $"HR-{(fechaRuta ?? DateTime.Today):yyyyMMdd}-01",
                     TotalParadas = paradas.Count,
                     FechaDescargaUtc = DateTime.UtcNow
                 };
@@ -397,6 +405,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                     ruta.Estado = estadoRuta;
                 if (!string.IsNullOrWhiteSpace(numeroRuta))
                     ruta.NumeroRuta = numeroRuta;
+                if (fechaRuta.HasValue)
+                    ruta.Fecha = fechaRuta.Value;
                 ruta.TotalParadas = paradas.Count;
                 ruta.FechaDescargaUtc = DateTime.UtcNow;
                 conn.Update(ruta);
@@ -559,13 +569,69 @@ public class LocalDatabaseService : ILocalDatabaseService
         });
     }
 
-    public async Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync()
+    public async Task<List<HojaDeRutaLocal>> ListarHojasDeRutaLocalesAsync()
+    {
+        await InitAsync();
+        var rutas = await Db.Table<HojaDeRutaLocal>()
+            .OrderByDescending(r => r.FechaDescargaUtc)
+            .ToListAsync();
+
+        int PrioridadEstado(string estado) => estado switch
+        {
+            "EnTransito" => 1,
+            "Despachada" => 2,
+            "EnCarga" => 3,
+            "Liberada" => 4,
+            "Borrador" => 5,
+            _ => 10
+        };
+
+        return rutas
+            .OrderBy(r => PrioridadEstado(r.Estado))
+            .ThenByDescending(r => r.FechaDescargaUtc)
+            .ToList();
+    }
+
+    public async Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId)
+    {
+        await InitAsync();
+        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
+        if (ruta == null)
+        {
+            ruta = await Db.Table<HojaDeRutaLocal>()
+                .OrderByDescending(r => r.FechaDescargaUtc)
+                .FirstOrDefaultAsync();
+        }
+
+        if (ruta != null)
+        {
+            ruta.Estado = "Finalizada";
+            await Db.UpdateAsync(ruta);
+        }
+    }
+
+    public async Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync(Guid? hojaDeRutaId = null)
     {
         await InitAsync();
 
-        var ruta = await Db.Table<HojaDeRutaLocal>()
-            .OrderByDescending(r => r.FechaDescargaUtc)
-            .FirstOrDefaultAsync();
+        HojaDeRutaLocal? ruta = null;
+
+        if (hojaDeRutaId.HasValue && hojaDeRutaId.Value != Guid.Empty)
+        {
+            ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId.Value);
+        }
+        else
+        {
+            var todas = await Db.Table<HojaDeRutaLocal>()
+                .OrderByDescending(r => r.FechaDescargaUtc)
+                .ToListAsync();
+
+            // Prioridad de ruta activa: EnTransito > Despachada > EnCarga > Liberada
+            ruta = todas.FirstOrDefault(r => r.Estado == "EnTransito")
+                ?? todas.FirstOrDefault(r => r.Estado == "Despachada")
+                ?? todas.FirstOrDefault(r => r.Estado == "EnCarga")
+                ?? todas.FirstOrDefault(r => r.Estado == "Liberada");
+        }
 
         if (ruta == null)
             return null;

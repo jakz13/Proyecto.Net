@@ -41,6 +41,41 @@
                     </Grid>
                 </Border>
 
+                <!-- Selector de Hojas de Ruta del Repartidor (múltiples rutas del día) -->
+                <Border IsVisible="{Binding TieneMultiplesRutas}"
+                        BackgroundColor="#F8FAFC"
+                        Stroke="#CBD5E1"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="10,6"
+                        Margin="0,0,0,2">
+                    <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
+                        <Label Text="Ruta activa:"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="#334155"
+                               VerticalOptions="Center" />
+                        <Picker Grid.Column="1"
+                                ItemsSource="{Binding HojasDeRutaDisponibles}"
+                                ItemDisplayBinding="{Binding TituloSelector}"
+                                SelectedItem="{Binding HojaDeRutaSeleccionada}"
+                                FontSize="12"
+                                TextColor="#0F172A"
+                                Title="Seleccionar Ruta"
+                                VerticalOptions="Center" />
+                        <Button Grid.Column="2"
+                                Text="Actualizar"
+                                Command="{Binding ActualizarRutasServidorCommand}"
+                                BackgroundColor="#0F172A"
+                                TextColor="White"
+                                FontSize="11"
+                                FontAttributes="Bold"
+                                CornerRadius="6"
+                                HeightRequest="32"
+                                Padding="8,0" />
+                    </Grid>
+                </Border>
+
                 <!-- Fila Superior: Título institucional y badges.
                      FlexLayout con Wrap: si los badges no entran al lado del título (pantallas angostas)
                      bajan a la línea siguiente en vez de aplastar el texto. -->
@@ -264,12 +299,49 @@
         </Border>
 
         <!-- ========================================================= -->
-        <!-- LISTA DE PARADAS (TARJETAS CORPORATIVAS Y ERGONÓMICAS)    -->
+        <!-- CONTENIDO PRINCIPAL: PARADAS Y ESTADO DE RUTAS           -->
         <!-- ========================================================= -->
-        <CollectionView Grid.Row="1"
-                        ItemsSource="{Binding Paradas}"
-                        SelectionMode="None"
-                        Margin="{DynamicResource MargenListaParadas}">
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding ActualizarRutasServidorCommand}">
+            <Grid>
+                <!-- Estado Vacío: Sin Ruta Asignada o Todas Finalizadas -->
+                <ScrollView IsVisible="{Binding SinRutaAsignada}">
+                    <VerticalStackLayout Spacing="16"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Padding="24">
+                        <Border Stroke="#CBD5E1"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 16"
+                                BackgroundColor="#F8FAFC"
+                                Padding="24"
+                                MaximumWidthRequest="400">
+                            <VerticalStackLayout Spacing="14" HorizontalOptions="Center">
+                                <Label Text="Hoja de ruta finalizada. No posee nuevas rutas asignadas por el momento."
+                                       FontSize="15"
+                                       FontAttributes="Bold"
+                                       TextColor="#1E293B"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Las entregas y retornos de su última hoja de ruta han sido completados y rendidos en depósito. Si la central le asigna un nuevo viaje, toque el botón a continuación para sincronizar."
+                                       FontSize="12"
+                                       TextColor="#64748B"
+                                       HorizontalTextAlignment="Center" />
+                                <Button Text="Buscar Nueva Ruta Asignada"
+                                        Command="{Binding ActualizarRutasServidorCommand}"
+                                        Style="{StaticResource PrimaryButton}"
+                                        HeightRequest="46"
+                                        Margin="0,8,0,0" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <!-- LISTA DE PARADAS (TARJETAS CORPORATIVAS Y ERGONÓMICAS) -->
+                <CollectionView IsVisible="{Binding HayRutaAsignada}"
+                                ItemsSource="{Binding Paradas}"
+                                SelectionMode="None"
+                                Margin="{DynamicResource MargenListaParadas}">
 
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:ParadaItemViewModel">
@@ -416,7 +488,35 @@
                     </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
-        </CollectionView>
+
+                    <CollectionView.Footer>
+                        <VerticalStackLayout Spacing="12" Padding="0,10,0,30">
+                            <!-- Botón Prominente de Finalizar / Rendir Hoja de Ruta -->
+                            <Button Text="Finalizar Hoja de Ruta (Retorno a Depósito)"
+                                    Command="{Binding FinalizarHojaDeRutaCommand}"
+                                    BackgroundColor="#15803D"
+                                    TextColor="White"
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    HeightRequest="50"
+                                    CornerRadius="10"
+                                    IsVisible="{Binding PuedeFinalizarRuta}" />
+
+                            <Button Text="Actualizar Rutas con Servidor"
+                                    Command="{Binding ActualizarRutasServidorCommand}"
+                                    BackgroundColor="#F1F5F9"
+                                    TextColor="#334155"
+                                    BorderColor="#CBD5E1"
+                                    BorderWidth="1"
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    HeightRequest="42"
+                                    CornerRadius="8" />
+                        </VerticalStackLayout>
+                    </CollectionView.Footer>
+                </CollectionView>
+            </Grid>
+        </RefreshView>
 
     </Grid>
 

@@ -13,6 +13,17 @@ public static class TiposOperacionOffline
     public const string EventoGeocerca = "EVENTO_GEOCERCA";
     public const string IniciarRecorrido = "INICIAR_RECORRIDO";
     public const string TelemetriaGps = "TELEMETRIA_GPS";
+    public const string FinalizarHojaDeRuta = "FINALIZAR_HOJA_DE_RUTA";
+}
+
+public class FinalizarHojaDeRutaOfflinePayload
+{
+    public Guid HojaDeRutaId { get; set; }
+    public List<string>? CodigosBultosDevueltos { get; set; }
+    public string? MotivoInternoCodigo { get; set; }
+    public string? Observaciones { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime FechaFinalizacionUtc { get; set; } = DateTime.UtcNow;
 }
 
 public class IniciarRecorridoOfflinePayload

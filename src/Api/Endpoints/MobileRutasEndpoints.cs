@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UltimaMilla.Application.Commands.Deposito.RendirHojaDeRuta;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
@@ -95,6 +96,37 @@ public static class MobileRutasEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithOpenApi();
 
+        app.MapGet("/api/mobile/v1/rutas/activas", async (
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var resultado = await mediator.Send(new ObtenerRutasActivasRepartidorQuery(), ct);
+                return Results.Ok(resultado);
+            }
+            catch (NotFoundException)
+            {
+                return Results.Ok(new List<RutaActivaRepartidorDto>());
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        })
+        .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+        .RequireAuthorization(PoliticasApi.Repartidor)
+        .WithName("ObtenerRutasActivasRepartidor")
+        .WithSummary("Obtener todas las hojas de ruta vigentes del repartidor autenticado")
+        .WithDescription("Devuelve todas las hojas de ruta vigentes (Liberada, EnCarga, Despachada o EnTransito) del repartidor junto con paradas y bultos.")
+        .Produces<List<RutaActivaRepartidorDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status403Forbidden)
+        .WithOpenApi();
+
         app.MapGet("/api/mobile/v1/rutas/mi-ruta-activa", obtenerRutaActivaHandler)
             .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
             .RequireAuthorization(PoliticasApi.Repartidor)
@@ -112,6 +144,58 @@ public static class MobileRutasEndpoints
 
                 return await siguiente(contexto);
             });
+
+        // =========================================================================
+        // FINALIZAR HOJA DE RUTA / RENDICIÓN POR RETORNO A DEPÓSITO
+        // =========================================================================
+        var finalizarRutaHandler = async (
+            [FromRoute] Guid hojaDeRutaId,
+            [FromBody] FinalizarRutaMobileRequest? request,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var command = new RendirHojaDeRutaCommand(
+                    hojaDeRutaId,
+                    request?.CodigosBultosDevueltos ?? new List<string>(),
+                    request?.MotivoInternoCodigo,
+                    request?.Observaciones ?? "Finalización de hoja de ruta por retorno a depósito desde la aplicación móvil.");
+
+                var resultado = await mediator.Send(command, ct);
+                return Results.Ok(resultado);
+            }
+            catch (DomainValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (ConflictoDeConcurrenciaException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        };
+
+        group.MapPost("/finalizar", finalizarRutaHandler)
+            .WithName("FinalizarHojaDeRuta")
+            .WithSummary("Finalizar hoja de ruta al completar paradas o retornar a depósito")
+            .WithDescription("Rinde y cierra la hoja de ruta desde la app móvil, liberando al repartidor para asumir un nuevo recorrido.")
+            .Produces<RendicionResultDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithOpenApi();
+
+        group.MapPost("/rendicion", finalizarRutaHandler)
+            .WithName("RendirHojaDeRutaMobile")
+            .ExcludeFromDescription();
 
         // =========================================================================
         // UC-18: ESCANEAR BULTOS AL CARGAR EL VEHÍCULO (RF-19)
@@ -667,6 +751,12 @@ public record RegistrarEntregaParcialRequest(
     DateTime? FechaHoraDispositivoUtc = null
 );
 
+public record FinalizarRutaMobileRequest(
+    List<string>? CodigosBultosDevueltos = null,
+    string? MotivoInternoCodigo = null,
+    string? Observaciones = null
+);
+
 public record RegistrarIntentoFallidoRequest(
     Guid EnvioId,
     string IdempotencyKey,
@@ -677,4 +767,10 @@ public record RegistrarIntentoFallidoRequest(
     double? Latitud = null,
     double? Longitud = null,
     DateTime? FechaHoraDispositivoUtc = null
+);
+
+public record FinalizarRutaMobileRequest(
+    List<string>? CodigosBultosDevueltos = null,
+    string? MotivoInternoCodigo = null,
+    string? Observaciones = null
 );

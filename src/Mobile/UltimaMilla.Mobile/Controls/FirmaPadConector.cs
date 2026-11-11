@@ -13,6 +13,11 @@ public static class FirmaPadConector
         var dibujo = new SignaturePadDrawable();
         lienzo.Drawable = dibujo;
 
+#if ANDROID
+        lienzo.Loaded += (_, _) => ConfigurarTouchNativo(lienzo);
+        lienzo.HandlerChanged += (_, _) => ConfigurarTouchNativo(lienzo);
+#endif
+
         vm.LimpiarFirmaAction = () =>
         {
             dibujo.Limpiar();
@@ -51,6 +56,8 @@ public static class FirmaPadConector
 
         lienzo.StartInteraction += (_, e) =>
         {
+            BloquearScrollPadre(lienzo, true);
+
             var punto = PrimerPunto(e);
             if (punto is null)
                 return;
@@ -63,6 +70,8 @@ public static class FirmaPadConector
 
         lienzo.DragInteraction += (_, e) =>
         {
+            BloquearScrollPadre(lienzo, true);
+
             var punto = PrimerPunto(e);
             if (punto is null)
                 return;
@@ -73,14 +82,71 @@ public static class FirmaPadConector
 
         lienzo.EndInteraction += (_, _) =>
         {
-            dibujo.FinalizarTrazo();
-            lienzo.Invalidate();
-            vm.TieneFirma = dibujo.TieneFirma;
-            vm.FirmaStatusText = dibujo.TieneFirma ? "Firma capturada" : "Toque o dibuje para firmar";
+            try
+            {
+                dibujo.FinalizarTrazo();
+                lienzo.Invalidate();
+                vm.TieneFirma = dibujo.TieneFirma;
+                vm.FirmaStatusText = dibujo.TieneFirma ? "Firma capturada" : "Toque o dibuje para firmar";
+            }
+            finally
+            {
+                BloquearScrollPadre(lienzo, false);
+            }
         };
 
         return dibujo;
     }
+
+    private static void BloquearScrollPadre(GraphicsView lienzo, bool bloquear)
+    {
+#if ANDROID
+        if (lienzo.Handler?.PlatformView is global::Android.Views.View nativeView)
+        {
+            nativeView.Parent?.RequestDisallowInterceptTouchEvent(bloquear);
+        }
+#endif
+        Element? parent = lienzo.Parent;
+        while (parent != null)
+        {
+            if (parent is ScrollView scrollView)
+            {
+                scrollView.Orientation = bloquear ? ScrollOrientation.Neither : ScrollOrientation.Vertical;
+                break;
+            }
+            parent = parent.Parent;
+        }
+    }
+
+#if ANDROID
+    private static void ConfigurarTouchNativo(GraphicsView lienzo)
+    {
+        if (lienzo.Handler?.PlatformView is global::Android.Views.View nativeView)
+        {
+            nativeView.Touch -= OnNativeFirmaTouch;
+            nativeView.Touch += OnNativeFirmaTouch;
+        }
+    }
+
+    private static void OnNativeFirmaTouch(object? sender, global::Android.Views.View.TouchEventArgs e)
+    {
+        if (sender is global::Android.Views.View nativeView && e.Event != null)
+        {
+            switch (e.Event.ActionMasked)
+            {
+                case global::Android.Views.MotionEventActions.Down:
+                case global::Android.Views.MotionEventActions.Move:
+                    nativeView.Parent?.RequestDisallowInterceptTouchEvent(true);
+                    break;
+                case global::Android.Views.MotionEventActions.Up:
+                case global::Android.Views.MotionEventActions.Cancel:
+                    nativeView.Parent?.RequestDisallowInterceptTouchEvent(false);
+                    break;
+            }
+        }
+        e.Handled = false;
+    }
+#endif
 
     private static PointF? PrimerPunto(TouchEventArgs e)
     {

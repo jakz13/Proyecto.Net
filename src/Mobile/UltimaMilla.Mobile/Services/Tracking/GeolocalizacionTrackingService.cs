@@ -65,10 +65,13 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         {
             var status = await MainThread.InvokeOnMainThreadAsync(async () =>
             {
+                bool requirioInteraccion = false;
+
                 var current = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
                 if (current != PermissionStatus.Granted)
                 {
                     current = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                    requirioInteraccion = true;
                 }
 
 #if ANDROID
@@ -80,6 +83,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                         if (notifStatus != PermissionStatus.Granted)
                         {
                             await Permissions.RequestAsync<Permissions.PostNotifications>();
+                            requirioInteraccion = true;
                         }
                     }
                     catch (Exception exNotif)
@@ -88,6 +92,13 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     }
                 }
 #endif
+
+                if (requirioInteraccion && current == PermissionStatus.Granted)
+                {
+                    // Breve pausa para asegurar que la Activity de Android retome el foco (OnResume)
+                    // antes de que cualquier servicio en primer plano o llamada a GPS intente ejecutarse.
+                    await Task.Delay(300);
+                }
 
                 return current;
             });
@@ -105,8 +116,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     {
         try
         {
-            var tienePermiso = await SolicitarPermisosUbicacionAsync();
-            if (tienePermiso)
+            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            if (status == PermissionStatus.Granted)
             {
                 var request = new GeolocationRequest(_precisionActual, TimeSpan.FromSeconds(8));
                 var location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
@@ -121,6 +132,10 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     _ultimaUbicacion = location;
                     return location;
                 }
+            }
+            else
+            {
+                _logger.LogDebug("Permiso de ubicacion no concedido; omitiendo consulta a Geolocation.Default.");
             }
         }
         catch (FeatureNotSupportedException ex)
@@ -145,11 +160,23 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         if (_isTrackingActive)
             return;
 
-        await SolicitarPermisosUbicacionAsync();
+        bool tienePermiso = await SolicitarPermisosUbicacionAsync();
+        if (!tienePermiso)
+        {
+            _logger.LogWarning("Permiso de ubicacion no concedido. El rastreo operara en modo degradado sin servicio en primer plano.");
+        }
+
         await _realtimeTrackingService.StartAsync(cancellationToken);
 
 #if ANDROID
-        ArrancarForegroundServiceAndroid();
+        if (tienePermiso)
+        {
+            ArrancarForegroundServiceAndroid();
+        }
+        else
+        {
+            ForegroundServiceActivo = false;
+        }
 #endif
 
         _trackingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

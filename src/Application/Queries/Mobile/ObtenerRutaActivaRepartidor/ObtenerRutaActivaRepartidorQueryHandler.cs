@@ -9,7 +9,9 @@ using UltimaMilla.Domain.Entities.Retiros;
 
 namespace UltimaMilla.Application.Queries.Mobile.ObtenerRutaActivaRepartidor;
 
-public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRutaActivaRepartidorQuery, RutaActivaRepartidorDto>
+public class ObtenerRutaActivaRepartidorQueryHandler :
+    IRequestHandler<ObtenerRutaActivaRepartidorQuery, RutaActivaRepartidorDto>,
+    IRequestHandler<ObtenerRutasActivasRepartidorQuery, List<RutaActivaRepartidorDto>>
 {
     private static readonly string[] EstadosRutaActiva = { "Liberada", "EnCarga", "Despachada", "EnTransito" };
 
@@ -45,10 +47,62 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
         _retiroRepository = retiroRepository;
     }
 
+    public async Task<List<RutaActivaRepartidorDto>> Handle(ObtenerRutasActivasRepartidorQuery request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var repartidor = await ObtenerRepartidorAutenticadoAsync(cancellationToken);
+
+        var rutasActivas = await _rutaRepository.ListarAsync(
+            _currentTenant.OperadorId,
+            fecha: null,
+            repartidorId: repartidor.Id,
+            estados: EstadosRutaActiva,
+            cancellationToken);
+
+        if (rutasActivas.Count == 0)
+        {
+            return new List<RutaActivaRepartidorDto>();
+        }
+
+        var motivos = await _envioRepository.ListarMotivosNoEntregaActivosAsync(_currentTenant.OperadorId, cancellationToken);
+        var motivosDto = motivos
+            .Select(m => new MotivoNoEntregaDescargaDto(m.Id, m.Codigo, m.Descripcion))
+            .ToList();
+
+        var resultado = new List<RutaActivaRepartidorDto>();
+        var rutasOrdenadas = rutasActivas
+            .OrderBy(r => r.Estado switch
+            {
+                "EnTransito" => 0,
+                "Despachada" => 1,
+                "EnCarga" => 2,
+                "Liberada" => 3,
+                _ => 4
+            })
+            .ThenByDescending(r => r.Fecha);
+
+        foreach (var rutaResumen in rutasOrdenadas)
+        {
+            var dto = await ConstruirRutaDtoAsync(rutaResumen.Id, repartidor, motivosDto, cancellationToken);
+            if (dto != null)
+            {
+                resultado.Add(dto);
+            }
+        }
+
+        return resultado;
+    }
+
     public async Task<RutaActivaRepartidorDto> Handle(ObtenerRutaActivaRepartidorQuery request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var rutas = await Handle(new ObtenerRutasActivasRepartidorQuery(), cancellationToken);
+        return rutas.FirstOrDefault()
+            ?? throw new NotFoundException("El repartidor autenticado no posee ninguna hoja de ruta asignada (Liberada, Despachada o EnTransito).");
+    }
 
+    private async Task<Domain.Entities.Operador.Repartidor> ObtenerRepartidorAutenticadoAsync(CancellationToken cancellationToken)
+    {
         var usuarioORepartidorId = _currentTenant.UsuarioId
             ?? throw new UnauthorizedAccessException("Acceso denegado: no se pudo identificar al usuario autenticado.");
 
@@ -62,28 +116,18 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
         if (repartidor.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: el repartidor no pertenece al operador actual.");
 
-        var rutasActivas = await _rutaRepository.ListarAsync(
-            _currentTenant.OperadorId,
-            fecha: null,
-            repartidorId: repartidor.Id,
-            estados: EstadosRutaActiva,
-            cancellationToken);
+        return repartidor;
+    }
 
-        var rutaResumen = rutasActivas
-            .OrderBy(r => r.Estado switch
-            {
-                "EnTransito" => 0,
-                "Despachada" => 1,
-                "EnCarga" => 2,
-                "Liberada" => 3,
-                _ => 4
-            })
-            .ThenByDescending(r => r.Fecha)
-            .FirstOrDefault()
-            ?? throw new NotFoundException("El repartidor autenticado no posee ninguna hoja de ruta asignada (Liberada, Despachada o EnTransito).");
-
-        var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(rutaResumen.Id, cancellationToken)
-            ?? throw new NotFoundException($"Hoja de ruta '{rutaResumen.Id}' no encontrada.");
+    private async Task<RutaActivaRepartidorDto?> ConstruirRutaDtoAsync(
+        Guid rutaId,
+        Domain.Entities.Operador.Repartidor repartidor,
+        List<MotivoNoEntregaDescargaDto> motivosDto,
+        CancellationToken cancellationToken)
+    {
+        var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(rutaId, cancellationToken);
+        if (ruta == null)
+            return null;
 
         var paradasVigentes = ruta.Paradas
             .Where(p => p.Estado != "Cancelada")
@@ -228,11 +272,6 @@ public class ObtenerRutaActivaRepartidorQueryHandler : IRequestHandler<ObtenerRu
                 RetiroId: parada.RetiroId
             ));
         }
-
-        var motivos = await _envioRepository.ListarMotivosNoEntregaActivosAsync(_currentTenant.OperadorId, cancellationToken);
-        var motivosDto = motivos
-            .Select(m => new MotivoNoEntregaDescargaDto(m.Id, m.Codigo, m.Descripcion))
-            .ToList();
 
         var numeroRuta = $"HR-{ruta.Fecha:yyyyMMdd}-01";
 

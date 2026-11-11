@@ -19,3 +19,11 @@ public class HojaDeRutaLocal
 
     public DateTime FechaDescargaUtc { get; set; } = DateTime.UtcNow;
 }
+
+public record HojaDeRutaSelectorItem(
+    Guid Id,
+    string NumeroRuta,
+    string Estado,
+    int TotalParadas,
+    string TituloSelector
+);

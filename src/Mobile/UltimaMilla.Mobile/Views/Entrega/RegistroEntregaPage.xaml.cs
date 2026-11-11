@@ -20,6 +20,13 @@ public partial class RegistroEntregaPage : ContentPage
 
         FirmaGraphicsView.Drawable = _drawable;
 
+        FirmaGraphicsView.Loaded += (s, e) =>
+        {
+#if ANDROID
+            ConfigurarTouchNativoFirma();
+#endif
+        };
+
         viewModel.LimpiarFirmaAction = () =>
         {
             _drawable.Limpiar();
@@ -68,10 +75,74 @@ public partial class RegistroEntregaPage : ContentPage
         }
     }
 
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+#if ANDROID
+        ConfigurarTouchNativoFirma();
+#endif
+    }
+
+    private void DeshabilitarScrollPadre()
+    {
+        FormularioScrollView.Orientation = ScrollOrientation.Neither;
+#if ANDROID
+        if (FirmaGraphicsView.Handler?.PlatformView is global::Android.Views.View nativeView)
+        {
+            nativeView.Parent?.RequestDisallowInterceptTouchEvent(true);
+        }
+#endif
+    }
+
+    private void HabilitarScrollPadre()
+    {
+        FormularioScrollView.Orientation = ScrollOrientation.Vertical;
+#if ANDROID
+        if (FirmaGraphicsView.Handler?.PlatformView is global::Android.Views.View nativeView)
+        {
+            nativeView.Parent?.RequestDisallowInterceptTouchEvent(false);
+        }
+#endif
+    }
+
+#if ANDROID
+    private void ConfigurarTouchNativoFirma()
+    {
+        if (FirmaGraphicsView.Handler?.PlatformView is global::Android.Views.View nativeView)
+        {
+            nativeView.Touch -= OnNativeFirmaTouch;
+            nativeView.Touch += OnNativeFirmaTouch;
+        }
+    }
+
+    private void OnNativeFirmaTouch(object? sender, global::Android.Views.View.TouchEventArgs e)
+    {
+        if (sender is global::Android.Views.View nativeView && e.Event != null)
+        {
+            switch (e.Event.ActionMasked)
+            {
+                case global::Android.Views.MotionEventActions.Down:
+                case global::Android.Views.MotionEventActions.Move:
+                    nativeView.Parent?.RequestDisallowInterceptTouchEvent(true);
+                    FormularioScrollView.Orientation = ScrollOrientation.Neither;
+                    break;
+                case global::Android.Views.MotionEventActions.Up:
+                case global::Android.Views.MotionEventActions.Cancel:
+                    nativeView.Parent?.RequestDisallowInterceptTouchEvent(false);
+                    FormularioScrollView.Orientation = ScrollOrientation.Vertical;
+                    break;
+            }
+        }
+        e.Handled = false;
+    }
+#endif
+
     private void OnSignatureStartInteraction(object? sender, TouchEventArgs e)
     {
         try
         {
+            DeshabilitarScrollPadre();
+
             if (e.Touches == null || e.Touches.Length == 0)
                 return;
 
@@ -99,6 +170,12 @@ public partial class RegistroEntregaPage : ContentPage
     {
         try
         {
+#if ANDROID
+            if (FirmaGraphicsView.Handler?.PlatformView is global::Android.Views.View nativeView)
+            {
+                nativeView.Parent?.RequestDisallowInterceptTouchEvent(true);
+            }
+#endif
             if (e.Touches == null || e.Touches.Length == 0)
                 return;
 
@@ -134,6 +211,10 @@ public partial class RegistroEntregaPage : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[RegistroEntregaPage] Error en EndInteraction: {ex.Message}");
+        }
+        finally
+        {
+            HabilitarScrollPadre();
         }
     }
 }

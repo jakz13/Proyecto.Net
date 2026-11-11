@@ -111,7 +111,9 @@ public class ObtenerRutaActivaRepartidorQueryHandlerTests
         var handler = CrearHandler();
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => handler.Handle(null!, CancellationToken.None));
+            () => handler.Handle((ObtenerRutaActivaRepartidorQuery)null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => handler.Handle((ObtenerRutasActivasRepartidorQuery)null!, CancellationToken.None));
     }
 
     [Fact]

@@ -7,7 +7,7 @@
              Title="Confirmar Entrega"
              BackgroundColor="{StaticResource PageBackground}">
 
-    <ScrollView>
+    <ScrollView x:Name="FormularioScrollView">
         <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
 
             <!-- ========================================================= -->
