@@ -420,8 +420,9 @@ public class AdministracionBackofficeApiTests
         Assert.Equal(1, exito.Exitosos);
         Assert.Equal("Resuelto", (await api.ObtenerMensajePorIdAsync(primero.Id))!.Estado);
 
-        Assert.True(await api.DescartarMensajeAsync(segundo.Id));
-        Assert.False(await api.DescartarMensajeAsync(segundo.Id));
+        Assert.True(await api.DescartarMensajeAsync(segundo.Id, "Descartado en prueba de integración"));
+        // El descarte es lógico (queda registrado con su motivo): un mensaje inexistente no se descarta
+        Assert.False(await api.DescartarMensajeAsync(Guid.NewGuid(), "Descartado en prueba de integración"));
 
         Assert.True(await api.LimpiarMensajesResueltosAsync() >= 1);
         Assert.Null(await ObtenerOrNullAsync(api, primero.Id));
