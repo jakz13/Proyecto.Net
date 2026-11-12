@@ -45,23 +45,21 @@ public class Repartidor : Entity, IMustHaveTenant
         Estado = string.IsNullOrWhiteSpace(estado) ? "Disponible" : estado.Trim();
     }
 
-    /// <summary>Marca de los repartidores creados automáticamente a partir de un usuario, que todavía no tienen cédula cargada.</summary>
-    public const string DocumentoSinDato = "S/D";
-
-    /// <summary>La cédula debe tener al menos 8 dígitos (se ignoran puntos, guiones y espacios).</summary>
+    /// <summary>La cédula es obligatoria y debe tener al menos 8 dígitos (se ignoran puntos, guiones y espacios).</summary>
     public const int MinimoDigitosDocumento = 8;
 
     public static void ValidarDocumento(string? documento)
     {
         if (string.IsNullOrWhiteSpace(documento))
-            throw new DomainValidationException("El documento del repartidor no puede ser vacío.");
-
-        if (documento.Trim() == DocumentoSinDato)
-            return;
+            throw new DomainValidationException("La cédula del repartidor es obligatoria.");
 
         if (documento.Count(char.IsDigit) < MinimoDigitosDocumento)
             throw new DomainValidationException($"La cédula del repartidor debe tener al menos {MinimoDigitosDocumento} dígitos.");
     }
+
+    /// <summary>Cédula provisoria de 8 dígitos para repartidores que se crean sin una (se corrige después desde Flota).</summary>
+    public static string GenerarDocumentoProvisorio() =>
+        Random.Shared.Next(10_000_000, 100_000_000).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public void AsignarVehiculo(Guid vehiculoId)
     {

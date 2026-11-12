@@ -374,7 +374,21 @@ public class AdministracionBackofficeApiTests
         Assert.Equal(patente, repartidor.VehiculoPatente);
 
         // El vehículo ya está tomado: no puede asignarse a otro repartidor
-        await Assert.ThrowsAsync<ApiExcepcion>(() => api.AsignarVehiculoAsync(demo.Id, vehiculo.Id));
+        // Sin confirmación no se le quita el vehículo a otro repartidor: responde 409 y no cambia nada
+        var conflicto = await Assert.ThrowsAsync<ApiExcepcion>(() => api.AsignarVehiculoAsync(demo.Id, vehiculo.Id));
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, conflicto.CodigoEstado);
+        Assert.Equal(vehiculo.Id, (await api.ObtenerRepartidorPorIdAsync(repartidor.Id))!.VehiculoAsignadoId);
+
+        // La cédula es obligatoria y de al menos 8 dígitos
+        await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearRepartidorAsync(new CrearRepartidorDto
+        {
+            NombreCompleto = "Sin cédula", Email = $"sc.{Sufijo()}@ultimamilla.com.uy", Documento = "1234567", Password = "Repartidor.2026!", Telefono = "099111222"
+        }));
+
+        // Con la confirmación explícita, la reasignación se hace
+        await api.AsignarVehiculoAsync(demo.Id, vehiculo.Id, confirmarReasignacion: true);
+        Assert.Null((await api.ObtenerRepartidorPorIdAsync(repartidor.Id))!.VehiculoAsignadoId);
+        await api.AsignarVehiculoAsync(demo.Id, demo.VehiculoAsignadoId, confirmarReasignacion: true);
 
         await api.AsignarVehiculoAsync(repartidor.Id, null);
         Assert.Null((await api.ObtenerRepartidorPorIdAsync(repartidor.Id))!.VehiculoAsignadoId);

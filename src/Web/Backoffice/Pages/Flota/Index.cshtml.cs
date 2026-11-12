@@ -139,6 +139,10 @@ public class IndexModel : PageModel
     // Handlers de Repartidores
     // =========================================================================
 
+    /// <summary>La reasignación de un vehículo que otro repartidor ya tiene solo se hace si la persona la confirmó en el panel de la página.</summary>
+    [BindProperty]
+    public bool ConfirmarReasignacion { get; set; }
+
     public async Task<IActionResult> OnPostCrearRepartidorAsync()
     {
         ModelState.Clear();
@@ -151,7 +155,7 @@ public class IndexModel : PageModel
 
         try
         {
-            var creado = await _flotaApi.CrearRepartidorAsync(NuevoRepartidor);
+            var creado = await _flotaApi.CrearRepartidorAsync(NuevoRepartidor, ConfirmarReasignacion);
             MensajeExito = creado.VehiculoAsignadoId.HasValue
                 ? $"Repartidor '{creado.NombreCompleto}' dado de alta y asociado al vehículo '{creado.VehiculoPatente}'."
                 : $"Repartidor '{creado.NombreCompleto}' dado de alta correctamente.";
@@ -183,7 +187,7 @@ public class IndexModel : PageModel
 
         try
         {
-            var actualizado = await _flotaApi.ActualizarRepartidorAsync(EdicionRepartidor);
+            var actualizado = await _flotaApi.ActualizarRepartidorAsync(EdicionRepartidor, ConfirmarReasignacion);
             MensajeExito = $"Datos del repartidor '{actualizado.NombreCompleto}' actualizados exitosamente.";
             return RedirectToPage();
         }
@@ -205,7 +209,7 @@ public class IndexModel : PageModel
     {
         try
         {
-            await _flotaApi.AsignarVehiculoAsync(repartidorId, vehiculoId);
+            await _flotaApi.AsignarVehiculoAsync(repartidorId, vehiculoId, ConfirmarReasignacion);
             MensajeExito = vehiculoId.HasValue
                 ? "Vehículo asociado exitosamente al repartidor para la asignación de rutas."
                 : "Vehículo desasociado del repartidor.";

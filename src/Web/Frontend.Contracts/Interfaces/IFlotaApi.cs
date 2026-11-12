@@ -17,8 +17,8 @@ public interface IFlotaApi
     // Repartidores
     Task<IReadOnlyList<RepartidorDto>> ListarRepartidoresAsync(string? estado = null, CancellationToken cancelacion = default);
     Task<RepartidorDto?> ObtenerRepartidorPorIdAsync(Guid id, CancellationToken cancelacion = default);
-    Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, CancellationToken cancelacion = default);
-    Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, CancellationToken cancelacion = default);
-    Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, CancellationToken cancelacion = default);
+    Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default);
+    Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default);
+    Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, bool confirmarReasignacion = false, CancellationToken cancelacion = default);
     Task CambiarEstadoRepartidorAsync(Guid repartidorId, string nuevoEstado, CancellationToken cancelacion = default);
 }

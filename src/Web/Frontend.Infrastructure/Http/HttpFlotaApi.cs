@@ -77,12 +77,14 @@ public class HttpFlotaApi : IFlotaApi
         return await _http.GetFromJsonAsync<RepartidorDto>($"api/v1/flota/repartidores/{id}", cancelacion);
     }
 
-    public async Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, CancellationToken cancelacion = default)
+    public async Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.PostAsJsonAsync("api/v1/flota/repartidores", dto, cancelacion);
+        var respuesta = await _http.PostAsJsonAsync("api/v1/flota/repartidores" + SufijoConfirmar(confirmarReasignacion), dto, cancelacion);
         if (!respuesta.IsSuccessStatusCode)
         {
             var detalle = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            if (respuesta.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw new ApiExcepcion(System.Net.HttpStatusCode.Conflict, detalle);
             throw new ApiExcepcion($"Error al registrar el repartidor: {detalle}");
         }
 
@@ -90,12 +92,14 @@ public class HttpFlotaApi : IFlotaApi
         return creado ?? throw new ApiExcepcion("No se pudo deserializar el repartidor creado.");
     }
 
-    public async Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, CancellationToken cancelacion = default)
+    public async Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.PutAsJsonAsync($"api/v1/flota/repartidores/{dto.Id}", dto, cancelacion);
+        var respuesta = await _http.PutAsJsonAsync($"api/v1/flota/repartidores/{dto.Id}{SufijoConfirmar(confirmarReasignacion)}", dto, cancelacion);
         if (!respuesta.IsSuccessStatusCode)
         {
             var detalle = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            if (respuesta.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw new ApiExcepcion(System.Net.HttpStatusCode.Conflict, detalle);
             throw new ApiExcepcion($"Error al actualizar el repartidor: {detalle}");
         }
 
@@ -103,12 +107,14 @@ public class HttpFlotaApi : IFlotaApi
         return actualizado ?? throw new ApiExcepcion("No se pudo deserializar el repartidor actualizado.");
     }
 
-    public async Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, CancellationToken cancelacion = default)
+    public async Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
-        var respuesta = await _http.PutAsJsonAsync($"api/v1/flota/repartidores/{repartidorId}/vehiculo", new { vehiculoId }, cancelacion);
+        var respuesta = await _http.PutAsJsonAsync($"api/v1/flota/repartidores/{repartidorId}/vehiculo{SufijoConfirmar(confirmarReasignacion)}", new { vehiculoId }, cancelacion);
         if (!respuesta.IsSuccessStatusCode)
         {
             var detalle = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            if (respuesta.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw new ApiExcepcion(System.Net.HttpStatusCode.Conflict, detalle);
             throw new ApiExcepcion($"Error al asociar vehículo al repartidor: {detalle}");
         }
     }
@@ -122,4 +128,6 @@ public class HttpFlotaApi : IFlotaApi
             throw new ApiExcepcion($"Error al cambiar estado del repartidor: {detalle}");
         }
     }
+
+    private static string SufijoConfirmar(bool confirmar) => confirmar ? "?confirmar=true" : string.Empty;
 }

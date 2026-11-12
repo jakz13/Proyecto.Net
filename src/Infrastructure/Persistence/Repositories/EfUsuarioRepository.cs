@@ -249,7 +249,7 @@ public class EfUsuarioRepository : IUsuarioRepository
             }
         }
 
-        var documentoNormalizado = string.IsNullOrWhiteSpace(documento) ? "S/D" : documento.Trim();
+        var documentoNormalizado = string.IsNullOrWhiteSpace(documento) ? Repartidor.GenerarDocumentoProvisorio() : documento.Trim();
         var telefonoNormalizado = string.IsNullOrWhiteSpace(telefono) ? "S/T" : telefono.Trim();
 
         if (repartidorExistente is null)

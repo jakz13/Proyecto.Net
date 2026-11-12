@@ -370,6 +370,7 @@
                     </button>
                 </div>
                 <form method="post" asp-page-handler="CrearRepartidor" id="formRepartidorNuevo">
+                    <input type="hidden" name="ConfirmarReasignacion" value="false" class="js-confirmar-reasignacion" />
                     <div class="panel-estandar-body">
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -450,6 +451,7 @@
                     </button>
                 </div>
                 <form method="post" asp-page-handler="EditarRepartidor" id="formRepartidorEdicion">
+                    <input type="hidden" name="ConfirmarReasignacion" value="false" class="js-confirmar-reasignacion" />
                     <input type="hidden" asp-for="EdicionRepartidor.Id" id="editRepartidorId" />
                     <div class="panel-estandar-body">
                         <div class="row g-3">
@@ -537,6 +539,7 @@
                     </button>
                 </div>
                 <form method="post" asp-page-handler="AsignarVehiculo" id="formAsignacionVehiculo">
+                    <input type="hidden" name="ConfirmarReasignacion" value="false" class="js-confirmar-reasignacion" />
                     <input type="hidden" name="repartidorId" id="asignarRepartidorId" />
                     <div class="panel-estandar-body">
                         <div class="mb-3">
@@ -668,6 +671,26 @@
     </div>
 </div>
 
+<!-- Confirmación de reasignación de vehículo: nunca se le quita su unidad a otro repartidor en silencio -->
+<div class="modal fade" id="modalConfirmarReasignacion" tabindex="-1" aria-labelledby="tituloConfirmarReasignacion" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h2 class="modal-title h6 fw-bold" id="tituloConfirmarReasignacion">Este vehículo ya está asignado</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body small">
+                <p class="mb-2" id="textoConfirmarReasignacion"></p>
+                <p class="mb-0 text-muted">¿Querés reasignarlo igualmente?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">No, mantener la asignación actual</button>
+                <button type="button" class="btn btn-dark btn-sm" id="botonConfirmarReasignacion">Sí, reasignar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
@@ -755,6 +778,54 @@
                 }
             }
         }
+
+        // Vehículo -> quién lo tiene hoy (para avisar antes de reasignarlo)
+        var vehiculosAsignados = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Vehiculos.Where(v => v.RepartidorAsignadoId.HasValue).ToDictionary(
+                v => v.Id.ToString(),
+                v => new { repartidorId = v.RepartidorAsignadoId!.Value.ToString(), nombre = v.RepartidorAsignadoNombre, patente = v.Patente })));
+
+        // Cada formulario que puede mover un vehículo pide confirmación si la unidad elegida la tiene otro repartidor
+        (function () {
+            var formularios = [
+                { id: 'formRepartidorNuevo', vehiculo: function (f) { return f.querySelector('select[name$="VehiculoAsignadoId"]'); }, repartidor: function () { return ''; } },
+                { id: 'formRepartidorEdicion', vehiculo: function (f) { return f.querySelector('#editRepartidorVehiculoId'); }, repartidor: function (f) { var i = f.querySelector('#editRepartidorId'); return i ? i.value : ''; } },
+                { id: 'formAsignacionVehiculo', vehiculo: function (f) { return f.querySelector('#asignarVehiculoSelect'); }, repartidor: function (f) { var i = f.querySelector('#asignarRepartidorId'); return i ? i.value : ''; } }
+            ];
+
+            formularios.forEach(function (cfg) {
+                var form = document.getElementById(cfg.id);
+                if (!form) return;
+
+                form.addEventListener('submit', function (e) {
+                    var campo = form.querySelector('.js-confirmar-reasignacion');
+                    if (campo && campo.value === 'true') return; // ya confirmada
+
+                    var select = cfg.vehiculo(form);
+                    var actual = select && select.value ? vehiculosAsignados[select.value] : null;
+                    if (!actual || actual.repartidorId.toLowerCase() === String(cfg.repartidor(form)).toLowerCase()) return;
+
+                    e.preventDefault();
+                    document.getElementById('textoConfirmarReasignacion').textContent =
+                        'El vehículo ' + actual.patente + ' está asignado a ' + actual.nombre + '. Si continuás, se le va a quitar la unidad a ' + actual.nombre + '.';
+
+                    var modalEl = document.getElementById('modalConfirmarReasignacion');
+                    var confirmar = function () {
+                        if (campo) campo.value = 'true';
+                        form.submit();
+                    };
+
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        var modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+                        var boton = document.getElementById('botonConfirmarReasignacion');
+                        boton.onclick = function () { modal.hide(); confirmar(); };
+                        modal.show();
+                    } else if (window.confirm(document.getElementById('textoConfirmarReasignacion').textContent + ' ¿Reasignar?')) {
+                        confirmar();
+                    }
+                });
+            });
+        })();
 
         // Muestra el panel de asignación rápida de vehículo para un repartidor
         function abrirAsignacionVehiculo(repartidorId, repartidorNombre, vehiculoIdActual) {

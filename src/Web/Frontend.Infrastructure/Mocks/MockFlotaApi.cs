@@ -336,7 +336,7 @@ public class MockFlotaApi : IFlotaApi
         }
     }
 
-    public Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, CancellationToken cancelacion = default)
+    public Task<RepartidorDto> CrearRepartidorAsync(CrearRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
         lock (_bloqueo)
         {
@@ -401,7 +401,7 @@ public class MockFlotaApi : IFlotaApi
         }
     }
 
-    public Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, CancellationToken cancelacion = default)
+    public Task<RepartidorDto> ActualizarRepartidorAsync(ActualizarRepartidorDto dto, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
         lock (_bloqueo)
         {
@@ -494,7 +494,7 @@ public class MockFlotaApi : IFlotaApi
         }
     }
 
-    public Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, CancellationToken cancelacion = default)
+    public Task AsignarVehiculoAsync(Guid repartidorId, Guid? vehiculoId, bool confirmarReasignacion = false, CancellationToken cancelacion = default)
     {
         lock (_bloqueo)
         {

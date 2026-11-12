@@ -178,6 +178,7 @@ public static class FlotaEndpoints
             AppDbContext db,
             ICurrentTenant tenant,
             CancellationToken ct,
+            [FromQuery] bool confirmar = false,
             ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var estado = NormalizarEstado(dto.Estado);
@@ -188,9 +189,9 @@ public static class FlotaEndpoints
             if (await db.Usuarios.AnyAsync(u => u.Email == email, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe un usuario registrado con ese correo electrónico.");
 
-            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, null, ct);
+            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, null, confirmar, ct);
             if (errorVehiculo is not null)
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, errorVehiculo);
+                return RespuestasBackoffice.Error(errorVehiculo.Value.Estado, errorVehiculo.Value.Mensaje);
 
             var perfil = await db.Perfiles.AsNoTracking().FirstOrDefaultAsync(p => p.Nombre == "Repartidor", ct);
             if (perfil is null)
@@ -228,6 +229,7 @@ public static class FlotaEndpoints
             AppDbContext db,
             ICurrentTenant tenant,
             CancellationToken ct,
+            [FromQuery] bool confirmar = false,
             ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
@@ -243,9 +245,9 @@ public static class FlotaEndpoints
             if (usuario is not null && await db.Usuarios.AnyAsync(u => u.Email == email && u.Id != usuario.Id, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe otro usuario con ese correo electrónico.");
 
-            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, repartidor.Id, ct);
+            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, repartidor.Id, confirmar, ct);
             if (errorVehiculo is not null)
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, errorVehiculo);
+                return RespuestasBackoffice.Error(errorVehiculo.Value.Estado, errorVehiculo.Value.Mensaje);
 
             usuario?.ActualizarDatos(dto.NombreCompleto, email);
             if (!string.IsNullOrWhiteSpace(dto.NuevaPassword) && UltimaMilla.Application.Common.PoliticaDePassword.Validar(dto.NuevaPassword) is { } motivoNueva)
@@ -283,15 +285,16 @@ public static class FlotaEndpoints
             AppDbContext db,
             ICurrentTenant tenant,
             CancellationToken ct,
+            [FromQuery] bool confirmar = false,
             ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
             if (repartidor is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "No se encontró el repartidor solicitado.");
 
-            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, cuerpo.VehiculoId, repartidor.Id, ct);
+            var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, cuerpo.VehiculoId, repartidor.Id, confirmar, ct);
             if (errorVehiculo is not null)
-                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, errorVehiculo);
+                return RespuestasBackoffice.Error(errorVehiculo.Value.Estado, errorVehiculo.Value.Mensaje);
 
             if (cuerpo.VehiculoId.HasValue) repartidor.AsignarVehiculo(cuerpo.VehiculoId.Value); else repartidor.DesasignarVehiculo();
             await db.SaveChangesAsync(ct);
@@ -381,20 +384,34 @@ public static class FlotaEndpoints
         EstadosRepartidor.FirstOrDefault(e => e.Equals((estado ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>El vehículo debe existir y estar activo. Si estaba asignado a otro repartidor, se reasigna automáticamente.</summary>
-    private static async Task<string?> ValidarVehiculoAsync(AppDbContext db, Guid operadorId, Guid? vehiculoId, Guid? repartidorId, CancellationToken ct)
+    /// <summary>
+    /// Valida el vehículo a asignar. Si otro repartidor ya lo tiene, la asignación no se hace en silencio: se responde 409 con el nombre
+    /// de quien lo tiene y solo se reasigna cuando el pedido llega con confirmar=true (el Backoffice lo pide en un panel de confirmación).
+    /// </summary>
+    private static async Task<(int Estado, string Mensaje)?> ValidarVehiculoAsync(AppDbContext db, Guid operadorId, Guid? vehiculoId, Guid? repartidorId, bool confirmar, CancellationToken ct)
     {
         if (!vehiculoId.HasValue)
             return null;
 
         var vehiculo = await db.Vehiculos.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vehiculoId.Value && v.OperadorId == operadorId, ct);
         if (vehiculo is null)
-            return "El vehículo seleccionado no existe.";
+            return (StatusCodes.Status400BadRequest, "El vehículo seleccionado no existe.");
         if (!vehiculo.Activo)
-            return $"El vehículo {vehiculo.Patente} está dado de baja y no se puede asignar.";
+            return (StatusCodes.Status400BadRequest, $"El vehículo {vehiculo.Patente} está dado de baja y no se puede asignar.");
 
         var otrosConVehiculo = await db.Repartidores
             .Where(r => r.OperadorId == operadorId && r.VehiculoAsignadoId == vehiculoId.Value && r.Id != repartidorId)
             .ToListAsync(ct);
+
+        if (otrosConVehiculo.Count > 0 && !confirmar)
+        {
+            var usuarioIds = otrosConVehiculo.Select(r => r.UsuarioId).ToList();
+            var nombres = await db.Usuarios.AsNoTracking().Where(u => usuarioIds.Contains(u.Id)).Select(u => u.Nombre).ToListAsync(ct);
+            var quienes = nombres.Count > 0 ? string.Join(", ", nombres) : "otro repartidor";
+            return (StatusCodes.Status409Conflict,
+                $"El vehículo {vehiculo.Patente} ya está asignado a {quienes}. Si continúa, se le quitará y quedará asignado al repartidor elegido. Confirme la reasignación para seguir.");
+        }
+
         foreach (var otro in otrosConVehiculo)
         {
             otro.DesasignarVehiculo();
@@ -434,7 +451,7 @@ public static class FlotaEndpoints
                 Guid.NewGuid(),
                 usuario.Id,
                 operadorId,
-                "S/D",
+                Repartidor.GenerarDocumentoProvisorio(),
                 "S/T",
                 null,
                 usuario.Activo ? "Disponible" : "Inactivo");
