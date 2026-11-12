@@ -1,4 +1,4 @@
-name: CI/CD
+﻿name: CI/CD
 
 on:
   push:
@@ -80,7 +80,7 @@ jobs:
           printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/clave_vm
           chmod 600 ~/.ssh/clave_vm
 
-      - name: Desplegar en Oracle Cloud
+      - name: Desplegar en Azure
         env:
           VM_HOST: ${{ secrets.VM_HOST }}
         run: |
