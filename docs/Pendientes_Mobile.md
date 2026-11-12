@@ -1,5 +1,7 @@
 # Pendientes de la app móvil para cerrar el laboratorio (para Joaquín)
 
+> **Actualización 12/11:** las secciones 1.1 (entrega parcial por bultos) y 1.2 (retiro en domicilio) **ya están implementadas en la app** (commit 979456c: `RegistroEntregaViewModel`, `RegistroRetiroViewModel`, cola offline y sincronización en `SyncService`, funcionalidades habilitadas por operador) y el encabezado `X-Correlation-Id` ya lo envía `AuthDelegatingHandler`. Lo que sigue pendiente es **verificarlo en un dispositivo** (escenarios offline de la defensa), la medición de batería (`docs/Geocercas_Bateria.md`, sección 5) y las notificaciones con la app cerrada. Lo de abajo se conserva como contrato y lista de comprobación.
+
 Estado al 10/11/2026. La rama `mobile` tiene su último commit del 5/11. El backend ya soporta todo lo de abajo y está desplegado; **la app todavía no usa los cambios del 9/11**. El contrato detallado del retiro está en [`UC-Retiro-Movil.md`](UC-Retiro-Movil.md).
 
 ## 0. Antes de empezar
