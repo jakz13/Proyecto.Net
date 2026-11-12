@@ -1,0 +1,224 @@
+@page "/seguimiento/{codigo?}"
+@model UltimaMilla.Backoffice.Pages.Seguimiento.IndexModel
+@{
+    Layout = null;
+    var nombreMarca = string.IsNullOrWhiteSpace(Model.Identidad.NombreComercial) ? "TransLogística Express" : Model.Identidad.NombreComercial;
+    var colorPrimario = string.IsNullOrWhiteSpace(Model.Identidad.ColorPrimario) ? "#1D4ED8" : Model.Identidad.ColorPrimario;
+    var colorSecundario = string.IsNullOrWhiteSpace(Model.Identidad.ColorSecundario) ? "#F97316" : Model.Identidad.ColorSecundario;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@nombreMarca — Seguimiento Público de Envíos</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        :root {
+            --color-primario: @colorPrimario;
+            --color-secundario: @colorSecundario;
+        }
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+        }
+        .navbar-seguimiento {
+            background-color: var(--color-primario);
+            border-bottom: 4px solid var(--color-secundario);
+            color: #fff;
+        }
+        .btn-marca-publica {
+            background-color: var(--color-primario);
+            border-color: var(--color-primario);
+            color: #fff;
+            font-weight: 600;
+        }
+        .btn-marca-publica:hover {
+            opacity: 0.92;
+            color: #fff;
+        }
+        .badge-acento {
+            background-color: var(--color-secundario);
+            color: #fff;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 28px;
+            padding-bottom: 20px;
+            border-left: 2px solid #cbd5e1;
+            margin-left: 10px;
+        }
+        .timeline-item:last-child {
+            border-left-color: transparent;
+            padding-bottom: 0;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -8px;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--color-primario);
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px var(--color-primario);
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar-seguimiento py-3 shadow-sm mb-4">
+        <div class="container d-flex justify-content-between align-items-center" style="max-width: 780px;">
+            <div class="d-flex align-items-center gap-3">
+                @if (!string.IsNullOrWhiteSpace(Model.Identidad.LogoUrl))
+                {
+                    <img src="@Model.Identidad.LogoUrl" alt="@nombreMarca" style="height: 36px; width: auto; border-radius: 6px; background: #fff; padding: 2px;" />
+                }
+                <div>
+                    <div class="fw-bold fs-5 lh-1">@nombreMarca</div>
+                    <small class="opacity-75" style="font-size: 0.78rem;">Portal Público de Seguimiento en Tiempo Real</small>
+                </div>
+            </div>
+            <span class="badge badge-acento rounded-pill px-3 py-2">Acceso Público</span>
+        </div>
+    </header>
+
+    <main class="container pb-5" style="max-width: 780px;">
+        <!-- Buscador por código de seguimiento -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <form method="get" action="/seguimiento" class="row g-2 align-items-center">
+                    <div class="col-12 col-sm-9">
+                        <label for="inputCodigo" class="form-label small fw-bold text-secondary text-uppercase mb-1">Código de Seguimiento</label>
+                        <input type="text" id="inputCodigo" name="codigo" value="@Model.Codigo" class="form-control font-monospace" placeholder="Ej: TRK-2026-0001 o RET-..." required />
+                    </div>
+                    <div class="col-12 col-sm-3 d-grid align-self-end">
+                        <button type="submit" class="btn btn-marca-publica py-2">Consultar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.MensajeExito))
+        {
+            <div class="alert alert-success shadow-sm rounded-3 mb-4">
+                <strong>¡Reprogramación confirmada!</strong> @Model.MensajeExito
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.MensajeError))
+        {
+            <div class="alert alert-warning shadow-sm rounded-3 mb-4">
+                <strong>Aviso:</strong> @Model.MensajeError
+            </div>
+        }
+
+        @if (Model.Seguimiento is not null)
+        {
+            var seg = Model.Seguimiento;
+            <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="text-secondary small text-uppercase fw-bold">Código de Seguimiento</div>
+                        <h1 class="h4 font-monospace fw-bold mb-0" style="color: var(--color-primario);">@seg.CodigoSeguimiento</h1>
+                    </div>
+                    <span class="badge fs-6 px-3 py-2" style="background-color: var(--color-primario); color: #fff;">
+                        @(seg.EsRetiro ? seg.EstadoRetiro : seg.EstadoActual.ToString())
+                    </span>
+                </div>
+
+                <div class="card-body p-4">
+                    @if (!string.IsNullOrWhiteSpace(seg.VentanaHorariaEstimada))
+                    {
+                        <div class="p-3 rounded-3 bg-light border mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <div class="small text-secondary fw-semibold">Ventana Horaria Comprometida</div>
+                                <div class="fw-bold text-dark">@seg.VentanaHorariaEstimada</div>
+                            </div>
+                            <div class="small text-secondary">
+                                Última actualización: @seg.FechaUltimaActualizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </div>
+                        </div>
+                    }
+
+                    @if (seg.TotalBultos > 1 || !string.IsNullOrWhiteSpace(seg.AvanceEntregaBultos))
+                    {
+                        <div class="alert alert-info border-0 mb-4 small">
+                            <strong>Detalle de bultos:</strong> @(seg.AvanceEntregaBultos ?? $"{seg.BultosEntregados} de {seg.TotalBultos} bulto(s) entregados")
+                        </div>
+                    }
+
+                    <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">Historial de Eventos del Envío</h2>
+                    @if (seg.HistorialEventos != null && seg.HistorialEventos.Count > 0)
+                    {
+                        <div class="mt-2">
+                            @foreach (var hito in seg.HistorialEventos.OrderByDescending(h => h.Fecha))
+                            {
+                                <div class="timeline-item">
+                                    <div class="timeline-dot"></div>
+                                    <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2">
+                                        <span class="fw-bold text-dark">@(string.IsNullOrWhiteSpace(hito.EstadoTexto) ? hito.Estado.ToString() : hito.EstadoTexto)</span>
+                                        <span class="text-secondary small font-monospace">@hito.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+                                    <div class="text-secondary small mt-1">@hito.DescripcionPublica</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">El envío se encuentra registrado y pendiente de próximos movimientos operativos.</p>
+                    }
+                </div>
+            </div>
+
+            @if (seg.PermiteReprogramacion && Model.FranjasDisponibles.Count > 0)
+            {
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white border-bottom p-4">
+                        <h2 class="h6 fw-bold mb-1">Solicitar Reprogramación de Entrega</h2>
+                        <p class="text-secondary small mb-0">Seleccioná una nueva franja horaria disponible para coordinar la próxima visita a tu domicilio.</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <form method="post" asp-page-handler="Reprogramar">
+                            <input type="hidden" name="codigo" value="@seg.CodigoSeguimiento" />
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Franjas Horarias Disponibles</label>
+                                <select asp-for="FranjaSeleccionadaId" class="form-select" required>
+                                    <option value="">-- Seleccione una ventana horaria --</option>
+                                    @foreach (var f in Model.FranjasDisponibles)
+                                    {
+                                        <option value="@f.Id">@f.DiaSemana (@f.HoraInicio a @f.HoraFin) @(f.EsLaActual ? "— Franja actual" : "")</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-marca-publica px-4 py-2">Confirmar Reprogramación</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        }
+    </main>
+
+    <footer class="text-center text-secondary small py-4 border-top bg-white">
+        <div class="container" style="max-width: 780px;">
+            @if (!string.IsNullOrWhiteSpace(Model.Identidad.MensajeComunicaciones))
+            {
+                <div class="fst-italic mb-1">"@Model.Identidad.MensajeComunicaciones"</div>
+            }
+            <div>
+                <strong>@nombreMarca</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.Identidad.EmailContacto))
+                {
+                    <span> · @Model.Identidad.EmailContacto</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Identidad.TelefonoContacto))
+                {
+                    <span> · @Model.Identidad.TelefonoContacto</span>
+                }
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
+

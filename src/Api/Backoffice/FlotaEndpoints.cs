@@ -137,10 +137,10 @@ public static class FlotaEndpoints
             [FromQuery] string? estado,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
+            await SincronizarUsuariosRepartidoresFaltantesAsync(db, tenant.OperadorId, ct);
+
             var consulta = db.Repartidores.AsNoTracking().Where(r => r.OperadorId == tenant.OperadorId);
             if (!string.IsNullOrWhiteSpace(estado))
             {
@@ -170,10 +170,8 @@ public static class FlotaEndpoints
             IPasswordHasherService hasher,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var estado = NormalizarEstado(dto.Estado);
             if (estado is null)
@@ -203,6 +201,11 @@ public static class FlotaEndpoints
             await db.Usuarios.AddAsync(usuario, ct);
             await db.Repartidores.AddAsync(repartidor, ct);
             await db.SaveChangesAsync(ct);
+
+            if (notifier is not null)
+            {
+                await notifier.NotificarIdentidadVisualActualizadaAsync(tenant.OperadorId, ct);
+            }
 
             return Results.Created($"/api/v1/flota/repartidores/{repartidor.Id}",
                 (await MapearRepartidoresAsync(db, new[] { repartidor }, ct)).Single());
@@ -249,6 +252,13 @@ public static class FlotaEndpoints
             repartidor.ActualizarDocumento(dto.Documento);
             repartidor.ActualizarContacto(dto.Telefono);
             repartidor.CambiarEstado(estado);
+            if (usuario is not null)
+            {
+                if (string.Equals(estado, "Inactivo", StringComparison.OrdinalIgnoreCase))
+                    usuario.Desactivar();
+                else
+                    usuario.Activar();
+            }
             if (dto.VehiculoAsignadoId.HasValue) repartidor.AsignarVehiculo(dto.VehiculoAsignadoId.Value); else repartidor.DesasignarVehiculo();
             await db.SaveChangesAsync(ct);
 
@@ -299,6 +309,14 @@ public static class FlotaEndpoints
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El estado del repartidor no es válido.");
 
             repartidor.CambiarEstado(estado);
+            var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == repartidor.UsuarioId, ct);
+            if (usuario is not null)
+            {
+                if (string.Equals(estado, "Inactivo", StringComparison.OrdinalIgnoreCase))
+                    usuario.Desactivar();
+                else
+                    usuario.Activar();
+            }
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         }))
@@ -346,7 +364,7 @@ public static class FlotaEndpoints
     private static string? NormalizarEstado(string? estado) =>
         EstadosRepartidor.FirstOrDefault(e => e.Equals((estado ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>El vehículo debe existir, estar activo y no estar asignado a otro repartidor.</summary>
+    /// <summary>El vehículo debe existir y estar activo. Si estaba asignado a otro repartidor, se reasigna automáticamente.</summary>
     private static async Task<string?> ValidarVehiculoAsync(AppDbContext db, Guid operadorId, Guid? vehiculoId, Guid? repartidorId, CancellationToken ct)
     {
         if (!vehiculoId.HasValue)
@@ -358,8 +376,61 @@ public static class FlotaEndpoints
         if (!vehiculo.Activo)
             return $"El vehículo {vehiculo.Patente} está dado de baja y no se puede asignar.";
 
-        var ocupado = await db.Repartidores.AnyAsync(r => r.VehiculoAsignadoId == vehiculoId.Value && r.Id != repartidorId, ct);
-        return ocupado ? $"El vehículo {vehiculo.Patente} ya está asignado a otro repartidor." : null;
+        var otrosConVehiculo = await db.Repartidores
+            .Where(r => r.OperadorId == operadorId && r.VehiculoAsignadoId == vehiculoId.Value && r.Id != repartidorId)
+            .ToListAsync(ct);
+        foreach (var otro in otrosConVehiculo)
+        {
+            otro.DesasignarVehiculo();
+        }
+
+        return null;
+    }
+
+    private static async Task SincronizarUsuariosRepartidoresFaltantesAsync(AppDbContext db, Guid operadorId, CancellationToken ct)
+    {
+        if (operadorId == Guid.Empty)
+            return;
+
+        var perfilRepartidor = await db.Perfiles.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Nombre == "Repartidor", ct);
+        if (perfilRepartidor is null)
+            return;
+
+        var usuariosRepartidor = await db.Usuarios.AsNoTracking()
+            .Where(u => u.OperadorId == operadorId && u.PerfilId == perfilRepartidor.Id)
+            .ToListAsync(ct);
+        if (usuariosRepartidor.Count == 0)
+            return;
+
+        var idsExistentes = (await db.Repartidores.AsNoTracking()
+            .Where(r => r.OperadorId == operadorId)
+            .Select(r => r.UsuarioId)
+            .ToListAsync(ct)).ToHashSet();
+
+        var huboAltas = false;
+        foreach (var usuario in usuariosRepartidor)
+        {
+            if (idsExistentes.Contains(usuario.Id))
+                continue;
+
+            var nuevoRepartidor = new Repartidor(
+                Guid.NewGuid(),
+                usuario.Id,
+                operadorId,
+                "S/D",
+                "S/T",
+                null,
+                usuario.Activo ? "Disponible" : "Inactivo");
+
+            await db.Repartidores.AddAsync(nuevoRepartidor, ct);
+            huboAltas = true;
+        }
+
+        if (huboAltas)
+        {
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task<List<VehiculoDto>> MapearVehiculosAsync(AppDbContext db, Guid operadorId, IReadOnlyCollection<Vehiculo> vehiculos, CancellationToken ct)

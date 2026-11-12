@@ -68,9 +68,11 @@ public static class DependencyInjection
         services.AddScoped<IProcesosProgramadosRepository, EfProcesosProgramadosRepository>();
 
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.Seccion));
+        services.Configure<NotificacionesCorreoOptions>(configuration.GetSection(NotificacionesCorreoOptions.Seccion));
         services.AddSingleton<RabbitMqConnectionProvider>();
         services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
-        services.AddScoped<INotificacionDestinatarioService, RegistroNotificacionDestinatarioService>();
+        services.AddScoped<RegistroNotificacionDestinatarioService>();
+        services.AddScoped<INotificacionDestinatarioService>(sp => sp.GetRequiredService<RegistroNotificacionDestinatarioService>());
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(() =>
             {

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 using UltimaMilla.Application.DTOs.Operador;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Operador.GestionUsuarios;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
@@ -61,7 +62,8 @@ public static class UsuariosEndpoints
         grupo.MapPost("/", (
             [FromBody] CrearUsuarioDto dto,
             [FromServices] IMediator mediator,
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var comando = new CrearUsuarioCommand(
                 dto.Nombre,
@@ -69,10 +71,17 @@ public static class UsuariosEndpoints
                 dto.Password,
                 dto.PerfilId,
                 dto.ComercioId,
-                dto.Apellido
+                dto.Apellido,
+                dto.Documento,
+                dto.Telefono,
+                dto.VehiculoAsignadoId
             );
 
             var creado = await mediator.Send(comando, ct);
+            if (notifier is not null && creado.OperadorId.HasValue)
+            {
+                await notifier.NotificarIdentidadVisualActualizadaAsync(creado.OperadorId.Value, ct);
+            }
             return Results.Created($"/api/usuarios/{creado.Id}", Mapear(creado));
         }))
         .WithName("CrearUsuario")
@@ -84,7 +93,8 @@ public static class UsuariosEndpoints
             Guid id,
             [FromBody] ActualizarUsuarioDto dto,
             [FromServices] IMediator mediator,
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var comando = new ActualizarUsuarioCommand(
                 id,
@@ -92,10 +102,17 @@ public static class UsuariosEndpoints
                 dto.Email,
                 dto.PerfilId,
                 dto.Activo,
-                dto.Apellido
+                dto.Apellido,
+                dto.Documento,
+                dto.Telefono,
+                dto.VehiculoAsignadoId
             );
 
             var actualizado = await mediator.Send(comando, ct);
+            if (notifier is not null && actualizado.OperadorId.HasValue)
+            {
+                await notifier.NotificarIdentidadVisualActualizadaAsync(actualizado.OperadorId.Value, ct);
+            }
             return Results.Ok(Mapear(actualizado));
         }))
         .WithName("ActualizarUsuario")

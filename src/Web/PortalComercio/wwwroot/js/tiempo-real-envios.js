@@ -31,9 +31,15 @@
                 referencia.invokeMethodAsync('AlCambiarOperadores');
             });
 
+            // El operador actualizó su identidad visual (nombre comercial, colores o logotipo): se refresca la barra superior en vivo
+            conexion.on('IdentidadVisualActualizada', function () {
+                referencia.invokeMethodAsync('AlCambiarOperadores');
+            });
+
             // Lo ocurrido mientras la conexión estuvo caída no llega como evento: se pide un refresco general
             conexion.onreconnected(function () {
                 referencia.invokeMethodAsync('AlCambiarEstado', '', '');
+                referencia.invokeMethodAsync('AlCambiarOperadores');
             });
 
             return conexion.start().then(function () { return true; }).catch(function (err) {

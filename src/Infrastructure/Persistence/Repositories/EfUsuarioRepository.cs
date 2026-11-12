@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Identidad;
+using UltimaMilla.Domain.Entities.Operador;
 
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
@@ -198,5 +199,99 @@ public class EfUsuarioRepository : IUsuarioRepository
                 c => c.Id,
                 c => string.IsNullOrWhiteSpace(c.NombreFantasia) ? c.RazonSocial : c.NombreFantasia,
                 cancellationToken);
+    }
+
+    public async Task SincronizarRepartidorDeUsuarioAsync(
+        Usuario usuario,
+        string nombrePerfil,
+        string? documento = null,
+        string? telefono = null,
+        Guid? vehiculoAsignadoId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(usuario);
+
+        if (usuario.OperadorId is not Guid operadorId || operadorId == Guid.Empty)
+            return;
+
+        var esRepartidor = string.Equals((nombrePerfil ?? string.Empty).Trim(), "Repartidor", StringComparison.OrdinalIgnoreCase);
+        var repartidorExistente = await _context.Repartidores
+            .FirstOrDefaultAsync(r => r.UsuarioId == usuario.Id && r.OperadorId == operadorId, cancellationToken);
+
+        if (!esRepartidor)
+        {
+            if (repartidorExistente is not null)
+            {
+                repartidorExistente.CambiarEstado("Inactivo");
+                repartidorExistente.DesasignarVehiculo();
+            }
+            return;
+        }
+
+        Guid? idVehiculoValido = null;
+        if (vehiculoAsignadoId.HasValue && vehiculoAsignadoId.Value != Guid.Empty)
+        {
+            var vehiculoExiste = await _context.Vehiculos
+                .AsNoTracking()
+                .AnyAsync(v => v.Id == vehiculoAsignadoId.Value && v.OperadorId == operadorId && v.Activo, cancellationToken);
+
+            if (vehiculoExiste)
+            {
+                idVehiculoValido = vehiculoAsignadoId.Value;
+                var otrosConMismoVehiculo = await _context.Repartidores
+                    .Where(r => r.OperadorId == operadorId && r.VehiculoAsignadoId == idVehiculoValido && r.UsuarioId != usuario.Id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var otro in otrosConMismoVehiculo)
+                {
+                    otro.DesasignarVehiculo();
+                }
+            }
+        }
+
+        var documentoNormalizado = string.IsNullOrWhiteSpace(documento) ? "S/D" : documento.Trim();
+        var telefonoNormalizado = string.IsNullOrWhiteSpace(telefono) ? "S/T" : telefono.Trim();
+
+        if (repartidorExistente is null)
+        {
+            var nuevoRepartidor = new Repartidor(
+                Guid.NewGuid(),
+                usuario.Id,
+                operadorId,
+                documentoNormalizado,
+                telefonoNormalizado,
+                idVehiculoValido,
+                usuario.Activo ? "Disponible" : "Inactivo");
+
+            await _context.Repartidores.AddAsync(nuevoRepartidor, cancellationToken);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(documento))
+        {
+            repartidorExistente.ActualizarDocumento(documento.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(telefono))
+        {
+            repartidorExistente.ActualizarContacto(telefono.Trim());
+        }
+
+        if (vehiculoAsignadoId.HasValue)
+        {
+            if (idVehiculoValido.HasValue)
+                repartidorExistente.AsignarVehiculo(idVehiculoValido.Value);
+            else
+                repartidorExistente.DesasignarVehiculo();
+        }
+
+        if (!usuario.Activo)
+        {
+            repartidorExistente.CambiarEstado("Inactivo");
+        }
+        else if (string.Equals(repartidorExistente.Estado, "Inactivo", StringComparison.OrdinalIgnoreCase))
+        {
+            repartidorExistente.CambiarEstado("Disponible");
+        }
     }
 }

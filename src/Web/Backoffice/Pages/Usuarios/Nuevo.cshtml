@@ -58,7 +58,7 @@
                 </div>
                 <div class="col-md-6">
                     <label asp-for="NuevoUsuario.Password" class="form-label small fw-semibold">Contraseña Provisional *</label>
-                    <input asp-for="NuevoUsuario.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 6 caracteres" required />
+                    <input asp-for="NuevoUsuario.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 8 caracteres" minlength="8" required />
                     <span asp-validation-for="NuevoUsuario.Password" class="text-danger small"></span>
                 </div>
             </div>
@@ -66,20 +66,58 @@
             <!-- Fila 3: Perfil con sólo el título del cargo -->
             <div class="mb-3">
                 <label asp-for="NuevoUsuario.PerfilId" class="form-label small fw-semibold">Perfil / Rol a Asignar *</label>
-                <select asp-for="NuevoUsuario.PerfilId" class="form-select form-select-sm" required>
+                <select asp-for="NuevoUsuario.PerfilId" id="selectPerfilUsuario" class="form-select form-select-sm" required onchange="actualizarCamposSegunRol()">
                     <option value="">-- Seleccionar Rol --</option>
                     @foreach (var perfil in Model.Perfiles)
                     {
-                        <option value="@perfil.Id">@perfil.Nombre</option>
+                        var etiquetaPerfil = string.Equals(perfil.Nombre, "Comercio", StringComparison.OrdinalIgnoreCase)
+                            ? "Administrador de Comercio"
+                            : perfil.Nombre;
+                        <option value="@perfil.Id" data-nombre-rol="@perfil.Nombre">@etiquetaPerfil</option>
                     }
                 </select>
                 <span asp-validation-for="NuevoUsuario.PerfilId" class="text-danger small"></span>
             </div>
 
+            <!-- Bloque operativo para Repartidor (unificado con Repartidores y Vehículos) -->
+            <div id="bloqueDatosRepartidor" class="p-3 mb-3 rounded-3 border bg-light" style="display: none;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="small fw-bold text-dark">Datos Operativos del Repartidor (Sincronizado con Flota)</span>
+                    <span class="badge bg-dark-subtle text-dark border" style="font-size: 0.7rem;">Padrón de Repartidores</span>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="NuevoUsuario.Documento" class="form-label small fw-semibold">Cédula / DNI *</label>
+                        <input asp-for="NuevoUsuario.Documento" id="inputDocumentoRepartidor" class="form-control form-control-sm font-monospace" placeholder="Ej: 4.512.980-3" maxlength="30" />
+                        <span asp-validation-for="NuevoUsuario.Documento" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="NuevoUsuario.Telefono" class="form-label small fw-semibold">Teléfono Celular *</label>
+                        <input asp-for="NuevoUsuario.Telefono" id="inputTelefonoRepartidor" class="form-control form-control-sm" placeholder="+598 99 111 222" maxlength="30" />
+                        <span asp-validation-for="NuevoUsuario.Telefono" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="NuevoUsuario.VehiculoAsignadoId" class="form-label small fw-semibold">Asociar a Vehículo (Opcional)</label>
+                        <select asp-for="NuevoUsuario.VehiculoAsignadoId" id="selectVehiculoRepartidor" class="form-select form-select-sm">
+                            <option value="">-- Sin vehículo asignado inicialmente --</option>
+                            @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
+                            {
+                                <option value="@vehiculo.Id">
+                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
+                                </option>
+                            }
+                        </select>
+                        <div class="form-text small" style="font-size: 0.725rem;">
+                            El repartidor quedará registrado automáticamente en el panel de Repartidores y Vehículos.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Fila 4: Asociación a comercio cliente (opcional) -->
-            <div class="mb-4">
+            <div class="mb-4" id="bloqueComercioAsociado">
                 <label asp-for="NuevoUsuario.ComercioId" class="form-label small fw-semibold">Comercio Cliente Asociado (Opcional)</label>
-                <select asp-for="NuevoUsuario.ComercioId" class="form-select form-select-sm">
+                <select asp-for="NuevoUsuario.ComercioId" id="selectComercioAsociado" class="form-select form-select-sm">
                     <option value="">-- Ninguno (Usuario interno del Operador) --</option>
                     @foreach (var comercio in Model.Comercios)
                     {
@@ -106,4 +144,36 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function actualizarCamposSegunRol() {
+            const selectPerfil = document.getElementById('selectPerfilUsuario');
+            if (!selectPerfil) return;
+            const opcion = selectPerfil.options[selectPerfil.selectedIndex];
+            const nombreRol = (opcion ? (opcion.getAttribute('data-nombre-rol') || opcion.text) : '').trim().toLowerCase();
+            const esRepartidor = nombreRol === 'repartidor';
+
+            const bloqueRepartidor = document.getElementById('bloqueDatosRepartidor');
+            const inputDoc = document.getElementById('inputDocumentoRepartidor');
+            const inputTel = document.getElementById('inputTelefonoRepartidor');
+            const bloqueComercio = document.getElementById('bloqueComercioAsociado');
+            const selectComercio = document.getElementById('selectComercioAsociado');
+
+            if (bloqueRepartidor) {
+                bloqueRepartidor.style.display = esRepartidor ? 'block' : 'none';
+            }
+            if (inputDoc) {
+                inputDoc.required = esRepartidor;
+            }
+            if (inputTel) {
+                inputTel.required = esRepartidor;
+            }
+            if (bloqueComercio) {
+                bloqueComercio.style.display = esRepartidor ? 'none' : 'block';
+                if (esRepartidor && selectComercio) {
+                    selectComercio.value = '';
+                }
+            }
+        }
+        document.addEventListener('DOMContentLoaded', actualizarCamposSegunRol);
+    </script>
 }

@@ -19,6 +19,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
     private static readonly HashSet<EstadoEnvio> EstadosNotificablesAlDestinatario = new()
     {
         EstadoEnvio.Admitido,
+        EstadoEnvio.AsignadoARuta,
         EstadoEnvio.EnTransito,
         EstadoEnvio.Entregado,
         EstadoEnvio.EntregadoParcialmente,
@@ -87,6 +88,10 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         // Eventos del retiro en domicilio (RF 41): su propio mensaje, con el mismo patrón de idempotencia y entrega
         if (string.Equals(request.TipoEvento, EventoRetiroPublicado.TipoMensaje, StringComparison.Ordinal))
             return await ProcesarRetiroAsync(request, claveMensaje, cancellationToken);
+
+        // Eventos de cambio de identidad visual del operador (UC-06, RF-05): el worker invalida caché distribuido y registra idempotencia
+        if (string.Equals(request.TipoEvento, EventoIdentidadVisualActualizada.TipoMensaje, StringComparison.Ordinal))
+            return await ProcesarIdentidadVisualAsync(request, claveMensaje, cancellationToken);
 
         if (!string.Equals(request.TipoEvento, EventoEnvioPublicado.TipoMensaje, StringComparison.Ordinal))
         {
@@ -178,6 +183,27 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         await _entregador.EntregarAsync(avisos, cancellationToken);
 
         return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, 0, avisos.Count);
+    }
+
+    private async Task<ResultadoProcesamientoMensaje> ProcesarIdentidadVisualAsync(
+        ProcesarMensajeCommand request, string claveMensaje, CancellationToken cancellationToken)
+    {
+        var evento = EventoIdentidadVisualActualizada.Deserializar(request.Payload)
+            ?? throw new MensajeInvalidoException($"El payload del mensaje {claveMensaje} no es un evento de identidad visual válido.");
+
+        _currentTenant?.EstablecerOperadorDeProceso(evento.OperadorId);
+
+        if (_cacheService is not null)
+        {
+            await _cacheService.RemoveAsync(ClavesCache.IdentidadVisualPorOperador(evento.OperadorId), cancellationToken);
+        }
+
+        await _idempotenciaRepository.AddAsync(
+            new ClaveIdempotenciaConsumidor(Guid.NewGuid(), claveMensaje, $"identidad_visual={evento.OperadorId}"),
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Procesado, 1, 0);
     }
 
     private async Task<List<AvisoComercio>> GenerarAvisosDeRetiroAsync(

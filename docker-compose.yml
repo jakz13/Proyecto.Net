@@ -48,6 +48,12 @@ services:
       - ASPNETCORE_HTTP_PORTS=8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=postgres
       - ConnectionStrings__Redis=redis:6379
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__UsarSsl=${SMTP_SSL:-true}
+      - Smtp__Usuario=${SMTP_USER:-}
+      - Smtp__Password=${SMTP_PASS:-}
+      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5002/seguimiento}
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,6 +74,12 @@ services:
       - RabbitMq__Port=5672
       - RabbitMq__UserName=guest
       - RabbitMq__Password=guest
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__UsarSsl=${SMTP_SSL:-true}
+      - Smtp__Usuario=${SMTP_USER:-}
+      - Smtp__Password=${SMTP_PASS:-}
+      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5002/seguimiento}
     depends_on:
       postgres:
         condition: service_healthy

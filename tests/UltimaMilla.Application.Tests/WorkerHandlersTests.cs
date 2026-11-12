@@ -184,6 +184,42 @@ public class WorkerHandlersTests
         Assert.Equal("Entregado", _avisosRepo.Avisos.Single().Estado);
     }
 
+    [Theory]
+    [InlineData("Admitido")]
+    [InlineData("AsignadoARuta")]
+    [InlineData("EnTransito")]
+    [InlineData("Entregado")]
+    [InlineData("EntregadoParcialmente")]
+    [InlineData("NoEntregado")]
+    [InlineData("Reprogramado")]
+    public async Task ProcesarMensaje_EstadosNotificablesAlDestinatario_EnviaCorreoYRegistraNotificacion(string estadoNuevo)
+    {
+        var (envio, destinatario) = CrearEnvioConDestinatario(email: "destinatario@correo.uy");
+        var evento = new EventoEnvioPublicado(
+            OperadorId,
+            envio.Id,
+            ComercioOperadorId,
+            envio.CodigoSeguimientoPublico,
+            "CambioEstado",
+            "EnDeposito",
+            estadoNuevo,
+            _clock.UtcNow,
+            "corr-mail");
+        var comando = new ProcesarMensajeCommand(Guid.NewGuid(), "Envio", envio.Id, EventoEnvioPublicado.TipoMensaje, evento.Serializar());
+        var handler = CrearConsumidorHandler();
+
+        var resultado = await handler.Handle(comando, CancellationToken.None);
+
+        Assert.Equal(EstadoProcesamientoMensaje.Procesado, resultado.Estado);
+        Assert.Equal(1, resultado.NotificacionesEnviadas);
+        var enviada = Assert.Single(_notificacionService.Enviadas);
+        Assert.Equal("Email", enviada.Canal);
+        Assert.Equal("destinatario@correo.uy", enviada.Contacto);
+        Assert.Equal(destinatario.Nombre, enviada.NombreDestinatario);
+        Assert.Equal(envio.CodigoSeguimientoPublico, enviada.CodigoSeguimiento);
+        Assert.Equal(estadoNuevo, enviada.Estado.ToString());
+    }
+
     [Fact]
     public async Task ProcesarMensaje_EnvioDeOtroOperador_RechazaPorAislamientoMultitenant()
     {
@@ -210,6 +246,42 @@ public class WorkerHandlersTests
 
         await Assert.ThrowsAsync<MensajeSinManejadorException>(() =>
             handler.Handle(new ProcesarMensajeCommand(Guid.NewGuid(), EventoEnvioPublicado.OrigenColaFallidos, Guid.NewGuid(), "GeneracionEtiquetaZPL", "{}"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ProcesarMensaje_IdentidadVisualActualizada_ProcesaDeFormaIdempotenteYRechazaPayloadInvalido()
+    {
+        var handler = CrearConsumidorHandler();
+        var identidadId = Guid.NewGuid();
+        var messageId = Guid.NewGuid();
+
+        var evento = new EventoIdentidadVisualActualizada(
+            OperadorId,
+            identidadId,
+            "TransLogística Express Renovada",
+            "#047857",
+            "#F59E0B",
+            _clock.UtcNow,
+            "corr-identidad-1");
+
+        var resultado = await handler.Handle(
+            new ProcesarMensajeCommand(messageId, "IdentidadVisual", identidadId, EventoIdentidadVisualActualizada.TipoMensaje, evento.Serializar()),
+            CancellationToken.None);
+
+        Assert.Equal(EstadoProcesamientoMensaje.Procesado, resultado.Estado);
+        Assert.Single(_idempotenciaRepo.Claves);
+
+        // Reenvío del mismo mensaje -> Duplicado sin repetir efectos
+        var duplicado = await handler.Handle(
+            new ProcesarMensajeCommand(messageId, "IdentidadVisual", identidadId, EventoIdentidadVisualActualizada.TipoMensaje, evento.Serializar()),
+            CancellationToken.None);
+        Assert.Equal(EstadoProcesamientoMensaje.Duplicado, duplicado.Estado);
+
+        // Payload malformado o sin operador válido -> lanza MensajeInvalidoException
+        await Assert.ThrowsAsync<MensajeInvalidoException>(() =>
+            handler.Handle(
+                new ProcesarMensajeCommand(Guid.NewGuid(), "IdentidadVisual", identidadId, EventoIdentidadVisualActualizada.TipoMensaje, "{\"operadorId\":\"00000000-0000-0000-0000-000000000000\"}"),
+                CancellationToken.None));
     }
 
     [Fact]

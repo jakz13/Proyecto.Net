@@ -549,7 +549,7 @@ public class AppDbContext : DbContext
             builder.Property(i => i.ColorSecundario).IsRequired().HasMaxLength(20);
             builder.Property(i => i.EmailContacto).IsRequired().HasMaxLength(200);
             builder.Property(i => i.TelefonoContacto).IsRequired().HasMaxLength(50);
-            builder.Property(i => i.LogoUrl).HasMaxLength(500);
+            builder.Property(i => i.LogoUrl);
             builder.Property(i => i.SitioWeb).HasMaxLength(300);
             builder.Property(i => i.MensajeComunicaciones).HasMaxLength(500);
         });

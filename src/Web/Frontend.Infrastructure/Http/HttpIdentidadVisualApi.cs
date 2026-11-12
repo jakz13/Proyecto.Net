@@ -78,6 +78,27 @@ public class HttpIdentidadVisualApi : IIdentidadVisualApi
         return actualizada ?? throw new ApiExcepcion(System.Net.HttpStatusCode.InternalServerError, "No se pudo deserializar la identidad visual actualizada.");
     }
 
+    public async Task<(bool Exitoso, string Mensaje)> ProbarCorreoIdentidadAsync(
+        string emailDestino,
+        string estadoEnvio = "EnTransito",
+        CancellationToken cancelacion = default)
+    {
+        var respuesta = await _clienteHttp.PostAsJsonAsync(
+            "/api/v1/identidad-visual/probar-correo",
+            new { EmailDestino = emailDestino, EstadoEnvio = estadoEnvio },
+            cancelacion);
+
+        var cuerpo = await respuesta.Content.ReadFromJsonAsync<RespuestaPruebaCorreoDto>(OpcionesJson, cancelacion);
+        if (respuesta.IsSuccessStatusCode)
+        {
+            return (cuerpo?.Exitoso ?? true, cuerpo?.Mensaje ?? "Correo de prueba enviado exitosamente.");
+        }
+
+        return (false, cuerpo?.Mensaje ?? $"No se pudo enviar el correo de prueba ({respuesta.StatusCode}).");
+    }
+
+    private sealed record RespuestaPruebaCorreoDto(bool Exitoso, string? Mensaje);
+
     private static async Task AsegurarRespuestaExitosaAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
     {
         if (respuesta.IsSuccessStatusCode)

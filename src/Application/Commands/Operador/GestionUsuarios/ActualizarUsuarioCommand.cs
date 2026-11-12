@@ -13,5 +13,8 @@ public record ActualizarUsuarioCommand(
     string Email,
     Guid PerfilId,
     bool Activo,
-    string Apellido = ""
+    string Apellido = "",
+    string? Documento = null,
+    string? Telefono = null,
+    Guid? VehiculoAsignadoId = null
 ) : IRequest<UsuarioDetalleDto>;

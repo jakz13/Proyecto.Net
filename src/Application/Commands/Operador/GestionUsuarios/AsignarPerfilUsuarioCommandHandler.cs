@@ -49,6 +49,10 @@ public class AsignarPerfilUsuarioCommandHandler : IRequestHandler<AsignarPerfilU
         usuario.AsignarPerfil(solicitud.PerfilId);
 
         await _usuarioRepositorio.ActualizarAsync(usuario, cancellationToken);
+        await _usuarioRepositorio.SincronizarRepartidorDeUsuarioAsync(
+            usuario,
+            perfil.Nombre,
+            cancellationToken: cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
     }
 }

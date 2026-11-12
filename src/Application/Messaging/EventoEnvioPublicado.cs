@@ -55,6 +55,42 @@ public record EventoEnvioPublicado(
     }
 }
 
+/// <summary>
+/// Evento de negocio que la API registra en el outbox cuando cambia la identidad visual de un operador (UC-06, RF-05)
+/// para que el worker invalide el caché distribuido y deje trazabilidad de la actualización.
+/// </summary>
+public record EventoIdentidadVisualActualizada(
+    Guid OperadorId,
+    Guid IdentidadVisualId,
+    string NombreComercial,
+    string ColorPrimario,
+    string ColorSecundario,
+    DateTime OcurridoEnUtc,
+    string CorrelationId)
+{
+    public const string TipoMensaje = "IdentidadVisualActualizada";
+
+    public string Serializar() => JsonSerializer.Serialize(this, EventoEnvioPublicado.OpcionesJson);
+
+    public static EventoIdentidadVisualActualizada? Deserializar(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return null;
+
+        try
+        {
+            var evento = JsonSerializer.Deserialize<EventoIdentidadVisualActualizada>(payload, EventoEnvioPublicado.OpcionesJson);
+            return evento is null || evento.OperadorId == Guid.Empty || string.IsNullOrWhiteSpace(evento.NombreComercial)
+                ? null
+                : evento;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+}
+
 /// <summary>Lectura tolerante de datos de contexto de cualquier payload del outbox (los hay de distintos tipos de evento).</summary>
 public static class PayloadMensaje
 {

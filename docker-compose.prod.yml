@@ -35,6 +35,14 @@ x-api: &api
     SEED_API_KEY_DEMO: ${SEED_API_KEY_DEMO:-}
     # Receptor anónimo de pruebas de avisos (/api/testing/webhook-receiver): apagado salvo que se lo habilite para una demostración
     Avisos__ReceptorDePrueba__Habilitado: ${RECEPTOR_PRUEBA_AVISOS:-false}
+    # Configuración SMTP para notificaciones por correo al destinatario (RF-27, UC-35)
+    Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+    Smtp__Port: ${SMTP_PORT:-587}
+    Smtp__UsarSsl: ${SMTP_SSL:-true}
+    Smtp__Usuario: ${SMTP_USER:-}
+    Smtp__Password: ${SMTP_PASS:-}
+    Smtp__RemitenteEmail: ${SMTP_FROM:-}
+    Smtp__UrlBaseSeguimiento: https://${DOMINIO}/seguimiento
     DOTNET_GCConserveMemory: "7"
     DOTNET_TieredPGO: "0"
   mem_limit: 256m
@@ -123,6 +131,13 @@ services:
       RabbitMq__Port: "5672"
       RabbitMq__UserName: ultimamilla
       RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__UsarSsl: ${SMTP_SSL:-true}
+      Smtp__Usuario: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASS:-}
+      Smtp__RemitenteEmail: ${SMTP_FROM:-}
+      Smtp__UrlBaseSeguimiento: https://${DOMINIO}/seguimiento
       DOTNET_GCConserveMemory: "7"
     depends_on:
       api1:

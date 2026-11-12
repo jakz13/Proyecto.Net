@@ -97,6 +97,13 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
         );
 
         await _usuarioRepositorio.AgregarAsync(nuevoUsuario, cancellationToken);
+        await _usuarioRepositorio.SincronizarRepartidorDeUsuarioAsync(
+            nuevoUsuario,
+            perfil.Nombre,
+            solicitud.Documento,
+            solicitud.Telefono,
+            solicitud.VehiculoAsignadoId,
+            cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
 
         return new UsuarioDetalleDto(

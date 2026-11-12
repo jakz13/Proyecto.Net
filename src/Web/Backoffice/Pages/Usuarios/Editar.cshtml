@@ -60,15 +60,48 @@
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Usuario.PerfilId" class="form-label small fw-semibold">Perfil / Rol a Asignar *</label>
-                    <select asp-for="Usuario.PerfilId" class="form-select form-select-sm" required>
+                    <select asp-for="Usuario.PerfilId" id="selectPerfilUsuarioEditar" class="form-select form-select-sm" required onchange="actualizarCamposRepartidorEditar()">
                         @foreach (var perfil in Model.Perfiles)
                         {
-                            <option value="@perfil.Id" selected="@(Model.Usuario.PerfilId == perfil.Id)">
-                                @perfil.Nombre
+                            var etiquetaPerfil = string.Equals(perfil.Nombre, "Comercio", StringComparison.OrdinalIgnoreCase)
+                                ? "Administrador de Comercio"
+                                : perfil.Nombre;
+                            <option value="@perfil.Id" data-nombre-rol="@perfil.Nombre" selected="@(Model.Usuario.PerfilId == perfil.Id)">
+                                @etiquetaPerfil
                             </option>
                         }
                     </select>
                     <span asp-validation-for="Usuario.PerfilId" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <!-- Bloque operativo para Repartidor -->
+            <div id="bloqueEditarRepartidor" class="p-3 mb-3 rounded-3 border bg-light" style="display: none;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="small fw-bold text-dark">Datos Operativos del Repartidor (Sincronizado con Flota)</span>
+                    <span class="badge bg-dark-subtle text-dark border" style="font-size: 0.7rem;">Padrón de Repartidores</span>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Usuario.Documento" class="form-label small fw-semibold">Cédula / DNI</label>
+                        <input asp-for="Usuario.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 4.512.980-3" maxlength="30" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Usuario.Telefono" class="form-label small fw-semibold">Teléfono Celular</label>
+                        <input asp-for="Usuario.Telefono" class="form-control form-control-sm" placeholder="+598 99 111 222" maxlength="30" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Usuario.VehiculoAsignadoId" class="form-label small fw-semibold">Vehículo Asignado</label>
+                        <select asp-for="Usuario.VehiculoAsignadoId" class="form-select form-select-sm">
+                            <option value="@Guid.Empty">-- Sin vehículo asignado --</option>
+                            @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
+                            {
+                                <option value="@vehiculo.Id" selected="@(Model.Usuario.VehiculoAsignadoId == vehiculo.Id)">
+                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³)
+                                </option>
+                            }
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -101,4 +134,17 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function actualizarCamposRepartidorEditar() {
+            const selectPerfil = document.getElementById('selectPerfilUsuarioEditar');
+            if (!selectPerfil) return;
+            const opcion = selectPerfil.options[selectPerfil.selectedIndex];
+            const nombreRol = (opcion ? (opcion.getAttribute('data-nombre-rol') || opcion.text) : '').trim().toLowerCase();
+            const bloque = document.getElementById('bloqueEditarRepartidor');
+            if (bloque) {
+                bloque.style.display = (nombreRol === 'repartidor') ? 'block' : 'none';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', actualizarCamposRepartidorEditar);
+    </script>
 }

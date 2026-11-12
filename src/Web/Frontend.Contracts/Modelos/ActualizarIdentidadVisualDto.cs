@@ -44,4 +44,9 @@ public class ActualizarIdentidadVisualDto
     /// </summary>
     [StringLength(300, ErrorMessage = "El mensaje para comunicaciones no puede exceder 300 caracteres.")]
     public string? MensajeComunicaciones { get; set; }
+
+    /// <summary>
+    /// Indica si se debe eliminar explícitamente el logotipo actual (por ejemplo, al restablecer valores predeterminados).
+    /// </summary>
+    public bool EliminarLogo { get; set; }
 }
