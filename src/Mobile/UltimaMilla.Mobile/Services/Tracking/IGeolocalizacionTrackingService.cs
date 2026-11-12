@@ -49,6 +49,14 @@ public interface IGeolocalizacionTrackingService : IAsyncDisposable
 
     string PerfilAdaptativoActual { get; }
 
+    Guid HojaDeRutaIdActiva { get; set; }
+
+    Guid RepartidorIdActivo { get; set; }
+
+    string UltimaCoordenadaTexto { get; }
+
+    string UltimoEstadoServidorTexto { get; }
+
     event EventHandler<PosicionActualizadaEventArgs>? OnPosicionActualizada;
 
     event EventHandler<bool>? OnTrackingStateChanged;
@@ -60,6 +68,8 @@ public interface IGeolocalizacionTrackingService : IAsyncDisposable
     Task IniciarTrackingAsync(Guid hojaDeRutaId, Guid repartidorId, CancellationToken cancellationToken = default);
 
     Task DetenerTrackingAsync();
+
+    Task<(bool Exito, string Detalle)> ForzarEnvioGpsInmediatoAsync(Guid hojaDeRutaId, Guid repartidorId, CancellationToken cancellationToken = default);
 
     TelemetriaBateriaGeocercaDto ObtenerTelemetriaBateriaActual();
 

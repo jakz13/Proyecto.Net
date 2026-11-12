@@ -52,8 +52,10 @@ public class RegistrarPosicionesCommandHandlerTests
     }
 
     private readonly FakeTableroNotifier _tablero = new();
+    private readonly FakeVehiculoRepository _vehiculos = new();
 
-    private RegistrarPosicionesCommandHandler CrearHandler() => new(_repartidores, _rutas, _posiciones, _uow, _tenant, _clock, _tablero);
+    private RegistrarPosicionesCommandHandler CrearHandler(IVehiculoRepository? vehiculos = null) =>
+        new(_repartidores, _rutas, _posiciones, _uow, _tenant, _clock, _tablero, vehiculos);
 
     private static RegistrarPosicionesCommand Comando(params PosicionDispositivoDto[] posiciones) => new(posiciones);
 
@@ -187,5 +189,38 @@ public class RegistrarPosicionesCommandHandlerTests
         var excesivo = Enumerable.Range(0, RegistrarPosicionesCommandHandler.MaximoPorLote + 1)
             .Select(_ => new PosicionDispositivoDto(-34.9, -56.16)).ToArray();
         await Assert.ThrowsAsync<DomainValidationException>(() => CrearHandler().Handle(Comando(excesivo), default));
+    }
+
+    [Fact]
+    public async Task RepartidorSinVehiculo_ConVehiculoFallbackEnOperador_ResuelveExitosamente()
+    {
+        _repartidores.Repartidores.Clear();
+        var repartidorSinVehiculo = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidores.Repartidores.Add(repartidorSinVehiculo);
+
+        var vehiculoFallback = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "ABC-1234", "Furgon", 1000, 10);
+        _vehiculos.Vehiculos.Add(vehiculoFallback);
+
+        var resultado = await CrearHandler(_vehiculos).Handle(Comando(new PosicionDispositivoDto(-34.9, -56.16)), default);
+
+        Assert.Equal(1, resultado.Recibidas);
+        var guardada = Assert.Single(_posiciones.Posiciones);
+        Assert.Equal(vehiculoFallback.Id, guardada.VehiculoId);
+        Assert.Equal(repartidorSinVehiculo.Id, guardada.RepartidorId);
+    }
+
+    [Fact]
+    public async Task RutaEnEstadoLiberada_RegistraPosicionesSinRestriccion()
+    {
+        var ruta = new HojaDeRuta(Guid.NewGuid(), _tenant.OperadorId, DateOnly.FromDateTime(_clock.UtcNow), "Liberada");
+        ruta.AsignarRecursos(_repartidor.Id, _vehiculoId);
+        _rutas.Rutas.Add(ruta);
+
+        var resultado = await CrearHandler().Handle(Comando(new PosicionDispositivoDto(-34.9, -56.16, HojaDeRutaId: ruta.Id)), default);
+
+        Assert.Equal(1, resultado.Recibidas);
+        var guardada = Assert.Single(_posiciones.Posiciones);
+        Assert.Equal(_vehiculoId, guardada.VehiculoId);
+        Assert.Equal(ruta.Id, guardada.HojaDeRutaId);
     }
 }

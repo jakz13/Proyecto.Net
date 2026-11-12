@@ -6,7 +6,8 @@
     xmlns:auth="clr-namespace:UltimaMilla.Mobile.Views.Auth"
     xmlns:ruta="clr-namespace:UltimaMilla.Mobile.Views.Ruta"
     xmlns:carga="clr-namespace:UltimaMilla.Mobile.Views.Carga"
-    Title="Última Milla Repartidor"
+    xmlns:deposito="clr-namespace:UltimaMilla.Mobile.Views.Deposito"
+    Title="Última Milla"
     Shell.FlyoutBehavior="Disabled"
     Shell.TabBarBackgroundColor="#0F172A"
     Shell.TabBarForegroundColor="#FFFFFF"
@@ -26,9 +27,9 @@
     <!-- ========================================================= -->
     <!-- NAVEGACIÓN PRINCIPAL: TABBAR INFERIOR MODERNO             -->
     <!-- ========================================================= -->
-    <TabBar>
+    <TabBar x:Name="MainTabBar">
         <!-- Pestaña 1: Mi Ruta -->
-        <Tab Title="Mi Ruta">
+        <Tab x:Name="TabMiRuta" Title="Mi Ruta">
             <ShellContent
                 Title="Mi Ruta"
                 ContentTemplate="{DataTemplate ruta:RutaDiaPage}"
@@ -36,11 +37,19 @@
         </Tab>
 
         <!-- Pestaña 2: Carga de Vehículo -->
-        <Tab Title="Carga">
+        <Tab x:Name="TabCarga" Title="Carga">
             <ShellContent
                 Title="Carga"
                 ContentTemplate="{DataTemplate carga:CargaVehiculoPage}"
                 Route="CargaVehiculoPage" />
+        </Tab>
+
+        <!-- Pestaña 3: Recepción en Depósito -->
+        <Tab x:Name="TabRecepcionDeposito" Title="Recepción">
+            <ShellContent
+                Title="Recepción en Depósito"
+                ContentTemplate="{DataTemplate deposito:RecepcionDepositoPage}"
+                Route="RecepcionDepositoPage" />
         </Tab>
     </TabBar>
 

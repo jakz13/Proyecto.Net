@@ -13,6 +13,7 @@ public interface IVehiculoRepository
 {
     Task<Vehiculo?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<Vehiculo>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+    Task<Vehiculo?> ObtenerPrimerVehiculoActivoAsync(Guid operadorId, CancellationToken cancellationToken = default);
 }
 
 public interface IFranjaHorariaRepository

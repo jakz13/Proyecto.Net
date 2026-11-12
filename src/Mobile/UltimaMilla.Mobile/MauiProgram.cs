@@ -11,14 +11,17 @@ using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Auth;
 using UltimaMilla.Mobile.ViewModels.Carga;
+using UltimaMilla.Mobile.ViewModels.Deposito;
 using UltimaMilla.Mobile.ViewModels.Diagnostic;
 using UltimaMilla.Mobile.ViewModels.Entrega;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Auth;
 using UltimaMilla.Mobile.Views.Carga;
+using UltimaMilla.Mobile.Views.Deposito;
 using UltimaMilla.Mobile.Views.Diagnostic;
 using UltimaMilla.Mobile.Views.Entrega;
 using UltimaMilla.Mobile.Views.Ruta;
@@ -50,6 +53,7 @@ public static class MauiProgram
 
         // 1. Almacenamiento Local Cifrado (SQLite con SQLCipher)
         builder.Services.AddSingleton<ILocalDatabaseService, LocalDatabaseService>();
+        builder.Services.AddSingleton<IOperadorThemeService, OperadorThemeService>();
         builder.Services.AddSingleton<IAuthService, AuthService>();
         builder.Services.AddSingleton<IBiometricAuthService, BiometricAuthService>();
         builder.Services.AddSingleton<INotificacionLocalService, NotificacionLocalService>();
@@ -93,6 +97,7 @@ public static class MauiProgram
         builder.Services.AddTransient<RegistroRetiroViewModel>();
         builder.Services.AddTransient<IntentoFallidoViewModel>();
         builder.Services.AddTransient<CargaVehiculoViewModel>();
+        builder.Services.AddTransient<RecepcionDepositoViewModel>();
 
         // 5. Registro de Vistas / Páginas
         builder.Services.AddTransient<LoginPage>();
@@ -103,6 +108,7 @@ public static class MauiProgram
         builder.Services.AddTransient<RegistroRetiroPage>();
         builder.Services.AddTransient<IntentoFallidoPage>();
         builder.Services.AddTransient<CargaVehiculoPage>();
+        builder.Services.AddTransient<RecepcionDepositoPage>();
         builder.Services.AddTransient<EscanerCodigoPage>();
 
         builder.Services.AddSingleton<AppShell>();

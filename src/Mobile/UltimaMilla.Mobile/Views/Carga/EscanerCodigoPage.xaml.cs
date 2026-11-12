@@ -5,8 +5,9 @@ namespace UltimaMilla.Mobile.Views.Carga;
 
 public partial class EscanerCodigoPage : ContentPage
 {
-    private readonly TaskCompletionSource<string?> _tcs = new();
+    private readonly TaskCompletionSource<string?> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _procesandoLectura;
+    private string? _codigoDetectado;
 
     public Task<string?> ResultadoEscaneoTask => _tcs.Task;
 
@@ -16,7 +17,7 @@ public partial class EscanerCodigoPage : ContentPage
 
         BarcodeReader.Options = new BarcodeReaderOptions
         {
-            Formats = BarcodeFormat.QrCode | BarcodeFormat.Code128 | BarcodeFormat.Code39 | BarcodeFormat.Ean13,
+            Formats = BarcodeFormats.All,
             AutoRotate = true,
             Multiple = false
         };
@@ -25,6 +26,7 @@ public partial class EscanerCodigoPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _codigoDetectado = null;
         Interlocked.Exchange(ref _procesandoLectura, 0);
         BarcodeReader.IsDetecting = true;
     }
@@ -34,7 +36,11 @@ public partial class EscanerCodigoPage : ContentPage
         base.OnDisappearing();
         BarcodeReader.IsDetecting = false;
         BarcodeReader.IsTorchOn = false;
-        _tcs.TrySetResult(null);
+
+        if (_codigoDetectado is null && Volatile.Read(ref _procesandoLectura) == 0)
+        {
+            _tcs.TrySetResult(null);
+        }
     }
 
     private void OnBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)
@@ -48,6 +54,8 @@ public partial class EscanerCodigoPage : ContentPage
             Interlocked.Exchange(ref _procesandoLectura, 0);
             return;
         }
+
+        _codigoDetectado = primerCodigo.Trim();
 
         MainThread.BeginInvokeOnMainThread(async () =>
         {
@@ -65,13 +73,13 @@ public partial class EscanerCodigoPage : ContentPage
                     // Silente si la plataforma no soporta motor háptico
                 }
 
-                _tcs.TrySetResult(primerCodigo.Trim());
                 await Navigation.PopModalAsync();
+                _tcs.TrySetResult(_codigoDetectado);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[EscanerCodigoPage] Error al procesar escaneo: {ex.Message}");
-                _tcs.TrySetResult(primerCodigo.Trim());
+                _tcs.TrySetResult(_codigoDetectado);
             }
         });
     }

@@ -30,12 +30,21 @@ public class OperacionHub : Hub
     private readonly AppDbContext _db;
     private readonly ICurrentTenant _currentTenant;
     private readonly ILogger<OperacionHub> _logger;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IHubContext<TableroHub>? _tableroHubContext;
 
-    public OperacionHub(AppDbContext db, ICurrentTenant currentTenant, ILogger<OperacionHub> logger)
+    public OperacionHub(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ILogger<OperacionHub> logger,
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IHubContext<TableroHub>? tableroHubContext = null)
     {
         _db = db;
         _currentTenant = currentTenant;
         _logger = logger;
+        _tableroNotifier = tableroNotifier;
+        _tableroHubContext = tableroHubContext;
     }
 
     /// <summary>
@@ -48,17 +57,47 @@ public class OperacionHub : Hub
             "SignalR Hub: Coordenadas recibidas de Repartidor {RepartidorId} (Ruta {RutaId}): Lat={Lat:F5}, Lng={Lng:F5}",
             payload.RepartidorId, payload.HojaDeRutaId, payload.Latitud, payload.Longitud);
 
+        (Guid OperadorId, Guid? VehiculoId) resolucion = (Guid.Empty, null);
         try
         {
-            await PersistirPosicionEnBaseDatosAsync(payload);
+            resolucion = await PersistirPosicionEnBaseDatosAsync(payload);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Fallo no bloqueante al persistir posicion GPS recibida por SignalR.");
         }
 
-        // Retransmitir al canal del Backoffice para actualizacion en vivo del mapa
+        // 1. Retransmitir al canal de clientes suscritos a OperacionHub
         await Clients.Others.SendAsync("PosicionRepartidorActualizada", payload);
+
+        // 2. Puente obligatorio hacia TableroHub para que el Backoffice reciba las coordenadas en vivo
+        if (resolucion.OperadorId != Guid.Empty && resolucion.VehiculoId.HasValue && resolucion.VehiculoId.Value != Guid.Empty)
+        {
+            if (_tableroNotifier != null)
+            {
+                await _tableroNotifier.NotificarPosicionVehiculoAsync(
+                    resolucion.OperadorId,
+                    resolucion.VehiculoId.Value,
+                    payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : null,
+                    payload.Latitud,
+                    payload.Longitud);
+            }
+
+            if (_tableroHubContext != null)
+            {
+                await _tableroHubContext.Clients.Group(TableroHub.GrupoOperador(resolucion.OperadorId)).SendAsync(
+                    "PosicionRepartidorActualizada",
+                    new
+                    {
+                        repartidorId = payload.RepartidorId,
+                        hojaDeRutaId = payload.HojaDeRutaId,
+                        vehiculoId = resolucion.VehiculoId.Value,
+                        latitud = payload.Latitud,
+                        longitud = payload.Longitud,
+                        timestamp = payload.TimestampUtc
+                    });
+            }
+        }
     }
 
     /// <summary>
@@ -106,7 +145,7 @@ public class OperacionHub : Hub
         return base.OnDisconnectedAsync(exception);
     }
 
-    private async Task PersistirPosicionEnBaseDatosAsync(TransmisionUbicacionRequest payload)
+    private async Task<(Guid OperadorId, Guid? VehiculoId)> PersistirPosicionEnBaseDatosAsync(TransmisionUbicacionRequest payload)
     {
         Guid operadorId = Guid.Empty;
         Guid? vehiculoId = null;
@@ -144,10 +183,33 @@ public class OperacionHub : Hub
             }
         }
 
+        // Si aún no se determinó el operador, intentar resolverlo por el repartidor autenticado
+        if (operadorId == Guid.Empty && payload.RepartidorId != Guid.Empty)
+        {
+            var rep = await _db.Repartidores.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == payload.RepartidorId);
+            if (rep != null)
+            {
+                operadorId = rep.OperadorId;
+            }
+        }
+
+        // Fallback de vehículo: si el operador está identificado pero ni la ruta ni el repartidor tienen vehículo asignado,
+        // resolver el primer vehículo activo del operador para no descartar la telemetría en tiempo real
+        if (operadorId != Guid.Empty && (!vehiculoId.HasValue || vehiculoId.Value == Guid.Empty))
+        {
+            var vehiculoFallback = await _db.Vehiculos.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(v => v.OperadorId == operadorId && v.Activo);
+            if (vehiculoFallback != null)
+            {
+                vehiculoId = vehiculoFallback.Id;
+            }
+        }
+
         if (operadorId == Guid.Empty || !vehiculoId.HasValue || vehiculoId.Value == Guid.Empty)
         {
             _logger.LogDebug("No se pudo determinar el vehiculo u operador para persistir la telemetria en tiempo real.");
-            return;
+            return (operadorId, vehiculoId);
         }
 
         if (_currentTenant is CurrentTenant ct)
@@ -173,5 +235,7 @@ public class OperacionHub : Hub
 
         _db.PosicionesVehiculo.Add(posicion);
         await _db.SaveChangesAsync();
+
+        return (operadorId, vehiculoId);
     }
 }

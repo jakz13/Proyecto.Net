@@ -93,6 +93,9 @@ public class FakeVehiculoRepository : IVehiculoRepository
         var set = ids.ToHashSet();
         return Task.FromResult(Vehiculos.Where(v => set.Contains(v.Id)).ToList());
     }
+
+    public Task<Vehiculo?> ObtenerPrimerVehiculoActivoAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Vehiculos.FirstOrDefault(v => v.OperadorId == operadorId && v.Activo));
 }
 
 public class FakeFranjaHorariaRepository : IFranjaHorariaRepository

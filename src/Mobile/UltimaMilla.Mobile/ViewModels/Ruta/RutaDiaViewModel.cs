@@ -241,6 +241,12 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private string _ultimaUbicacionTexto = "Sin coordenadas recientes";
 
     [ObservableProperty]
+    private string _ultimaCoordenadaTexto = "Sin señal GPS";
+
+    [ObservableProperty]
+    private string _ultimoEstadoServidorTexto = "Servidor: Pendiente";
+
+    [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -326,6 +332,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             _trackingService.OnTrackingStateChanged += OnTrackingStateChangedHandler;
             _trackingService.OnPosicionActualizada += OnPosicionActualizadaHandler;
             ActualizarEstadoVisualTracking(_trackingService.IsTrackingActive);
+            UltimaCoordenadaTexto = _trackingService.UltimaCoordenadaTexto;
+            UltimoEstadoServidorTexto = _trackingService.UltimoEstadoServidorTexto;
         }
 
         if (_geofenceService != null)
@@ -360,6 +368,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MainThread.BeginInvokeOnMainThread(() =>
         {
             UltimaUbicacionTexto = $"{e.Latitud:F4}, {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
+            UltimaCoordenadaTexto = _trackingService?.UltimaCoordenadaTexto ?? $"GPS: Lat {e.Latitud:F4}, Lon {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
+            UltimoEstadoServidorTexto = _trackingService?.UltimoEstadoServidorTexto ?? "Servidor: Actualizado";
             ForegroundServiceActivo = _trackingService?.ForegroundServiceActivo ?? false;
             string estadoGps = ForegroundServiceActivo ? "GPS en vivo (Segundo plano)" : "GPS en vivo";
             if (e.TransmitidaSignalR)
@@ -663,26 +673,23 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (_trackingService == null)
             return;
 
-        bool hayParadasPendientes = Paradas.Any(p => p.Estado == "Pendiente");
-        bool rutaEnCalle = EstadoHojaDeRuta is "Despachada" or "EnTransito";
-
-        if (hayParadasPendientes && rutaEnCalle)
+        if (_authService?.RepartidorId is { } repartidorId && repartidorId != Guid.Empty)
         {
             var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
             var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
-
-            // Sin ruta o sin repartidor identificado no hay a quién atribuirle la telemetría
-            if (rutaId == Guid.Empty || _authService?.RepartidorId is not { } repartidorId || repartidorId == Guid.Empty)
-                return;
 
             if (!_trackingService.IsTrackingActive)
             {
                 await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
             }
+            else
+            {
+                _trackingService.HojaDeRutaIdActiva = rutaId;
+                _trackingService.RepartidorIdActivo = repartidorId;
+            }
         }
-        else if (Paradas.Count > 0 && !hayParadasPendientes)
+        else if (EstadoHojaDeRuta is "Finalizada" or "Rendida")
         {
-            // Se completaron todas las entregas de la jornada: detener tracking automáticamente
             if (_trackingService.IsTrackingActive)
             {
                 await _trackingService.DetenerTrackingAsync();
@@ -1076,12 +1083,15 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             }
             else
             {
-                var rutaId = Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
-                if (rutaId == Guid.Empty || _authService?.RepartidorId is not { } repartidorId || repartidorId == Guid.Empty)
+                var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+                var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
+                var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
+
+                if (repartidorId == Guid.Empty)
                 {
                     await Shell.Current.DisplayAlertAsync(
                         "Rastreo GPS",
-                        "No hay una hoja de ruta descargada o no se identificó al repartidor: no se puede iniciar el rastreo.",
+                        "No se identificó la sesión del repartidor: inicie sesión para activar el rastreo.",
                         "Entendido");
                     return;
                 }
@@ -1095,6 +1105,31 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                     $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.{modoSegundoPlano}",
                     "Entendido");
             }
+        }
+    }
+
+    [RelayCommand]
+    private async Task ForzarEnvioGpsAhoraAsync()
+    {
+        if (_trackingService == null)
+            return;
+
+        var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+        var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
+        var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
+
+        UltimoEstadoServidorTexto = "Servidor: Transmitiendo...";
+
+        var (exito, detalle) = await _trackingService.ForzarEnvioGpsInmediatoAsync(rutaId, repartidorId);
+        UltimaCoordenadaTexto = _trackingService.UltimaCoordenadaTexto;
+        UltimoEstadoServidorTexto = _trackingService.UltimoEstadoServidorTexto;
+
+        if (Shell.Current != null)
+        {
+            await Shell.Current.DisplayAlertAsync(
+                "Telemetria GPS",
+                detalle,
+                "Entendido");
         }
     }
 

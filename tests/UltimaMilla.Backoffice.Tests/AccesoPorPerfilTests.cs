@@ -232,4 +232,18 @@ public class AccesoPorPerfilTests : IClassFixture<WebApplicationFactory<Program>
         var esperado = MenuEsperado[perfil].OrderBy(h => h).ToList();
         Assert.Equal(esperado, enMenu);
     }
+
+    [Theory]
+    [MemberData(nameof(Perfiles))]
+    public async Task LasMetricasCrudasSoloLasVeElAdministrador(string perfil)
+    {
+        var cliente = await SesionComoAsync(perfil);
+        var respuesta = await cliente.GetAsync("/Observabilidad?handler=Metricas");
+
+        if (perfil == Administrador)
+            // Sin API en las pruebas: pasa el control de acceso y falla recién al consultar la API (502), nunca Acceso denegado
+            Assert.False(EsAccesoDenegado(respuesta));
+        else
+            Assert.True(EsAccesoDenegado(respuesta), $"{perfil} no debería ver las métricas y recibió {(int)respuesta.StatusCode}");
+    }
 }

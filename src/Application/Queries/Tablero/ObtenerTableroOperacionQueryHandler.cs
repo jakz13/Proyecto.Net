@@ -9,7 +9,7 @@ namespace UltimaMilla.Application.Queries.Tablero;
 
 public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTableroOperacionQuery, TableroOperacionDto>
 {
-    private static readonly string[] EstadosEnEjecucion = { "Despachada", "EnTransito" };
+    private static readonly string[] EstadosEnEjecucion = { "Liberada", "EnCarga", "Despachada", "EnTransito" };
     private static readonly string[] EstadosPendientes = { "Pendiente", "EnCamino", "EnSitio" };
 
     private const string OrigenEnParada = "EnParada";
