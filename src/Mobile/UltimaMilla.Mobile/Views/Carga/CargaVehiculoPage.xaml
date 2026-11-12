@@ -95,13 +95,13 @@
                                 AlignItems="Center"
                                 AlignContent="Start">
                         <Label Text="Progreso de Carga" Style="{StaticResource H3Label}" Margin="0,0,8,2" />
-                        <Label Text="{Binding BultosCargados, StringFormat='{0} bultos cargados'}"
+                        <Label Text="{Binding ResumenProgresoCargaTexto}"
                                FontAttributes="Bold"
                                TextColor="{StaticResource Primary}"
                                Margin="0,0,0,2" />
                     </FlexLayout>
 
-                    <ProgressBar Progress="{Binding ProgresoEscaneo}"
+                    <ProgressBar Progress="{Binding ProgresoCarga}"
                                  ProgressColor="{StaticResource Primary}"
                                  HeightRequest="8" />
 
@@ -189,7 +189,7 @@
                         Margin="4,4,0,0">
                 <Label Text="Bultos Pendientes de Escaneo"
                        Style="{StaticResource H3Label}" />
-                <Label Text="{Binding BultosPendientes.Count, StringFormat='{0} pendiente(s)'}"
+                <Label Text="{Binding BultosPendientesCount, StringFormat='{0} pendiente(s)'}"
                        FontSize="12"
                        FontAttributes="Bold"
                        TextColor="{StaticResource Danger}" />
@@ -237,6 +237,9 @@
                                                   FontSize="15"
                                                   TextColor="{StaticResource TextPrimary}" />
                                             <Span Text="  " />
+                                            <Span Text="{Binding CodigoSeguimiento, StringFormat='[{0}] '}"
+                                                  FontSize="12"
+                                                  TextColor="{StaticResource TextMuted}" />
                                             <Span Text="{Binding ParadaOrden, StringFormat='(Parada {0})'}"
                                                   FontSize="13"
                                                   TextColor="{StaticResource TextMuted}" />
@@ -290,7 +293,7 @@
                             Margin="4,0,0,0">
                     <Label Text="Bultos Cargados en el Vehículo"
                            Style="{StaticResource H3Label}" />
-                    <Label Text="{Binding BultosCargadosLista.Count, StringFormat='{0} cargado(s)'}"
+                    <Label Text="{Binding BultosCargadosCount, StringFormat='{0} cargado(s)'}"
                            FontSize="12"
                            FontAttributes="Bold"
                            TextColor="{StaticResource Success}" />
@@ -313,6 +316,9 @@
                                                       FontSize="15"
                                                       TextColor="{StaticResource TextPrimary}" />
                                                 <Span Text="  " />
+                                                <Span Text="{Binding CodigoSeguimiento, StringFormat='[{0}] '}"
+                                                      FontSize="12"
+                                                      TextColor="{StaticResource TextMuted}" />
                                                 <Span Text="{Binding ParadaOrden, StringFormat='(Parada {0})'}"
                                                       FontSize="13"
                                                       TextColor="{StaticResource TextMuted}" />

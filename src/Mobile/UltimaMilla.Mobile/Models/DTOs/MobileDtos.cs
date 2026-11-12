@@ -136,3 +136,40 @@ public record RetiroDevolucionResultDto(
     bool Idempotente,
     string Mensaje
 );
+
+public record EnvioAdmitidoMobileDto(
+    Guid EnvioId,
+    string CodigoSeguimiento,
+    string NombreDestinatario,
+    string DireccionDestino,
+    string? TelefonoDestinatario,
+    string ModalidadServicio,
+    decimal PesoTotal,
+    int CantidadBultos,
+    DateTime FechaAlta,
+    IReadOnlyList<BultoResumenMobileDto> Bultos
+);
+
+public record BultoResumenMobileDto(
+    Guid BultoId,
+    string Identificacion,
+    decimal Peso,
+    decimal Alto,
+    decimal Ancho,
+    decimal Profundo,
+    string EstadoBulto
+);
+
+public record RecepcionResultMobileDto(
+    Guid EnvioId,
+    string CodigoSeguimiento,
+    string EstadoActual,
+    bool Recepcionado,
+    bool Idempotente,
+    bool TieneDiscrepancias,
+    IReadOnlyList<string> Correctos,
+    IReadOnlyList<string> Faltantes,
+    IReadOnlyList<string> Sobrantes,
+    IReadOnlyList<string> Danados,
+    string Mensaje
+);

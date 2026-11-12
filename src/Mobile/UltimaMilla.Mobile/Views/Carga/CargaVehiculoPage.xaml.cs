@@ -24,7 +24,10 @@ public partial class CargaVehiculoPage : ContentPage
         base.OnAppearing();
         try
         {
-            await _viewModel.InicializarAsync();
+            if (!_viewModel.EscaneandoConCamara)
+            {
+                await _viewModel.InicializarAsync();
+            }
             _viewModel.IniciarVigilanciaDespacho();
         }
         catch (Exception ex)

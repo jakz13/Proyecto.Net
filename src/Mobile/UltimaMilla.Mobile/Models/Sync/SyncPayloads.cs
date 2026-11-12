@@ -14,6 +14,19 @@ public static class TiposOperacionOffline
     public const string IniciarRecorrido = "INICIAR_RECORRIDO";
     public const string TelemetriaGps = "TELEMETRIA_GPS";
     public const string FinalizarHojaDeRuta = "FINALIZAR_HOJA_DE_RUTA";
+    public const string RecepcionDeposito = "RECEPCION_DEPOSITO";
+}
+
+public class RecepcionDepositoOfflinePayload
+{
+    public Guid EnvioId { get; set; }
+    public string CodigoSeguimiento { get; set; } = string.Empty;
+    public List<string> CodigosBultosEscaneados { get; set; } = new();
+    public List<string>? CodigosBultosDanados { get; set; }
+    public string? TipoDiscrepancia { get; set; }
+    public string? Observaciones { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime FechaRecepcionUtc { get; set; } = DateTime.UtcNow;
 }
 
 public class FinalizarHojaDeRutaOfflinePayload

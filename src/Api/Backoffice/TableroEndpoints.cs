@@ -89,7 +89,7 @@ public static class TableroEnVivoEndpoints
 /// <summary>Arma los datos del tablero a partir de las rutas despachadas, sus paradas y la última posición de cada vehículo.</summary>
 internal static class ConstructorTablero
 {
-    private static readonly string[] EstadosRutaEnEjecucion = { "Despachada", "EnTransito" };
+    private static readonly string[] EstadosRutaEnEjecucion = { "Liberada", "EnCarga", "Despachada", "EnTransito" };
     private static readonly TimeSpan SinSenal = TimeSpan.FromMinutes(10);
     private const double VelocidadDetenidoKmh = 3;
 
@@ -104,7 +104,15 @@ internal static class ConstructorTablero
         var rutas = await db.HojasDeRuta.AsNoTracking()
             .Where(h => h.OperadorId == operadorId && estados.Contains(h.Estado) && (hojaDeRutaId == null || h.Id == hojaDeRutaId))
             .ToListAsync(ct);
-        if (rutas.Count == 0)
+
+        var desde = ahora.AddHours(-24);
+        var ultimasPosicionesOperador = await db.PosicionesVehiculo.AsNoTracking()
+            .Where(p => p.OperadorId == operadorId && p.Timestamp > desde)
+            .GroupBy(p => p.VehiculoId)
+            .Select(g => g.OrderByDescending(p => p.Timestamp).First())
+            .ToListAsync(ct);
+
+        if (rutas.Count == 0 && ultimasPosicionesOperador.Count == 0)
             return new List<VehiculoEnVivoDto>();
 
         var rutaIds = rutas.Select(r => r.Id).ToList();
@@ -115,10 +123,13 @@ internal static class ConstructorTablero
         var direccionIds = paradas.Select(p => p.DireccionId).Distinct().ToList();
         var franjaIds = paradas.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value).Distinct().ToList();
 
-        var repartidores = await db.Repartidores.AsNoTracking().Where(r => repartidorIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct);
+        var todosVehiculoIds = vehiculoIds.Union(ultimasPosicionesOperador.Select(p => p.VehiculoId)).Distinct().ToList();
+        var todosRepartidorIds = repartidorIds.Union(ultimasPosicionesOperador.Where(p => p.RepartidorId.HasValue).Select(p => p.RepartidorId!.Value)).Distinct().ToList();
+
+        var repartidores = await db.Repartidores.AsNoTracking().Where(r => todosRepartidorIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct);
         var usuarioIds = repartidores.Values.Select(r => r.UsuarioId).ToList();
         var nombres = await db.Usuarios.AsNoTracking().Where(u => usuarioIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
-        var vehiculos = await db.Vehiculos.AsNoTracking().Where(v => vehiculoIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
+        var vehiculos = await db.Vehiculos.AsNoTracking().Where(v => todosVehiculoIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
         var envios = await db.Envios.AsNoTracking().Where(e => envioIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, ct);
         var destinatarioIds = envios.Values.Select(e => e.DestinatarioId).Distinct().ToList();
         var telefonos = await db.Destinatarios.AsNoTracking().Where(d => destinatarioIds.Contains(d.Id))
@@ -128,18 +139,15 @@ internal static class ConstructorTablero
         var zonas = await db.ZonasCobertura.AsNoTracking().Where(z => zonaIds.Contains(z.Id)).ToDictionaryAsync(z => z.Id, z => z.Nombre, ct);
         var franjas = await db.FranjasHorarias.AsNoTracking().Where(f => franjaIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
 
-        var desde = ahora.AddHours(-24);
-        var ultimasPosiciones = await db.PosicionesVehiculo.AsNoTracking()
-            .Where(p => p.OperadorId == operadorId && vehiculoIds.Contains(p.VehiculoId) && p.Timestamp > desde)
-            .GroupBy(p => p.VehiculoId)
-            .Select(g => g.OrderByDescending(p => p.Timestamp).First())
-            .ToDictionaryAsync(p => p.VehiculoId, ct);
+        var ultimasPosiciones = ultimasPosicionesOperador.ToDictionary(p => p.VehiculoId);
 
         var cerrada = Domain.Entities.Incidencias.Incidencia.EstadoCerrada;
-        var incidencias = await db.Incidencias.AsNoTracking()
-            .Where(i => i.OperadorId == operadorId && i.HojaDeRutaId != null && rutaIds.Contains(i.HojaDeRutaId.Value) && i.Estado != cerrada)
-            .Select(i => new { HojaDeRutaId = i.HojaDeRutaId!.Value, i.Tipo })
-            .ToListAsync(ct);
+        var incidencias = rutaIds.Count > 0
+            ? await db.Incidencias.AsNoTracking()
+                .Where(i => i.OperadorId == operadorId && i.HojaDeRutaId != null && rutaIds.Contains(i.HojaDeRutaId.Value) && i.Estado != cerrada)
+                .Select(i => new { HojaDeRutaId = i.HojaDeRutaId!.Value, i.Tipo })
+                .ToListAsync(ct)
+            : new();
         var incidenciaPorRuta = incidencias.GroupBy(i => i.HojaDeRutaId).ToDictionary(g => g.Key, g => g.First().Tipo);
 
         var resultado = new List<VehiculoEnVivoDto>();
@@ -250,6 +258,49 @@ internal static class ConstructorTablero
                 EnviosEnRiesgo = enRiesgo,
                 Paradas = paradasDto
             });
+        }
+
+        // Incorporar unidades que reportaron posición en vivo recientemente pero aún no tienen ruta en tránsito o están en precarga
+        if (hojaDeRutaId == null)
+        {
+            var vehiculosEnRuta = rutas.Where(r => r.VehiculoId.HasValue).Select(r => r.VehiculoId!.Value).ToHashSet();
+            foreach (var pos in ultimasPosicionesOperador)
+            {
+                if (vehiculosEnRuta.Contains(pos.VehiculoId))
+                    continue;
+
+                var vehiculo = vehiculos.GetValueOrDefault(pos.VehiculoId);
+                var repartidor = pos.RepartidorId.HasValue ? repartidores.GetValueOrDefault(pos.RepartidorId.Value) : null;
+                var nombreRep = repartidor != null ? (nombres.GetValueOrDefault(repartidor.UsuarioId) ?? string.Empty) : string.Empty;
+
+                resultado.Add(new VehiculoEnVivoDto
+                {
+                    HojaDeRutaId = pos.HojaDeRutaId ?? Guid.Empty,
+                    NumeroRuta = pos.HojaDeRutaId.HasValue ? "Ruta Asignada" : "En Espera",
+                    RepartidorId = pos.RepartidorId ?? Guid.Empty,
+                    RepartidorNombre = !string.IsNullOrWhiteSpace(nombreRep) ? nombreRep : "Repartidor en Vivo",
+                    RepartidorTelefono = repartidor?.Telefono ?? string.Empty,
+                    VehiculoId = pos.VehiculoId,
+                    VehiculoMatricula = vehiculo?.Patente ?? "Unidad en Vivo",
+                    VehiculoModelo = vehiculo?.Tipo ?? "Vehículo",
+                    Latitud = pos.Latitud,
+                    Longitud = pos.Longitud,
+                    DireccionAproximada = "En línea / Posición GPS reportada",
+                    ZonaActual = string.Empty,
+                    NivelBateriaPct = pos.BateriaPct ?? 100,
+                    VelocidadKmh = (int)Math.Round(pos.VelocidadKmh ?? 0),
+                    UltimaActualizacion = pos.Timestamp,
+                    EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh, null),
+                    ParadasCompletadas = 0,
+                    TotalParadas = 0,
+                    ParadaActualCodigo = null,
+                    ParadaActualDireccion = null,
+                    TieneAlertasRiesgo = false,
+                    CantidadEnviosEnRiesgo = 0,
+                    EnviosEnRiesgo = new List<EnvioRiesgoDto>(),
+                    Paradas = new List<ParadaEnVivoDto>()
+                });
+            }
         }
 
         return resultado;

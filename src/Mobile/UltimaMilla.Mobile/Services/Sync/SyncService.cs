@@ -7,6 +7,7 @@ using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.Services.Sync;
@@ -41,6 +42,8 @@ public interface ISyncService
     Task<List<ParadaItemViewModel>> DescargarRutaDelDiaAsync(Guid? hojaDeRutaId = null, CancellationToken cancellationToken = default);
     Task<List<RutaActivaRepartidorDto>> DescargarYActualizarRutasDelServidorAsync(CancellationToken cancellationToken = default);
     Task<bool> FinalizarHojaDeRutaAsync(Guid hojaDeRutaId, List<string>? codigosBultosDevueltos = null, string? observaciones = null, CancellationToken cancellationToken = default);
+    Task<List<EnvioAdmitidoMobileDto>> ObtenerEnviosAdmitidosDepositoAsync(CancellationToken cancellationToken = default);
+    Task<bool> RecepcionarBultosDepositoAsync(Guid envioId, string codigoSeguimiento, List<string> codigosEscaneados, List<string>? codigosDanados = null, string? tipoDiscrepancia = null, string? observaciones = null, CancellationToken cancellationToken = default);
     Task<SyncResult> SincronizarOperacionesPendientesAsync(CancellationToken cancellationToken = default);
     Task AlternarModoOfflineSimuladoAsync();
     Task<int> ObtenerCantidadPendientesAsync();
@@ -58,6 +61,7 @@ public class SyncService : ISyncService, IDisposable
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IAuthService _authService;
     private readonly ILogger<SyncService> _logger;
+    private readonly IOperadorThemeService? _themeService;
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
 
     private bool _isOfflineSimulado = false;
@@ -94,12 +98,14 @@ public class SyncService : ISyncService, IDisposable
         ILocalDatabaseService localDatabaseService,
         IHttpClientFactory httpClientFactory,
         IAuthService authService,
-        ILogger<SyncService> logger)
+        ILogger<SyncService> logger,
+        IOperadorThemeService? themeService = null)
     {
         _localDatabaseService = localDatabaseService;
         _httpClientFactory = httpClientFactory;
         _authService = authService;
         _logger = logger;
+        _themeService = themeService;
 
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
     }
@@ -252,6 +258,12 @@ public class SyncService : ISyncService, IDisposable
                 {
                     _logger.LogInformation("Se descargaron y actualizaron {Count} hojas de ruta desde el servidor.", rutasDescargadas.Count);
                     await NotificarCambioEstadoAsync($"Se actualizaron {rutasDescargadas.Count} rutas desde el servidor.");
+                }
+
+                // Sincronizar también la identidad visual del operador en caso de cambios desde el Backoffice
+                if (_themeService != null)
+                {
+                    _ = Task.Run(() => _themeService.DescargarYActualizarIdentidadAsync(cancellationToken));
                 }
             }
             catch (Exception ex)
@@ -951,6 +963,47 @@ public class SyncService : ISyncService, IDisposable
                             break;
                         }
 
+                        case TiposOperacionOffline.RecepcionDeposito:
+                        {
+                            var payload = JsonSerializer.Deserialize<RecepcionDepositoOfflinePayload>(op.PayloadJson, JsonOptions);
+                            if (payload != null)
+                            {
+                                var req = new
+                                {
+                                    EnvioId = payload.EnvioId,
+                                    CodigosBultosEscaneados = payload.CodigosBultosEscaneados,
+                                    CodigosBultosDanados = payload.CodigosBultosDanados,
+                                    TipoDiscrepancia = payload.TipoDiscrepancia,
+                                    Observaciones = payload.Observaciones
+                                };
+
+                                var url = "/api/mobile/v1/deposito/recepcionar";
+                                var response = await client.PostAsJsonAsync(url, req, cancellationToken);
+                                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                                {
+                                    var reqFallback = new
+                                    {
+                                        CodigosBultosEscaneados = payload.CodigosBultosEscaneados,
+                                        CodigosBultosDanados = payload.CodigosBultosDanados,
+                                        Observaciones = payload.Observaciones
+                                    };
+                                    response = await client.PostAsJsonAsync($"/api/deposito/envios/{payload.EnvioId}/recepcion", reqFallback, cancellationToken);
+                                }
+
+                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "RecepcionDeposito", detallesErrores, cancellationToken);
+                                if (ok)
+                                {
+                                    await _localDatabaseService.MarcarEnvioAdmitidoRecepcionadoLocalAsync(payload.EnvioId);
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    erroresNegocio++;
+                                }
+                            }
+                            break;
+                        }
+
                         default:
                             _logger.LogWarning("Tipo de operación offline no reconocido: {Tipo}", op.TipoOperacion);
                             var errorTipo = $"Op #{op.Id}: Tipo de operación '{op.TipoOperacion}' no soportado.";
@@ -1022,6 +1075,164 @@ public class SyncService : ISyncService, IDisposable
         await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
         detallesErrores.Add(detalle);
         return false;
+    }
+
+    public async Task<List<EnvioAdmitidoMobileDto>> ObtenerEnviosAdmitidosDepositoAsync(CancellationToken cancellationToken = default)
+    {
+        var resultado = new List<EnvioAdmitidoMobileDto>();
+
+        if (IsOnline)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("BackendApi");
+                client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+                var response = await client.GetAsync("/api/mobile/v1/deposito/envios-admitidos", cancellationToken);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    response = await client.GetAsync("/api/deposito/envios-admitidos", cancellationToken);
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var lista = await response.Content.ReadFromJsonAsync<List<EnvioAdmitidoMobileDto>>(
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                        cancellationToken);
+
+                    if (lista != null)
+                    {
+                        resultado = lista;
+
+                        // Respaldar en SQLite para soporte offline en depósito
+                        var entidadesLocales = lista.Select(e => new EnvioAdmitidoDepositoLocal
+                        {
+                            EnvioId = e.EnvioId,
+                            CodigoSeguimiento = e.CodigoSeguimiento,
+                            NombreDestinatario = e.NombreDestinatario,
+                            DireccionDestino = e.DireccionDestino,
+                            TelefonoDestinatario = e.TelefonoDestinatario,
+                            ModalidadServicio = e.ModalidadServicio,
+                            PesoTotal = e.PesoTotal,
+                            CantidadBultos = e.CantidadBultos,
+                            BultosJson = JsonSerializer.Serialize(e.Bultos, JsonOptions),
+                            FechaAlta = e.FechaAlta,
+                            RecepcionadoLocal = false
+                        });
+
+                        await _localDatabaseService.GuardarEnviosAdmitidosDepositoAsync(entidadesLocales);
+                        return resultado;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al descargar envíos admitidos desde el servidor. Recurriendo a copia local.");
+            }
+        }
+
+        // Si no hay red o falló, recuperar de SQLite local
+        var locales = await _localDatabaseService.ObtenerEnviosAdmitidosDepositoAsync();
+        foreach (var l in locales)
+        {
+            var bultos = new List<BultoResumenMobileDto>();
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(l.BultosJson))
+                {
+                    bultos = JsonSerializer.Deserialize<List<BultoResumenMobileDto>>(l.BultosJson, JsonOptions) ?? new();
+                }
+            }
+            catch
+            {
+                // Fallback bultos vacíos
+            }
+
+            resultado.Add(new EnvioAdmitidoMobileDto(
+                l.EnvioId,
+                l.CodigoSeguimiento,
+                l.NombreDestinatario,
+                l.DireccionDestino,
+                l.TelefonoDestinatario,
+                l.ModalidadServicio,
+                l.PesoTotal,
+                l.CantidadBultos,
+                l.FechaAlta,
+                bultos
+            ));
+        }
+
+        return resultado;
+    }
+
+    public async Task<bool> RecepcionarBultosDepositoAsync(
+        Guid envioId,
+        string codigoSeguimiento,
+        List<string> codigosEscaneados,
+        List<string>? codigosDanados = null,
+        string? tipoDiscrepancia = null,
+        string? observaciones = null,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new RecepcionDepositoOfflinePayload
+        {
+            EnvioId = envioId,
+            CodigoSeguimiento = codigoSeguimiento,
+            CodigosBultosEscaneados = codigosEscaneados,
+            CodigosBultosDanados = codigosDanados,
+            TipoDiscrepancia = tipoDiscrepancia,
+            Observaciones = observaciones,
+            IdempotencyKey = $"RECEP-{envioId:N}-{DateTime.UtcNow.Ticks}",
+            FechaRecepcionUtc = DateTime.UtcNow
+        };
+
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+
+        if (IsOnline)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("BackendApi");
+                client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+                var req = new
+                {
+                    EnvioId = envioId,
+                    CodigosBultosEscaneados = codigosEscaneados,
+                    CodigosBultosDanados = codigosDanados,
+                    TipoDiscrepancia = tipoDiscrepancia,
+                    Observaciones = observaciones
+                };
+
+                var response = await client.PostAsJsonAsync("/api/mobile/v1/deposito/recepcionar", req, cancellationToken);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    var reqFallback = new
+                    {
+                        CodigosBultosEscaneados = codigosEscaneados,
+                        CodigosBultosDanados = codigosDanados,
+                        Observaciones = observaciones
+                    };
+                    response = await client.PostAsJsonAsync($"/api/deposito/envios/{envioId}/recepcion", reqFallback, cancellationToken);
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    await _localDatabaseService.MarcarEnvioAdmitidoRecepcionadoLocalAsync(envioId);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fallo al enviar recepción al servidor. Encolando para sincronización posterior.");
+            }
+        }
+
+        // Modo offline o fallo transitorio de red: encolar localmente
+        await _localDatabaseService.MarcarEnvioAdmitidoRecepcionadoLocalAsync(envioId);
+        await _localDatabaseService.EncolarOperacionAsync(TiposOperacionOffline.RecepcionDeposito, json);
+        await NotificarCambioEstadoAsync("Recepción registrada localmente en depósito. Pendiente de sincronización.");
+        return true;
     }
 
     private async Task NotificarCambioEstadoAsync(string? mensaje = null)

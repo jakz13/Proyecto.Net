@@ -17,7 +17,11 @@ namespace UltimaMilla.Mobile.ViewModels.Carga;
 public partial class BultoCargaItemViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid ParadaId { get; init; }
+    public Guid EnvioId { get; init; }
     public string CodigoBulto { get; init; } = string.Empty;
+    public string Codigo => CodigoBulto;
+    public string Identificacion { get; init; } = string.Empty;
     public string CodigoSeguimiento { get; init; } = string.Empty;
     public string Destinatario { get; init; } = string.Empty;
     public string Direccion { get; init; } = string.Empty;
@@ -27,12 +31,20 @@ public partial class BultoCargaItemViewModel : ObservableObject
     public string EstadoEnvio { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Cargado))]
+    [NotifyPropertyChangedFor(nameof(EstaEscaneado))]
     [NotifyPropertyChangedFor(nameof(EstadoTexto))]
     [NotifyPropertyChangedFor(nameof(BadgeColor))]
     [NotifyPropertyChangedFor(nameof(BadgeTextColor))]
     [NotifyPropertyChangedFor(nameof(CardBgColor))]
     [NotifyPropertyChangedFor(nameof(CardBorderColor))]
     private bool _verificadoEnCarga;
+
+    public bool Cargado
+    {
+        get => VerificadoEnCarga;
+        set => VerificadoEnCarga = value;
+    }
 
     public bool EstaEscaneado
     {
@@ -112,6 +124,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly IHttpClientFactory? _httpClientFactory;
     private readonly IBiometricAuthService? _biometricAuthService;
     private IDispatcherTimer? _vigilanciaDespacho;
+    private bool _actualizandoSelectorRuta;
+
+    public bool EscaneandoConCamara { get; private set; }
 
     [ObservableProperty]
     private string _titulo = "Control de Carga en Vehículo";
@@ -169,7 +184,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
     async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
     {
-        if (value != null && !IsBusy)
+        if (value != null && !IsBusy && !_actualizandoSelectorRuta)
         {
             await CargarBultosDeRutaAsync(value.Id);
         }
@@ -189,14 +204,21 @@ public partial class CargaVehiculoViewModel : ObservableObject
     public bool TieneDiscrepancias => TieneSobrantes || (!string.IsNullOrWhiteSpace(MensajeDiscrepancia)) || (TieneBultosPendientes && TieneBultosCargados);
 
     public int BultosCargados => BultosCargadosLista.Count;
+    public int BultosCargadosCount => BultosCargadosLista.Count;
+    public int BultosPendientesCount => BultosPendientes.Count;
     public int BultosTotales => BultosPendientes.Count + BultosCargadosLista.Count;
+    public int TotalBultosCount => BultosTotales;
     public double ProgresoEscaneo => BultosTotales > 0 ? (double)BultosCargados / BultosTotales : 0.0;
+    public double ProgresoCarga => ProgresoEscaneo;
+    public string ResumenProgresoCargaTexto => BultosTotales > 0
+        ? $"{BultosCargados} de {BultosTotales} bultos cargados"
+        : $"{BultosCargados} bultos cargados";
 
-    /// <summary>La carga se escanea y se confirma mientras la ruta espera ser cargada (antes de enviarla al depósito).</summary>
-    public bool EsRutaLiberada => EstadoHojaDeRuta is "Liberada" or "Borrador";
+    /// <summary>La carga se escanea y se confirma mientras la ruta espera ser cargada o esté en proceso de carga (antes de ser despachada).</summary>
+    public bool EsRutaLiberada => EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador" || BultosPendientes.Count > 0;
 
     /// <summary>La carga ya se informó: el despachador del depósito debe verificarla y despachar la ruta.</summary>
-    public bool EsperandoDespacho => EstadoHojaDeRuta == "EnCarga";
+    public bool EsperandoDespacho => EstadoHojaDeRuta == "EnCarga" && BultosPendientes.Count == 0;
 
     /// <summary>Solo el servidor despacha la ruta; la app lo sabe cuando descarga la ruta con ese estado.</summary>
     public bool EsRutaDespachada => EstadoHojaDeRuta is "Despachada" or "EnTransito";
@@ -222,7 +244,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             if (TieneSobrantes)
                 return $"Discrepancia detectada: {BultosSobrantes.Count} bulto(s) sobrante(s).";
             if (TieneBultosPendientes && TieneBultosCargados)
-                return $"Carga en progreso: {BultosCargados} cargado(s), {BultosPendientes.Count} pendiente(s) de escaneo.";
+                return $"Carga en progreso: {BultosCargados} de {BultosTotales} bultos cargados ({BultosPendientes.Count} pendiente(s) de escaneo).";
             if (TieneBultosPendientes)
                 return $"Carga pendiente: {BultosPendientes.Count} bulto(s) por escanear antes de iniciar ruta.";
             if (BultosCargadosLista.Count > 0)
@@ -250,6 +272,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
     /// <summary>Carga la ruta guardada en el dispositivo. Si todavía no hay ninguna, la pantalla lo informa en lugar de inventar datos.</summary>
     public async Task InicializarAsync()
     {
+        if (EscaneandoConCamara)
+            return;
+
         if (_syncService?.IsOnline == true)
         {
             try
@@ -327,7 +352,15 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
         if (rutaParaCarga != null)
         {
-            HojaDeRutaSeleccionada = rutaParaCarga;
+            try
+            {
+                _actualizandoSelectorRuta = true;
+                HojaDeRutaSeleccionada = rutaParaCarga;
+            }
+            finally
+            {
+                _actualizandoSelectorRuta = false;
+            }
             await CargarBultosDeRutaAsync(rutaParaCarga.Id);
         }
         else
@@ -385,7 +418,10 @@ public partial class CargaVehiculoViewModel : ObservableObject
             .SelectMany(p => (p.Bultos ?? []).Select(b => new BultoCargaItemViewModel
             {
                 Id = b.Id,
+                ParadaId = p.Id,
+                EnvioId = p.EnvioId,
                 CodigoBulto = b.Codigo,
+                Identificacion = b.Codigo,
                 CodigoSeguimiento = p.CodigoSeguimiento,
                 Destinatario = p.Destinatario,
                 Direccion = string.IsNullOrWhiteSpace(p.Ciudad) ? p.Direccion : $"{p.Direccion}, {p.Ciudad}",
@@ -422,7 +458,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         _vigilanciaDespacho.Interval = IntervaloVigilanciaDespacho;
         _vigilanciaDespacho.Tick += async (_, _) =>
         {
-            if (EsperandoDespacho && !IsBusy)
+            if (EsperandoDespacho && !IsBusy && !EscaneandoConCamara)
                 await ActualizarDesdeServidorAsync(silencioso: true);
         };
         _vigilanciaDespacho.Start();
@@ -474,68 +510,168 @@ public partial class CargaVehiculoViewModel : ObservableObject
         }
     }
 
+    private static string NormalizarCodigoEscaneado(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        var limpio = new string(raw.Where(c => !char.IsControl(c) && c != '\u200B' && c != '\uFEFF').ToArray()).Trim();
+
+        string[] prefijos = ["ID BULTO:", "ID DE BULTO:", "BULTO:", "CODIGO:", "ID:"];
+        foreach (var prefijo in prefijos)
+        {
+            if (limpio.StartsWith(prefijo, StringComparison.OrdinalIgnoreCase))
+            {
+                limpio = limpio[prefijo.Length..].Trim();
+                break;
+            }
+        }
+
+        return limpio;
+    }
+
+    private static BultoCargaItemViewModel? BuscarBultoTolerante(IEnumerable<BultoCargaItemViewModel> coleccion, string codigoLimpio)
+    {
+        var lista = coleccion.ToList();
+        if (lista.Count == 0 || string.IsNullOrWhiteSpace(codigoLimpio))
+            return null;
+
+        // 1. Coincidencia exacta por CodigoBulto o Identificacion
+        var exacto = lista.FirstOrDefault(b =>
+            string.Equals(NormalizarCodigoEscaneado(b.CodigoBulto), codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(NormalizarCodigoEscaneado(b.Identificacion), codigoLimpio, StringComparison.OrdinalIgnoreCase));
+        if (exacto != null)
+            return exacto;
+
+        // 2. Coincidencia exacta por CodigoSeguimiento del envío asociado
+        var porSeguimiento = lista.FirstOrDefault(b =>
+            !string.IsNullOrWhiteSpace(b.CodigoSeguimiento) &&
+            string.Equals(NormalizarCodigoEscaneado(b.CodigoSeguimiento), codigoLimpio, StringComparison.OrdinalIgnoreCase));
+        if (porSeguimiento != null)
+            return porSeguimiento;
+
+        // 3. Coincidencia compuesta o sufijo (ej. TRK-XXXX-BLT-001 vs BLT-001)
+        if (codigoLimpio.Length >= 4)
+        {
+            var parcial = lista.FirstOrDefault(b =>
+            {
+                var codBulto = NormalizarCodigoEscaneado(b.CodigoBulto);
+                var codSeg = NormalizarCodigoEscaneado(b.CodigoSeguimiento);
+                if (!string.IsNullOrEmpty(codBulto))
+                {
+                    if (string.Equals($"{codSeg}-{codBulto}", codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
+                        codBulto.EndsWith(codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
+                        codigoLimpio.EndsWith(codBulto, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (parcial != null)
+                return parcial;
+        }
+
+        return null;
+    }
+
     [RelayCommand]
     private async Task EscanearCodigoManualAsync()
     {
-        if (string.IsNullOrWhiteSpace(CodigoEscaneoInput))
+        var codigoLimpio = NormalizarCodigoEscaneado(CodigoEscaneoInput);
+        if (string.IsNullOrWhiteSpace(codigoLimpio))
             return;
 
-        var codigo = CodigoEscaneoInput.Trim().ToUpperInvariant();
-        await ProcesarCodigoEscaneadoAsync(codigo);
+        await ProcesarCodigoEscaneadoAsync(codigoLimpio);
         CodigoEscaneoInput = string.Empty;
     }
 
-    private async Task ProcesarCodigoEscaneadoAsync(string codigoNormalizado)
+    private async Task ProcesarCodigoEscaneadoAsync(string codigoNormalizado, Guid? bultoIdEspecifico = null)
     {
-        if (!HayRuta || !EsRutaLiberada)
+        var codigoLimpio = NormalizarCodigoEscaneado(codigoNormalizado);
+        if (string.IsNullOrWhiteSpace(codigoLimpio))
             return;
 
-        // 1. Coincidencia en pendientes de la hoja de ruta
-        var bultoPendiente = BultosPendientes.FirstOrDefault(b => b.CodigoBulto.Equals(codigoNormalizado, StringComparison.OrdinalIgnoreCase));
+        if (!HayRuta)
+        {
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "Sin Hoja de Ruta",
+                    "No hay una hoja de ruta activa cargada en el dispositivo. Toque Actualizar para sincronizar con el servidor.",
+                    "Entendido");
+            }
+            return;
+        }
+
+        // 1. Buscar primero entre los bultos de la hoja de ruta que aún NO están cargados (!b.Cargado)
+        BultoCargaItemViewModel? bultoPendiente = null;
+        if (bultoIdEspecifico.HasValue && bultoIdEspecifico.Value != Guid.Empty)
+        {
+            bultoPendiente = BultosPendientes.FirstOrDefault(b => !b.Cargado && b.Id == bultoIdEspecifico.Value);
+        }
+
+        bultoPendiente ??= BuscarBultoTolerante(BultosPendientes.Where(b => !b.Cargado), codigoLimpio);
+
         if (bultoPendiente != null)
         {
-            bultoPendiente.VerificadoEnCarga = true;
-            BultosPendientes.Remove(bultoPendiente);
-            BultosCargadosLista.Add(bultoPendiente);
-
+            // Persistir por clave primaria única (Id) en SQLite antes de refrescar colecciones
             if (_localDatabaseService != null)
             {
                 await _localDatabaseService.MarcarBultoVerificadoCargaAsync(bultoPendiente.Id, true);
             }
 
+            bultoPendiente.VerificadoEnCarga = true;
+            bultoPendiente.Cargado = true;
+
+            BultosPendientes.Remove(bultoPendiente);
+            BultosCargadosLista.Add(bultoPendiente);
+
+            if (!TieneSobrantes)
+            {
+                MensajeDiscrepancia = string.Empty;
+            }
+
+            CodigoEscaneoInput = string.Empty;
             ActualizarConteos();
 
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
                     "Bulto Verificado",
-                    $"Bulto {bultoPendiente.CodigoBulto} verificado exitosamente.\nEnvío: {bultoPendiente.CodigoSeguimiento}\nDestinatario: {bultoPendiente.Destinatario}",
+                    $"Bulto {bultoPendiente.CodigoBulto} cargado correctamente ({BultosCargados} de {BultosTotales} bultos cargados).\nEnvío: {bultoPendiente.CodigoSeguimiento}\nDestinatario: {bultoPendiente.Destinatario}",
                     "Continuar");
             }
             return;
         }
 
-        // 2. Ya cargado previamente
-        var yaCargado = BultosCargadosLista.FirstOrDefault(b => b.CodigoBulto.Equals(codigoNormalizado, StringComparison.OrdinalIgnoreCase));
+        // 2. Solo si TODOS los bultos con ese código ya están marcados como Cargado == true, informar que ya fue escaneado previamente
+        var yaCargado = BuscarBultoTolerante(BultosCargadosLista.Where(b => b.Cargado), codigoLimpio);
         if (yaCargado != null)
         {
+            CodigoEscaneoInput = string.Empty;
+            ActualizarConteos();
+
             if (Shell.Current is not null)
             {
                 await Shell.Current.DisplayAlertAsync(
                     "Bulto Ya Cargado",
-                    $"El bulto {yaCargado.CodigoBulto} ya se encuentra cargado y verificado en el vehículo.",
+                    $"El bulto {yaCargado.CodigoBulto} ya fue escaneado y verificado previamente en el vehículo.",
                     "Aceptar");
             }
             return;
         }
 
-        // 3. Flujo Alternativo UC-18 (Sobrante): No pertenece a la hoja de ruta
-        var yaRegistradoSobrante = BultosSobrantes.FirstOrDefault(s => s.CodigoBulto.Equals(codigoNormalizado, StringComparison.OrdinalIgnoreCase));
+        // 3. No coincide con ningún bulto de la ruta activa -> registrar como discrepancia/sobrante mostrando código recibido y códigos esperados
+        var yaRegistradoSobrante = BultosSobrantes.FirstOrDefault(s =>
+            string.Equals(NormalizarCodigoEscaneado(s.CodigoBulto), codigoLimpio, StringComparison.OrdinalIgnoreCase));
+
         if (yaRegistradoSobrante == null)
         {
             BultosSobrantes.Add(new BultoCargaItemViewModel
             {
-                CodigoBulto = codigoNormalizado,
+                CodigoBulto = codigoLimpio,
+                Identificacion = codigoLimpio,
                 Destinatario = "Sin asignar",
                 Direccion = "No corresponde a esta hoja de ruta",
                 ParadaOrden = 0,
@@ -544,14 +680,26 @@ public partial class CargaVehiculoViewModel : ObservableObject
             });
         }
 
-        MensajeDiscrepancia = $"Discrepancia detectada: El bulto {codigoNormalizado} no pertenece a esta hoja de ruta (Sobrante).";
+        var codigosEsperados = BultosPendientes
+            .Concat(BultosCargadosLista)
+            .Select(b => b.CodigoBulto)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var textoEsperados = codigosEsperados.Count > 0
+            ? string.Join(", ", codigosEsperados)
+            : "Ninguno";
+
+        MensajeDiscrepancia = $"Discrepancia detectada: El código '{codigoLimpio}' no pertenece a esta hoja de ruta (Sobrante). Códigos esperados en la ruta: {textoEsperados}.";
+        CodigoEscaneoInput = string.Empty;
         ActualizarConteos();
 
         if (Shell.Current is not null)
         {
             await Shell.Current.DisplayAlertAsync(
                 "Discrepancia Detectada",
-                $"Discrepancia detectada: El bulto {codigoNormalizado} no pertenece a esta hoja de ruta (Sobrante).",
+                $"El código recibido '{codigoLimpio}' no pertenece a esta hoja de ruta y se registró como sobrante.\n\nCódigos esperados en la ruta:\n{textoEsperados}",
                 "Entendido");
         }
     }
@@ -579,14 +727,17 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 return;
             }
 
+            EscaneandoConCamara = true;
             var escanerModal = new EscanerCodigoPage();
             await Shell.Current.Navigation.PushModalAsync(escanerModal);
             var codigoLeido = await escanerModal.ResultadoEscaneoTask;
 
-            if (!string.IsNullOrWhiteSpace(codigoLeido))
+            var codigoLimpio = NormalizarCodigoEscaneado(codigoLeido);
+            if (!string.IsNullOrWhiteSpace(codigoLimpio))
             {
-                CodigoEscaneoInput = codigoLeido.Trim();
-                await ProcesarCodigoEscaneadoAsync(codigoLeido.Trim().ToUpperInvariant());
+                CodigoEscaneoInput = codigoLimpio;
+                await ProcesarCodigoEscaneadoAsync(codigoLimpio);
+                CodigoEscaneoInput = string.Empty;
             }
         }
         catch (Exception ex)
@@ -596,6 +747,10 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 "Cámara No Disponible",
                 "El lector de cámara no está disponible en este dispositivo. Puede utilizar el lector láser o ingresar el código manualmente.",
                 "Entendido");
+        }
+        finally
+        {
+            EscaneandoConCamara = false;
         }
     }
 
@@ -624,13 +779,14 @@ public partial class CargaVehiculoViewModel : ObservableObject
             var codigoIngresado = await Shell.Current.DisplayPromptAsync(
                 "Ingreso Manual de Bulto",
                 "Ingrese el código del bulto:",
-                "Escanear",
+                "Validar",
                 "Cancelar",
                 "Código del bulto");
 
-            if (!string.IsNullOrWhiteSpace(codigoIngresado))
+            var codigoLimpio = NormalizarCodigoEscaneado(codigoIngresado);
+            if (!string.IsNullOrWhiteSpace(codigoLimpio))
             {
-                await ProcesarCodigoEscaneadoAsync(codigoIngresado.Trim().ToUpperInvariant());
+                await ProcesarCodigoEscaneadoAsync(codigoLimpio);
             }
         }
     }
@@ -641,7 +797,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         if (bulto == null)
             return;
 
-        await ProcesarCodigoEscaneadoAsync(bulto.CodigoBulto);
+        await ProcesarCodigoEscaneadoAsync(bulto.CodigoBulto, bulto.Id);
     }
 
     private void ActualizarConteos()
@@ -652,8 +808,13 @@ public partial class CargaVehiculoViewModel : ObservableObject
         OnPropertyChanged(nameof(TieneSobrantes));
         OnPropertyChanged(nameof(TieneDiscrepancias));
         OnPropertyChanged(nameof(BultosCargados));
+        OnPropertyChanged(nameof(BultosCargadosCount));
+        OnPropertyChanged(nameof(BultosPendientesCount));
         OnPropertyChanged(nameof(BultosTotales));
+        OnPropertyChanged(nameof(TotalBultosCount));
         OnPropertyChanged(nameof(ProgresoEscaneo));
+        OnPropertyChanged(nameof(ProgresoCarga));
+        OnPropertyChanged(nameof(ResumenProgresoCargaTexto));
         OnPropertyChanged(nameof(PuedeConfirmarCarga));
         OnPropertyChanged(nameof(PuedeIniciarRecorrido));
         OnPropertyChanged(nameof(EsRutaLiberada));

@@ -557,6 +557,12 @@ app.MapMobileRutasEndpoints();
 // Posición del vehículo durante la jornada (RF-23)
 app.MapMobilePosicionEndpoints();
 
+// Identidad visual y operador para la app móvil
+app.MapMobileOperadorEndpoints();
+
+// Operaciones de depósito para la app móvil
+app.MapMobileDepositoEndpoints();
+
 // Tablero de operación en vivo con posiciones GPS de la app (RF-23, RF-29)
 app.MapTableroEnVivoEndpoints();
 
