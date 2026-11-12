@@ -1,0 +1,50 @@
+#cloud-config
+# Arranque de la VM: Docker, swap y carpeta de la aplicación.
+# Los secretos de la aplicación NO están en este archivo: se generan al azar en la propia VM.
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - openssl
+  - curl
+
+write_files:
+  - path: /usr/local/bin/preparar-servidor.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Swap: la VM corre unos 12 contenedores y la swap amortigua los picos de memoria
+      if [ ! -f /swapfile ]; then
+        fallocate -l ${tamano_swap_gb}G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo "/swapfile none swap sw 0 0" >> /etc/fstab
+      fi
+      echo "vm.swappiness=20" > /etc/sysctl.d/99-swap.conf
+      sysctl -p /etc/sysctl.d/99-swap.conf
+
+      systemctl enable --now docker
+      usermod -aG docker ${usuario}
+
+      # Variables de la aplicación: dominios (públicos) y secretos generados al azar
+      install -d -o ${usuario} -g ${usuario} /home/${usuario}/shippingbox
+      ENV=/home/${usuario}/shippingbox/.env.prod
+      if [ ! -f "$ENV" ]; then
+        {
+          echo "DOMINIO=${dominio}"
+          echo "DOMINIO_COMERCIO=${dominio_comercio}"
+          echo "DOMINIO_PANEL=${dominio_panel}"
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+          echo "RABBITMQ_PASSWORD=$(openssl rand -hex 16)"
+          echo "JWT_SECRET=$(openssl rand -hex 32)"
+          echo "GRAFANA_PASSWORD=$(openssl rand -hex 12)"
+        } > "$ENV"
+        chown ${usuario}:${usuario} "$ENV"
+        chmod 600 "$ENV"
+      fi
+
+runcmd:
+  - [bash, /usr/local/bin/preparar-servidor.sh]

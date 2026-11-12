@@ -1,4 +1,4 @@
-# Infraestructura como código (Terraform) – Oracle Cloud
+# Infraestructura como código (Terraform) – Oracle Cloud (histórico: el ambiente actual está en Azure, ver `../terraform-azure/`)
 
 Define todo lo necesario para correr la plataforma en Oracle Cloud (letra §6.14):
 
