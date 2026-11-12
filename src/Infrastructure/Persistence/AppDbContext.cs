@@ -755,11 +755,52 @@ public class AppDbContext : DbContext
     {
         await ValidarAislamientoDeEscrituraAsync(cancellationToken);
         var cambiosDeEstado = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeEnvios();
+        var cambiosDeRetiros = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeRetiros();
         var guardados = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         if (_tiempoReal is not null && cambiosDeEstado is { Count: > 0 })
             await NotificarCambiosDeEstadoAsync(cambiosDeEstado);
+        if (_tiempoReal is not null && cambiosDeRetiros is { Count: > 0 })
+            await NotificarCambiosDeEstadoDeRetirosAsync(cambiosDeRetiros);
 
         return guardados;
+    }
+
+    private sealed record CambioEstadoRetiro(Guid OperadorId, Guid ComercioOperadorId, Guid RetiroId, string Codigo, string Estado);
+
+    /// <summary>Igual que con los envíos: cualquier comando que altere el estado de un retiro (web, móvil, depósito) queda cubierto.</summary>
+    private List<CambioEstadoRetiro> CapturarCambiosDeEstadoDeRetiros()
+    {
+        var cambios = new List<CambioEstadoRetiro>();
+        foreach (var entrada in ChangeTracker.Entries<Retiro>())
+        {
+            var huboCambio = entrada.State == EntityState.Added
+                || (entrada.State == EntityState.Modified
+                    && !Equals(entrada.Property(r => r.EstadoActual).OriginalValue, entrada.Property(r => r.EstadoActual).CurrentValue));
+            if (!huboCambio)
+                continue;
+
+            var retiro = entrada.Entity;
+            cambios.Add(new CambioEstadoRetiro(retiro.OperadorId, retiro.ComercioOperadorId, retiro.Id, retiro.CodigoSeguimientoPublico, retiro.EstadoActual.ToString()));
+        }
+
+        return cambios;
+    }
+
+    /// <summary>El aviso es posterior al guardado y no condiciona su resultado.</summary>
+    private async Task NotificarCambiosDeEstadoDeRetirosAsync(List<CambioEstadoRetiro> cambios)
+    {
+        foreach (var cambio in cambios)
+        {
+            try
+            {
+                await _tiempoReal!.NotificarRetiroCambioEstadoAsync(
+                    cambio.OperadorId, cambio.ComercioOperadorId, cambio.RetiroId, cambio.Codigo, cambio.Estado);
+            }
+            catch
+            {
+                // Best effort: la vista se pondrá al día en el próximo refresco
+            }
+        }
     }
 
     private sealed record CambioEstadoEnvio(Guid OperadorId, Guid ComercioOperadorId, Guid EnvioId, string Codigo, string Estado);

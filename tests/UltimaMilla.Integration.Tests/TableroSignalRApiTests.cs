@@ -274,6 +274,46 @@ public class TableroSignalRApiTests
     }
 
     [FactPostgres]
+    public async Task RetiroCambioEstado_ElCambioRealEnLaBaseLlegaAlOperadorYComercioDuenos_YNoAOtros()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        using var operador1 = await ConectarTableroAsync("admin@gmail.com", "Admin.2026!", cts.Token);
+        using var operador2 = await ConectarTableroAsync("admin2@gmail.com", "Admin.2026!", cts.Token);
+        using var comercioDueno = await ConectarTableroAsync("comercio@gmail.com", "Comercio.2026!", cts.Token);
+
+        var retiroId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var alcance = db.HabilitarEscrituraAdministrativa();
+            await using var transaccion = await db.Database.BeginTransactionAsync(cts.Token);
+
+            // Alta de un retiro del operador 1 / comercio 3333…; luego se descarta para no alterar los datos de las demás pruebas
+            var retiro = new UltimaMilla.Domain.Entities.Retiros.Retiro(
+                retiroId, DatabaseSeeder.DefaultOperadorId, DatabaseSeeder.DefaultComercioOperadorId, "RET-TIEMPOREAL",
+                "Ana Pérez", Guid.NewGuid(), "Av. Italia 1234", "Cambio de talle");
+            db.Retiros.Add(retiro);
+            await db.SaveChangesAsync(cts.Token);
+
+            await transaccion.RollbackAsync(cts.Token);
+        }
+
+        var tramasOp1 = string.Concat(await LeerTramasHastaContenerAsync(operador1.Socket, "RetiroCambioEstado", TimeSpan.FromSeconds(4)));
+        var tramasComercio = string.Concat(await LeerTramasHastaContenerAsync(comercioDueno.Socket, "RetiroCambioEstado", TimeSpan.FromSeconds(4)));
+        var tramasOp2 = string.Concat(await LeerTramasHastaContenerAsync(operador2.Socket, "RetiroCambioEstado", TimeSpan.FromSeconds(2)));
+
+        Assert.Contains("RetiroCambioEstado", tramasOp1);
+        Assert.Contains(retiroId.ToString(), tramasOp1);
+        Assert.Contains("Solicitado", tramasOp1);
+
+        Assert.Contains("RetiroCambioEstado", tramasComercio);
+        Assert.Contains(retiroId.ToString(), tramasComercio);
+
+        Assert.DoesNotContain("RetiroCambioEstado", tramasOp2);
+    }
+
+    [FactPostgres]
     public async Task EnvioCambioEstado_UnComercioNoRecibeLosEnviosDeOtroComercio()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

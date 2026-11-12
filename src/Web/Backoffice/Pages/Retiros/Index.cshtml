@@ -2,6 +2,7 @@
 @model UltimaMilla.Backoffice.Pages.Retiros.IndexModel
 @{
     ViewData["Title"] = "Retiros en domicilio";
+    ViewData["TiempoRealEnvios"] = true;
     var estados = new[] { "Solicitado", "AsignadoARuta", "Retirado", "NoRetirado", "EnDeposito", "EntregadoAlComercio", "Cancelado" };
     string Clase(string e) => e switch
     {

@@ -239,6 +239,21 @@
         }
     }
 
+    // Un retiro no es un envío: no se avisa a las escuchas de envíos, solo se pone al día la página
+    function alRecibirCambioRetiro(cambio) {
+        if (!paginaPideTiempoReal()) return;
+
+        if (window.SistemaNotificaciones && cambio) {
+            window.SistemaNotificaciones.mostrar({
+                tipo: 'info',
+                titulo: 'Retiro actualizado',
+                mensajeBreve: (cambio.codigoSeguimiento || 'Un retiro') + ' pasó a: ' + textoEstado(cambio.estado),
+                duracionMs: 4000
+            });
+        }
+        programarActualizacion();
+    }
+
     function conectar() {
         if (conexion || !window.signalR || !window.signalR.HubConnectionBuilder) return;
 
@@ -254,6 +269,7 @@
                 .build();
 
             conexion.on('EnvioCambioEstado', alRecibirCambio);
+            conexion.on('RetiroCambioEstado', alRecibirCambioRetiro);
             conexion.on('PosicionVehiculo', function (datos) {
                 escuchasPosicion.forEach(function (fn) {
                     try { fn(datos); } catch (e) { /* una escucha defectuosa no debe frenar a las demás */ }

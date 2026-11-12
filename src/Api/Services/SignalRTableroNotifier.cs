@@ -15,6 +15,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     public const string EventoHitoParada = "HitoParada";
     public const string EventoPosicionVehiculo = "PosicionVehiculo";
     public const string EventoEnvioCambioEstado = "EnvioCambioEstado";
+    public const string EventoRetiroCambioEstado = "RetiroCambioEstado";
     public const string EventoOperadoresDelComercio = "OperadoresDelComercioCambiaron";
     public const string EventoIdentidadVisualActualizada = "IdentidadVisualActualizada";
     public const string EventoSeguimientoActualizado = "EnvioActualizado";
@@ -196,6 +197,34 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         }
 
         await NotificarSeguimientoPublicoAsync(codigoSeguimiento, envioId, ct);
+    }
+
+    public async Task NotificarRetiroCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid retiroId, string codigoSeguimiento, string estado, CancellationToken ct = default)
+    {
+        if (operadorId == Guid.Empty || retiroId == Guid.Empty || string.IsNullOrWhiteSpace(estado))
+            return;
+
+        try
+        {
+            var mensaje = new
+            {
+                retiroId,
+                codigoSeguimiento,
+                estado = estado.Trim(),
+                timestamp = DateTime.UtcNow
+            };
+
+            // Operador (backoffice) y comercio dueño del retiro: ningún otro grupo lo recibe
+            var destinos = new List<string> { TableroHub.GrupoOperador(operadorId) };
+            if (comercioOperadorId != Guid.Empty)
+                destinos.Add(TableroHub.GrupoComercio(comercioOperadorId));
+
+            await _hubContext.Clients.Groups(destinos).SendAsync(EventoRetiroCambioEstado, mensaje, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del retiro {RetiroId} (operador {OperadorId}).", EventoRetiroCambioEstado, retiroId, operadorId);
+        }
     }
 
     /// <summary>

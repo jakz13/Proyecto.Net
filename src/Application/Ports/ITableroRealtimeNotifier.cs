@@ -22,6 +22,13 @@ public interface ITableroRealtimeNotifier
         => Task.CompletedTask;
 
     /// <summary>
+    /// Avisa que cambió el estado de un retiro en domicilio (o que se dio de alta) para que las vistas que lo muestran se actualicen sin recargar.
+    /// Un retiro no es un envío: tiene su propio evento. Se emite al operador dueño y al comercio dueño, nunca a otros.
+    /// </summary>
+    Task NotificarRetiroCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid retiroId, string codigoSeguimiento, string estado, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    /// <summary>
     /// Avisa a las sesiones de un comercio que cambió la lista de operadores con los que trabaja (alta de un vínculo nuevo, baja o suspensión).
     /// Se emite al comercio (por su identificador, común a todos sus operadores), nunca a otros.
     /// </summary>
