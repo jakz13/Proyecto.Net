@@ -136,15 +136,6 @@ html, body {
     font-weight: 600;
 }
 
-/* Banner demo en Development */
-.banner-demo-dev {
-    background-color: #FEF3C7;
-    border-bottom: 1px solid #FCD34D;
-    color: #92400E;
-    font-size: 0.85rem;
-    padding: 0.4rem 1rem;
-}
-
 /* Indicador mientras el navegador descarga el runtime de WebAssembly */
 .cargando-wasm {
     padding: 2rem;

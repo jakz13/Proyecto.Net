@@ -79,8 +79,7 @@ public class ArmarModel : PageModel
             Turno = Formulario.Turno,
             CriterioOrdenamiento = Formulario.CriterioOrdenamiento,
             EnviosIds = Formulario.EnviosSeleccionados,
-            RetirosIds = Formulario.RetirosSeleccionados,
-            SimularColision = Formulario.SimularColision
+            RetirosIds = Formulario.RetirosSeleccionados
         };
 
         var resultado = await _rutasApi.ArmarYConfirmarRutaAsync(dto);
@@ -121,6 +120,5 @@ public class ArmarModel : PageModel
         public string CriterioOrdenamiento { get; set; } = "FranjaHoraria";
         public List<Guid> EnviosSeleccionados { get; set; } = new();
         public List<Guid> RetirosSeleccionados { get; set; } = new();
-        public bool SimularColision { get; set; } = false;
     }
 }

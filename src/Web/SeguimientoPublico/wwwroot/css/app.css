@@ -205,44 +205,6 @@ body {
     cursor: not-allowed;
 }
 
-.buscador-seguimiento__pills-contenedor {
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--color-borde);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--color-texto-mutado);
-}
-
-.buscador-seguimiento__pill {
-    background-color: #F1F5F9;
-    border: 1px solid #CBD5E1;
-    color: #334155;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.buscador-seguimiento__pill:hover {
-    background-color: #E2E8F0;
-    color: #0F172A;
-}
-
-.buscador-seguimiento__pill--alerta {
-    color: #991B1B;
-    border-color: #FECACA;
-    background-color: #FEF2F2;
-}
-
 /* ==========================================================================
    Bloque: Stepper de Etapas (.stepper-seguimiento)
    ========================================================================== */
@@ -859,15 +821,6 @@ body {
 .badge-estado--endevolucion  { background-color: var(--badge-en-devolucion-bg); }
 .badge-estado--devuelto      { background-color: var(--badge-devuelto-bg); }
 .badge-estado--extraviado    { background-color: var(--badge-extraviado-bg); }
-
-/* Banner demo para desarrollo */
-.banner-demo-dev {
-    background-color: #FEF3C7;
-    border-bottom: 1px solid #FCD34D;
-    color: #92400E;
-    font-size: 0.85rem;
-    padding: 0.4rem 1rem;
-}
 
 /* ==========================================================================
    Componente Universal de Notificaciones Toast Flotantes y Panel de Detalle

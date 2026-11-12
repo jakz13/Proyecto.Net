@@ -103,7 +103,7 @@ public static class AltaEnvioCanalesEndpoints
         .WithTags("Integración por API (UC-26)")
         .WithName("AltaEnvioPorApi")
         .WithSummary("Alta de un envío desde el sistema del comercio")
-        .WithDescription("Se autentica con la cabecera X-Api-Key (clave demo sembrada: dev-api-key-megastore-2026). Si se informa referenciaExterna, reintentar con la misma referencia devuelve el envío ya admitido (200) en vez de crear otro.")
+        .WithDescription("Se autentica con la cabecera X-Api-Key (la clave de API del comercio). Si se informa referenciaExterna, reintentar con la misma referencia devuelve el envío ya admitido (200) en vez de crear otro.")
         .Produces(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

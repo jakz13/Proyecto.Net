@@ -117,7 +117,6 @@
                                 <div class="mt-2 pt-2 border-top">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="text-secondary" style="font-size: 0.7rem;">O enlace URL directo a la imagen:</span>
-                                        <button type="button" class="btn btn-link btn-sm py-0 text-decoration-none" style="font-size: 0.7rem;" onclick="probarLogoSugerido()">Logo Demo</button>
                                     </div>
                                     <input asp-for="Modelo.LogoUrl" id="inputLogoUrl" class="form-control form-control-sm" placeholder="https://ejemplo.com/logo.png" maxlength="300" oninput="actualizarPreviewUrl(this.value)" />
                                 </div>
@@ -150,7 +149,7 @@
                                 <input type="color" id="pickerColorPrimario" class="form-control form-control-color" value="@Model.Modelo.ColorPrimario" title="Elegir color primario" oninput="actualizarDesdePicker('pickerColorPrimario', 'inputColorPrimario', 'muestraPrimario')" onchange="actualizarDesdePicker('pickerColorPrimario', 'inputColorPrimario', 'muestraPrimario')" />
                                 <input asp-for="Modelo.ColorPrimario" id="inputColorPrimario" class="form-control form-control-sm font-monospace text-uppercase" placeholder="#1D4ED8" required maxlength="7" oninput="actualizarDesdeInput('inputColorPrimario', 'pickerColorPrimario', 'muestraPrimario')" />
                                 <div id="muestraPrimario" class="p-2 rounded border text-center small fw-semibold font-monospace" style="min-width: 110px; background-color: @Model.IdentidadActual.ColorPrimario; color: @Model.IdentidadActual.ColorTextoSobrePrimario;">
-                                    Texto Demo
+                                    Texto de ejemplo
                                 </div>
                             </div>
                             <span asp-validation-for="Modelo.ColorPrimario" class="text-danger small"></span>
@@ -164,7 +163,7 @@
                                 <input type="color" id="pickerColorSecundario" class="form-control form-control-color" value="@Model.Modelo.ColorSecundario" title="Elegir color secundario" oninput="actualizarDesdePicker('pickerColorSecundario', 'inputColorSecundario', 'muestraSecundario')" onchange="actualizarDesdePicker('pickerColorSecundario', 'inputColorSecundario', 'muestraSecundario')" />
                                 <input asp-for="Modelo.ColorSecundario" id="inputColorSecundario" class="form-control form-control-sm font-monospace text-uppercase" placeholder="#F97316" required maxlength="7" oninput="actualizarDesdeInput('inputColorSecundario', 'pickerColorSecundario', 'muestraSecundario')" />
                                 <div id="muestraSecundario" class="p-2 rounded border text-center small fw-semibold font-monospace" style="min-width: 110px; background-color: @Model.IdentidadActual.ColorSecundario; color: @Model.IdentidadActual.ColorTextoSobreSecundario;">
-                                    Acento Demo
+                                    Acento de ejemplo
                                 </div>
                             </div>
                             <span asp-validation-for="Modelo.ColorSecundario" class="text-danger small"></span>
@@ -402,11 +401,6 @@
                 img.src = url;
                 img.style.display = 'inline-block';
             }
-        }
-
-        function probarLogoSugerido() {
-            var input = document.getElementById('inputLogoUrl');
-            input.value = 'https://raw.githubusercontent.com/feathericons/feather/master/icons/truck.svg';
         }
 
         @if (!string.IsNullOrEmpty(Model.MensajeExito))

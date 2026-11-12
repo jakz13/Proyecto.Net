@@ -494,22 +494,7 @@ public class MockRutasApi : IRutasApi
             errores.Add($"La hoja de ruta no puede superar el límite máximo de {maximoParadas} paradas (seleccionó {dto.EnviosIds.Count}).");
         }
 
-        // 3. Simulación de Colisión de asignación concurrente (Flujo alternativo UC-08)
-        if (dto.SimularColision)
-        {
-            return new ResultadoArmadoRutaDto
-            {
-                Exitoso = false,
-                ColisionDetectada = true,
-                Mensaje = "Colisión de asignación detectada: Otro despachador acaba de asignar uno de los envíos seleccionados a una ruta activa.",
-                ErroresValidacion = new List<string>
-                {
-                    "El envío TRK-2026-1002 ya fue asignado a otra ruta activa de forma simultánea. Se canceló la operación para evitar duplicación de despacho."
-                }
-            };
-        }
-
-        // 4. Calcular pesos, volúmenes y verificar franjas horarias
+        // 3. Calcular pesos, volúmenes y verificar franjas horarias
         decimal pesoTotal = 0;
         decimal volumenTotal = 0;
 

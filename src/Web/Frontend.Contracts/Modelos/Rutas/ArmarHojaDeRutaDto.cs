@@ -15,5 +15,4 @@ public record ArmarHojaDeRutaDto
 
     /// <summary>Retiros en domicilio que se incluyen en la ruta: la hoja de ruta pasa a ser mixta (RF 39).</summary>
     public List<Guid> RetirosIds { get; init; } = new();
-    public bool SimularColision { get; init; } = false;
 }

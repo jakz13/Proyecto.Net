@@ -124,25 +124,6 @@
                         </div>
                     </div>
 
-                    <!-- Plantillas Rápidas para Demostración -->
-                    <div class="p-3 bg-light rounded-3 border mb-3">
-                        <div class="small fw-semibold text-secondary mb-2">Cargar Plantilla Geográfica Rápida:</div>
-                        <div class="d-flex flex-wrap gap-1">
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;"
-                                    onclick="cargarPlantilla('Centro & Pocitos', '[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9180, -56.1480], [-34.9310, -56.1600], [-34.9190, -56.2080], [-34.9080, -56.2120]]', '#2563eb')">
-                                Centro & Pocitos
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;"
-                                    onclick="cargarPlantilla('Montevideo Prado & Norte', '[[-34.8550, -56.2150], [-34.8450, -56.1850], [-34.8750, -56.1750], [-34.8850, -56.2050], [-34.8550, -56.2150]]', '#10b981')">
-                                Prado & Norte
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;"
-                                    onclick="cargarPlantilla('Ciudad de la Costa', '[[-34.8800, -56.0500], [-34.8500, -55.9700], [-34.8850, -55.9500], [-34.9050, -56.0350], [-34.8800, -56.0500]]', '#f59e0b')">
-                                Costa de Oro
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Coordenadas Técnicas (Desplegable Avanzado) -->
                     <details class="small">
                         <summary class="text-secondary fw-semibold cursor-pointer">Ver coordenadas GeoJSON (Avanzado)</summary>
@@ -252,12 +233,7 @@
                     </div>
                 </div>
 
-                <!-- Botones de Acción y Prueba de Validación 400 -->
-                <div class="card-footer bg-white p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="simularSuperposicionDemo()" title="Genera dos franjas solapadas el mismo día para evaluar validación">
-                        Simular Superposición Inconsistente (Demo)
-                    </button>
-
+                <div class="card-footer bg-white p-3 border-top d-flex justify-content-end align-items-center flex-wrap gap-2">
                     <div class="d-flex gap-2">
                         <a asp-page="/Zonas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
                         <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm">
@@ -355,14 +331,6 @@
             }
         }
 
-        function cargarPlantilla(nombre, poligono, color) {
-            document.getElementById('NuevaZona_Nombre').value = nombre;
-            var campoPoligono = document.getElementById('campoPoligono');
-            campoPoligono.value = poligono;
-            sincronizarColor(color);
-            campoPoligono.dispatchEvent(new Event('input'));
-        }
-
         function agregarFilaFranja() {
             var tbody = document.getElementById('cuerpoTablaFranjas');
             var indice = tbody.querySelectorAll('tr.fila-franja').length;
@@ -423,35 +391,6 @@
             });
         }
 
-        function simularSuperposicionDemo() {
-            var tbody = document.getElementById('cuerpoTablaFranjas');
-            tbody.innerHTML = '';
-            tbody.innerHTML = `
-                <tr class="fila-franja table-warning">
-                    <td>
-                        <select name="Franjas[0].DiaSemana" class="form-select form-select-sm" required>
-                            <option value="Monday" selected>Lunes (Franja A)</option>
-                        </select>
-                    </td>
-                    <td><input type="time" name="Franjas[0].HoraInicio" value="09:00" class="form-control form-control-sm" required /></td>
-                    <td><input type="time" name="Franjas[0].HoraFin" value="14:00" class="form-control form-control-sm" required /></td>
-                    <td><input type="number" name="Franjas[0].CapacidadMaximaEnvios" value="35" class="form-control form-control-sm" required /></td>
-                    <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarFila(this)">&times;</button></td>
-                </tr>
-                <tr class="fila-franja table-warning">
-                    <td>
-                        <select name="Franjas[1].DiaSemana" class="form-select form-select-sm" required>
-                            <option value="Monday" selected>Lunes (Franja B - Conflicto)</option>
-                        </select>
-                    </td>
-                    <td><input type="time" name="Franjas[1].HoraInicio" value="13:00" class="form-control form-control-sm" required /></td>
-                    <td><input type="time" name="Franjas[1].HoraFin" value="18:00" class="form-control form-control-sm" required /></td>
-                    <td><input type="number" name="Franjas[1].CapacidadMaximaEnvios" value="40" class="form-control form-control-sm" required /></td>
-                    <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="eliminarFila(this)">&times;</button></td>
-                </tr>
-            `;
-            alert('Se cargaron dos franjas horarias con superposición para el Lunes (09:00 - 14:00 y 13:00 - 18:00). Presione "Guardar Configuración" para comprobar cómo el sistema rechaza la superposición inconsistente.');
-        }
 
         document.addEventListener('DOMContentLoaded', function () {
             if (window.MapasUltimaMilla && typeof window.MapasUltimaMilla.renderizarEditorPoligonoZona === 'function') {

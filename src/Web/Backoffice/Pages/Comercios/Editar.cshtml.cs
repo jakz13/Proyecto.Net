@@ -76,11 +76,4 @@ public class EditarModel : PageModel
             return Page();
         }
     }
-
-    // Endpoint POST de prueba para la demo oral: simula enviar un sello alterado para gatillar 409 Conflict
-    public IActionResult OnPostSimularConflicto()
-    {
-        Comercio.SelloModificacion = "sello-invalido-para-forzar-conflicto";
-        return OnPostAsync().Result;
-    }
 }

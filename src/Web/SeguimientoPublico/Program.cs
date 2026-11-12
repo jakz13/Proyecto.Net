@@ -22,7 +22,7 @@ builder.Services.AddScoped(sp => new HttpClient
 
 if (usarMocks)
 {
-    // Registra las implementaciones simuladas para pruebas locales y demo oral
+    // Implementaciones simuladas, solo para desarrollo local (UsarMocks=true)
     builder.Services.AgregarMocksFrontend();
 }
 else
