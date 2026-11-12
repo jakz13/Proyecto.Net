@@ -437,11 +437,11 @@ public class TableroRealtimeNotificationHandlerTests
             new ConfirmarCargaCommand(ruta.Id, codigos, "idem-carga-1"),
             CancellationToken.None);
 
-        Assert.Equal("EnCarga", resultado.EstadoRuta);
+        Assert.Equal("EnTransito", resultado.EstadoRuta);
         var notif = Assert.Single(_notifier.CambiosRuta);
         Assert.Equal(_tenant.OperadorId, notif.OperadorId);
         Assert.Equal(ruta.Id, notif.HojaDeRutaId);
-        Assert.Equal("EnCarga", notif.Estado);
+        Assert.Equal("EnTransito", notif.Estado);
         Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
     }
 

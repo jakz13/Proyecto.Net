@@ -904,6 +904,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             return;
 
         var paradas = await Db.Table<ParadaLocal>().Where(p => p.HojaDeRutaId == ruta.Id).ToListAsync();
+        var estadoBultosPorParada = new List<(ParadaLocal Parada, List<BultoLocal> Bultos, bool TodosCargados)>();
+
         foreach (var parada in paradas)
         {
             var bultosParada = await Db.Table<BultoLocal>()
@@ -930,9 +932,59 @@ public class LocalDatabaseService : ILocalDatabaseService
                     await Db.UpdateAsync(b);
                 }
             }
+
+            var esRetiro = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+            var todosCargados = esRetiro || (bultosParada.Count > 0 && bultosParada.All(b => b.VerificadoEnCarga));
+            estadoBultosPorParada.Add((parada, bultosParada, todosCargados));
         }
 
-        if (ruta.Estado is "Liberada" or "Borrador")
+        var hayAlMenosUnaParadaCompleta = estadoBultosPorParada.Count == 0
+            || estadoBultosPorParada.Any(x => x.TodosCargados && x.Parada.Estado != "Cancelada");
+
+        if (hayAlMenosUnaParadaCompleta)
+        {
+            foreach (var (parada, bultosParada, todosCargados) in estadoBultosPorParada)
+            {
+                if (parada.Estado == "Cancelada")
+                    continue;
+
+                var esRetiro = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+                if (!esRetiro && bultosParada.Count > 0 && !todosCargados)
+                {
+                    parada.Estado = "Cancelada";
+                    await Db.UpdateAsync(parada);
+
+                    if (parada.EnvioId != Guid.Empty)
+                    {
+                        var envioIncompleto = await Db.FindAsync<EnvioLocal>(parada.EnvioId);
+                        if (envioIncompleto != null)
+                        {
+                            envioIncompleto.Estado = "EnDeposito";
+                            await Db.UpdateAsync(envioIncompleto);
+                        }
+                    }
+                }
+                else if (!esRetiro && todosCargados && parada.EnvioId != Guid.Empty)
+                {
+                    var envioCompleto = await Db.FindAsync<EnvioLocal>(parada.EnvioId);
+                    if (envioCompleto != null && envioCompleto.Estado is "AsignadoARuta" or "EnDeposito" or "Pendiente")
+                    {
+                        envioCompleto.Estado = "EnTransito";
+                        await Db.UpdateAsync(envioCompleto);
+                    }
+                }
+            }
+
+            if (paradas.Count > 0)
+            {
+                var activas = paradas.Where(p => p.Estado != "Cancelada").ToList();
+                ruta.TotalParadas = activas.Count;
+            }
+
+            ruta.Estado = "EnTransito";
+            await Db.UpdateAsync(ruta);
+        }
+        else if (ruta.Estado is "Liberada" or "Borrador")
         {
             ruta.Estado = "EnCarga";
             await Db.UpdateAsync(ruta);

@@ -292,15 +292,30 @@ else
                         <div id="contenedorBultosNoCargadosOcultos"></div>
 
                         <!-- Botón de Confirmación de Despacho -->
-                        <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2" id="btnConfirmarSalida">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Confirmar Salida del Vehículo</span>
-                        </button>
-                        <div class="text-center mt-2">
-                            <span class="text-muted" style="font-size: 0.72rem;">Pasa a "En Tránsito" solo los envíos efectivamente cargados.</span>
-                        </div>
+                        @if (control.EstadoRuta is "Despachada" or "EnTransito" or "Finalizada")
+                        {
+                            <button type="button" class="btn btn-secondary w-100 py-2 fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2" disabled>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Hoja de Ruta ya en Tránsito</span>
+                            </button>
+                            <div class="text-center mt-2">
+                                <span class="text-success fw-semibold" style="font-size: 0.72rem;">La salida ya fue confirmada y despachada.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2" id="btnConfirmarSalida">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Confirmar Salida del Vehículo</span>
+                            </button>
+                            <div class="text-center mt-2">
+                                <span class="text-muted" style="font-size: 0.72rem;">Pasa a "En Tránsito" solo los envíos efectivamente cargados.</span>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
