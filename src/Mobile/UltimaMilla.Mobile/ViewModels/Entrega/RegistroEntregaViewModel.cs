@@ -307,7 +307,16 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                 {
                     try
                     {
-                        await _syncService.SincronizarOperacionesPendientesAsync();
+                        var resultado = await _syncService.SincronizarOperacionesPendientesAsync();
+                        // Si el servidor rechazó la entrega, la operación queda en la cola y se le muestra el motivo al repartidor
+                        if (resultado.ErroresNegocio > 0 && resultado.DetallesErrores is { Count: > 0 } && Shell.Current is not null)
+                        {
+                            var motivo = string.Join("\n", resultado.DetallesErrores.Take(3));
+                            await MainThread.InvokeOnMainThreadAsync(() => Shell.Current.DisplayAlertAsync(
+                                "El servidor rechazó la entrega",
+                                $"La entrega quedó guardada en el dispositivo pero la central no la aceptó:\n\n{motivo}",
+                                "Entendido"));
+                        }
                     }
                     catch (Exception ex)
                     {

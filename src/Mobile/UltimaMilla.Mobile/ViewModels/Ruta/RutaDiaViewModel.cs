@@ -560,7 +560,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 "Despachada" => "Despachada",
                 "EnCarga" => "En Carga",
                 "Liberada" => "Liberada",
-                "Finalizada" => "Finalizada",
+                "Finalizada" => "Todas las paradas completadas",
+                "Cerrada" => "Cerrada",
                 _ => r.Estado
             };
 
@@ -575,7 +576,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
 
-        var rutaActiva = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada");
+        var rutaActiva = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada" or "Finalizada");
 
         if (rutaActiva != null)
         {
@@ -583,7 +584,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             HojaDeRutaSeleccionada = rutaActiva;
             await CargarRutaEspecificaAsync(rutaActiva.Id);
         }
-        else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Finalizada" or "Rendida"))
+        else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Cerrada" or "Rendida"))
         {
             SinRutaAsignada = true;
             Paradas.Clear();
@@ -688,7 +689,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 _trackingService.RepartidorIdActivo = repartidorId;
             }
         }
-        else if (EstadoHojaDeRuta is "Finalizada" or "Rendida")
+        else if (EstadoHojaDeRuta is "Cerrada" or "Rendida")
         {
             if (_trackingService.IsTrackingActive)
             {
@@ -740,7 +741,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         ResumenProgresoTexto = $"{completadas} de {total} paradas completadas";
         ProgresoPorcentajeTexto = $"{Math.Round(ProgresoRuta * 100)}%";
 
-        PuedeFinalizarRuta = total > 0 && pendientes == 0 && EstadoHojaDeRuta != "Finalizada" && EstadoHojaDeRuta != "Rendida";
+        PuedeFinalizarRuta = total > 0 && pendientes == 0 && EstadoHojaDeRuta is not ("Cerrada" or "Rendida");
 
         if (total > 0 && completadas == total && _trackingService is { IsTrackingActive: true })
         {
@@ -933,7 +934,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 await _localDatabaseService.FinalizarHojaDeRutaLocalAsync(rutaId);
             }
 
-            EstadoHojaDeRuta = "Finalizada";
+            EstadoHojaDeRuta = "Cerrada";
 
             if (Shell.Current is not null)
             {

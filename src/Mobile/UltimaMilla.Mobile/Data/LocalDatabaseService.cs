@@ -417,7 +417,10 @@ public class LocalDatabaseService : ILocalDatabaseService
             }
             else
             {
-                if (!string.IsNullOrWhiteSpace(estadoRuta))
+                // "Cerrada" es el cierre que hizo el repartidor en el dispositivo: el servidor solo dice "Finalizada" (todas las paradas
+                // completadas) o "Rendida", y eso no debe reabrir una ruta que él ya cerró.
+                var yaCerradaPorElRepartidor = ruta.Estado == "Cerrada" && estadoRuta is "Finalizada" or "Rendida";
+                if (!string.IsNullOrWhiteSpace(estadoRuta) && !yaCerradaPorElRepartidor)
                     ruta.Estado = estadoRuta;
                 if (!string.IsNullOrWhiteSpace(numeroRuta))
                     ruta.NumeroRuta = numeroRuta;
@@ -428,7 +431,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 conn.Update(ruta);
             }
 
-            bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
+            bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada";
 
             // 2. Paradas que el servidor ya no incluye (reasignadas o retiradas de la ruta) y que no tienen nada pendiente de enviar
             var idsServidor = paradas.Where(p => p.ParadaId != Guid.Empty).Select(p => p.ParadaId).ToHashSet();
@@ -650,7 +653,8 @@ public class LocalDatabaseService : ILocalDatabaseService
 
         if (ruta != null)
         {
-            ruta.Estado = "Finalizada";
+            // Cierre explícito del repartidor (botón "Finalizar Hoja de Ruta"): recién entonces la ruta sale de la pantalla del día
+            ruta.Estado = "Cerrada";
             await Db.UpdateAsync(ruta);
         }
     }
@@ -675,13 +679,15 @@ public class LocalDatabaseService : ILocalDatabaseService
             ruta = todas.FirstOrDefault(r => r.Estado == "EnTransito")
                 ?? todas.FirstOrDefault(r => r.Estado == "Despachada")
                 ?? todas.FirstOrDefault(r => r.Estado == "EnCarga")
-                ?? todas.FirstOrDefault(r => r.Estado == "Liberada");
+                ?? todas.FirstOrDefault(r => r.Estado == "Liberada")
+                // Con todas las paradas completadas el servidor la marca "Finalizada": sigue visible hasta que el repartidor la cierre
+                ?? todas.FirstOrDefault(r => r.Estado == "Finalizada");
         }
 
         if (ruta == null)
             return null;
 
-        bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada";
+        bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada";
         bool enPrecarga = ruta.Estado is "Liberada" or "EnCarga" or "Borrador";
 
         var paradas = await Db.Table<ParadaLocal>()
