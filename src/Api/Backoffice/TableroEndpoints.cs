@@ -352,16 +352,16 @@ internal static class ConstructorTablero
                     HojaDeRutaId = pos.HojaDeRutaId ?? Guid.Empty,
                     NumeroRuta = pos.HojaDeRutaId.HasValue ? "Ruta Asignada" : "En Espera",
                     RepartidorId = pos.RepartidorId ?? Guid.Empty,
-                    RepartidorNombre = !string.IsNullOrWhiteSpace(nombreRep) ? nombreRep : "Repartidor en Vivo",
+                    RepartidorNombre = !string.IsNullOrWhiteSpace(nombreRep) ? nombreRep : "Repartidor sin identificar",
                     RepartidorTelefono = repartidor?.Telefono ?? string.Empty,
                     VehiculoId = pos.VehiculoId,
-                    VehiculoMatricula = vehiculo?.Patente ?? "Unidad en Vivo",
+                    VehiculoMatricula = vehiculo?.Patente ?? "Unidad sin identificar",
                     VehiculoModelo = vehiculo?.Tipo ?? "Vehículo",
                     Latitud = pos.Latitud,
                     Longitud = pos.Longitud,
                     DireccionAproximada = "En línea / Posición GPS reportada",
-                    ZonaActual = "Montevideo",
-                    NivelBateriaPct = pos.BateriaPct is > 0 ? pos.BateriaPct.Value : 95,
+                    ZonaActual = "Sin zona",
+                    NivelBateriaPct = pos.BateriaPct is > 0 ? pos.BateriaPct.Value : 0,
                     VelocidadKmh = (int)Math.Round(pos.VelocidadKmh ?? 24),
                     UltimaActualizacion = pos.Timestamp,
                     EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh ?? 24, null, "EnTransito"),
@@ -402,8 +402,8 @@ internal static class ConstructorTablero
                     Latitud = pos?.Latitud ?? -34.9011,
                     Longitud = pos?.Longitud ?? -56.1645,
                     DireccionAproximada = pos is not null ? "En línea / Posición GPS reportada" : "Base operativa / Unidad lista para despacho",
-                    ZonaActual = "Montevideo",
-                    NivelBateriaPct = pos?.BateriaPct is > 0 ? pos.BateriaPct.Value : 100,
+                    ZonaActual = "Sin zona",
+                    NivelBateriaPct = pos?.BateriaPct is > 0 ? pos.BateriaPct.Value : 0,
                     VelocidadKmh = (int)Math.Round(pos?.VelocidadKmh ?? 0),
                     UltimaActualizacion = pos?.Timestamp ?? ahora,
                     EstadoOperativo = pos is not null
@@ -471,7 +471,7 @@ internal static class ConstructorTablero
             if (partes.Length > 1)
                 return partes[^1];
         }
-        return "Montevideo";
+        return "Sin zona";
     }
 
     private static bool EstaPendiente(Parada parada) => parada.Estado is "Pendiente" or "EnCamino" or "EnSitio";

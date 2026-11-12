@@ -7,7 +7,7 @@ namespace UltimaMilla.Domain.Entities.Ejecucion;
 /// Posición del vehículo informada por el dispositivo del repartidor durante la jornada.
 /// Es la fuente del mapa del tablero en vivo.
 /// </summary>
-public class PosicionVehiculo : Entity
+public class PosicionVehiculo : Entity, IMustHaveTenant
 {
     public Guid OperadorId { get; private set; }
     public Guid VehiculoId { get; private set; }

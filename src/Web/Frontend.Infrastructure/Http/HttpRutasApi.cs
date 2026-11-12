@@ -311,6 +311,8 @@ public class HttpRutasApi : IRutasApi
             FranjaHoraria = string.IsNullOrWhiteSpace(p.VentanaHoraria) ? "Sin franja" : p.VentanaHoraria,
             PesoKg = p.PesoKg,
             VolumenM3 = p.VolumenM3,
+            Latitud = p.Latitud,
+            Longitud = p.Longitud,
             Estado = p.EstadoParada
         }).ToList();
 
@@ -420,7 +422,7 @@ public class HttpRutasApi : IRutasApi
 
     private record ParadaApi(
         Guid ParadaId, int Orden, Guid EnvioId, string CodigoSeguimiento, string EstadoEnvio, string EstadoParada, string Destinatario,
-        string Direccion, Guid? ZonaId, string? VentanaHoraria, decimal PesoKg, decimal VolumenM3);
+        string Direccion, Guid? ZonaId, string? VentanaHoraria, decimal PesoKg, decimal VolumenM3, double? Latitud = null, double? Longitud = null);
 
     private record PendienteApi(
         Guid EnvioId, string CodigoSeguimiento, string Destinatario, string Direccion, Guid? ZonaId, string? Prioridad,

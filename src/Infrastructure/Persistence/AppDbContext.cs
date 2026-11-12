@@ -683,6 +683,7 @@ public class AppDbContext : DbContext
         AplicarFiltroDeOperador<ReglaOperativa>(modelBuilder);
         AplicarFiltroDeOperador<Repartidor>(modelBuilder);
         AplicarFiltroDeOperador<Vehiculo>(modelBuilder);
+        AplicarFiltroDeOperador<PosicionVehiculo>(modelBuilder);
         AplicarFiltroDeOperador<ZonaCobertura>(modelBuilder);
         AplicarFiltroDeComercioDelOperador<CuentaCorriente>(modelBuilder);
         AplicarFiltroDeComercioDelOperador<Liquidacion>(modelBuilder);

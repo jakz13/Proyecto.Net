@@ -52,7 +52,10 @@ public record ParadaDetalleDto(
     Guid? ZonaId,
     string? VentanaHoraria,
     decimal PesoKg,
-    decimal VolumenM3);
+    decimal VolumenM3,
+    // Coordenadas reales de la dirección (si se conocen): el mapa las usa en lugar de estimarlas
+    double? Latitud = null,
+    double? Longitud = null);
 
 public record EnvioPendienteDeRutaDto(
     Guid EnvioId,

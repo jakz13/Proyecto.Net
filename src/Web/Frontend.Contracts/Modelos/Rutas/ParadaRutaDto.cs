@@ -15,6 +15,9 @@ public record ParadaRutaDto
     public string FranjaHoraria { get; init; } = string.Empty;
     public decimal PesoKg { get; init; }
     public decimal VolumenM3 { get; init; }
+    /// <summary>Coordenadas reales de la dirección, si se conocen (si no, el mapa las estima).</summary>
+    public double? Latitud { get; init; }
+    public double? Longitud { get; init; }
     public string Estado { get; init; } = "Pendiente";
     public string? MotivoNoEntrega { get; init; }
     public string? ObservacionesIncidencia { get; init; }

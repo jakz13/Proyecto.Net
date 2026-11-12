@@ -15,6 +15,7 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IDireccionRepository? _direccionRepository;
 
     public ObtenerHojaDeRutaQueryHandler(
         IRutaRepository rutaRepository,
@@ -23,7 +24,8 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
         IRepartidorRepository repartidorRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         ICurrentTenant currentTenant,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IDireccionRepository? direccionRepository = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
@@ -32,6 +34,7 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
         _franjaHorariaRepository = franjaHorariaRepository;
         _currentTenant = currentTenant;
         _retiroRepository = retiroRepository;
+        _direccionRepository = direccionRepository;
     }
 
     public async Task<HojaDeRutaDetalleDto> Handle(ObtenerHojaDeRutaQuery request, CancellationToken cancellationToken)
@@ -69,6 +72,11 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
                 .ToDictionary(r => r.Id)
             : new Dictionary<Guid, Domain.Entities.Retiros.Retiro>();
 
+        var direcciones = _direccionRepository is null
+            ? new Dictionary<Guid, Domain.Entities.Envios.Direccion>()
+            : (await _direccionRepository.GetByIdsAsync(paradas.Select(p => p.DireccionId).Distinct(), cancellationToken))
+                .ToDictionary(d => d.Id);
+
         var detalleParadas = new List<ParadaDetalleDto>();
         foreach (var p in paradas)
         {
@@ -81,14 +89,16 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
                 detalleParadas.Add(new ParadaDetalleDto(
                     p.Id, p.Orden, envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString(), p.Estado,
                     envio.NombreDestinatario, envio.DireccionDestino, envio.ZonaClasificadaId, ventana,
-                    envio.PesoTotal, envio.VolumenTotal));
+                    envio.PesoTotal, envio.VolumenTotal,
+                    direcciones.GetValueOrDefault(p.DireccionId)?.Latitud, direcciones.GetValueOrDefault(p.DireccionId)?.Longitud));
             }
             else if (p.RetiroId.HasValue && retiros.TryGetValue(p.RetiroId.Value, out var retiro))
             {
                 detalleParadas.Add(new ParadaDetalleDto(
                     p.Id, p.Orden, retiro.Id, retiro.CodigoSeguimientoPublico, retiro.EstadoActual.ToString(), p.Estado,
                     retiro.NombreContacto, retiro.DireccionRetiro, null, ventana,
-                    retiro.PesoTotal, retiro.VolumenTotal));
+                    retiro.PesoTotal, retiro.VolumenTotal,
+                    direcciones.GetValueOrDefault(p.DireccionId)?.Latitud, direcciones.GetValueOrDefault(p.DireccionId)?.Longitud));
             }
         }
 

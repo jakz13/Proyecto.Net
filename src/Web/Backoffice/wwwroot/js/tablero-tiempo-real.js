@@ -379,7 +379,7 @@
                 '    </td>',
                 '    <td>',
                 '        <div>' + telemetriaHtml + '</div>',
-                '        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">Bat: <strong class="text-dark">' + Number(veh.NivelBateriaPct || 0) + '%</strong> · GPS sincronizado</div>',
+                '        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">Bat: <strong class="text-dark">' + (Number(veh.NivelBateriaPct || 0) > 0 ? Number(veh.NivelBateriaPct) + '%' : 's/d') + '</strong></div>',
                 '    </td>',
                 '    <td class="text-end">',
                 '        <div class="d-inline-flex gap-1 justify-content-end align-items-center">',

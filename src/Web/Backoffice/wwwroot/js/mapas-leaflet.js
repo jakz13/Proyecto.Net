@@ -1121,8 +1121,8 @@
             var franja = p.franjaHoraria || p.FranjaHoraria || '';
             var estadoPar = normalizarEstadoEnvio(p.estado || p.Estado || 'Pendiente');
 
-            var coord = (p.latitud && p.longitud)
-                ? { lat: p.latitud, lng: p.longitud }
+            var coord = ((p.latitud || p.Latitud) && (p.longitud || p.Longitud))
+                ? { lat: (p.latitud || p.Latitud), lng: (p.longitud || p.Longitud) }
                 : resolverCoordenadasMontevideo(direccion, zona, codigo + '-' + orden);
 
             puntosPolilinea.push([coord.lat, coord.lng]);
@@ -1235,7 +1235,7 @@
         paradas.forEach(function (p) {
             var direccion = p.direccion || p.Direccion || '';
             var clave = normalizarTextoBusqueda(direccion);
-            if (!(p.latitud && p.longitud) && clave && !cacheGeocodificacion[clave]) {
+            if (!((p.latitud || p.Latitud) && (p.longitud || p.Longitud)) && clave && !cacheGeocodificacion[clave]) {
                 promesasParadas.push(geocodificarEnLineaNominatim(direccion));
             }
         });
