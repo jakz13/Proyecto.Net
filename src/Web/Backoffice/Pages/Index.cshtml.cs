@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Backoffice.Seguridad;
 using UltimaMilla.Frontend.Contracts.Interfaces;
@@ -27,8 +28,12 @@ public class IndexModel : PageModel
     public int TotalEnvios { get; set; }
     public IReadOnlyList<EnvioDto> EnviosRecientes { get; set; } = Array.Empty<EnvioDto>();
 
-    public async Task OnGetAsync()
+    public async Task<IActionResult> OnGetAsync()
     {
+        // El administrador de la plataforma no opera: su única pantalla es la de funcionalidades por operador
+        if (User.IsInRole("AdministradorPlataforma"))
+            return RedirectToPage("/Plataforma/Funcionalidades");
+
         // Comercios y usuarios se administran solo desde el perfil de administrador: a los demás perfiles no se les consulta ni se les ofrece
         MuestraAdministracion = PermisosBackoffice.PuedeAdministrar(User);
         if (MuestraAdministracion)
@@ -65,5 +70,7 @@ public class IndexModel : PageModel
             TotalEnvios = 0;
             EnviosRecientes = Array.Empty<EnvioDto>();
         }
+
+        return Page();
     }
 }

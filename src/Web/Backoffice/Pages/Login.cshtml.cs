@@ -16,7 +16,7 @@ namespace UltimaMilla.Backoffice.Pages;
 [AllowAnonymous]
 public class LoginModel : PageModel
 {
-    private static readonly string[] PerfilesBackoffice = { "Administrador", "Despachador", "Operario" };
+    private static readonly string[] PerfilesBackoffice = { "Administrador", "Despachador", "Operario", "AdministradorPlataforma" };
 
     private readonly MockContextoOperador _contextoOperador;
     private readonly IConfiguration _configuracion;
@@ -180,6 +180,7 @@ public class LoginModel : PageModel
         {
             "Operario" => RedirectToPage("/Despacho/Index"),
             "Despachador" => RedirectToPage("/Rutas/Index"),
+            "AdministradorPlataforma" => RedirectToPage("/Plataforma/Funcionalidades"),
             _ => RedirectToPage("/Index")
         };
     }

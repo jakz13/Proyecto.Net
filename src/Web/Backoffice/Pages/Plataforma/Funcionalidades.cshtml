@@ -1,0 +1,88 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Plataforma.FuncionalidadesModel
+@{
+    ViewData["Title"] = "Funcionalidades por operador";
+}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 fw-bold mb-1">Funcionalidades por operador</h1>
+        <p class="text-muted small mb-0">Active o desactive funcionalidades para cada operador sin desplegar. El cambio rige de inmediato para sus usuarios web y para la app del repartidor.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.MensajeExito))
+{
+    <div class="alert alert-success small py-2" role="status">@Model.MensajeExito</div>
+}
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger small py-2" role="alert">@Model.MensajeError</div>
+}
+
+@if (Model.Operadores.Count == 0)
+{
+    <div class="alert alert-light border small">No hay operadores para mostrar.</div>
+}
+
+@foreach (var operador in Model.Operadores)
+{
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+        <div class="card-header bg-white border-0 pt-3">
+            <h2 class="h6 fw-bold mb-0">@operador.Nombre</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 small">
+                <thead class="table-light">
+                    <tr>
+                        <th>Funcionalidad</th>
+                        <th>Estado</th>
+                        <th>Último cambio</th>
+                        <th class="text-end">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in operador.Funcionalidades)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@f.Nombre</div>
+                                <div class="text-muted font-monospace" style="font-size: 0.72rem;">@f.Clave</div>
+                            </td>
+                            <td>
+                                @if (f.Habilitada)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Habilitada</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Deshabilitada</span>
+                                }
+                            </td>
+                            <td class="text-muted">
+                                @if (f.ModificadaEn.HasValue)
+                                {
+                                    <span>@f.ModificadaEn.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @f.ModificadaPor</span>
+                                }
+                                else
+                                {
+                                    <span>Sin cambios (habilitada por defecto)</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <form method="post" asp-page-handler="Cambiar" class="d-inline">
+                                    <input type="hidden" name="operadorId" value="@operador.OperadorId" />
+                                    <input type="hidden" name="clave" value="@f.Clave" />
+                                    <input type="hidden" name="habilitada" value="@((!f.Habilitada).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="btn btn-sm @(f.Habilitada ? "btn-outline-danger" : "btn-outline-success")">
+                                        @(f.Habilitada ? "Deshabilitar" : "Habilitar")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
