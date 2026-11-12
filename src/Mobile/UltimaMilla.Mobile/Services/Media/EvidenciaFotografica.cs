@@ -11,16 +11,14 @@ public static class EvidenciaFotografica
 
     public static async Task<ImageCompressionResult?> CapturarAsync(string titulo = "Adjuntar evidencia fotográfica")
     {
-        if (Shell.Current is null)
-            return null;
-
-        var opcion = await Shell.Current.DisplayActionSheetAsync(titulo, "Cancelar", null, OpcionTomarFoto, OpcionGaleria);
-        return opcion switch
+        if (MediaPicker.Default.IsCaptureSupported)
         {
-            OpcionTomarFoto => await DesdeCamaraAsync(),
-            OpcionGaleria => await DesdeGaleriaAsync(),
-            _ => null
-        };
+            var res = await DesdeCamaraAsync();
+            if (res != null)
+                return res;
+        }
+
+        return await DesdeGaleriaAsync();
     }
 
     private static async Task<ImageCompressionResult?> DesdeCamaraAsync()

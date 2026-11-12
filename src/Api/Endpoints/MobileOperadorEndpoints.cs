@@ -23,24 +23,32 @@ public static class MobileOperadorEndpoints
             if (operadorId == Guid.Empty)
                 return Results.Unauthorized();
 
-            var operador = await db.Operadores.AsNoTracking().FirstOrDefaultAsync(o => o.Id == operadorId, ct);
-            var identidad = await db.IdentidadesVisuales.AsNoTracking().FirstOrDefaultAsync(i => i.OperadorId == operadorId, ct);
+            var operador = await db.Operadores
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == operadorId, ct);
+
+            var identidad = await db.IdentidadesVisuales
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.OperadorId == operadorId, ct);
 
             var nombreComercial = !string.IsNullOrWhiteSpace(operador?.NombreComercial)
-                ? operador.NombreComercial
+                ? operador.NombreComercial.Trim()
                 : "Última Milla";
 
             var colorPrimarioHex = !string.IsNullOrWhiteSpace(identidad?.ColorPrimario)
                 ? identidad.ColorPrimario.Trim()
-                : "#2563EB";
+                : "#1D4ED8";
 
             var colorSecundarioHex = !string.IsNullOrWhiteSpace(identidad?.ColorSecundario)
                 ? identidad.ColorSecundario.Trim()
-                : "#64748B";
+                : "#F97316";
 
             var logoUrl = identidad?.LogoUrl;
             var telefonoContacto = identidad?.TelefonoContacto;
             var emailContacto = identidad?.EmailContacto;
+            var sitioWeb = identidad?.SitioWeb;
 
             var resultado = new MobileIdentidadVisualDto(
                 OperadorId: operadorId,
@@ -51,7 +59,8 @@ public static class MobileOperadorEndpoints
                 ColorSecundario: colorSecundarioHex,
                 LogoUrl: logoUrl,
                 TelefonoContacto: telefonoContacto,
-                EmailContacto: emailContacto
+                EmailContacto: emailContacto,
+                SitioWeb: sitioWeb
             );
 
             return Results.Ok(resultado);
@@ -75,5 +84,6 @@ public record MobileIdentidadVisualDto(
     string ColorSecundario,
     string? LogoUrl,
     string? TelefonoContacto,
-    string? EmailContacto);
+    string? EmailContacto,
+    string? SitioWeb = null);
 

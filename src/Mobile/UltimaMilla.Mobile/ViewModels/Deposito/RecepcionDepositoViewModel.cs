@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Views.Carga;
 
 namespace UltimaMilla.Mobile.ViewModels.Deposito;
@@ -96,6 +97,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
 {
     private readonly ISyncService? _syncService;
     private readonly IAuthService? _authService;
+    private readonly IOperadorThemeService? _themeService;
     private readonly ILogger<RecepcionDepositoViewModel>? _logger;
 
     [ObservableProperty]
@@ -146,7 +148,22 @@ public partial class RecepcionDepositoViewModel : ObservableObject
     public bool TieneSobrantes => BultosSobrantes.Count > 0;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChipFaltanteBg))]
+    [NotifyPropertyChangedFor(nameof(ChipFaltanteTextColor))]
+    [NotifyPropertyChangedFor(nameof(ChipSobranteBg))]
+    [NotifyPropertyChangedFor(nameof(ChipSobranteTextColor))]
+    [NotifyPropertyChangedFor(nameof(ChipDanadoBg))]
+    [NotifyPropertyChangedFor(nameof(ChipDanadoTextColor))]
     private string _tipoDiscrepancia = "Faltante";
+
+    public Color ChipFaltanteBg => TipoDiscrepancia == "Faltante" ? Color.FromArgb("#EF4444") : Color.FromArgb("#F1F5F9");
+    public Color ChipFaltanteTextColor => TipoDiscrepancia == "Faltante" ? Colors.White : Color.FromArgb("#475569");
+
+    public Color ChipSobranteBg => TipoDiscrepancia == "Sobrante" ? Color.FromArgb("#F59E0B") : Color.FromArgb("#F1F5F9");
+    public Color ChipSobranteTextColor => TipoDiscrepancia == "Sobrante" ? Colors.White : Color.FromArgb("#475569");
+
+    public Color ChipDanadoBg => (TipoDiscrepancia.Contains("Danado", StringComparison.OrdinalIgnoreCase) || TipoDiscrepancia.Contains("Dañado", StringComparison.OrdinalIgnoreCase)) ? Color.FromArgb("#DC2626") : Color.FromArgb("#F1F5F9");
+    public Color ChipDanadoTextColor => (TipoDiscrepancia.Contains("Danado", StringComparison.OrdinalIgnoreCase) || TipoDiscrepancia.Contains("Dañado", StringComparison.OrdinalIgnoreCase)) ? Colors.White : Color.FromArgb("#475569");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeConfirmarConDiscrepancia))]
@@ -155,10 +172,132 @@ public partial class RecepcionDepositoViewModel : ObservableObject
     [ObservableProperty]
     private string _mensajeEstado = string.Empty;
 
+    // =========================================================================
+    // BANNER / TOAST CORPORATIVO DE AVISO RÁPIDO
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarToast;
+
+    [ObservableProperty]
+    private string _mensajeToast = string.Empty;
+
+    [ObservableProperty]
+    private Color _toastBgColor = Color.FromArgb("#16A34A");
+
+    public void MostrarAvisoRapido(string mensaje, bool esExito = true)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            MensajeToast = mensaje;
+            ToastBgColor = esExito
+                ? (Application.Current?.Resources.TryGetValue("SecondaryColor", out var sc) == true && sc is Color c ? c : Color.FromArgb("#16A34A"))
+                : Color.FromArgb("#DC2626");
+            MostrarToast = true;
+
+            var timer = Application.Current?.Dispatcher?.CreateTimer();
+            if (timer != null)
+            {
+                timer.Interval = TimeSpan.FromSeconds(2.5);
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    MostrarToast = false;
+                };
+                timer.Start();
+            }
+        });
+    }
+
+    // =========================================================================
+    // MODAL CORPORATIVO DE DISCREPANCIA Y CONFIRMACIÓN EN DEPÓSITO
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarModalDiscrepanciaRecepcion;
+
+    [ObservableProperty]
+    private bool _esDiscrepanciaFaltante = true;
+
+    [ObservableProperty]
+    private bool _esDiscrepanciaSobrante = false;
+
+    [ObservableProperty]
+    private bool _esDiscrepanciaDanado = false;
+
+    [ObservableProperty]
+    private int _comparativoDeclaradosCount;
+
+    [ObservableProperty]
+    private int _comparativoEscaneadosCount;
+
+    [ObservableProperty]
+    private string _actaObservacionRecepcionInput = string.Empty;
+
+    [RelayCommand]
+    public void SeleccionarTipoDiscrepancia(string tipo)
+    {
+        TipoDiscrepancia = tipo;
+        EsDiscrepanciaFaltante = tipo.Equals("Faltante", StringComparison.OrdinalIgnoreCase);
+        EsDiscrepanciaSobrante = tipo.Equals("Sobrante", StringComparison.OrdinalIgnoreCase);
+        EsDiscrepanciaDanado = tipo.Contains("Dañado", StringComparison.OrdinalIgnoreCase) || tipo.Contains("Danado", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [RelayCommand]
+    public void AbrirModalDiscrepanciaRecepcion()
+    {
+        if (EnvioSeleccionado == null)
+        {
+            MostrarAvisoRapido("Seleccione un envío para documentar discrepancias", esExito: false);
+            return;
+        }
+
+        ComparativoDeclaradosCount = TotalBultosDeclarados;
+        ComparativoEscaneadosCount = BultosVerificadosCount;
+
+        if (BultosDanadosCount > 0)
+        {
+            SeleccionarTipoDiscrepancia("Bulto Dañado");
+        }
+        else if (BultosSobrantesCount > 0)
+        {
+            SeleccionarTipoDiscrepancia("Sobrante");
+        }
+        else
+        {
+            SeleccionarTipoDiscrepancia("Faltante");
+        }
+
+        ActaObservacionRecepcionInput = ObservacionesDiscrepancia;
+        MostrarModalDiscrepanciaRecepcion = true;
+    }
+
+    [RelayCommand]
+    public void CerrarModalDiscrepanciaRecepcion()
+    {
+        MostrarModalDiscrepanciaRecepcion = false;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmarRecepcionDocumentadaDesdeModalAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ActaObservacionRecepcionInput))
+        {
+            MostrarAvisoRapido("Debe documentar las observaciones en el acta", esExito: false);
+            return;
+        }
+
+        ObservacionesDiscrepancia = ActaObservacionRecepcionInput.Trim();
+        MostrarModalDiscrepanciaRecepcion = false;
+        await ConfirmarRecepcionConDiscrepanciaAsync();
+    }
+
     public ObservableCollection<EnvioAdmitidoMobileDto> EnviosAdmitidos { get; } = new();
     public ObservableCollection<EnvioAdmitidoMobileDto> EnviosFiltrados { get; } = new();
     public ObservableCollection<BultoRecepcionItemViewModel> BultosDeclarados { get; } = new();
     public ObservableCollection<string> BultosSobrantes { get; } = new();
+
+    public int TotalEnviosAdmitidosCount => EnviosAdmitidos.Count;
+
+    public int TotalBultosAdmitidosCount => EnviosAdmitidos.Sum(e => e.CantidadBultos);
 
     public int TotalBultosDeclarados => BultosDeclarados.Count;
 
@@ -190,18 +329,20 @@ public partial class RecepcionDepositoViewModel : ObservableObject
         (TieneDiscrepancias || ModoDiscrepanciaActivo) &&
         !string.IsNullOrWhiteSpace(ObservacionesDiscrepancia);
 
-    public RecepcionDepositoViewModel() : this(null, null, null)
+    public RecepcionDepositoViewModel() : this(null, null, null, null)
     {
     }
 
     public RecepcionDepositoViewModel(
         ISyncService? syncService,
         IAuthService? authService,
-        ILogger<RecepcionDepositoViewModel>? logger = null)
+        ILogger<RecepcionDepositoViewModel>? logger = null,
+        IOperadorThemeService? themeService = null)
     {
         _syncService = syncService;
         _authService = authService;
         _logger = logger;
+        _themeService = themeService;
     }
 
     public async Task InicializarAsync()
@@ -222,10 +363,20 @@ public partial class RecepcionDepositoViewModel : ObservableObject
             IsBusy = true;
             MensajeEstado = "Consultando envíos admitidos para recepción...";
 
+            if (_themeService != null)
+            {
+                await _themeService.SincronizarIdentidadVisualAsync();
+            }
+
             if (_syncService == null)
             {
                 MensajeEstado = "Servicio de sincronización no disponible.";
                 return;
+            }
+
+            if (_syncService.IsOnline)
+            {
+                await _syncService.SincronizarOperacionesPendientesAsync();
             }
 
             var envios = await _syncService.ObtenerEnviosAdmitidosDepositoAsync();
@@ -237,6 +388,8 @@ public partial class RecepcionDepositoViewModel : ObservableObject
             }
 
             AplicarFiltro();
+            OnPropertyChanged(nameof(TotalEnviosAdmitidosCount));
+            OnPropertyChanged(nameof(TotalBultosAdmitidosCount));
 
             MensajeEstado = EnviosAdmitidos.Count == 0
                 ? "No hay envíos admitidos pendientes de recepción en depósito."
@@ -354,10 +507,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(CodigoEscaneoInput))
         {
-            if (Shell.Current != null)
-            {
-                await Shell.Current.DisplayAlertAsync("Código Requerido", "Ingrese o escanee el código del bulto.", "Aceptar");
-            }
+            MostrarAvisoRapido("Ingrese o escanee el código del bulto.", esExito: false);
             return;
         }
 
@@ -385,13 +535,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
             }
             else
             {
-                if (Shell.Current != null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Bulto No Reconocido",
-                        $"El código '{codigo}' no corresponde a ningún envío en estado admitido actualmente.",
-                        "Aceptar");
-                }
+                MostrarAvisoRapido($"El código '{codigo}' no corresponde a ningún envío admitido.", esExito: false);
                 return;
             }
         }
@@ -407,10 +551,12 @@ public partial class RecepcionDepositoViewModel : ObservableObject
             if (PuedeConfirmarSinDiscrepancia)
             {
                 MensajeEstado = "Todos los bultos han sido verificados. Listo para confirmar recepción.";
+                MostrarAvisoRapido("Todos los bultos verificados");
             }
             else
             {
                 MensajeEstado = $"Bulto {bultoPendiente.Identificacion} verificado.";
+                MostrarAvisoRapido($"Bulto {bultoPendiente.Identificacion} verificado");
             }
             return;
         }
@@ -419,13 +565,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
         var bultoYaEscaneado = BultosDeclarados.FirstOrDefault(b => b.Escaneado && NormalizarCodigo(b.Identificacion) == codigo);
         if (bultoYaEscaneado != null)
         {
-            if (Shell.Current != null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Bulto Ya Verificado",
-                    $"El bulto '{bultoYaEscaneado.Identificacion}' ya fue escaneado para este envío.",
-                    "Aceptar");
-            }
+            MostrarAvisoRapido($"Bulto '{bultoYaEscaneado.Identificacion}' ya verificado.", esExito: false);
             return;
         }
 
@@ -446,15 +586,8 @@ public partial class RecepcionDepositoViewModel : ObservableObject
         }
 
         ActualizarConteos();
-
-        if (Shell.Current != null)
-        {
-            var codEnvio = EnvioSeleccionado?.CodigoSeguimiento ?? "activo";
-            await Shell.Current.DisplayAlertAsync(
-                "Discrepancia: Bulto Sobrante",
-                $"El código '{codigo}' no pertenece a los bultos declarados para el envío {codEnvio}. Se registró como sobrante.",
-                "Aceptar");
-        }
+        var codEnvioSobrante = EnvioSeleccionado?.CodigoSeguimiento ?? "activo";
+        MostrarAvisoRapido($"Discrepancia: bulto '{codigo}' registrado como sobrante.", esExito: false);
     }
 
     [RelayCommand]
@@ -522,13 +655,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
                 AplicarFiltro();
                 LimpiarEnvioSeleccionado();
 
-                if (Shell.Current != null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Recepción Confirmada",
-                        $"El envío {codEnvio} fue recepcionado y pasó a estado 'En Depósito'.",
-                        "Aceptar");
-                }
+                MostrarAvisoRapido($"Envío {codEnvio} recepcionado en depósito.");
             }
             else
             {
@@ -553,13 +680,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(ObservacionesDiscrepancia))
         {
-            if (Shell.Current != null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Observaciones Requeridas",
-                    "Debe documentar las observaciones de la discrepancia para completar la recepción.",
-                    "Aceptar");
-            }
+            MostrarAvisoRapido("Debe documentar las observaciones de la discrepancia.", esExito: false);
             return;
         }
 
@@ -588,13 +709,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
                 AplicarFiltro();
                 LimpiarEnvioSeleccionado();
 
-                if (Shell.Current != null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Recepción Documentada",
-                        $"La recepción del envío {codEnvio} fue registrada con discrepancias documentadas y pasó a estado 'En Depósito'.",
-                        "Aceptar");
-                }
+                MostrarAvisoRapido($"Recepción de {codEnvio} registrada con discrepancias.");
             }
             else
             {
@@ -616,6 +731,8 @@ public partial class RecepcionDepositoViewModel : ObservableObject
     {
         TieneDiscrepancias = BultosFaltantesCount > 0 || BultosSobrantesCount > 0 || BultosDanadosCount > 0;
 
+        OnPropertyChanged(nameof(TotalEnviosAdmitidosCount));
+        OnPropertyChanged(nameof(TotalBultosAdmitidosCount));
         OnPropertyChanged(nameof(TotalBultosDeclarados));
         OnPropertyChanged(nameof(BultosVerificadosCount));
         OnPropertyChanged(nameof(BultosDanadosCount));

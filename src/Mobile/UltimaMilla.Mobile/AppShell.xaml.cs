@@ -1,5 +1,6 @@
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Deposito;
@@ -14,9 +15,82 @@ public partial class AppShell : Shell
     private readonly IOperadorThemeService? _themeService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly ISyncService? _syncService;
     private bool _sesionInicialVerificada;
 
-    public AppShell() : this(null, null, null, null)
+    private string _nombreOperador = "Última Milla";
+    public string NombreOperador
+    {
+        get => _nombreOperador;
+        set { if (_nombreOperador != value) { _nombreOperador = value; OnPropertyChanged(); } }
+    }
+
+    private string _inicialesOperador = "UM";
+    public string InicialesOperador
+    {
+        get => _inicialesOperador;
+        set { if (_inicialesOperador != value) { _inicialesOperador = value; OnPropertyChanged(); } }
+    }
+
+    private ImageSource? _logoSource;
+    public ImageSource? LogoSource
+    {
+        get => _logoSource;
+        set
+        {
+            _logoSource = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TieneLogoOperador));
+            OnPropertyChanged(nameof(MostrarInicialesOperador));
+        }
+    }
+
+    public bool TieneLogoOperador => LogoSource is not null;
+    public bool MostrarInicialesOperador => LogoSource is null;
+
+    private string _rolActivoTexto = "REPARTIDOR";
+    public string RolActivoTexto
+    {
+        get => _rolActivoTexto;
+        set { if (_rolActivoTexto != value) { _rolActivoTexto = value; OnPropertyChanged(); } }
+    }
+
+    private string _estadoConexionTexto = "En Linea";
+    public string EstadoConexionTexto
+    {
+        get => _estadoConexionTexto;
+        set { if (_estadoConexionTexto != value) { _estadoConexionTexto = value; OnPropertyChanged(); } }
+    }
+
+    private Color _conexionDotColor = Color.FromArgb("#16A34A");
+    public Color ConexionDotColor
+    {
+        get => _conexionDotColor;
+        set { _conexionDotColor = value; OnPropertyChanged(); }
+    }
+
+    private Color _conexionBadgeBg = Color.FromArgb("#064E3B");
+    public Color ConexionBadgeBg
+    {
+        get => _conexionBadgeBg;
+        set { _conexionBadgeBg = value; OnPropertyChanged(); }
+    }
+
+    private Color _conexionBadgeBorder = Color.FromArgb("#059669");
+    public Color ConexionBadgeBorder
+    {
+        get => _conexionBadgeBorder;
+        set { _conexionBadgeBorder = value; OnPropertyChanged(); }
+    }
+
+    private Color _conexionBadgeText = Color.FromArgb("#A7F3D0");
+    public Color ConexionBadgeText
+    {
+        get => _conexionBadgeText;
+        set { _conexionBadgeText = value; OnPropertyChanged(); }
+    }
+
+    public AppShell() : this(null, null, null, null, null)
     {
     }
 
@@ -24,18 +98,28 @@ public partial class AppShell : Shell
         IAuthService? authService,
         IOperadorThemeService? themeService = null,
         IGeolocalizacionTrackingService? trackingService = null,
-        ILocalDatabaseService? localDatabaseService = null)
+        ILocalDatabaseService? localDatabaseService = null,
+        ISyncService? syncService = null)
     {
         InitializeComponent();
+        BindingContext = this;
+
         _authService = authService;
         _themeService = themeService;
         _trackingService = trackingService;
         _localDatabaseService = localDatabaseService;
+        _syncService = syncService;
 
         if (_themeService != null)
         {
-            ActualizarTitulo(_themeService.IdentidadActual?.NombreComercial);
-            _themeService.IdentidadVisualCambiada += (s, identidad) => ActualizarTitulo(identidad.NombreComercial);
+            ActualizarDatosBranding(_themeService.IdentidadActual);
+            _themeService.IdentidadVisualCambiada += (_, identidad) => ActualizarDatosBranding(identidad);
+        }
+
+        if (_syncService != null)
+        {
+            ActualizarIndicadorConexion(_syncService.IsOnline);
+            _syncService.OnSyncStateChanged += (_, args) => ActualizarIndicadorConexion(args.IsOnline);
         }
 
         // Registro de rutas secundarias para navegación jerárquica (GoToAsync)
@@ -46,35 +130,163 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(RecepcionDepositoPage), typeof(RecepcionDepositoPage));
     }
 
-    private void ActualizarTitulo(string? nombreOperador)
+    private void ActualizarDatosBranding(OperadorIdentidadVisualModel? identidad)
     {
+        if (identidad is null)
+            return;
+
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            Title = !string.IsNullOrWhiteSpace(nombreOperador) ? nombreOperador : "Última Milla";
+            var nombre = !string.IsNullOrWhiteSpace(identidad.NombreComercial) ? identidad.NombreComercial : "Última Milla";
+            Title = nombre;
+            NombreOperador = nombre;
+            InicialesOperador = identidad.Iniciales;
+            LogoSource = identidad.LogoSource;
         });
     }
 
-    public void ActualizarPestanasPorPerfil()
+    private void ActualizarIndicadorConexion(bool enLinea)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (enLinea)
+            {
+                EstadoConexionTexto = "En Linea";
+                ConexionDotColor = Color.FromArgb("#34D399");
+                ConexionBadgeBg = Color.FromArgb("#064E3B");
+                ConexionBadgeBorder = Color.FromArgb("#059669");
+                ConexionBadgeText = Color.FromArgb("#D1FAE5");
+            }
+            else
+            {
+                EstadoConexionTexto = "Modo Offline";
+                ConexionDotColor = Color.FromArgb("#F87171");
+                ConexionBadgeBg = Color.FromArgb("#7F1D1D");
+                ConexionBadgeBorder = Color.FromArgb("#DC2626");
+                ConexionBadgeText = Color.FromArgb("#FEE2E2");
+            }
+        });
+    }
+
+    private async void OnSincronizarRapidoClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_themeService != null)
+            {
+                await _themeService.SincronizarIdentidadVisualAsync();
+            }
+
+            if (_syncService != null && _syncService.IsOnline)
+            {
+                await _syncService.SincronizarOperacionesPendientesAsync();
+                if (RolActivoTexto == "OPERARIO DE DEPOSITO")
+                {
+                    await _syncService.ObtenerEnviosAdmitidosDepositoAsync();
+                }
+                else
+                {
+                    await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AppShell] Error en sincronización rápida: {ex.Message}");
+        }
+    }
+
+    private async void OnCerrarSesionClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_trackingService is { IsTrackingActive: true })
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+
+            if (_authService != null)
+            {
+                await _authService.CerrarSesionAsync();
+            }
+            else
+            {
+                await GoToAsync("//LoginPage");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AppShell] Error al cerrar sesión desde cabecera: {ex.Message}");
+        }
+    }
+
+    public void ConfigurarNavegacionPorRol(string? rol)
+    {
+        var rolEfectivo = !string.IsNullOrWhiteSpace(rol)
+            ? rol
+            : Preferences.Default.Get("RolUsuario", _authService?.Perfil ?? string.Empty);
+
+        var esOperario = rolEfectivo.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
+                         rolEfectivo.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
+
+        var esRepartidor = !esOperario && (
+            rolEfectivo.Contains("Repartidor", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(rolEfectivo));
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                RolActivoTexto = esOperario ? "OPERARIO DE DEPOSITO" : "REPARTIDOR";
+
+                if (TabMiRuta != null)
+                    TabMiRuta.IsVisible = esRepartidor;
+                if (ShellContentMiRuta != null)
+                    ShellContentMiRuta.IsVisible = esRepartidor;
+
+                if (TabCarga != null)
+                    TabCarga.IsVisible = esRepartidor;
+                if (ShellContentCarga != null)
+                    ShellContentCarga.IsVisible = esRepartidor;
+
+                if (TabRecepcionDeposito != null)
+                    TabRecepcionDeposito.IsVisible = esOperario;
+                if (ShellContentRecepcionDeposito != null)
+                    ShellContentRecepcionDeposito.IsVisible = esOperario;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AppShell] Error al configurar navegación por rol: {ex.Message}");
+            }
+        });
+    }
+
+    public void RestablecerPestanas()
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
             try
             {
-                var esOperario = _authService?.EsOperarioODeposito ?? false;
-                var esAdmin = _authService?.EsAdministrador ?? false;
+                RolActivoTexto = "REPARTIDOR";
+                if (TabMiRuta != null) TabMiRuta.IsVisible = true;
+                if (ShellContentMiRuta != null) ShellContentMiRuta.IsVisible = true;
 
-                // La pestaña de recepción en depósito está disponible para operarios de depósito,
-                // administradores o en modo demostración para el ciclo completo.
-                if (TabRecepcionDeposito != null)
-                {
-                    TabRecepcionDeposito.IsVisible = true;
-                }
+                if (TabCarga != null) TabCarga.IsVisible = true;
+                if (ShellContentCarga != null) ShellContentCarga.IsVisible = true;
+
+                if (TabRecepcionDeposito != null) TabRecepcionDeposito.IsVisible = false;
+                if (ShellContentRecepcionDeposito != null) ShellContentRecepcionDeposito.IsVisible = false;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[AppShell] Error al actualizar visibilidad de pestañas: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[AppShell] Error al restablecer pestañas: {ex.Message}");
             }
         });
+    }
+
+    public void ActualizarPestanasPorPerfil()
+    {
+        ConfigurarNavegacionPorRol(null);
     }
 
     public async Task VerificarSesionInicialAsync()
@@ -86,19 +298,28 @@ public partial class AppShell : Shell
 
         try
         {
-            ActualizarPestanasPorPerfil();
-
             var autenticado = await _authService.EstaAutenticadoAsync();
             if (autenticado)
             {
-                if (_trackingService != null && _authService.RepartidorId is { } repId && repId != Guid.Empty)
+                var rol = _authService.Perfil ?? Preferences.Default.Get("RolUsuario", string.Empty);
+                ConfigurarNavegacionPorRol(rol);
+
+                if (_themeService != null)
+                {
+                    _ = _themeService.SincronizarIdentidadVisualAsync();
+                }
+
+                var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
+                                 rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
+
+                if (!esOperario && _trackingService != null && _authService.RepartidorId is { } repId && repId != Guid.Empty)
                 {
                     var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
                     var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
                     _ = _trackingService.IniciarTrackingAsync(rId, repId);
                 }
 
-                if (_authService.EsOperarioODeposito && !string.Equals(_authService.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase))
+                if (esOperario)
                 {
                     await GoToAsync("//RecepcionDepositoPage");
                 }
@@ -107,9 +328,13 @@ public partial class AppShell : Shell
                     await GoToAsync("//RutaDiaPage");
                 }
             }
-            else if (CurrentState?.Location?.ToString() != "//LoginPage")
+            else
             {
-                await GoToAsync("//LoginPage");
+                RestablecerPestanas();
+                if (CurrentState?.Location?.ToString() != "//LoginPage")
+                {
+                    await GoToAsync("//LoginPage");
+                }
             }
         }
         catch (Exception ex)

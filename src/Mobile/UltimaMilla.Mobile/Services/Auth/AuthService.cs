@@ -17,7 +17,8 @@ public record ResultadoLogin(
     Guid? RepartidorId = null,
     string? Nombre = null,
     string? Email = null,
-    Guid? TenantId = null
+    Guid? TenantId = null,
+    string? Perfil = null
 );
 
 public interface IAuthService
@@ -122,7 +123,7 @@ public class AuthService : IAuthService
             // Validar perfil autorizado para operaciones en la app móvil
             var perfilIngresado = !string.IsNullOrWhiteSpace(loginResult.Perfil)
                 ? loginResult.Perfil
-                : ExtraerStringClaim(claims, "role", "perfil");
+                : ExtraerStringClaim(claims, "role", "perfil", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
 
             if (!string.IsNullOrWhiteSpace(perfilIngresado) &&
                 !string.Equals(perfilIngresado, "Repartidor", StringComparison.OrdinalIgnoreCase) &&
@@ -142,7 +143,9 @@ public class AuthService : IAuthService
             var emailResuelto = ExtraerStringClaim(claims, "email") ?? loginResult.Email;
             var tenantId = ExtraerGuidClaim(claims, "tenant_id", "operador_id") ?? loginResult.OperadorId;
             var expiraUtc = ExtraerExpiracionUtc(claims) ?? loginResult.ExpiraUtc;
-            var perfilResuelto = !string.IsNullOrWhiteSpace(perfilIngresado) ? perfilIngresado : ExtraerStringClaim(claims, "role", "perfil");
+            var perfilResuelto = !string.IsNullOrWhiteSpace(perfilIngresado)
+                ? perfilIngresado
+                : ExtraerStringClaim(claims, "role", "perfil", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
 
             // Guardar en memoria y en AuthDelegatingHandler para todas las llamadas HTTP subsiguientes
             AccessToken = token;
@@ -155,7 +158,7 @@ public class AuthService : IAuthService
             AuthDelegatingHandler.CurrentTokenInMemory = token;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            // Persistir de forma segura en SecureStorage del dispositivo
+            // Persistir de forma segura en SecureStorage del dispositivo y en Preferences para lectura síncrona
             await GuardarEnSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey, token);
             await GuardarEnSecureStorageAsync(UsuarioIdKey, usuarioId.ToString());
             await GuardarEnSecureStorageAsync(RepartidorIdKey, repartidorId.ToString());
@@ -164,6 +167,7 @@ public class AuthService : IAuthService
             if (!string.IsNullOrWhiteSpace(perfilResuelto))
             {
                 await GuardarEnSecureStorageAsync(PerfilKey, perfilResuelto);
+                Preferences.Default.Set("RolUsuario", perfilResuelto);
             }
             if (tenantId.HasValue)
             {
@@ -199,7 +203,8 @@ public class AuthService : IAuthService
                 RepartidorId: repartidorId,
                 Nombre: nombre,
                 Email: emailResuelto,
-                TenantId: tenantId);
+                TenantId: tenantId,
+                Perfil: perfilResuelto);
         }
         catch (HttpRequestException ex)
         {
@@ -270,7 +275,12 @@ public class AuthService : IAuthService
             Nombre = await LeerDeSecureStorageAsync(NombreKey) ?? ExtraerStringClaim(claims, "name");
             Email = await LeerDeSecureStorageAsync(EmailKey) ?? ExtraerStringClaim(claims, "email");
             TenantId = Guid.TryParse(tenantStorage, out var tId) ? tId : ExtraerGuidClaim(claims, "tenant_id", "operador_id");
-            Perfil = await LeerDeSecureStorageAsync(PerfilKey) ?? ExtraerStringClaim(claims, "role", "perfil");
+            Perfil = await LeerDeSecureStorageAsync(PerfilKey) ?? ExtraerStringClaim(claims, "role", "perfil", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
+
+            if (!string.IsNullOrWhiteSpace(Perfil))
+            {
+                Preferences.Default.Set("RolUsuario", Perfil);
+            }
 
             return true;
         }
@@ -308,6 +318,11 @@ public class AuthService : IAuthService
             _logger.LogWarning(ex, "No se pudo limpiar la hoja de ruta local al cerrar sesión.");
         }
 
+        if (Shell.Current is AppShell appShell)
+        {
+            appShell.RestablecerPestanas();
+        }
+
         if (Shell.Current is not null)
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -327,6 +342,7 @@ public class AuthService : IAuthService
         TenantId = null;
         Perfil = null;
         AuthDelegatingHandler.CurrentTokenInMemory = null;
+        Preferences.Default.Remove("RolUsuario");
 
         EliminarDeSecureStorage(AuthDelegatingHandler.AuthTokenKey);
         EliminarDeSecureStorage(RepartidorIdKey);

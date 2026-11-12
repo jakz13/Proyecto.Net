@@ -7,10 +7,22 @@ using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
+
+public class EventoGeocercaItemViewModel
+{
+    public string HoraTexto { get; set; } = string.Empty;
+    public string CodigoSeguimiento { get; set; } = string.Empty;
+    public string TipoEventoTexto { get; set; } = string.Empty;
+    public Color TipoEventoBadgeBg { get; set; } = Color.FromArgb("#F1F5F9");
+    public Color TipoEventoBadgeTextColor { get; set; } = Color.FromArgb("#334155");
+    public string PermanenciaTexto { get; set; } = string.Empty;
+    public bool TienePermanencia { get; set; }
+}
 
 public partial class BultoItemViewModel : ObservableObject
 {
@@ -170,6 +182,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly IAuthService? _authService;
     private readonly IRutaOptimizationService _optimizationService;
     private readonly IBiometricAuthService? _biometricAuthService;
+    private readonly IOperadorThemeService? _themeService;
+
+    [ObservableProperty]
+    private int _totalParadasCount;
+
+    [ObservableProperty]
+    private int _paradasPendientesCount;
+
+    [ObservableProperty]
+    private int _paradasCompletadasCount;
 
     [ObservableProperty]
     private string _fechaHojaRuta;
@@ -298,9 +320,169 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _resumenSecuenciaAplicadaTexto = string.Empty;
 
+    // =========================================================================
+    // MENÚ DESPLEGABLE DE HERRAMIENTAS Y MODALES CORPORATIVOS EN XAML
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarMenuHerramientas;
+
+    [ObservableProperty]
+    private bool _mostrarModalBateria;
+
+    [ObservableProperty]
+    private bool _mostrarModalGpsGeocercas;
+
+    [ObservableProperty]
+    private bool _mostrarModalOptimizacion;
+
+    // --- MODAL 4: RESUMEN DE FINALIZACIÓN Y RENDICIÓN DE RUTA ---
+    [ObservableProperty]
+    private bool _mostrarModalFinalizarRuta;
+
+    [ObservableProperty]
+    private int _kpiEntregasExitosasCount;
+
+    [ObservableProperty]
+    private int _kpiIntentosFallidosCount;
+
+    [ObservableProperty]
+    private int _kpiBultosRetornoCount;
+
+    [ObservableProperty]
+    private bool _tieneParadasPendientesAlFinalizar;
+
+    [ObservableProperty]
+    private string _mensajeAdvertenciaPendientes = string.Empty;
+
+    // --- BANNER / TOAST CORPORATIVO ---
+    [ObservableProperty]
+    private bool _mostrarToast;
+
+    [ObservableProperty]
+    private string _mensajeToast = string.Empty;
+
+    [ObservableProperty]
+    private Color _toastBgColor = Color.FromArgb("#16A34A");
+
+    public void MostrarAvisoRapido(string mensaje, bool esExito = true)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            MensajeToast = mensaje;
+            ToastBgColor = esExito
+                ? (Application.Current?.Resources.TryGetValue("SecondaryColor", out var sc) == true && sc is Color c ? c : Color.FromArgb("#16A34A"))
+                : Color.FromArgb("#DC2626");
+            MostrarToast = true;
+
+            var timer = Application.Current?.Dispatcher?.CreateTimer();
+            if (timer != null)
+            {
+                timer.Interval = TimeSpan.FromSeconds(2.5);
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    MostrarToast = false;
+                };
+                timer.Start();
+            }
+        });
+    }
+
+    // --- MODAL 1: BATERÍA Y MUESTREO ADAPTATIVO ---
+    [ObservableProperty]
+    private int _nivelBateriaPct = 100;
+
+    [ObservableProperty]
+    private double _nivelBateriaProgreso = 1.0;
+
+    [ObservableProperty]
+    private string _estadoBateriaTexto = "Descargando";
+
+    [ObservableProperty]
+    private string _modoMuestreoActualTexto = "Alta Frecuencia (> 50%)";
+
+    [ObservableProperty]
+    private string _intervaloDinamicoSegundosTexto = "15 s";
+
+    [ObservableProperty]
+    private string _ahorroEnergeticoEstimadoTexto = "~72%";
+
+    [ObservableProperty]
+    private int _lecturasGpsJornadaCount = 0;
+
+    [ObservableProperty]
+    private string _consumoEstimadoMahTexto = "~45 mAh/h";
+
+    [ObservableProperty]
+    private bool _esTramoBateriaAlto = true;
+
+    [ObservableProperty]
+    private bool _esTramoBateriaMedio = false;
+
+    [ObservableProperty]
+    private bool _esTramoBateriaBajo = false;
+
+    // --- MODAL 2: ESTADO GPS Y GEOCERCAS ---
+    [ObservableProperty]
+    private string _estadoGpsBadgeTexto = "ACTIVO - Foreground Service";
+
+    [ObservableProperty]
+    private Color _estadoGpsBadgeBgColor = Color.FromArgb("#DCFCE7");
+
+    [ObservableProperty]
+    private Color _estadoGpsBadgeTextColor = Color.FromArgb("#15803D");
+
+    [ObservableProperty]
+    private string _ultimaCoordenadaModalTexto = "Sin coordenadas registradas";
+
+    [ObservableProperty]
+    private string _precisionGpsModalTexto = "High (Alta precisión)";
+
+    [ObservableProperty]
+    private string _horaUltimoEnvioTexto = "Sin transmisiones";
+
+    [ObservableProperty]
+    private string _radioEntradaTexto = "< 100 m";
+
+    [ObservableProperty]
+    private string _radioSalidaTexto = "> 150 m";
+
+    public ObservableCollection<EventoGeocercaItemViewModel> EventosGeocercaJornada { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SinEventosGeocerca))]
+    private bool _tieneEventosGeocerca;
+
+    public bool SinEventosGeocerca => !TieneEventosGeocerca;
+
+    // --- MODAL 3: OPTIMIZACIÓN 2-OPT ---
+    [ObservableProperty]
+    private string _optimizacionRutaOriginalTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _optimizacionRutaOptimizadaTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _optimizacionKmReducidosTexto = "0.0 km";
+
+    [ObservableProperty]
+    private string _optimizacionMinutosReducidosTexto = "0 min";
+
+    [ObservableProperty]
+    private string _optimizacionPorcentajeTexto = "-0%";
+
+    [ObservableProperty]
+    private bool _puedeAplicarOptimizacion = true;
+
+    [ObservableProperty]
+    private string _mensajeAvisoOptimizacion = string.Empty;
+
+    private ResultadoOptimizacionRuta? _resultadoOptimizacionPendiente;
+    private PosicionActualizadaEventArgs? _ultimaPosicionActualizada;
+
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null, null, null)
     {
     }
 
@@ -311,7 +493,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         IGeofenceService? geofenceService = null,
         IAuthService? authService = null,
         IRutaOptimizationService? optimizationService = null,
-        IBiometricAuthService? biometricAuthService = null)
+        IBiometricAuthService? biometricAuthService = null,
+        IOperadorThemeService? themeService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -320,6 +503,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         _authService = authService;
         _optimizationService = optimizationService ?? new RutaOptimizationService();
         _biometricAuthService = biometricAuthService;
+        _themeService = themeService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -365,6 +549,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     private void OnPosicionActualizadaHandler(object? sender, PosicionActualizadaEventArgs e)
     {
+        _ultimaPosicionActualizada = e;
         MainThread.BeginInvokeOnMainThread(() =>
         {
             UltimaUbicacionTexto = $"{e.Latitud:F4}, {e.Longitud:F4} ({e.Timestamp.ToLocalTime():HH:mm:ss})";
@@ -518,6 +703,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         {
             IsRefreshing = true;
             IsBusy = true;
+
+            if (_themeService != null)
+            {
+                await _themeService.SincronizarIdentidadVisualAsync();
+            }
 
             if (_syncService != null && _syncService.IsOnline)
             {
@@ -726,6 +916,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     {
         if (Paradas.Count == 0)
         {
+            TotalParadasCount = 0;
+            ParadasPendientesCount = 0;
+            ParadasCompletadasCount = 0;
             ProgresoRuta = 0;
             ResumenProgresoTexto = "0 de 0 paradas completadas";
             ProgresoPorcentajeTexto = "0%";
@@ -736,6 +929,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         int completadas = Paradas.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion");
         int total = Paradas.Count;
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
+        TotalParadasCount = total;
+        ParadasPendientesCount = pendientes;
+        ParadasCompletadasCount = completadas;
         ProgresoRuta = (double)completadas / total;
         ResumenProgresoTexto = $"{completadas} de {total} paradas completadas";
         ProgresoPorcentajeTexto = $"{Math.Round(ProgresoRuta * 100)}%";
@@ -749,85 +945,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task MostrarColaOfflineAsync()
+    private void MostrarColaOffline()
     {
-        if (Shell.Current is null)
-            return;
-
-        int pendientes = _syncService != null
-            ? await _syncService.ObtenerCantidadPendientesAsync()
-            : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
-
-        ColaOfflineCount = pendientes;
-
-        string opcionToggle = (_syncService?.IsOfflineSimulado ?? false)
-            ? "Volver a conectarse"
-            : "Trabajar sin conexión";
-
-        const string opcionRendirRuta = "Informar llegada al depósito (rendición)";
-        const string opcionSync = "Sincronizar ahora";
-        const string opcionCerrarSesion = "Cerrar sesión";
-
-        var seleccion = await Shell.Current.DisplayActionSheetAsync(
-            $"Conectividad y cola ({pendientes} pendientes)",
-            "Cerrar",
-            null,
-            opcionToggle,
-            opcionRendirRuta,
-            opcionSync,
-            opcionCerrarSesion);
-
-        if (seleccion == opcionRendirRuta)
-        {
-            await RendirHojaDeRutaAsync();
-        }
-        else if (seleccion == opcionToggle && _syncService is not null)
-        {
-            await _syncService.AlternarModoOfflineSimuladoAsync();
-
-            if (_syncService.IsOnline)
-            {
-                var syncRes = await _syncService.SincronizarOperacionesPendientesAsync();
-                int pendientesRestantes = await _syncService.ObtenerCantidadPendientesAsync();
-                ActualizarEstadoVisualConectividad(true, pendientesRestantes);
-                await RefrescarParadasDesdeSQLiteAsync();
-
-                string mensaje = $"Conexión restablecida.\n{syncRes.Mensaje}";
-                await Shell.Current.DisplayAlertAsync("Sincronización al volver a línea", mensaje, "Aceptar");
-            }
-            else
-            {
-                int p = await _syncService.ObtenerCantidadPendientesAsync();
-                ActualizarEstadoVisualConectividad(false, p);
-                await Shell.Current.DisplayAlertAsync(
-                    "Modo de Conexión",
-                    "Trabajando sin conexión. Las operaciones se guardan en el dispositivo (base cifrada) y se envían cuando se vuelva a conectar.",
-                    "Aceptar");
-            }
-
-            await RefrescarParadasDesdeSQLiteAsync();
-        }
-        else if (seleccion == opcionSync && _syncService is not null)
-        {
-            if (!_syncService.IsOnline)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "No es posible sincronizar",
-                    "El dispositivo no tiene conexión. Vuelva a conectarse para enviar la cola al servidor.",
-                    "Entendido");
-                return;
-            }
-
-            var resultado = await _syncService.SincronizarOperacionesPendientesAsync();
-            int pendientesRestantes = await _syncService.ObtenerCantidadPendientesAsync();
-            ActualizarEstadoVisualConectividad(true, pendientesRestantes);
-            await Shell.Current.DisplayAlertAsync("Sincronización de Cola", resultado.Mensaje, "Aceptar");
-            await RefrescarParadasDesdeSQLiteAsync();
-        }
-        else if (seleccion == opcionCerrarSesion)
-        {
-            await CerrarSesionAsync();
-        }
+        AlternarMenuHerramientas();
     }
 
     [RelayCommand]
@@ -849,7 +969,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task FinalizarHojaDeRutaAsync()
+    public void SolicitarFinalizarHojaDeRuta()
     {
         if (IsBusy || Paradas.Count == 0)
             return;
@@ -867,32 +987,34 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             .Distinct()
             .ToList();
 
-        string mensajeResumen = $"Resumen de Hoja de Ruta:\n\n" +
-            $"- Total de paradas: {total}\n" +
-            $"- Entregadas con éxito: {entregadas}\n" +
-            $"- Fallidas / En Devolución: {fallidas + devolucion}\n" +
-            $"- Bultos a retornar a depósito: {bultosRetorno.Count}\n\n";
+        KpiEntregasExitosasCount = entregadas;
+        KpiIntentosFallidosCount = fallidas + devolucion;
+        KpiBultosRetornoCount = bultosRetorno.Count;
 
         if (pendientes > 0)
         {
-            mensajeResumen += $"Atención: Aún restan {pendientes} parada(s) en estado Pendiente.\n¿Desea cerrar la ruta y retornar a depósito?";
+            TieneParadasPendientesAlFinalizar = true;
+            MensajeAdvertenciaPendientes = $"Atención: Aún restan {pendientes} parada(s) en estado Pendiente. Al cerrar la ruta retornarán a depósito como no entregadas.";
         }
         else
         {
-            mensajeResumen += "¿Confirma el cierre y rendición de la hoja de ruta en depósito?";
+            TieneParadasPendientesAlFinalizar = false;
+            MensajeAdvertenciaPendientes = string.Empty;
         }
 
-        if (Shell.Current is not null)
-        {
-            bool confirmar = await Shell.Current.DisplayAlertAsync(
-                "Finalizar Hoja de Ruta",
-                mensajeResumen,
-                "Confirmar Cierre",
-                "Cancelar");
+        MostrarModalFinalizarRuta = true;
+    }
 
-            if (!confirmar)
-                return;
-        }
+    [RelayCommand]
+    public void CerrarModalFinalizarRuta()
+    {
+        MostrarModalFinalizarRuta = false;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmarCierreConBiometriaAsync()
+    {
+        MostrarModalFinalizarRuta = false;
 
         if (_biometricAuthService != null)
         {
@@ -902,13 +1024,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
             if (!autorizado)
             {
-                if (Shell.Current is not null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Operación Cancelada",
-                        "No se completó la verificación biométrica. La rendición de la hoja de ruta fue cancelada.",
-                        "Entendido");
-                }
+                MostrarAvisoRapido("Verificación biométrica cancelada.", esExito: false);
                 return;
             }
         }
@@ -916,6 +1032,13 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         try
         {
             IsBusy = true;
+
+            var bultosRetorno = Paradas
+                .Where(p => p.Estado is "Fallido" or "EnDevolucion")
+                .SelectMany(p => p.Bultos)
+                .Select(b => b.Codigo)
+                .Distinct()
+                .ToList();
 
             var rutaId = HojaDeRutaSeleccionada?.Id ?? Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty;
 
@@ -934,14 +1057,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             }
 
             EstadoHojaDeRuta = "Finalizada";
-
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Hoja de Ruta Finalizada",
-                    "La hoja de ruta ha sido cerrada y rendida con éxito.",
-                    "Aceptar");
-            }
+            MostrarAvisoRapido("Hoja de ruta finalizada y rendida en depósito");
 
             // Consultar inmediatamente nuevas rutas asignadas en el servidor
             if (_syncService != null && _syncService.IsOnline)
@@ -954,6 +1070,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al finalizar ruta: {ex.Message}");
+            MostrarAvisoRapido("Error al finalizar hoja de ruta", esExito: false);
         }
         finally
         {
@@ -962,9 +1079,17 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task FinalizarHojaDeRutaAsync()
+    {
+        SolicitarFinalizarHojaDeRuta();
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
     private async Task RendirHojaDeRutaAsync()
     {
-        await FinalizarHojaDeRutaAsync();
+        SolicitarFinalizarHojaDeRuta();
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -975,13 +1100,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         if (RecorridoNoIniciado || parada.EnPrecarga)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Pendiente de Carga en Depósito",
-                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
-                    "Entendido");
-            }
+            MostrarAvisoRapido("Ruta en precarga: diríjase a Carga para escanear los bultos.", esExito: false);
             return;
         }
 
@@ -999,13 +1118,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         if (RecorridoNoIniciado || parada.EnPrecarga)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Pendiente de Carga en Depósito",
-                    "Los bultos de esta ruta aún no fueron escaneados ni despachados. Diríjase a la pestaña Carga para escanear los bultos y pasar los envíos a En Tránsito.",
-                    "Entendido");
-            }
+            MostrarAvisoRapido("Ruta en precarga: diríjase a Carga para escanear los bultos.", esExito: false);
             return;
         }
 
@@ -1042,70 +1155,193 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task AlternarTrackingGpsAsync()
     {
-        await GestionarGeocercasYBateriaAsync();
+        if (_trackingService is null)
+            return;
+
+        if (_trackingService.IsTrackingActive)
+        {
+            await _trackingService.DetenerTrackingAsync();
+            ActualizarEstadoVisualTracking(false);
+        }
+        else
+        {
+            var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+            var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
+            var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
+
+            if (repartidorId != Guid.Empty)
+            {
+                await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
+                ActualizarEstadoVisualTracking(true);
+            }
+        }
     }
 
     [RelayCommand]
-    private async Task GestionarGeocercasYBateriaAsync()
+    private void AlternarMenuHerramientas()
     {
-        if (Shell.Current is null || _trackingService is null)
+        MostrarMenuHerramientas = !MostrarMenuHerramientas;
+        if (MostrarMenuHerramientas)
+        {
+            MostrarModalBateria = false;
+            MostrarModalGpsGeocercas = false;
+            MostrarModalOptimizacion = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CerrarModales()
+    {
+        MostrarMenuHerramientas = false;
+        MostrarModalBateria = false;
+        MostrarModalGpsGeocercas = false;
+        MostrarModalOptimizacion = false;
+    }
+
+    [RelayCommand]
+    private void AbrirModalBateria()
+    {
+        MostrarMenuHerramientas = false;
+        CargarTelemetriaBateria();
+        MostrarModalBateria = true;
+    }
+
+    private void CargarTelemetriaBateria()
+    {
+        if (_trackingService is null)
             return;
 
-        const string opcionAnalisis = "Ver Análisis de Batería e Historial de Geocercas";
-        string opcionToggleGps = _trackingService.IsTrackingActive
-            ? "Pausar Rastreo GPS Automático"
-            : "Activar Rastreo GPS Automático";
+        var telemetria = _trackingService.ObtenerTelemetriaBateriaActual();
+        NivelBateriaPct = telemetria.PorcentajeBateria;
+        NivelBateriaProgreso = Math.Clamp(telemetria.PorcentajeBateria / 100.0, 0.0, 1.0);
+        EstadoBateriaTexto = telemetria.EstadoBateria;
+        ModoMuestreoActualTexto = telemetria.PerfilAdaptativoActual;
+        IntervaloDinamicoSegundosTexto = $"{telemetria.IntervaloSegundosActual} s";
+        AhorroEnergeticoEstimadoTexto = $"~{telemetria.AhorroEstimadoPorcentaje:F0}%";
+        LecturasGpsJornadaCount = telemetria.LecturasGpsRealizadas;
+        ConsumoEstimadoMahTexto = $"~{telemetria.ConsumoEstimadoMahHora:F0} mAh/h";
 
-        var seleccion = await Shell.Current.DisplayActionSheetAsync(
-            "Geocercas y consumo de batería",
-            "Cerrar",
-            null,
-            opcionAnalisis,
-            opcionToggleGps);
+        EsTramoBateriaAlto = telemetria.PorcentajeBateria > 50;
+        EsTramoBateriaMedio = telemetria.PorcentajeBateria >= 20 && telemetria.PorcentajeBateria <= 50;
+        EsTramoBateriaBajo = telemetria.PorcentajeBateria < 20;
+    }
 
-        if (seleccion == opcionAnalisis)
+    [RelayCommand]
+    private async Task AbrirModalGpsGeocercasAsync()
+    {
+        MostrarMenuHerramientas = false;
+        await CargarTelemetriaGpsGeocercasAsync();
+        MostrarModalGpsGeocercas = true;
+    }
+
+    private async Task CargarTelemetriaGpsGeocercasAsync()
+    {
+        if (_trackingService is null)
+            return;
+
+        bool activo = _trackingService.IsTrackingActive;
+        EstadoGpsBadgeTexto = activo
+            ? (_trackingService.ForegroundServiceActivo ? "ACTIVO - Foreground Service" : "ACTIVO")
+            : "PAUSADO";
+
+        EstadoGpsBadgeBgColor = activo ? Color.FromArgb("#DCFCE7") : Color.FromArgb("#FEE2E2");
+        EstadoGpsBadgeTextColor = activo ? Color.FromArgb("#15803D") : Color.FromArgb("#B91C1C");
+
+        if (_ultimaPosicionActualizada is not null)
         {
-            var informe = await _trackingService.ObtenerInformeBateriaEHistorialGeocercasAsync();
-            await Shell.Current.DisplayAlertAsync(
-                "Análisis de Batería e Historial de Geocercas",
-                informe,
-                "Cerrar");
+            UltimaCoordenadaModalTexto = $"{_ultimaPosicionActualizada.Latitud:F5}, {_ultimaPosicionActualizada.Longitud:F5}";
+            PrecisionGpsModalTexto = _ultimaPosicionActualizada.PrecisionMetros.HasValue
+                ? $"{_ultimaPosicionActualizada.PrecisionMetros.Value:F1} m"
+                : "Normal";
+            HoraUltimoEnvioTexto = _ultimaPosicionActualizada.Timestamp.ToLocalTime().ToString("HH:mm:ss");
         }
-        else if (seleccion == opcionToggleGps)
+        else if (_trackingService.UltimaUbicacionConocida is not null)
         {
-            if (_trackingService.IsTrackingActive)
-            {
-                await _trackingService.DetenerTrackingAsync();
-                await Shell.Current.DisplayAlertAsync(
-                    "Tracking GPS",
-                    "Rastreo de ubicación en tiempo real pausado.",
-                    "Aceptar");
-            }
-            else
-            {
-                var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-                var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
-                var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
+            var loc = _trackingService.UltimaUbicacionConocida;
+            UltimaCoordenadaModalTexto = $"{loc.Latitude:F5}, {loc.Longitude:F5}";
+            PrecisionGpsModalTexto = loc.Accuracy.HasValue ? $"{loc.Accuracy.Value:F1} m" : "Normal";
+            HoraUltimoEnvioTexto = DateTime.Now.ToString("HH:mm:ss");
+        }
+        else
+        {
+            UltimaCoordenadaModalTexto = UltimaCoordenadaTexto;
+            PrecisionGpsModalTexto = "Normal";
+            HoraUltimoEnvioTexto = DateTime.Now.ToString("HH:mm:ss");
+        }
 
-                if (repartidorId == Guid.Empty)
+        RadioEntradaTexto = "< 100 m";
+        RadioSalidaTexto = "> 150 m";
+
+        EventosGeocercaJornada.Clear();
+        if (_localDatabaseService is not null)
+        {
+            var eventos = await _localDatabaseService.ObtenerEventosGeocercaAsync(12);
+            foreach (var ev in eventos)
+            {
+                var esLlegada = string.Equals(ev.TipoEvento, "LLEGADA_GEOCERCA", StringComparison.OrdinalIgnoreCase);
+                EventosGeocercaJornada.Add(new EventoGeocercaItemViewModel
                 {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Rastreo GPS",
-                        "No se identificó la sesión del repartidor: inicie sesión para activar el rastreo.",
-                        "Entendido");
-                    return;
-                }
-
-                await _trackingService.IniciarTrackingAsync(rutaId, repartidorId);
-                string modoSegundoPlano = _trackingService.ForegroundServiceActivo
-                    ? "\nModo segundo plano: Activo con soporte de pantalla apagada (Servicio en primer plano Android)."
-                    : string.Empty;
-                await Shell.Current.DisplayAlertAsync(
-                    "Tracking GPS en Vivo",
-                    $"Rastreo adaptativo iniciado.\nPerfil actual: {_trackingService.PerfilAdaptativoActual}\nIntervalo: {_trackingService.IntervaloTracking.TotalSeconds}s.{modoSegundoPlano}",
-                    "Entendido");
+                    HoraTexto = ev.TimestampUtc.ToLocalTime().ToString("HH:mm:ss"),
+                    CodigoSeguimiento = string.IsNullOrWhiteSpace(ev.CodigoSeguimiento) ? "Pto. Control" : ev.CodigoSeguimiento,
+                    TipoEventoTexto = esLlegada ? "LLEGADA" : "SALIDA",
+                    TipoEventoBadgeBg = esLlegada ? Color.FromArgb("#DCFCE7") : Color.FromArgb("#FEF3C7"),
+                    TipoEventoBadgeTextColor = esLlegada ? Color.FromArgb("#15803D") : Color.FromArgb("#92400E"),
+                    TienePermanencia = ev.TiempoPermanenciaSegundos.HasValue && ev.TiempoPermanenciaSegundos > 0,
+                    PermanenciaTexto = ev.TiempoPermanenciaSegundos.HasValue && ev.TiempoPermanenciaSegundos > 0
+                        ? $"{ev.TiempoPermanenciaSegundos.Value}s"
+                        : string.Empty
+                });
             }
         }
+
+        TieneEventosGeocerca = EventosGeocercaJornada.Count > 0;
+        OnPropertyChanged(nameof(SinEventosGeocerca));
+    }
+
+    [RelayCommand]
+    private async Task ForzarLecturaGpsDesdeModalAsync()
+    {
+        await ForzarEnvioGpsAhoraAsync();
+        await CargarTelemetriaGpsGeocercasAsync();
+    }
+
+    [RelayCommand]
+    private async Task AlternarModoOfflineDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        if (_syncService is null) return;
+
+        await _syncService.AlternarModoOfflineSimuladoAsync();
+        int pendientes = await _syncService.ObtenerCantidadPendientesAsync();
+        ActualizarEstadoVisualConectividad(_syncService.IsOnline, pendientes);
+        await RefrescarParadasDesdeSQLiteAsync();
+    }
+
+    [RelayCommand]
+    private async Task RendirHojaDeRutaDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        await RendirHojaDeRutaAsync();
+    }
+
+    [RelayCommand]
+    private async Task SincronizarTodoDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        await ActualizarRutasServidorAsync();
+    }
+
+    [RelayCommand]
+    private async Task EjecutarOptimizacionDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        await OptimizarRutaAsync();
+    }
+
+    [RelayCommand]
+    private void GestionarGeocercasYBateria()
+    {
+        AbrirModalBateria();
     }
 
     [RelayCommand]
@@ -1118,19 +1354,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
         var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
 
-        UltimoEstadoServidorTexto = "Servidor: Transmitiendo...";
+        UltimoEstadoServidorTexto = "Transmitiendo...";
 
         var (exito, detalle) = await _trackingService.ForzarEnvioGpsInmediatoAsync(rutaId, repartidorId);
         UltimaCoordenadaTexto = _trackingService.UltimaCoordenadaTexto;
         UltimoEstadoServidorTexto = _trackingService.UltimoEstadoServidorTexto;
-
-        if (Shell.Current != null)
-        {
-            await Shell.Current.DisplayAlertAsync(
-                "Telemetria GPS",
-                detalle,
-                "Entendido");
-        }
     }
 
     [RelayCommand]
@@ -1144,13 +1372,14 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         if (cantidadPendientes < 2)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Optimización de Ruta",
-                    "Se requieren al menos 2 paradas en estado Pendiente para ejecutar la optimización de recorrido. Las paradas ya completadas (Entregado o Fallido) permanecen fijas en su posición histórica.",
-                    "Aceptar");
-            }
+            OptimizacionRutaOriginalTexto = "Menos de 2 paradas pendientes";
+            OptimizacionRutaOptimizadaTexto = "Sin cambios";
+            OptimizacionKmReducidosTexto = "0.0 km";
+            OptimizacionMinutosReducidosTexto = "0 min";
+            OptimizacionPorcentajeTexto = "-0%";
+            PuedeAplicarOptimizacion = false;
+            MensajeAvisoOptimizacion = "Se requieren al menos 2 paradas en estado Pendiente para ejecutar la optimizacion del recorrido.";
+            MostrarModalOptimizacion = true;
             return;
         }
 
@@ -1191,36 +1420,59 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 latActual,
                 lonActual);
 
-            bool confirmar = true;
-            if (Shell.Current is not null)
-            {
-                string pregunta = resultado.ModificaOrdenActual
-                    ? "¿Desea aplicar la nueva secuencia optimizada a su hoja de ruta local?"
-                    : "La secuencia actual ya coincide con el recorrido óptimo 2-Opt. ¿Desea reafirmar y mostrar el resumen comparativo?";
+            _resultadoOptimizacionPendiente = resultado;
+            OptimizacionRutaOriginalTexto = $"{resultado.DistanciaBaseKm:F1} km (~{resultado.TiempoEstimadoBaseMinutos} min)";
+            OptimizacionRutaOptimizadaTexto = $"{resultado.DistanciaOptimizadaKm:F1} km (~{resultado.TiempoEstimadoOptimizadoMinutos} min)";
+            OptimizacionKmReducidosTexto = $"-{resultado.AhorroKm:F1} km";
+            OptimizacionMinutosReducidosTexto = $"-{resultado.AhorroMinutos} min";
+            OptimizacionPorcentajeTexto = $"-{resultado.PorcentajeAhorro:F1}%";
+            PuedeAplicarOptimizacion = resultado.ModificaOrdenActual;
+            MensajeAvisoOptimizacion = resultado.ModificaOrdenActual
+                ? "Se ha detectado una ruta mas eficiente mediante el algoritmo 2-Opt."
+                : "La secuencia actual ya es la optima segun el algoritmo 2-Opt.";
 
-                confirmar = await Shell.Current.DisplayAlertAsync(
-                    "Optimización de Orden de Paradas",
-                    $"{resultado.ResumenFormateado}\n\n{pregunta}",
-                    "Aplicar Optimización",
-                    "Cancelar");
-            }
-
-            if (confirmar)
-            {
-                await AplicarSecuenciaParadasAsync(resultado.SecuenciaOptimizada);
-
-                ResumenCriterioEstandarTexto = $"{resultado.DistanciaBaseKm:F1} km (~{resultado.TiempoEstimadoBaseMinutos} min)";
-                ResumenRutaOptimizadaTexto = $"{resultado.DistanciaOptimizadaKm:F1} km (~{resultado.TiempoEstimadoOptimizadoMinutos} min)";
-                ResumenAhorroRecorridoTexto = $"-{resultado.PorcentajeAhorro:F1}% (-{resultado.AhorroKm:F1} km)";
-                ResumenTiempoReducidoTexto = $"-{resultado.AhorroMinutos} minutos";
-                ResumenSecuenciaAplicadaTexto = string.Join(" -> ", resultado.SecuenciaOptimizada.Select(p => p.CodigoSeguimiento));
-                MostrarResumenOptimizacion = true;
-            }
+            MostrarModalOptimizacion = true;
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task AplicarOptimizacionDesdeModalAsync()
+    {
+        if (_resultadoOptimizacionPendiente is null)
+        {
+            MostrarModalOptimizacion = false;
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await AplicarSecuenciaParadasAsync(_resultadoOptimizacionPendiente.SecuenciaOptimizada);
+
+            ResumenCriterioEstandarTexto = $"{_resultadoOptimizacionPendiente.DistanciaBaseKm:F1} km (~{_resultadoOptimizacionPendiente.TiempoEstimadoBaseMinutos} min)";
+            ResumenRutaOptimizadaTexto = $"{_resultadoOptimizacionPendiente.DistanciaOptimizadaKm:F1} km (~{_resultadoOptimizacionPendiente.TiempoEstimadoOptimizadoMinutos} min)";
+            ResumenAhorroRecorridoTexto = $"-{_resultadoOptimizacionPendiente.PorcentajeAhorro:F1}% (-{_resultadoOptimizacionPendiente.AhorroKm:F1} km)";
+            ResumenTiempoReducidoTexto = $"-{_resultadoOptimizacionPendiente.AhorroMinutos} minutos";
+            ResumenSecuenciaAplicadaTexto = string.Join(" -> ", _resultadoOptimizacionPendiente.SecuenciaOptimizada.Select(p => p.CodigoSeguimiento));
+            MostrarResumenOptimizacion = true;
+        }
+        finally
+        {
+            IsBusy = false;
+            MostrarModalOptimizacion = false;
+            _resultadoOptimizacionPendiente = null;
+        }
+    }
+
+    [RelayCommand]
+    private void DescartarOptimizacionModal()
+    {
+        MostrarModalOptimizacion = false;
+        _resultadoOptimizacionPendiente = null;
     }
 
     [RelayCommand]
@@ -1235,14 +1487,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             var secuenciaEstandar = _optimizationService.ConstruirSecuenciaEstandarDespacho(Paradas.ToList());
             await AplicarSecuenciaParadasAsync(secuenciaEstandar);
             MostrarResumenOptimizacion = false;
-
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Orden de Ruta Restaurado",
-                    "Se ha restaurado el orden inicial bajo el Criterio Estándar de Despacho y actualizado en SQLite local.",
-                    "Aceptar");
-            }
+            MostrarAvisoRapido("Orden inicial de ruta restaurado");
         }
         finally
         {

@@ -42,9 +42,14 @@ public partial class LoginViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(MostrarIniciales))]
     private string? _logoOperadorUrl;
 
-    public bool TieneLogoUrl => !string.IsNullOrWhiteSpace(LogoOperadorUrl);
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneLogoUrl))]
+    [NotifyPropertyChangedFor(nameof(MostrarIniciales))]
+    private ImageSource? _logoSource;
 
-    public bool MostrarIniciales => string.IsNullOrWhiteSpace(LogoOperadorUrl);
+    public bool TieneLogoUrl => LogoSource is not null;
+
+    public bool MostrarIniciales => LogoSource is null;
 
     [ObservableProperty]
     private string _inicialesOperador = "UM";
@@ -96,9 +101,13 @@ public partial class LoginViewModel : ObservableObject
     private void ActualizarIdentidadVisual(OperadorIdentidadVisualModel? identidad)
     {
         if (identidad == null) return;
-        NombreOperador = !string.IsNullOrWhiteSpace(identidad.NombreComercial) ? identidad.NombreComercial : "Última Milla";
-        LogoOperadorUrl = identidad.LogoUrl;
-        InicialesOperador = identidad.Iniciales;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            NombreOperador = !string.IsNullOrWhiteSpace(identidad.NombreComercial) ? identidad.NombreComercial : "Última Milla";
+            LogoOperadorUrl = identidad.LogoUrl;
+            LogoSource = identidad.LogoSource;
+            InicialesOperador = identidad.Iniciales;
+        });
     }
 
     public async Task InicializarAsync()
@@ -197,21 +206,26 @@ public partial class LoginViewModel : ObservableObject
 
             StatusMessage = "Sesión iniciada correctamente.";
 
-            if (_trackingService != null && _authService?.RepartidorId is { } repId && repId != Guid.Empty)
+            var rol = resultado.Perfil ?? _authService?.Perfil ?? Preferences.Default.Get("RolUsuario", string.Empty);
+
+            if (Shell.Current is AppShell appShell)
+            {
+                appShell.ConfigurarNavegacionPorRol(rol);
+            }
+
+            var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
+                             rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
+
+            if (!esOperario && _trackingService != null && _authService?.RepartidorId is { } repId && repId != Guid.Empty)
             {
                 var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
                 var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
                 _ = _trackingService.IniciarTrackingAsync(rId, repId);
             }
 
-            if (Shell.Current is AppShell appShell)
-            {
-                appShell.ActualizarPestanasPorPerfil();
-            }
-
             if (Shell.Current is not null)
             {
-                if (_authService?.EsOperarioODeposito == true && !string.Equals(_authService.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase))
+                if (esOperario)
                 {
                     await Shell.Current.GoToAsync("//RecepcionDepositoPage");
                 }
@@ -278,14 +292,26 @@ public partial class LoginViewModel : ObservableObject
                     await _syncService.DescargarRutaDelDiaAsync();
                 }
 
+                var rol = _authService.Perfil ?? Preferences.Default.Get("RolUsuario", string.Empty);
+
                 if (Shell.Current is AppShell appShellBio)
                 {
-                    appShellBio.ActualizarPestanasPorPerfil();
+                    appShellBio.ConfigurarNavegacionPorRol(rol);
+                }
+
+                var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
+                                 rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
+
+                if (!esOperario && _trackingService != null && _authService.RepartidorId is { } repId && repId != Guid.Empty)
+                {
+                    var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+                    var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
+                    _ = _trackingService.IniciarTrackingAsync(rId, repId);
                 }
 
                 if (Shell.Current is not null)
                 {
-                    if (_authService.EsOperarioODeposito && !string.Equals(_authService.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase))
+                    if (esOperario)
                     {
                         await Shell.Current.GoToAsync("//RecepcionDepositoPage");
                     }
