@@ -14,14 +14,14 @@
     .\scripts\demo-correlacion.ps1 -Correlacion "defensa-001"
 #>
 param(
-    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '152.70.219.103' }),
-    [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\oracle_ultimamilla" }),
+    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.65.113' }),
+    [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$Correlacion = "demo-$(Get-Date -Format 'HHmmss')"
 )
 
 $ErrorActionPreference = 'Stop'
-$destino = "ubuntu@$Vm"
+$destino = "azureuser@$Vm"
 $ssh = @('-i', $Clave, '-o', 'ConnectTimeout=20', '-o', 'StrictHostKeyChecking=accept-new')
 
 function Paso($t) { Write-Host "`n==> $t" -ForegroundColor Cyan }

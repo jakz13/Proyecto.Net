@@ -1,5 +1,5 @@
 @echo off
-REM Despliega el proyecto en la VM de Oracle Cloud. Ejemplos:
+REM Despliega el proyecto en la VM de Azure. Ejemplos:
 REM   scripts\desplegar.bat              (api, worker, backoffice y portal)
 REM   scripts\desplegar.bat api          (solo la API)
 REM   scripts\desplegar.bat api portal

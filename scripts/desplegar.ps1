@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Despliega el proyecto en la VM de Oracle Cloud (shippingbox.duckdns.org).
+    Despliega el proyecto en la VM de Azure (shippingbox.duckdns.org).
 
 .DESCRIPTION
     1. Construye las imágenes Docker en esta PC (la VM de 1 GB no puede compilar .NET).
@@ -22,8 +22,8 @@ param(
     [ValidateSet('api', 'worker', 'backoffice', 'portal', 'panel')]
     [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'panel'),
 
-    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '152.70.219.103' }),
-    [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\oracle_ultimamilla" }),
+    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.65.113' }),
+    [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
     [string]$DominioPanel = 'panel.shippingbox.duckdns.org'
@@ -37,7 +37,7 @@ function Paso($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Verificar($descripcion) { if ($LASTEXITCODE -ne 0) { throw "Falló: $descripcion (código $LASTEXITCODE)" } }
 
 if (-not (Test-Path $Clave)) { throw "No se encuentra la clave SSH en '$Clave'. Indicá otra con -Clave o la variable DESPLIEGUE_CLAVE_SSH." }
-$destino = "ubuntu@$Vm"
+$destino = "azureuser@$Vm"
 $opcionesSsh = @('-i', $Clave, '-o', 'ConnectTimeout=20', '-o', 'StrictHostKeyChecking=accept-new')
 
 # ---------------------------------------------------------------- Docker
