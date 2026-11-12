@@ -69,13 +69,20 @@ public class IndexModel : PageModel
             MensajeError = $"No se pudo sincronizar la identidad en línea ({ex.Message}). Mostrando valores de respaldo.";
         }
 
+        // Si el logo actual es una imagen embebida en base64 o archivo subido, no se vuelca en la caja de URL externa
+        var urlExterna = !string.IsNullOrWhiteSpace(IdentidadActual.LogoUrl)
+            && !IdentidadActual.LogoUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+            && !IdentidadActual.LogoUrl.StartsWith("/uploads/logos/", StringComparison.OrdinalIgnoreCase)
+                ? IdentidadActual.LogoUrl
+                : null;
+
         // Inicializar el formulario con los valores actuales
         Modelo = new ActualizarIdentidadVisualDto
         {
             NombreComercial = IdentidadActual.NombreComercial,
             ColorPrimario = IdentidadActual.ColorPrimario,
             ColorSecundario = IdentidadActual.ColorSecundario,
-            LogoUrl = IdentidadActual.LogoUrl,
+            LogoUrl = urlExterna,
             EmailContacto = IdentidadActual.EmailContacto ?? "contacto@operador.uy",
             TelefonoContacto = IdentidadActual.TelefonoContacto ?? "+598 2900 0000",
             SitioWeb = IdentidadActual.SitioWeb ?? "https://translogistica.uy",
@@ -131,35 +138,25 @@ public class IndexModel : PageModel
                 var nombreArchivo = $"logo_empresa_{Guid.NewGuid():N}{extension}";
                 var rutaDestino = Path.Combine(carpetaUploads, nombreArchivo);
 
-                using (var stream = new FileStream(rutaDestino, FileMode.Create))
+                byte[] bytesImagen;
+                await using (var memoria = new MemoryStream())
                 {
-                    await ArchivoLogo.CopyToAsync(stream);
+                    await ArchivoLogo.CopyToAsync(memoria);
+                    bytesImagen = memoria.ToArray();
                 }
 
-                // En entorno local de desarrollo, replica el logo en los otros portales para que se visualice sin errores 404
-                try
-                {
-                    var rutasOtrosPortales = new[]
-                    {
-                        Path.Combine(_entorno.ContentRootPath, "..", "PortalComercio", "wwwroot", "uploads", "logos"),
-                        Path.Combine(_entorno.ContentRootPath, "..", "SeguimientoPublico", "wwwroot", "uploads", "logos")
-                    };
+                await System.IO.File.WriteAllBytesAsync(rutaDestino, bytesImagen);
 
-                    foreach (var carpetaDestino in rutasOtrosPortales)
-                    {
-                        if (Directory.Exists(Path.GetDirectoryName(carpetaDestino)))
-                        {
-                            Directory.CreateDirectory(carpetaDestino);
-                            System.IO.File.Copy(rutaDestino, Path.Combine(carpetaDestino, nombreArchivo), overwrite: true);
-                        }
-                    }
-                }
-                catch
+                var tipoMime = extension switch
                 {
-                    // La réplica local es oportunista; no debe bloquear si los otros portales están ausentes
-                }
+                    ".png" => "image/png",
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".webp" => "image/webp",
+                    _ => "image/png"
+                };
 
-                Modelo.LogoUrl = $"/uploads/logos/{nombreArchivo}";
+                // Se persiste como Data URI en PostgreSQL para que no se caiga al reiniciar contenedores y sea visible en todos los dominios
+                Modelo.LogoUrl = $"data:{tipoMime};base64,{Convert.ToBase64String(bytesImagen)}";
             }
             catch (Exception)
             {
@@ -210,6 +207,7 @@ public class IndexModel : PageModel
                 ColorPrimario = "#1D4ED8",
                 ColorSecundario = "#F97316",
                 LogoUrl = null,
+                EliminarLogo = true,
                 EmailContacto = "contacto@translogistica.uy",
                 TelefonoContacto = "+598 2900 1122",
                 SitioWeb = "https://translogistica.uy",
@@ -230,6 +228,35 @@ public class IndexModel : PageModel
             await CargarIdentidadAsync();
             return Page();
         }
+    }
+
+    public async Task<IActionResult> OnPostProbarCorreoAsync(string emailPrueba, string estadoPrueba = "EnTransito")
+    {
+        if (string.IsNullOrWhiteSpace(emailPrueba) || !emailPrueba.Contains('@'))
+        {
+            MensajeError = "Ingresa un correo electrónico válido para enviar la prueba.";
+            await OnGetAsync();
+            return Page();
+        }
+
+        try
+        {
+            var (exitoso, mensaje) = await _identidadApi.ProbarCorreoIdentidadAsync(emailPrueba.Trim(), estadoPrueba);
+            if (exitoso)
+            {
+                MensajeExito = mensaje;
+            }
+            else
+            {
+                MensajeError = mensaje;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = $"Error al enviar correo de prueba: {ex.Message}";
+        }
+
+        return RedirectToPage();
     }
 
     private async Task CargarIdentidadAsync()

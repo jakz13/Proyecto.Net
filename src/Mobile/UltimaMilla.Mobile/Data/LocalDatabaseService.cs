@@ -47,6 +47,11 @@ public interface ILocalDatabaseService
     Task<List<EventoGeocercaLocal>> ObtenerEventosGeocercaAsync(int limite = 50);
     Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
     Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync();
+
+    // Envíos admitidos para recepción física en depósito (UC-14 offline-first)
+    Task GuardarEnviosAdmitidosDepositoAsync(IEnumerable<EnvioAdmitidoDepositoLocal> envios);
+    Task<List<EnvioAdmitidoDepositoLocal>> ObtenerEnviosAdmitidosDepositoAsync();
+    Task MarcarEnvioAdmitidoRecepcionadoLocalAsync(Guid envioId);
 }
 
 public record EstadoCifradoDiagnosticoDto(
@@ -209,6 +214,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         await database.CreateTableAsync<MotivoNoEntregaLocal>();
         await database.CreateTableAsync<OperacionOfflineLocal>();
         await database.CreateTableAsync<EventoGeocercaLocal>();
+        await database.CreateTableAsync<EnvioAdmitidoDepositoLocal>();
     }
 
     /// <summary>
@@ -517,11 +523,28 @@ public class LocalDatabaseService : ILocalDatabaseService
                     }
                 }
 
-                // Bultos: los que manda el servidor; los que ya no vienen (y no se entregaron) se eliminan
-                var codigos = p.ResumenBultos?.CodigosBultos ?? new List<string>();
+                // Bultos: los que manda el servidor; soporta múltiples bultos con igual código en un mismo envío
+                var codigos = (p.ResumenBultos?.CodigosBultos ?? new List<string>())
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => c.Trim())
+                    .ToList();
+
+                if (codigos.Count == 0 && (p.ResumenBultos?.CantidadBultos ?? 0) > 0)
+                {
+                    var baseCod = !string.IsNullOrWhiteSpace(paradaLocal.CodigoSeguimiento)
+                        ? paradaLocal.CodigoSeguimiento.Trim()
+                        : $"PAR-{p.Orden:D2}";
+                    for (int idx = 1; idx <= p.ResumenBultos!.CantidadBultos; idx++)
+                    {
+                        codigos.Add($"{baseCod}-B{idx:00}");
+                    }
+                }
+
                 var existentes = conn.Table<BultoLocal>().Where(b => b.ParadaId == paradaId).ToList();
-                foreach (var sobrante in existentes.Where(b => !codigos.Contains(b.Codigo) && !b.VerificadoEnEntrega))
-                    conn.Delete(sobrante);
+                var disponibles = existentes
+                    .OrderByDescending(b => b.VerificadoEnCarga)
+                    .ThenByDescending(b => b.VerificadoEnEntrega)
+                    .ToList();
 
                 var pesoPorBulto = codigos.Count > 0 && p.ResumenBultos is { PesoTotalKg: > 0 }
                     ? p.ResumenBultos.PesoTotalKg / codigos.Count
@@ -529,7 +552,9 @@ public class LocalDatabaseService : ILocalDatabaseService
 
                 foreach (var codBulto in codigos)
                 {
-                    var bultoExistente = existentes.FirstOrDefault(b => b.Codigo == codBulto);
+                    var bultoExistente = disponibles.FirstOrDefault(b =>
+                        string.Equals(b.Codigo?.Trim(), codBulto, StringComparison.OrdinalIgnoreCase));
+
                     if (bultoExistente == null)
                     {
                         conn.Insert(new BultoLocal
@@ -548,13 +573,23 @@ public class LocalDatabaseService : ILocalDatabaseService
                     }
                     else
                     {
+                        disponibles.Remove(bultoExistente);
                         bultoExistente.EnvioId = envioId;
+                        bultoExistente.ParadaId = paradaId;
+                        bultoExistente.Codigo = codBulto;
+                        bultoExistente.Identificacion = codBulto;
+                        if (pesoPorBulto > 0)
+                            bultoExistente.Peso = pesoPorBulto;
+
                         // Lo escaneado en el dispositivo se conserva; solo se sube la marca si el servidor ya despachó la ruta
                         if (bultoYaCargado)
                             bultoExistente.VerificadoEnCarga = true;
                         conn.Update(bultoExistente);
                     }
                 }
+
+                foreach (var sobrante in disponibles.Where(b => !b.VerificadoEnEntrega && !b.VerificadoEnCarga))
+                    conn.Delete(sobrante);
             }
 
             // 4. Catálogo de motivos de no entrega: el del operador, tal como lo manda el servidor
@@ -808,10 +843,14 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task MarcarBultoVerificadoCargaAsync(Guid bultoId, bool verificado)
     {
         await InitAsync();
+        if (bultoId == Guid.Empty)
+            return;
+
         var bulto = await Db.FindAsync<BultoLocal>(bultoId);
         if (bulto != null)
         {
             bulto.VerificadoEnCarga = verificado;
+            bulto.Cargado = verificado;
             await Db.UpdateAsync(bulto);
         }
     }
@@ -849,9 +888,10 @@ public class LocalDatabaseService : ILocalDatabaseService
     {
         await InitAsync();
 
-        var setCodigos = new HashSet<string>(
-            (codigosCargados ?? Array.Empty<string>()).Select(c => c.Trim()),
-            StringComparer.OrdinalIgnoreCase);
+        var codigosRestantes = (codigosCargados ?? Array.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .ToList();
 
         var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
         if (ruta == null)
@@ -860,11 +900,29 @@ public class LocalDatabaseService : ILocalDatabaseService
         var paradas = await Db.Table<ParadaLocal>().Where(p => p.HojaDeRutaId == ruta.Id).ToListAsync();
         foreach (var parada in paradas)
         {
-            var bultosParada = await Db.Table<BultoLocal>().Where(b => b.ParadaId == parada.Id).ToListAsync();
+            var bultosParada = await Db.Table<BultoLocal>()
+                .Where(b => b.ParadaId == parada.Id)
+                .OrderByDescending(b => b.VerificadoEnCarga)
+                .ToListAsync();
+
             foreach (var b in bultosParada)
             {
-                b.VerificadoEnCarga = setCodigos.Contains(b.Codigo.Trim());
-                await Db.UpdateAsync(b);
+                var idx = codigosRestantes.FindIndex(c =>
+                    string.Equals(c, b.Codigo?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                if (idx >= 0)
+                {
+                    codigosRestantes.RemoveAt(idx);
+                    b.VerificadoEnCarga = true;
+                    b.Cargado = true;
+                    await Db.UpdateAsync(b);
+                }
+                else
+                {
+                    b.VerificadoEnCarga = false;
+                    b.Cargado = false;
+                    await Db.UpdateAsync(b);
+                }
             }
         }
 
@@ -982,6 +1040,51 @@ public class LocalDatabaseService : ILocalDatabaseService
         {
             item.Sincronizado = true;
             await Db.UpdateAsync(item);
+        }
+    }
+
+    public async Task GuardarEnviosAdmitidosDepositoAsync(IEnumerable<EnvioAdmitidoDepositoLocal> envios)
+    {
+        await InitAsync();
+        foreach (var envio in envios)
+        {
+            var existente = await Db.FindAsync<EnvioAdmitidoDepositoLocal>(envio.EnvioId);
+            if (existente == null)
+            {
+                await Db.InsertAsync(envio);
+            }
+            else
+            {
+                existente.CodigoSeguimiento = envio.CodigoSeguimiento;
+                existente.NombreDestinatario = envio.NombreDestinatario;
+                existente.DireccionDestino = envio.DireccionDestino;
+                existente.TelefonoDestinatario = envio.TelefonoDestinatario;
+                existente.ModalidadServicio = envio.ModalidadServicio;
+                existente.PesoTotal = envio.PesoTotal;
+                existente.CantidadBultos = envio.CantidadBultos;
+                existente.BultosJson = envio.BultosJson;
+                await Db.UpdateAsync(existente);
+            }
+        }
+    }
+
+    public async Task<List<EnvioAdmitidoDepositoLocal>> ObtenerEnviosAdmitidosDepositoAsync()
+    {
+        await InitAsync();
+        return await Db.Table<EnvioAdmitidoDepositoLocal>()
+            .Where(e => !e.RecepcionadoLocal)
+            .OrderByDescending(e => e.FechaAlta)
+            .ToListAsync();
+    }
+
+    public async Task MarcarEnvioAdmitidoRecepcionadoLocalAsync(Guid envioId)
+    {
+        await InitAsync();
+        var envio = await Db.FindAsync<EnvioAdmitidoDepositoLocal>(envioId);
+        if (envio != null)
+        {
+            envio.RecepcionadoLocal = true;
+            await Db.UpdateAsync(envio);
         }
     }
 }

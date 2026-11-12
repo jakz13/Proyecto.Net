@@ -38,4 +38,13 @@ public interface IIdentidadVisualApi
     /// Actualiza la identidad visual (marca, colores, contacto) del operador actual (UC-06, RF-05).
     /// </summary>
     Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default);
+
+    /// <summary>
+    /// Envía un correo electrónico de prueba al destinatario con la identidad visual del operador actual (RF-27, UC-35).
+    /// </summary>
+    Task<(bool Exitoso, string Mensaje)> ProbarCorreoIdentidadAsync(
+        string emailDestino,
+        string estadoEnvio = "EnTransito",
+        CancellationToken cancelacion = default)
+        => Task.FromResult((true, $"Correo de prueba simulado hacia {emailDestino}."));
 }

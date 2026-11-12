@@ -26,4 +26,15 @@ public interface IUsuarioRepository
     Task<IReadOnlyList<Perfil>> ListarPerfilesAsync(CancellationToken cancellationToken = default);
     Task<Dictionary<Guid, string>> ObtenerNombresPerfilesAsync(IEnumerable<Guid> perfilIds, CancellationToken cancellationToken = default);
     Task<Dictionary<Guid, string>> ObtenerNombresComerciosAsync(IEnumerable<Guid> comercioIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sincroniza el padrón operativo de repartidores cuando un usuario tiene o deja de tener el rol Repartidor (UC-01 / UC-07).
+    /// </summary>
+    Task SincronizarRepartidorDeUsuarioAsync(
+        Usuario usuario,
+        string nombrePerfil,
+        string? documento = null,
+        string? telefono = null,
+        Guid? vehiculoAsignadoId = null,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

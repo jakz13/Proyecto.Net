@@ -49,6 +49,14 @@ public class CambiarEstadoUsuarioCommandHandler : IRequestHandler<CambiarEstadoU
         }
 
         await _usuarioRepositorio.ActualizarAsync(usuario, cancellationToken);
+        var perfil = await _usuarioRepositorio.ObtenerPerfilPorIdAsync(usuario.PerfilId, cancellationToken);
+        if (perfil is not null)
+        {
+            await _usuarioRepositorio.SincronizarRepartidorDeUsuarioAsync(
+                usuario,
+                perfil.Nombre,
+                cancellationToken: cancellationToken);
+        }
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
     }
 }

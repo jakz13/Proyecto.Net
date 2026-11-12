@@ -1,6 +1,8 @@
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Realtime;
@@ -18,6 +20,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private readonly IRealtimeTrackingService _realtimeTrackingService;
     private readonly IGeofenceService _geofenceService;
     private readonly ILocalDatabaseService _localDatabaseService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<GeolocalizacionTrackingService> _logger;
 
     private CancellationTokenSource? _trackingCts;
@@ -31,6 +34,15 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private double _consumoEstimadoMahHora = 19.0;
     private double? _distanciaProximaParadaMetros;
     private string? _codigoProximaParada;
+
+    private string _ultimaCoordenadaTexto = "Sin señal GPS";
+    private string _ultimoEstadoServidorTexto = "Servidor: Pendiente";
+
+    public Guid HojaDeRutaIdActiva { get; set; }
+    public Guid RepartidorIdActivo { get; set; }
+
+    public string UltimaCoordenadaTexto => _ultimaCoordenadaTexto;
+    public string UltimoEstadoServidorTexto => _ultimoEstadoServidorTexto;
 
     public bool IsTrackingActive => _isTrackingActive;
 
@@ -51,11 +63,13 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         IRealtimeTrackingService realtimeTrackingService,
         IGeofenceService geofenceService,
         ILocalDatabaseService localDatabaseService,
+        IHttpClientFactory httpClientFactory,
         ILogger<GeolocalizacionTrackingService> logger)
     {
         _realtimeTrackingService = realtimeTrackingService;
         _geofenceService = geofenceService;
         _localDatabaseService = localDatabaseService;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -119,17 +133,35 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
             if (status == PermissionStatus.Granted)
             {
-                var request = new GeolocationRequest(_precisionActual, TimeSpan.FromSeconds(8));
-                var location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
+                Location? location = null;
+                try
+                {
+                    // Intento primario con precisión equilibrada (Medium) y timeout de 8s para no fallar bajo techo (interiores)
+                    var request = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8));
+                    location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
+                }
+                catch (Exception exGps)
+                {
+                    _logger.LogDebug(exGps, "Consulta a GPS primario devolvió excepción; recurriendo a última ubicación conocida.");
+                }
 
+                // Fallback inmediato a la última ubicación conocida del sistema operativo Android si la lectura activa dio null
                 if (location is null)
                 {
-                    location = await Geolocation.Default.GetLastKnownLocationAsync();
+                    try
+                    {
+                        location = await Geolocation.Default.GetLastKnownLocationAsync();
+                    }
+                    catch (Exception exLast)
+                    {
+                        _logger.LogDebug(exLast, "Consulta a última ubicación conocida devolvió excepción.");
+                    }
                 }
 
                 if (location is not null)
                 {
                     _ultimaUbicacion = location;
+                    _ultimaCoordenadaTexto = $"GPS: Lat {location.Latitude:F4}, Lon {location.Longitude:F4} ({DateTime.Now:HH:mm:ss})";
                     return location;
                 }
             }
@@ -140,15 +172,24 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         }
         catch (FeatureNotSupportedException ex)
         {
-            _logger.LogWarning(ex, "GPS no soportado en este dispositivo/emulador. Usando coordenada de respaldo.");
+            _logger.LogWarning(ex, "GPS no soportado en este dispositivo/emulador.");
         }
         catch (PermissionException ex)
         {
-            _logger.LogWarning(ex, "Permiso de ubicación denegado. Usando coordenada de respaldo.");
+            _logger.LogWarning(ex, "Permiso de ubicación denegado.");
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Fallo temporal al consultar GPS nativo.");
+        }
+
+        if (_ultimaUbicacion is not null)
+        {
+            _ultimaCoordenadaTexto = $"GPS: Lat {_ultimaUbicacion.Latitude:F4}, Lon {_ultimaUbicacion.Longitude:F4} ({_ultimaUbicacion.Timestamp.ToLocalTime():HH:mm:ss})";
+        }
+        else
+        {
+            _ultimaCoordenadaTexto = "Sin señal GPS";
         }
 
         // Sin GPS no hay posición: se devuelve la última lectura real, si la hubo, y nunca una coordenada inventada
@@ -157,6 +198,11 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
     public async Task IniciarTrackingAsync(Guid hojaDeRutaId, Guid repartidorId, CancellationToken cancellationToken = default)
     {
+        if (hojaDeRutaId != Guid.Empty)
+            HojaDeRutaIdActiva = hojaDeRutaId;
+        if (repartidorId != Guid.Empty)
+            RepartidorIdActivo = repartidorId;
+
         if (_isTrackingActive)
             return;
 
@@ -187,8 +233,9 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         _trackingLoopTask = Task.Run(async () =>
         {
             _logger.LogInformation(
-                "Iniciando rastreo GPS adaptativo para Ruta {RutaId} (Intervalo inicial: {Segundos}s).",
-                hojaDeRutaId,
+                "Iniciando rastreo GPS adaptativo para Repartidor {RepartidorId} (Ruta {RutaId}, Intervalo inicial: {Segundos}s).",
+                RepartidorIdActivo,
+                HojaDeRutaIdActiva,
                 IntervaloTracking.TotalSeconds);
 
             while (!ct.IsCancellationRequested)
@@ -199,8 +246,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     if (ubicacion is not null)
                     {
                         await ProcesarUbicacionYAdaptarMuestreoAsync(
-                            hojaDeRutaId,
-                            repartidorId,
+                            HojaDeRutaIdActiva,
+                            RepartidorIdActivo,
                             ubicacion.Latitude,
                             ubicacion.Longitude,
                             ubicacion.Accuracy,
@@ -229,6 +276,40 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         }, ct);
     }
 
+    public async Task<(bool Exito, string Detalle)> ForzarEnvioGpsInmediatoAsync(
+        Guid hojaDeRutaId,
+        Guid repartidorId,
+        CancellationToken cancellationToken = default)
+    {
+        if (hojaDeRutaId != Guid.Empty)
+            HojaDeRutaIdActiva = hojaDeRutaId;
+        if (repartidorId != Guid.Empty)
+            RepartidorIdActivo = repartidorId;
+
+        _ultimoEstadoServidorTexto = "Servidor: Transmitiendo...";
+
+        var ubicacion = await ObtenerUbicacionActualAsync(cancellationToken);
+        if (ubicacion is null)
+        {
+            _ultimaCoordenadaTexto = "Sin señal GPS";
+            _ultimoEstadoServidorTexto = "Servidor: Sin señal GPS";
+            return (false, "No se pudo obtener la posición GPS del dispositivo.");
+        }
+
+        _ultimaCoordenadaTexto = $"GPS: Lat {ubicacion.Latitude:F4}, Lon {ubicacion.Longitude:F4} ({DateTime.Now:HH:mm:ss})";
+
+        await ProcesarUbicacionYAdaptarMuestreoAsync(
+            HojaDeRutaIdActiva,
+            RepartidorIdActivo,
+            ubicacion.Latitude,
+            ubicacion.Longitude,
+            ubicacion.Accuracy,
+            DateTime.UtcNow,
+            cancellationToken);
+
+        return (true, $"{_ultimaCoordenadaTexto} | {_ultimoEstadoServidorTexto}");
+    }
+
     private async Task<EvaluacionGeocercasResult> ProcesarUbicacionYAdaptarMuestreoAsync(
         Guid hojaDeRutaId,
         Guid repartidorId,
@@ -239,6 +320,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         CancellationToken ct)
     {
         Interlocked.Increment(ref _lecturasGpsRealizadas);
+        _ultimaCoordenadaTexto = $"GPS: Lat {latitud:F4}, Lon {longitud:F4} ({timestampUtc.ToLocalTime():HH:mm:ss})";
 
         // 1. Evaluar Geocercas con Histéresis (< 100m entrada, > 150m salida)
         var evaluacion = await _geofenceService.EvaluarPosicionAsync(latitud, longitud, timestampUtc, ct);
@@ -248,8 +330,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         // 2. Ajustar dinámicamente el Muestreo Adaptativo según distancia y batería (Battery.Default)
         ActualizarPerfilMuestreoAdaptativo(_distanciaProximaParadaMetros);
 
-        // 3. Intentar difundir por SignalR si está conectado
-        bool enviada = false;
+        // 3. Canal dual de transmisión: SignalR (streaming) + HTTP REST inmediato (POST /api/mobile/v1/posiciones)
+        bool transmitidaSignalR = false;
         try
         {
             await _realtimeTrackingService.EnviarUbicacionAsync(
@@ -258,20 +340,73 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 latitud,
                 longitud,
                 ct);
-            enviada = _realtimeTrackingService.IsConnected;
+            transmitidaSignalR = _realtimeTrackingService.IsConnected;
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "SignalR no disponible al transmitir posición GPS.");
         }
 
-        // Si la transmisión en vivo por SignalR no estuvo disponible (por pantalla apagada o corte de red),
+        var (bateriaPct, _, _) = LeerEstadoBateriaDispositivo();
+
+        bool transmitidaHttp = false;
+        string detalleServidor = "";
+        try
+        {
+            var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+            var reqHttp = new
+            {
+                Posiciones = new[]
+                {
+                    new
+                    {
+                        Latitud = latitud,
+                        Longitud = longitud,
+                        TomadaEn = (DateTime?)timestampUtc,
+                        BateriaPct = bateriaPct,
+                        HojaDeRutaId = hojaDeRutaId != Guid.Empty ? (Guid?)hojaDeRutaId : null
+                    }
+                }
+            };
+
+            using var ctsHttp = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            ctsHttp.CancelAfter(TimeSpan.FromSeconds(6));
+            var respHttp = await client.PostAsJsonAsync("/api/mobile/v1/posiciones", reqHttp, ctsHttp.Token);
+
+            if (respHttp.IsSuccessStatusCode)
+            {
+                transmitidaHttp = true;
+                string canalTexto = transmitidaSignalR ? "HTTP 200 / SignalR" : "HTTP 200";
+                detalleServidor = $"Servidor: Enviado OK ({canalTexto})";
+            }
+            else
+            {
+                detalleServidor = $"Servidor: Error {(int)respHttp.StatusCode}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            detalleServidor = transmitidaSignalR ? "Servidor: Enviado OK (SignalR)" : "Servidor: Timeout de red";
+        }
+        catch (HttpRequestException)
+        {
+            detalleServidor = transmitidaSignalR ? "Servidor: Enviado OK (SignalR)" : "Servidor: Sin conexión";
+        }
+        catch (Exception exHttp)
+        {
+            detalleServidor = transmitidaSignalR ? "Servidor: Enviado OK (SignalR)" : $"Servidor: Fallo de red ({exHttp.GetType().Name})";
+        }
+
+        _ultimoEstadoServidorTexto = detalleServidor;
+
+        // Si la transmisión en vivo por SignalR y el HTTP directo no estuvieron disponibles,
         // persistir y encolar la telemetría en SQLite local cifrado para sincronización posterior hacia el backend.
-        if (!enviada)
+        if (!transmitidaSignalR && !transmitidaHttp)
         {
             try
             {
-                var (bateriaPct, _, _) = LeerEstadoBateriaDispositivo();
                 var payloadOffline = new TelemetriaGpsOfflinePayload
                 {
                     HojaDeRutaId = hojaDeRutaId,
@@ -281,7 +416,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     PrecisionMetros = precisionMetros,
                     TimestampUtc = timestampUtc,
                     BateriaPct = bateriaPct,
-                    IdempotencyKey = $"GPS-{hojaDeRutaId:N}-{timestampUtc.Ticks}"
+                    IdempotencyKey = $"GPS-{(hojaDeRutaId != Guid.Empty ? hojaDeRutaId : repartidorId):N}-{timestampUtc.Ticks}"
                 };
 
                 await _localDatabaseService.EncolarOperacionAsync(
@@ -289,7 +424,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     JsonSerializer.Serialize(payloadOffline));
 
                 _logger.LogDebug(
-                    "Posición GPS encolada en SQLite local cifrado por falta de conexión SignalR activa ({Lat}, {Lon}).",
+                    "Posición GPS encolada en SQLite local cifrado por falta de conexión activa ({Lat}, {Lon}).",
                     latitud,
                     longitud);
             }
@@ -305,7 +440,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             Longitud = longitud,
             PrecisionMetros = precisionMetros,
             Timestamp = timestampUtc,
-            TransmitidaSignalR = enviada,
+            TransmitidaSignalR = transmitidaSignalR || transmitidaHttp,
             PerfilMuestreoActivo = _perfilAdaptativoActual,
             IntervaloSegundos = (int)IntervaloTracking.TotalSeconds,
             DistanciaProximaParadaMetros = _distanciaProximaParadaMetros

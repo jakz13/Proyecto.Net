@@ -1,9 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Configuration;
+using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
+using UltimaMilla.Mobile.Services.Tracking;
 
 namespace UltimaMilla.Mobile.ViewModels.Auth;
 
@@ -12,6 +15,9 @@ public partial class LoginViewModel : ObservableObject
     private readonly IAuthService? _authService;
     private readonly ISyncService? _syncService;
     private readonly IBiometricAuthService? _biometricAuthService;
+    private readonly IOperadorThemeService? _themeService;
+    private readonly IGeolocalizacionTrackingService? _trackingService;
+    private readonly ILocalDatabaseService? _localDatabaseService;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -27,6 +33,21 @@ public partial class LoginViewModel : ObservableObject
 
     [ObservableProperty]
     private string _password = string.Empty;
+
+    [ObservableProperty]
+    private string _nombreOperador = "Última Milla";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneLogoUrl))]
+    [NotifyPropertyChangedFor(nameof(MostrarIniciales))]
+    private string? _logoOperadorUrl;
+
+    public bool TieneLogoUrl => !string.IsNullOrWhiteSpace(LogoOperadorUrl);
+
+    public bool MostrarIniciales => string.IsNullOrWhiteSpace(LogoOperadorUrl);
+
+    [ObservableProperty]
+    private string _inicialesOperador = "UM";
 
     [ObservableProperty]
     private string _servidorActivo = ApiEndpoints.BaseUrl;
@@ -46,22 +67,48 @@ public partial class LoginViewModel : ObservableObject
 
     public bool HasStatus => !string.IsNullOrWhiteSpace(StatusMessage);
 
-    public LoginViewModel() : this(null, null, null)
+    public LoginViewModel() : this(null, null, null, null, null, null)
     {
     }
 
     public LoginViewModel(
         IAuthService? authService,
         ISyncService? syncService = null,
-        IBiometricAuthService? biometricAuthService = null)
+        IBiometricAuthService? biometricAuthService = null,
+        IOperadorThemeService? themeService = null,
+        IGeolocalizacionTrackingService? trackingService = null,
+        ILocalDatabaseService? localDatabaseService = null)
     {
         _authService = authService;
         _syncService = syncService;
         _biometricAuthService = biometricAuthService;
+        _themeService = themeService;
+        _trackingService = trackingService;
+        _localDatabaseService = localDatabaseService;
+
+        if (_themeService != null)
+        {
+            ActualizarIdentidadVisual(_themeService.IdentidadActual);
+            _themeService.IdentidadVisualCambiada += (s, identidad) => ActualizarIdentidadVisual(identidad);
+        }
+    }
+
+    private void ActualizarIdentidadVisual(OperadorIdentidadVisualModel? identidad)
+    {
+        if (identidad == null) return;
+        NombreOperador = !string.IsNullOrWhiteSpace(identidad.NombreComercial) ? identidad.NombreComercial : "Última Milla";
+        LogoOperadorUrl = identidad.LogoUrl;
+        InicialesOperador = identidad.Iniciales;
     }
 
     public async Task InicializarAsync()
     {
+        _themeService?.CargarDesdePreferencias();
+        if (_themeService != null)
+        {
+            ActualizarIdentidadVisual(_themeService.IdentidadActual);
+        }
+
         if (_biometricAuthService is not null)
         {
             var soporta = await _biometricAuthService.DispositivoSoportaBiometriaAsync();
@@ -150,9 +197,28 @@ public partial class LoginViewModel : ObservableObject
 
             StatusMessage = "Sesión iniciada correctamente.";
 
+            if (_trackingService != null && _authService?.RepartidorId is { } repId && repId != Guid.Empty)
+            {
+                var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+                var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
+                _ = _trackingService.IniciarTrackingAsync(rId, repId);
+            }
+
+            if (Shell.Current is AppShell appShell)
+            {
+                appShell.ActualizarPestanasPorPerfil();
+            }
+
             if (Shell.Current is not null)
             {
-                await Shell.Current.GoToAsync("//RutaDiaPage");
+                if (_authService?.EsOperarioODeposito == true && !string.Equals(_authService.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Shell.Current.GoToAsync("//RecepcionDepositoPage");
+                }
+                else
+                {
+                    await Shell.Current.GoToAsync("//RutaDiaPage");
+                }
             }
         }
         catch (Exception ex)
@@ -212,9 +278,21 @@ public partial class LoginViewModel : ObservableObject
                     await _syncService.DescargarRutaDelDiaAsync();
                 }
 
+                if (Shell.Current is AppShell appShellBio)
+                {
+                    appShellBio.ActualizarPestanasPorPerfil();
+                }
+
                 if (Shell.Current is not null)
                 {
-                    await Shell.Current.GoToAsync("//RutaDiaPage");
+                    if (_authService.EsOperarioODeposito && !string.Equals(_authService.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Shell.Current.GoToAsync("//RecepcionDepositoPage");
+                    }
+                    else
+                    {
+                        await Shell.Current.GoToAsync("//RutaDiaPage");
+                    }
                 }
                 return;
             }

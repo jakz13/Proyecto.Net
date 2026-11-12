@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Frontend.Contracts.Interfaces;
+using UltimaMilla.Frontend.Contracts.Modelos.Flota;
 using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 namespace UltimaMilla.Backoffice.Pages.Usuarios;
@@ -10,10 +11,12 @@ namespace UltimaMilla.Backoffice.Pages.Usuarios;
 public class EditarModel : PageModel
 {
     private readonly IUsuariosApi _usuariosApi;
+    private readonly IFlotaApi _flotaApi;
 
-    public EditarModel(IUsuariosApi usuariosApi)
+    public EditarModel(IUsuariosApi usuariosApi, IFlotaApi flotaApi)
     {
         _usuariosApi = usuariosApi;
+        _flotaApi = flotaApi;
     }
 
     [BindProperty]
@@ -24,6 +27,7 @@ public class EditarModel : PageModel
 
     public string? NombreComercio { get; set; }
     public IReadOnlyList<PerfilDto> Perfiles { get; set; } = Array.Empty<PerfilDto>();
+    public IReadOnlyList<VehiculoDto> Vehiculos { get; set; } = Array.Empty<VehiculoDto>();
 
     public string? ErrorMessage { get; set; }
 
@@ -40,26 +44,41 @@ public class EditarModel : PageModel
         var primerNombre = partesNombre.Length > 0 ? partesNombre[0] : string.Empty;
         var apellido = partesNombre.Length > 1 ? partesNombre[1] : string.Empty;
 
+        await CargarCatalogosAsync();
+        RepartidorDto? repartidorAsociado = null;
+        try
+        {
+            var repartidores = await _flotaApi.ListarRepartidoresAsync();
+            repartidorAsociado = repartidores.FirstOrDefault(r => r.UsuarioId == id);
+        }
+        catch
+        {
+            // Ignorar si falla la consulta auxiliar de flota
+        }
+
         Usuario = new ActualizarUsuarioDto
         {
             Nombre = primerNombre,
             Apellido = apellido,
             Email = entidad.Email,
             PerfilId = entidad.PerfilId,
-            Activo = entidad.Activo
+            Activo = entidad.Activo,
+            Documento = repartidorAsociado?.Documento,
+            Telefono = repartidorAsociado?.Telefono,
+            VehiculoAsignadoId = repartidorAsociado?.VehiculoAsignadoId
         };
 
         NombreComercio = entidad.NombreComercio;
-        Perfiles = await _usuariosApi.ListarPerfilesAsync();
 
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
+        await CargarCatalogosAsync();
+
         if (!ModelState.IsValid)
         {
-            Perfiles = await _usuariosApi.ListarPerfilesAsync();
             return Page();
         }
 
@@ -72,8 +91,20 @@ public class EditarModel : PageModel
         catch (Exception ex)
         {
             ErrorMessage = $"Error al actualizar el usuario: {ex.Message}";
-            Perfiles = await _usuariosApi.ListarPerfilesAsync();
             return Page();
+        }
+    }
+
+    private async Task CargarCatalogosAsync()
+    {
+        Perfiles = await _usuariosApi.ListarPerfilesAsync();
+        try
+        {
+            Vehiculos = await _flotaApi.ListarVehiculosAsync(soloActivos: true);
+        }
+        catch
+        {
+            Vehiculos = Array.Empty<VehiculoDto>();
         }
     }
 }

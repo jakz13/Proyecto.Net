@@ -18,6 +18,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IVehiculoRepository? _vehiculoRepository;
 
     public RegistrarPosicionesCommandHandler(
         IRepartidorRepository repartidorRepository,
@@ -26,7 +27,8 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IVehiculoRepository? vehiculoRepository = null)
     {
         _repartidorRepository = repartidorRepository;
         _rutaRepository = rutaRepository;
@@ -35,6 +37,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         _currentTenant = currentTenant;
         _clock = clock;
         _tableroNotifier = tableroNotifier;
+        _vehiculoRepository = vehiculoRepository;
     }
 
     public async Task<RegistrarPosicionesResultDto> Handle(RegistrarPosicionesCommand request, CancellationToken cancellationToken)
@@ -65,9 +68,17 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
             if (ruta.OperadorId != _currentTenant.OperadorId || ruta.RepartidorId != repartidor.Id)
                 throw new UnauthorizedAccessException("Acceso denegado: la hoja de ruta no corresponde al repartidor.");
 
-            var vehiculoDeLaRuta = ruta.VehiculoId ?? repartidor.VehiculoAsignadoId
-                ?? throw new DomainValidationException($"La hoja de ruta '{rutaId}' no tiene vehículo asignado.");
-            vehiculosPorRuta[rutaId] = vehiculoDeLaRuta;
+            var vehiculoDeLaRuta = ruta.VehiculoId ?? repartidor.VehiculoAsignadoId;
+            if (!vehiculoDeLaRuta.HasValue && _vehiculoRepository != null)
+            {
+                var vehiculoFallback = await _vehiculoRepository.ObtenerPrimerVehiculoActivoAsync(_currentTenant.OperadorId, cancellationToken);
+                vehiculoDeLaRuta = vehiculoFallback?.Id;
+            }
+
+            if (!vehiculoDeLaRuta.HasValue)
+                throw new DomainValidationException($"La hoja de ruta '{rutaId}' no tiene vehículo asignado.");
+
+            vehiculosPorRuta[rutaId] = vehiculoDeLaRuta.Value;
         }
 
         var ahora = _clock.UtcNow;
@@ -75,11 +86,24 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         foreach (var p in request.Posiciones)
         {
             Guid vehiculoId;
-            if (p.HojaDeRutaId.HasValue)
-                vehiculoId = vehiculosPorRuta[p.HojaDeRutaId.Value];
+            if (p.HojaDeRutaId.HasValue && vehiculosPorRuta.TryGetValue(p.HojaDeRutaId.Value, out var vRuta))
+            {
+                vehiculoId = vRuta;
+            }
             else
-                vehiculoId = repartidor.VehiculoAsignadoId
-                    ?? throw new DomainValidationException("El repartidor no tiene un vehículo asignado: indique la hoja de ruta de la posición.");
+            {
+                var vId = repartidor.VehiculoAsignadoId;
+                if (!vId.HasValue && _vehiculoRepository != null)
+                {
+                    var vehiculoFallback = await _vehiculoRepository.ObtenerPrimerVehiculoActivoAsync(_currentTenant.OperadorId, cancellationToken);
+                    vId = vehiculoFallback?.Id;
+                }
+
+                if (!vId.HasValue)
+                    throw new DomainValidationException("El repartidor no tiene un vehículo asignado: indique la hoja de ruta de la posición.");
+
+                vehiculoId = vId.Value;
+            }
 
             // Un reloj adelantado del dispositivo no debe colocar la posición en el futuro
             var tomadaEn = p.TomadaEn is { } t && t <= ahora ? t : ahora;

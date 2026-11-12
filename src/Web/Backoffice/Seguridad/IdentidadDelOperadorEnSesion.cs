@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Caching.Memory;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos;
@@ -6,11 +7,12 @@ namespace UltimaMilla.Backoffice.Seguridad;
 
 /// <summary>
 /// Marca (nombre, logo y colores) del operador de la sesión actual. Se pide a la API con el token del usuario, así que cada operador ve
-/// la suya; antes el menú mostraba siempre la del operador de demostración. Se guarda un minuto por operador para no consultar en cada página.
+/// la suya. Se guarda brevemente y conserva la última identidad conocida como respaldo ante desconexiones momentáneas.
 /// </summary>
 public sealed class IdentidadDelOperadorEnSesion
 {
-    private static readonly TimeSpan Vigencia = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan Vigencia = TimeSpan.FromSeconds(5);
+    private static readonly ConcurrentDictionary<string, IdentidadVisualDto> UltimaIdentidadConocida = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly IIdentidadVisualApi _api;
     private readonly IMemoryCache _cache;
@@ -43,6 +45,8 @@ public sealed class IdentidadDelOperadorEnSesion
         var operador = _contexto.HttpContext?.User.FindFirst("operador_id")?.Value ?? nuevaIdentidad.OperadorId;
         _cache.Set(operador, nuevaIdentidad, Vigencia);
         _cache.Set("sin-operador", nuevaIdentidad, Vigencia);
+        UltimaIdentidadConocida[operador] = nuevaIdentidad;
+        UltimaIdentidadConocida["sin-operador"] = nuevaIdentidad;
     }
 
     public async Task<IdentidadVisualDto> ObtenerAsync()
@@ -55,13 +59,31 @@ public sealed class IdentidadDelOperadorEnSesion
         try
         {
             var identidad = await _api.ObtenerIdentidadActualAsync();
+            // Si la respuesta trajo logo vacío pero teníamos uno en memoria para el mismo operador, conservarlo si fue un fallo de contexto anónimo
+            if (string.IsNullOrEmpty(identidad.LogoUrl)
+                && string.IsNullOrEmpty(identidad.OperadorId)
+                && UltimaIdentidadConocida.TryGetValue(operador, out var previa)
+                && !string.IsNullOrEmpty(previa.LogoUrl))
+            {
+                identidad = previa;
+            }
+            else
+            {
+                UltimaIdentidadConocida[operador] = identidad;
+            }
+
             _cache.Set(operador, identidad, Vigencia);
             return identidad;
         }
         catch (Exception ex)
         {
-            // La marca es decorativa: si la API no responde, la página se muestra con la marca por defecto
             _logger.LogWarning(ex, "No se pudo obtener la identidad visual del operador {Operador}.", operador);
+            if (UltimaIdentidadConocida.TryGetValue(operador, out var respaldo)
+                || UltimaIdentidadConocida.TryGetValue("sin-operador", out respaldo))
+            {
+                return respaldo;
+            }
+
             return new IdentidadVisualDto();
         }
     }

@@ -49,6 +49,12 @@ public class EfVehiculoRepository : IVehiculoRepository
         var idSet = ids.ToHashSet();
         return await _dbContext.Vehiculos.AsNoTracking().Where(v => idSet.Contains(v.Id)).ToListAsync(cancellationToken);
     }
+
+    public async Task<Vehiculo?> ObtenerPrimerVehiculoActivoAsync(Guid operadorId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Vehiculos.AsNoTracking()
+            .FirstOrDefaultAsync(v => v.OperadorId == operadorId && v.Activo, cancellationToken);
+    }
 }
 
 public class EfFranjaHorariaRepository : IFranjaHorariaRepository

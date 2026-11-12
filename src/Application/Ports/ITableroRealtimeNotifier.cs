@@ -28,6 +28,12 @@ public interface ITableroRealtimeNotifier
     Task NotificarOperadoresDelComercioAsync(Guid comercioId, CancellationToken ct = default)
         => Task.CompletedTask;
 
+    /// <summary>
+    /// Avisa en tiempo real a todas las sesiones vinculadas al operador (Portal de Comercio y Backoffice) que cambió su identidad visual (UC-06, RF-05).
+    /// </summary>
+    Task NotificarIdentidadVisualActualizadaAsync(Guid operadorId, CancellationToken ct = default)
+        => Task.CompletedTask;
+
     Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
         => Task.CompletedTask;
 }

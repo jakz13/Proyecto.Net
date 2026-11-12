@@ -15,10 +15,39 @@
             Padding="{DynamicResource PaddingLogin}"
             VerticalOptions="Center">
 
-            <!-- Encabezado Corporativo -->
-            <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+            <!-- Encabezado Corporativo Dinámico por Operador / Marca Blanca -->
+            <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                <!-- Logotipo o Iniciales Corporativas -->
+                <Grid HeightRequest="64" WidthRequest="64" HorizontalOptions="Center">
+                    <!-- Si tiene URL de logo -->
+                    <Image Source="{Binding LogoOperadorUrl}"
+                           IsVisible="{Binding TieneLogoUrl}"
+                           Aspect="AspectFit"
+                           HeightRequest="60"
+                           WidthRequest="60"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+
+                    <!-- Fallback: Círculo con Iniciales del Operador -->
+                    <Border IsVisible="{Binding MostrarIniciales}"
+                            StrokeShape="RoundRectangle 32"
+                            StrokeThickness="0"
+                            BackgroundColor="{DynamicResource Primary}"
+                            HeightRequest="64"
+                            WidthRequest="64"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center">
+                        <Label Text="{Binding InicialesOperador}"
+                               TextColor="White"
+                               FontSize="22"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                </Grid>
+
                 <Label
-                    Text="Última Milla"
+                    Text="{Binding NombreOperador}"
                     FontSize="{DynamicResource FontSizeLoginTitulo}"
                     FontAttributes="Bold"
                     HorizontalOptions="Center"
@@ -26,7 +55,7 @@
 
                 <Label
                     Text="Inicio de Sesión - Operaciones en Terreno"
-                    FontSize="15"
+                    FontSize="14"
                     FontAttributes="Bold"
                     HorizontalOptions="Center"
                     HorizontalTextAlignment="Center"
@@ -105,7 +134,7 @@
                         Text="Ingresar"
                         Command="{Binding LoginCommand}"
                         IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="#0F172A"
+                        BackgroundColor="{DynamicResource Primary}"
                         TextColor="White"
                         FontAttributes="Bold"
                         CornerRadius="10"
@@ -118,7 +147,7 @@
                         Command="{Binding LoginConBiometriaCommand}"
                         IsVisible="{Binding PuedeUsarBiometria}"
                         IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="#2563EB"
+                        BackgroundColor="{DynamicResource Secondary}"
                         TextColor="White"
                         FontAttributes="Bold"
                         CornerRadius="10"

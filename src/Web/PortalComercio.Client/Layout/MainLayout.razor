@@ -167,6 +167,7 @@
     // Verdadero cuando la lista de operadores viene de la sesión real del comercio (no del selector de la demo)
     private bool sesionReal;
     private bool comercioDadoDeBaja;
+    private CancellationTokenSource? cancelacionRefrescoIdentidad;
 
     private async Task CerrarSesionAsync()
     {
@@ -194,12 +195,13 @@
         TiempoReal.OperadoresDelComercioCambiaron += AlCambiarOperadoresDelComercio;
         await CargarOperadoresDisponibles();
         await CargarIdentidadVisual();
+        IniciarSincronizacionPeriodicaIdentidad();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // La conexión en vivo es una por sesión y la comparten las páginas; aquí se abre para enterarse de nuevos operadores del comercio
-        if (firstRender && sesionReal)
+        // La conexión en vivo es una por sesión y la comparten las páginas; se inicia apenas la sesión esté lista
+        if (sesionReal || modoDemo)
         {
             await TiempoReal.IniciarAsync();
         }
@@ -210,8 +212,46 @@
         await InvokeAsync(async () =>
         {
             await CargarOperadoresDisponibles();
+            await CargarIdentidadVisual();
             StateHasChanged();
         });
+    }
+
+    private void IniciarSincronizacionPeriodicaIdentidad()
+    {
+        cancelacionRefrescoIdentidad?.Cancel();
+        cancelacionRefrescoIdentidad?.Dispose();
+        cancelacionRefrescoIdentidad = new CancellationTokenSource();
+        var token = cancelacionRefrescoIdentidad.Token;
+
+        _ = Task.Run(async () =>
+        {
+            using var temporizador = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            while (!token.IsCancellationRequested && await temporizador.WaitForNextTickAsync(token))
+            {
+                try
+                {
+                    var nuevaIdentidad = await IdentidadApi.ObtenerIdentidadActualAsync(token);
+                    var huboCambio = nuevaIdentidad.NombreComercial != identidad.NombreComercial
+                        || nuevaIdentidad.ColorPrimario != identidad.ColorPrimario
+                        || nuevaIdentidad.ColorSecundario != identidad.ColorSecundario
+                        || nuevaIdentidad.LogoUrl != identidad.LogoUrl;
+
+                    if (huboCambio)
+                    {
+                        await InvokeAsync(async () =>
+                        {
+                            await CargarOperadoresDisponibles();
+                            await CargarIdentidadVisual();
+                        });
+                    }
+                }
+                catch
+                {
+                    // Ignorar fallos transitorios de red durante el sondeo silencioso
+                }
+            }
+        }, token);
     }
 
     private async Task CargarOperadoresDisponibles()
@@ -309,6 +349,8 @@
 
     public void Dispose()
     {
+        cancelacionRefrescoIdentidad?.Cancel();
+        cancelacionRefrescoIdentidad?.Dispose();
         ContextoOperador.AlCambiarOperador -= ManejarCambioOperador;
         TiempoReal.OperadoresDelComercioCambiaron -= AlCambiarOperadoresDelComercio;
     }

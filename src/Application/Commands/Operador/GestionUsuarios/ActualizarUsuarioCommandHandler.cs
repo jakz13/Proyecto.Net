@@ -82,6 +82,13 @@ public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuario
         }
 
         await _usuarioRepositorio.ActualizarAsync(usuario, cancellationToken);
+        await _usuarioRepositorio.SincronizarRepartidorDeUsuarioAsync(
+            usuario,
+            perfil.Nombre,
+            solicitud.Documento,
+            solicitud.Telefono,
+            solicitud.VehiculoAsignadoId,
+            cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
 
         string? nombreComercio = null;

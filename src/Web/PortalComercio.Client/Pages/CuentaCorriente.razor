@@ -3,6 +3,8 @@
 @using UltimaMilla.Frontend.Contracts.Modelos.Liquidaciones
 @inject ICuentaCorrienteApi CuentaApi
 @inject IIdentidadVisualApi IdentidadApi
+@inject UltimaMilla.PortalComercio.Client.Servicios.TiempoRealEnviosServicio TiempoReal
+@implements IDisposable
 
 <PageTitle>Portal del Comercio — Cuenta Corriente</PageTitle>
 
@@ -226,6 +228,7 @@ else if (cuenta is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        TiempoReal.OperadoresDelComercioCambiaron += RefrescarNombreOperadorAsync;
         try
         {
             cuenta = await CuentaApi.ObtenerCuentaCorrienteAsync();
@@ -247,6 +250,24 @@ else if (cuenta is not null)
         {
             cargando = false;
         }
+    }
+
+    private async Task RefrescarNombreOperadorAsync()
+    {
+        try
+        {
+            nombreOperador = (await IdentidadApi.ObtenerIdentidadActualAsync()).NombreComercial;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Ignorar si falla la consulta auxiliar
+        }
+    }
+
+    public void Dispose()
+    {
+        TiempoReal.OperadoresDelComercioCambiaron -= RefrescarNombreOperadorAsync;
     }
 
     private string Formato(decimal monto) => $"{cuenta?.Moneda ?? "UYU"} {monto.ToString("N2", CultureInfo.GetCultureInfo("es-UY"))}";

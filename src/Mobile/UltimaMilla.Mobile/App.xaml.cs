@@ -1,15 +1,21 @@
 using UltimaMilla.Mobile.Responsive;
+using UltimaMilla.Mobile.Services.Theme;
 
 namespace UltimaMilla.Mobile;
 
 public partial class App : Application
 {
     private readonly AppShell _appShell;
+    private readonly IOperadorThemeService? _themeService;
 
-    public App(AppShell appShell)
+    public App(AppShell appShell, IOperadorThemeService? themeService = null)
     {
         InitializeComponent();
         _appShell = appShell;
+        _themeService = themeService;
+
+        // Cargar identidad visual guardada en preferencias (marca blanca offline)
+        _themeService?.CargarDesdePreferencias();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)

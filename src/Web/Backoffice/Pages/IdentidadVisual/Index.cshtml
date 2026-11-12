@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model UltimaMilla.Backoffice.Pages.IdentidadVisual.IndexModel
 @{
     ViewData["Title"] = "Identidad Visual";
@@ -99,9 +99,15 @@
                             <div class="card p-2 bg-light border">
                                 <div class="row g-2 align-items-center">
                                     <div class="col-auto">
-                                        <img id="previewFotoEmpresa" src="@(!string.IsNullOrEmpty(Model.Modelo.LogoUrl) ? Model.Modelo.LogoUrl : "/favicon.ico")"
+                                        @{
+                                            var logoParaVistaPrevia = !string.IsNullOrEmpty(Model.IdentidadActual.LogoUrl)
+                                                ? Model.IdentidadActual.LogoUrl
+                                                : Model.Modelo.LogoUrl;
+                                        }
+                                        <img id="previewFotoEmpresa" src="@(!string.IsNullOrEmpty(logoParaVistaPrevia) ? logoParaVistaPrevia : "/favicon.ico")"
                                              alt="Foto de la empresa" class="rounded border p-1 bg-white shadow-sm"
-                                             style="width: 52px; height: 52px; object-fit: contain; @(string.IsNullOrEmpty(Model.Modelo.LogoUrl) ? "display:none;" : "")" />
+                                             onerror="this.style.display='none'"
+                                             style="width: 52px; height: 52px; object-fit: contain; @(string.IsNullOrEmpty(logoParaVistaPrevia) ? "display:none;" : "")" />
                                     </div>
                                     <div class="col">
                                         <label class="small text-secondary mb-1 d-block fw-semibold" style="font-size: 0.725rem;">Cargar foto/imagen desde la computadora:</label>
@@ -268,6 +274,40 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Panel 3: Prueba de Envío de Correo Automático al Destinatario (RF-27 / UC-35) -->
+        <div class="panel-estandar mt-4" id="probar-correo">
+            <div class="panel-estandar-header">
+                <div class="d-flex align-items-center gap-2">
+                    <h2 class="h6 fw-bold mb-0 text-dark">Probar Envío de Correo Automático al Destinatario</h2>
+                    <partial name="_BotonAyuda" model='"Envía un correo real utilizando la identidad visual del operador (colores, marca, firma y botón de seguimiento público) para verificar la configuración SMTP."' />
+                </div>
+            </div>
+            <div class="panel-estandar-body">
+                <form method="post" asp-page-handler="ProbarCorreo" class="row g-3 align-items-end">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small fw-semibold">Correo Electrónico Destino de Prueba <span class="text-danger">*</span></label>
+                        <input type="email" name="emailPrueba" class="form-control form-control-sm" placeholder="tu-correo@gmail.com" required />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Evento / Estado a Simular</label>
+                        <select name="estadoPrueba" class="form-select form-select-sm">
+                            <option value="Admitido">Envío Admitido (Con enlace de seguimiento)</option>
+                            <option value="AsignadoARuta">Asignado a Hoja de Ruta</option>
+                            <option value="EnTransito" selected>En Camino / En Tránsito (Repartidor inició ruta)</option>
+                            <option value="Entregado">Paquete Entregado</option>
+                            <option value="NoEntregado">Intento de Entrega No Concretado</option>
+                            <option value="Reprogramado">Entrega Reprogramada</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 d-grid">
+                        <button type="submit" class="btn btn-outline-primary btn-sm py-2 fw-semibold">
+                            Enviar Correo de Prueba
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

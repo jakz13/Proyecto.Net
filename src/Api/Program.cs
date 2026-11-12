@@ -557,6 +557,12 @@ app.MapMobileRutasEndpoints();
 // Posición del vehículo durante la jornada (RF-23)
 app.MapMobilePosicionEndpoints();
 
+// Identidad visual y operador para la app móvil
+app.MapMobileOperadorEndpoints();
+
+// Operaciones de depósito para la app móvil
+app.MapMobileDepositoEndpoints();
+
 // Tablero de operación en vivo con posiciones GPS de la app (RF-23, RF-29)
 app.MapTableroEnVivoEndpoints();
 
@@ -634,6 +640,17 @@ static async Task ApplyMigrationsAsync(WebApplication app)
             var db = services.GetRequiredService<AppDbContext>();
             logger.LogInformation("Aplicando migraciones a la base de datos (intento {Retry}/{Max})...", retry, maxRetries);
             await db.Database.MigrateAsync();
+            if (db.Database.IsRelational())
+            {
+                try
+                {
+                    await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"IdentidadesVisuales\" ALTER COLUMN \"LogoUrl\" TYPE text;");
+                }
+                catch
+                {
+                    // Columna ya ampliada a text
+                }
+            }
             logger.LogInformation("Migraciones aplicadas exitosamente.");
 
             // Ejecución del seeder de datos idempotente para la demo móvil y web (22/10)

@@ -20,7 +20,7 @@ public record CrearUsuarioDto
     public string Email { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "La contraseña provisional es obligatoria.")]
-    [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
+    [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres.")]
     public string Password { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "Debe asignar un perfil/rol al usuario.")]
@@ -30,6 +30,23 @@ public record CrearUsuarioDto
     /// Opcional: Si el usuario pertenece a un comercio cliente puntual en lugar del operador.
     /// </summary>
     public Guid? ComercioId { get; init; }
+
+    /// <summary>
+    /// Cédula o documento de identidad cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    [StringLength(30, ErrorMessage = "El documento no puede superar los 30 caracteres.")]
+    public string? Documento { get; init; }
+
+    /// <summary>
+    /// Teléfono celular de contacto cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    [StringLength(30, ErrorMessage = "El teléfono no puede superar los 30 caracteres.")]
+    public string? Telefono { get; init; }
+
+    /// <summary>
+    /// Vehículo asignado opcional cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    public Guid? VehiculoAsignadoId { get; init; }
 
     /// <summary>
     /// Devuelve el nombre completo formateado.

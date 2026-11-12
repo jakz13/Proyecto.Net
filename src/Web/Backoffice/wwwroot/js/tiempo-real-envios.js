@@ -253,6 +253,9 @@
                 .build();
 
             conexion.on('EnvioCambioEstado', alRecibirCambio);
+            conexion.on('IdentidadVisualActualizada', function () {
+                if (paginaPideTiempoReal()) programarActualizacion();
+            });
 
             // Lo ocurrido mientras la conexión estuvo caída no llegó como evento: se pone la página al día
             conexion.onreconnected(function () {

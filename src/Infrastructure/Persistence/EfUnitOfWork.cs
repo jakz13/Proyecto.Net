@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
@@ -8,25 +10,43 @@ using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Retiros;
+using UltimaMilla.Domain.Enums;
+using UltimaMilla.Infrastructure.Services;
 
 namespace UltimaMilla.Infrastructure.Persistence;
 
 public class EfUnitOfWork : IUnitOfWork
 {
+    private static readonly HashSet<EstadoEnvio> EstadosNotificablesRespaldo = new()
+    {
+        EstadoEnvio.Admitido,
+        EstadoEnvio.AsignadoARuta,
+        EstadoEnvio.EnTransito,
+        EstadoEnvio.Entregado,
+        EstadoEnvio.EntregadoParcialmente,
+        EstadoEnvio.NoEntregado,
+        EstadoEnvio.Reprogramado
+    };
+
     private readonly AppDbContext _dbContext;
     private readonly IDistributedCacheService? _cacheService;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
-    public EfUnitOfWork(AppDbContext dbContext, IDistributedCacheService? cacheService = null)
+    public EfUnitOfWork(
+        AppDbContext dbContext,
+        IDistributedCacheService? cacheService = null,
+        IServiceScopeFactory? scopeFactory = null)
     {
         _dbContext = dbContext;
         _cacheService = cacheService;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         // Patrón outbox: el evento se guarda en la misma transacción que el cambio de estado que lo origina,
         // de modo que no puede persistirse uno sin el otro.
-        var (enviosAfectados, cuadrosAfectados) = await EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(cancellationToken);
+        var (enviosAfectados, cuadrosAfectados, outboxNotificaciones) = await EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(cancellationToken);
         var codigosRetirosAfectados = await EncolarCambiosDeRetiroAsync(cancellationToken);
 
         int filasAfectadas;
@@ -72,7 +92,82 @@ public class EfUnitOfWork : IUnitOfWork
             }
         }
 
+        if (_scopeFactory is not null && outboxNotificaciones.Count > 0)
+        {
+            _ = DespacharRespaldoOutboxSiNoFueProcesadoAsync(outboxNotificaciones);
+        }
+
         return filasAfectadas;
+    }
+
+    /// <summary>
+    /// Respaldo para entornos locales donde el servicio Worker/RabbitMQ no está levantado:
+    /// si pasados unos segundos el mensaje de Outbox sigue sin procesarse y SMTP está configurado,
+    /// envía el correo al destinatario directamente sin duplicar envíos cuando el Worker sí está activo.
+    /// </summary>
+    private async Task DespacharRespaldoOutboxSiNoFueProcesadoAsync(
+        List<(Guid OutboxId, Guid EnvioId, EstadoEnvio EstadoNuevo, string TipoEvento)> notificacionesPendientes)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(6));
+
+            if (_scopeFactory is null)
+                return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var opciones = scope.ServiceProvider.GetService<IOptions<NotificacionesCorreoOptions>>()?.Value;
+            if (opciones is null || !opciones.TieneCredencialesConfiguradas)
+                return;
+
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var servicioNotificacion = scope.ServiceProvider.GetService<INotificacionDestinatarioService>();
+            if (servicioNotificacion is null)
+                return;
+
+            foreach (var item in notificacionesPendientes)
+            {
+                if (!EstadosNotificablesRespaldo.Contains(item.EstadoNuevo))
+                    continue;
+
+                var outbox = await db.OutboxMessages
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(m => m.Id == item.OutboxId);
+
+                if (outbox is null || outbox.Procesado)
+                    continue;
+
+                var envio = await db.Envios
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.Id == item.EnvioId);
+
+                if (envio is null)
+                    continue;
+
+                var destinatario = await db.Destinatarios
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == envio.DestinatarioId);
+
+                if (destinatario is null || string.IsNullOrWhiteSpace(destinatario.Email))
+                    continue;
+
+                await servicioNotificacion.EnviarAsync(
+                    new NotificacionDestinatario(
+                        envio.Id,
+                        envio.CodigoSeguimientoPublico,
+                        destinatario.Nombre,
+                        "Email",
+                        destinatario.Email,
+                        item.EstadoNuevo));
+            }
+        }
+        catch
+        {
+            // El respaldo en segundo plano no debe interrumpir el ciclo de vida de la aplicación
+        }
     }
 
     /// <summary>
@@ -135,10 +230,14 @@ public class EfUnitOfWork : IUnitOfWork
     /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado o entrega parcial (UC-39, RF-36)
     /// y recopila los envíos y cuadros tarifarios modificados para invalidar su caché tras confirmar la transacción.
     /// </summary>
-    private async Task<(List<(Guid Id, Guid OperadorId, string CodigoSeguimientoPublico)> Envios, List<(Guid Id, Guid OperadorId)> Cuadros)>
+    private async Task<(
+        List<(Guid Id, Guid OperadorId, string CodigoSeguimientoPublico)> Envios,
+        List<(Guid Id, Guid OperadorId)> Cuadros,
+        List<(Guid OutboxId, Guid EnvioId, EstadoEnvio EstadoNuevo, string TipoEvento)> OutboxNotificaciones)>
         EncolarCambiosDeEstadoYDetectarEntidadesCacheadasAsync(CancellationToken cancellationToken)
     {
         _dbContext.ChangeTracker.DetectChanges();
+        var outboxNotificaciones = new List<(Guid OutboxId, Guid EnvioId, EstadoEnvio EstadoNuevo, string TipoEvento)>();
 
         var enviosEntidades = _dbContext.ChangeTracker.Entries<Envio>()
             .ToDictionary(e => e.Entity.Id, e => e.Entity);
@@ -200,9 +299,12 @@ public class EfUnitOfWork : IUnitOfWork
                     correlationId,
                     bultosPublicados);
 
+                var outboxId = Guid.NewGuid();
                 await _dbContext.OutboxMessages.AddAsync(
-                    new OutboxMessage(Guid.NewGuid(), nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),
+                    new OutboxMessage(outboxId, nameof(Envio), evento.EnvioId, EventoEnvioPublicado.TipoMensaje, publicado.Serializar()),
                     cancellationToken);
+
+                outboxNotificaciones.Add((outboxId, evento.EnvioId, evento.EstadoNuevo, evento.TipoEvento));
             }
         }
 
@@ -219,6 +321,6 @@ public class EfUnitOfWork : IUnitOfWork
             .Distinct()
             .ToList();
 
-        return (enviosAfectados, cuadrosAfectados);
+        return (enviosAfectados, cuadrosAfectados, outboxNotificaciones);
     }
 }

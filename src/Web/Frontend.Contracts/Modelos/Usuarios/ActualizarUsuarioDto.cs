@@ -23,6 +23,23 @@ public record ActualizarUsuarioDto
     public bool Activo { get; init; } = true;
 
     /// <summary>
+    /// Cédula o documento de identidad cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    [StringLength(30, ErrorMessage = "El documento no puede superar los 30 caracteres.")]
+    public string? Documento { get; init; }
+
+    /// <summary>
+    /// Teléfono celular de contacto cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    [StringLength(30, ErrorMessage = "El teléfono no puede superar los 30 caracteres.")]
+    public string? Telefono { get; init; }
+
+    /// <summary>
+    /// Vehículo asignado opcional cuando el rol asignado es Repartidor (RF-06).
+    /// </summary>
+    public Guid? VehiculoAsignadoId { get; init; }
+
+    /// <summary>
     /// Devuelve el nombre completo formateado.
     /// </summary>
     public string NombreCompleto => string.IsNullOrWhiteSpace(Apellido)

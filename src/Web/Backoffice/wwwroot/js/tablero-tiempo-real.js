@@ -445,12 +445,36 @@
         }, 200);
     }
 
-    // Las posiciones llegan seguido: se refresca como máximo cada 2 s para no saturar la API ni redibujar el mapa sin parar
+    // Las posiciones llegan seguido: se refresca como máximo cada 1.5 s para no saturar la API ni redibujar el mapa sin parar
     var ultimoRefrescoPosicion = 0;
     var timerPosicion = null;
-    function programarActualizacionPorPosicion() {
+    function programarActualizacionPorPosicion(datos) {
+        if (datos && window.datosVehiculos && Array.isArray(window.datosVehiculos)) {
+            var vId = datos.vehiculoId || datos.VehiculoId;
+            var rId = datos.repartidorId || datos.RepartidorId;
+            var lat = datos.latitud !== undefined ? datos.latitud : datos.Latitud;
+            var lng = datos.longitud !== undefined ? datos.longitud : datos.Longitud;
+
+            if (lat && lng) {
+                var veh = window.datosVehiculos.find(function (v) {
+                    return (vId && (v.VehiculoId || v.vehiculoId) === vId) ||
+                           (rId && (v.RepartidorId || v.repartidorId) === rId);
+                });
+                if (veh) {
+                    veh.Latitud = lat;
+                    veh.latitud = lat;
+                    veh.Longitud = lng;
+                    veh.longitud = lng;
+                    veh.UltimaActualizacion = new Date().toISOString();
+                    if (typeof window.dibujarMapa === 'function') {
+                        window.dibujarMapa();
+                    }
+                }
+            }
+        }
+
         if (timerPosicion) return;
-        var espera = Math.max(0, 2000 - (Date.now() - ultimoRefrescoPosicion));
+        var espera = Math.max(0, 1500 - (Date.now() - ultimoRefrescoPosicion));
         timerPosicion = setTimeout(function () {
             timerPosicion = null;
             ultimoRefrescoPosicion = Date.now();
@@ -511,8 +535,12 @@
             programarActualizacionTablero();
         });
 
-        conexion.on('PosicionVehiculo', function () {
-            programarActualizacionPorPosicion();
+        conexion.on('PosicionVehiculo', function (datos) {
+            programarActualizacionPorPosicion(datos);
+        });
+
+        conexion.on('PosicionRepartidorActualizada', function (datos) {
+            programarActualizacionPorPosicion(datos);
         });
 
         // Un envío que cambia de estado altera las métricas (en tránsito, entregados) y las paradas del tablero

@@ -39,6 +39,9 @@ public class TableroHub : Hub
     /// <summary>Grupo común a todas las sesiones de un comercio, sea cual sea el operador con el que operen (avisos sobre su lista de operadores).</summary>
     public static string GrupoCuentaComercio(Guid comercioId) => $"cuenta_comercio_{comercioId}";
 
+    /// <summary>Grupo de marca del operador: recibe actualizaciones de identidad visual (nombre, colores, logo) tanto en Portal Comercio como en Backoffice.</summary>
+    public static string GrupoIdentidadOperador(Guid operadorId) => $"identidad_operador_{operadorId}";
+
     public override async Task OnConnectedAsync()
     {
         if (!IntentarExtraerOperadorId(Context.User, out var operadorId))
@@ -68,6 +71,7 @@ public class TableroHub : Hub
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, grupo);
+        await Groups.AddToGroupAsync(Context.ConnectionId, GrupoIdentidadOperador(operadorId));
         await Clients.Caller.SendAsync("ConectadoTablero", new { OperadorId = operadorId, Grupo = grupo });
         await base.OnConnectedAsync();
     }

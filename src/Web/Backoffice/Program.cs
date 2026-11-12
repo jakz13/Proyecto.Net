@@ -46,6 +46,7 @@ builder.Services.AddRazorPages(opciones =>
         opciones.Conventions.AuthorizeFolder("/" + carpeta, "Despacho");
     opciones.Conventions.AllowAnonymousToPage("/Login");
     opciones.Conventions.AllowAnonymousToPage("/AccesoDenegado");
+    opciones.Conventions.AllowAnonymousToFolder("/Seguimiento");
 });
 
 // Fábrica de clientes HTTP (requerida por LoginModel y clientes de integración)

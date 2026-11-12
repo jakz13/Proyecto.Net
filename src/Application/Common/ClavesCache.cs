@@ -11,7 +11,13 @@ public static class ClavesCache
 {
     public const string CasoUsoSeguimientoPublico = "seguimiento_publico";
     public const string CasoUsoCuadroTarifario = "cuadro_tarifario";
+    public const string CasoUsoIdentidadVisual = "identidad_visual";
     public const string CasoUsoGeneral = "general";
+
+    /// <summary>
+    /// Expiración para la identidad visual del operador en caché distribuido; se invalida inmediatamente por API y Worker al actualizarse.
+    /// </summary>
+    public static readonly TimeSpan ExpiracionIdentidadVisual = TimeSpan.FromMinutes(15);
 
     /// <summary>
     /// Expiración corta (5 minutos) para el seguimiento público: recibe un alto volumen de lecturas, pero el estado
@@ -48,6 +54,9 @@ public static class ClavesCache
     public static string CuadroTarifarioHistorial(Guid operadorId) =>
         $"tarifas:operador:{operadorId:N}:historial";
 
+    public static string IdentidadVisualPorOperador(Guid operadorId) =>
+        $"identidad-visual:operador:{operadorId:N}";
+
     public static string DeterminarCasoDeUso(string? clave)
     {
         if (string.IsNullOrWhiteSpace(clave))
@@ -62,6 +71,11 @@ public static class ClavesCache
         if (clave.StartsWith("tarifas:", StringComparison.OrdinalIgnoreCase))
         {
             return CasoUsoCuadroTarifario;
+        }
+
+        if (clave.StartsWith("identidad-visual:", StringComparison.OrdinalIgnoreCase))
+        {
+            return CasoUsoIdentidadVisual;
         }
 
         return CasoUsoGeneral;

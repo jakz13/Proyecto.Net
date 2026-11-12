@@ -13,5 +13,8 @@ public record CrearUsuarioCommand(
     string Password,
     Guid PerfilId,
     Guid? ComercioId = null,
-    string Apellido = ""
+    string Apellido = "",
+    string? Documento = null,
+    string? Telefono = null,
+    Guid? VehiculoAsignadoId = null
 ) : IRequest<UsuarioDetalleDto>;

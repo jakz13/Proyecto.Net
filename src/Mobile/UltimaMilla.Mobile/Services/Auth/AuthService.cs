@@ -7,6 +7,7 @@ using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Theme;
 
 namespace UltimaMilla.Mobile.Services.Auth;
 
@@ -27,6 +28,9 @@ public interface IAuthService
     string? Nombre { get; }
     string? Email { get; }
     Guid? TenantId { get; }
+    string? Perfil { get; }
+    bool EsOperarioODeposito { get; }
+    bool EsAdministrador { get; }
 
     Task<ResultadoLogin> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<bool> EstaAutenticadoAsync();
@@ -41,12 +45,14 @@ public class AuthService : IAuthService
     public const string NombreKey = "auth_nombre";
     public const string EmailKey = "auth_email";
     public const string TenantIdKey = "auth_tenant_id";
+    public const string PerfilKey = "auth_perfil";
     public const string ExpiraUtcKey = "auth_exp_utc";
     public const string PasswordHashKey = "auth_password_hash";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AuthService> _logger;
     private readonly ILocalDatabaseService _localDatabaseService;
+    private readonly IOperadorThemeService? _themeService;
 
     public string? AccessToken { get; private set; }
     public Guid? RepartidorId { get; private set; }
@@ -54,12 +60,26 @@ public class AuthService : IAuthService
     public string? Nombre { get; private set; }
     public string? Email { get; private set; }
     public Guid? TenantId { get; private set; }
+    public string? Perfil { get; private set; }
 
-    public AuthService(IHttpClientFactory httpClientFactory, ILogger<AuthService> logger, ILocalDatabaseService localDatabaseService)
+    public bool EsOperarioODeposito =>
+        string.Equals(Perfil, "Operario", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Perfil, "OperarioDeposito", StringComparison.OrdinalIgnoreCase) ||
+        EsAdministrador;
+
+    public bool EsAdministrador =>
+        string.Equals(Perfil, "Administrador", StringComparison.OrdinalIgnoreCase);
+
+    public AuthService(
+        IHttpClientFactory httpClientFactory,
+        ILogger<AuthService> logger,
+        ILocalDatabaseService localDatabaseService,
+        IOperadorThemeService? themeService = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _localDatabaseService = localDatabaseService;
+        _themeService = themeService;
     }
 
     public async Task<ResultadoLogin> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -96,17 +116,24 @@ public class AuthService : IAuthService
                 return new ResultadoLogin(false, "El servidor no devolvió un token de sesión válido.");
             }
 
-            // Validar perfil autorizado para la app móvil de calle
-            if (!string.IsNullOrWhiteSpace(loginResult.Perfil) &&
-                !string.Equals(loginResult.Perfil, "Repartidor", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(loginResult.Perfil, "Administrador", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Acceso denegado a usuario con perfil '{Perfil}' en app móvil.", loginResult.Perfil);
-                return new ResultadoLogin(false, $"Acceso denegado: esta aplicación es exclusiva para repartidores. El perfil de su usuario es '{loginResult.Perfil}'.");
-            }
-
             // Parsear claims del JWT emitido
             var claims = ParsearClaimsJwt(loginResult.Token);
+
+            // Validar perfil autorizado para operaciones en la app móvil
+            var perfilIngresado = !string.IsNullOrWhiteSpace(loginResult.Perfil)
+                ? loginResult.Perfil
+                : ExtraerStringClaim(claims, "role", "perfil");
+
+            if (!string.IsNullOrWhiteSpace(perfilIngresado) &&
+                !string.Equals(perfilIngresado, "Repartidor", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(perfilIngresado, "Operario", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(perfilIngresado, "OperarioDeposito", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(perfilIngresado, "Despachador", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(perfilIngresado, "Administrador", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Acceso denegado a usuario con perfil '{Perfil}' en app móvil.", perfilIngresado);
+                return new ResultadoLogin(false, $"Acceso denegado: esta aplicación es para personal operativo y repartidores. El perfil de su usuario es '{perfilIngresado}'.");
+            }
 
             var token = loginResult.Token.Trim();
             var usuarioId = ExtraerGuidClaim(claims, "sub", "usuario_id") ?? loginResult.UsuarioId;
@@ -115,6 +142,7 @@ public class AuthService : IAuthService
             var emailResuelto = ExtraerStringClaim(claims, "email") ?? loginResult.Email;
             var tenantId = ExtraerGuidClaim(claims, "tenant_id", "operador_id") ?? loginResult.OperadorId;
             var expiraUtc = ExtraerExpiracionUtc(claims) ?? loginResult.ExpiraUtc;
+            var perfilResuelto = !string.IsNullOrWhiteSpace(perfilIngresado) ? perfilIngresado : ExtraerStringClaim(claims, "role", "perfil");
 
             // Guardar en memoria y en AuthDelegatingHandler para todas las llamadas HTTP subsiguientes
             AccessToken = token;
@@ -123,6 +151,7 @@ public class AuthService : IAuthService
             Nombre = nombre;
             Email = emailResuelto;
             TenantId = tenantId;
+            Perfil = perfilResuelto;
             AuthDelegatingHandler.CurrentTokenInMemory = token;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -132,6 +161,10 @@ public class AuthService : IAuthService
             await GuardarEnSecureStorageAsync(RepartidorIdKey, repartidorId.ToString());
             await GuardarEnSecureStorageAsync(NombreKey, nombre);
             await GuardarEnSecureStorageAsync(EmailKey, emailResuelto);
+            if (!string.IsNullOrWhiteSpace(perfilResuelto))
+            {
+                await GuardarEnSecureStorageAsync(PerfilKey, perfilResuelto);
+            }
             if (tenantId.HasValue)
             {
                 await GuardarEnSecureStorageAsync(TenantIdKey, tenantId.Value.ToString());
@@ -142,7 +175,23 @@ public class AuthService : IAuthService
             var passwordHash = Convert.ToBase64String(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password)));
             await GuardarEnSecureStorageAsync(PasswordHashKey, passwordHash);
 
-            _logger.LogInformation("Sesión iniciada correctamente para el repartidor {Email} (Tenant: {TenantId}).", emailResuelto, tenantId);
+            _logger.LogInformation("Sesión iniciada correctamente para el usuario {Email} (Perfil: {Perfil}, Tenant: {TenantId}).", emailResuelto, perfilResuelto, tenantId);
+
+            // Sincronizar dinámicamente la identidad visual del operador en segundo plano
+            if (_themeService != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _themeService.DescargarYActualizarIdentidadAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "No se pudo actualizar la identidad visual tras el inicio de sesión.");
+                    }
+                });
+            }
 
             return new ResultadoLogin(
                 Exitoso: true,
@@ -221,6 +270,7 @@ public class AuthService : IAuthService
             Nombre = await LeerDeSecureStorageAsync(NombreKey) ?? ExtraerStringClaim(claims, "name");
             Email = await LeerDeSecureStorageAsync(EmailKey) ?? ExtraerStringClaim(claims, "email");
             TenantId = Guid.TryParse(tenantStorage, out var tId) ? tId : ExtraerGuidClaim(claims, "tenant_id", "operador_id");
+            Perfil = await LeerDeSecureStorageAsync(PerfilKey) ?? ExtraerStringClaim(claims, "role", "perfil");
 
             return true;
         }
@@ -275,6 +325,7 @@ public class AuthService : IAuthService
         Nombre = null;
         Email = null;
         TenantId = null;
+        Perfil = null;
         AuthDelegatingHandler.CurrentTokenInMemory = null;
 
         EliminarDeSecureStorage(AuthDelegatingHandler.AuthTokenKey);
@@ -283,6 +334,7 @@ public class AuthService : IAuthService
         EliminarDeSecureStorage(NombreKey);
         EliminarDeSecureStorage(EmailKey);
         EliminarDeSecureStorage(TenantIdKey);
+        EliminarDeSecureStorage(PerfilKey);
         EliminarDeSecureStorage(ExpiraUtcKey);
         EliminarDeSecureStorage(PasswordHashKey);
 
