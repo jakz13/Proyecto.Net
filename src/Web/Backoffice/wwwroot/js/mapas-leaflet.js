@@ -1184,12 +1184,20 @@
                 };
             }
 
+            // Posición real reportada por el vehículo (si la hay): reemplaza a la estimada
+            var posicionReal = hojaDeRuta.posicionReal;
+            var tienePosicionReal = !!(posicionReal && isFinite(posicionReal.lat) && isFinite(posicionReal.lng));
+            if (tienePosicionReal) {
+                coordCamion = { lat: posicionReal.lat, lng: posicionReal.lng };
+            }
+
             var markerCamion = L.marker([coordCamion.lat, coordCamion.lng], {
                 icon: crearIconoCamion(matricula, enCirculacion ? 'movimiento' : 'ruta', true),
                 zIndexOffset: 600
             }).addTo(mapa);
+            camionesRutaPorContenedor[idContenedor] = markerCamion;
 
-            if (enCirculacion && primeraPendienteCoord) {
+            if (enCirculacion && primeraPendienteCoord && !tienePosicionReal) {
                 var origenRutaCamion = ultimaEntregadaCoord || DEPOSITO_CENTRAL;
                 trazarRutaOSRM(null, [
                     [origenRutaCamion.lat, origenRutaCamion.lng],
@@ -1240,6 +1248,16 @@
                 }
             });
         }
+    }
+
+    var camionesRutaPorContenedor = {};
+
+    /** Mueve el camión del mapa de detalle a la posición real recibida, sin redibujar todo el mapa. */
+    function moverCamionRuta(idContenedor, lat, lng) {
+        var marker = camionesRutaPorContenedor[idContenedor];
+        if (!marker || !isFinite(lat) || !isFinite(lng)) return false;
+        marker.setLatLng([lat, lng]);
+        return true;
     }
 
     function enfocarParadaEnRuta(idContenedor, ordenParada) {
@@ -1577,6 +1595,7 @@
     }
 
     window.MapasUltimaMilla = {
+        moverCamionRuta: moverCamionRuta,
         renderizarMapaSeguimientoEnvio: renderizarMapaSeguimientoEnvio,
         renderizarMapaTableroFlota: renderizarMapaTableroFlota,
         enfocarVehiculoEnTablero: enfocarVehiculoEnTablero,

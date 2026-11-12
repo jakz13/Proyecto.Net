@@ -313,4 +313,75 @@ public class CanalesDeAltaHandlerTests
 
         Assert.Contains("modalidad", ex.Message);
     }
+
+    [Fact]
+    public void Csv_ConColumnasDeCoordenadas_LasLeeYSinEllasQuedanVacias()
+    {
+        var csv = string.Join("\n", new[]
+        {
+            "referencia,modalidad,destinatario,calle,numero,ciudad,peso,alto,ancho,profundo,latitud,longitud",
+            "P-1,Estandar,Ana,Calle,1,Montevideo,2,10,10,10,-34.91,-56.17",
+            "P-2,Estandar,Ana,Calle,1,Montevideo,2,10,10,10,,",
+            "P-3,Estandar,Ana,Calle,1,Montevideo,2,10,10,10,-34.91,",
+            "P-4,Estandar,Ana,Calle,1,Montevideo,2,10,10,10,abc,-56.17"
+        });
+
+        var filas = CsvEnviosParser.Leer(csv);
+
+        Assert.Equal(-34.91, filas[0].Alta!.Direccion.Latitud);
+        Assert.Equal(-56.17, filas[0].Alta!.Direccion.Longitud);
+        Assert.Null(filas[1].Alta!.Direccion.Latitud);
+        Assert.NotNull(filas[2].ErrorLectura);
+        Assert.NotNull(filas[3].ErrorLectura);
+    }
+
+    [Fact]
+    public async Task Alta_FueraDeLasZonasDelOperador_SeRechazaYNoSeGuardaNada()
+    {
+        var zonas = new FakeZonaCoberturaRepository();
+        zonas.Zonas.Add(new UltimaMilla.Domain.Entities.Operador.ZonaCobertura(
+            Guid.NewGuid(), _tenant.OperadorId, "Centro",
+            "[[-34.90, -56.20], [-34.90, -56.15], [-34.92, -56.15], [-34.92, -56.20], [-34.90, -56.20]]"));
+        var procesador = new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock, _outbox,
+            new UltimaMilla.Application.Services.VerificadorCobertura(zonas, new GeocodificadorFijo(-34.60, -56.00)));
+
+        var comando = new AltaEnvioCommand(
+            _relacion.ComercioId, "Estandar", new DestinatarioAltaDto("Ana Gomez"),
+            new DireccionAltaDto("Ruta 8", "5000", "Pando"),
+            new List<BultoAltaDto> { new(2m, 10m, 10m, 10m) }, null, "FUERA-1");
+
+        await Assert.ThrowsAsync<DomainValidationException>(() => procesador.ProcesarAsync(_tenant.OperadorId, comando, null, default));
+        Assert.Empty(_envios.Envios);
+    }
+
+    [Fact]
+    public async Task Alta_DentroDeUnaZona_SeAdmiteYLaDireccionQuedaConSuZona()
+    {
+        var zonas = new FakeZonaCoberturaRepository();
+        var zona = new UltimaMilla.Domain.Entities.Operador.ZonaCobertura(
+            Guid.NewGuid(), _tenant.OperadorId, "Centro",
+            "[[-34.90, -56.20], [-34.90, -56.15], [-34.92, -56.15], [-34.92, -56.20], [-34.90, -56.20]]");
+        zonas.Zonas.Add(zona);
+        var procesador = new AltaEnvioProcesador(_envios, _destinatarios, _direcciones, _cuadros, _clock, _outbox,
+            new UltimaMilla.Application.Services.VerificadorCobertura(zonas, new GeocodificadorFijo(-34.91, -56.17)));
+
+        var comando = new AltaEnvioCommand(
+            _relacion.ComercioId, "Estandar", new DestinatarioAltaDto("Ana Gomez"),
+            new DireccionAltaDto("18 de Julio", "1234", "Montevideo"),
+            new List<BultoAltaDto> { new(2m, 10m, 10m, 10m) }, null, "DENTRO-1");
+
+        var resultado = await procesador.ProcesarAsync(_tenant.OperadorId, comando, null, default);
+
+        Assert.False(resultado.Duplicado);
+        Assert.Equal(zona.Id, _direcciones.Direcciones.Single().ZonaCoberturaId);
+    }
+
+    private sealed class GeocodificadorFijo : UltimaMilla.Application.Ports.IGeocodificador
+    {
+        private readonly (double, double) _punto;
+        public GeocodificadorFijo(double lat, double lng) => _punto = (lat, lng);
+
+        public Task<(double Latitud, double Longitud)?> GeocodificarAsync(string calle, string numero, string ciudad, CancellationToken cancellationToken = default) =>
+            Task.FromResult<(double Latitud, double Longitud)?>(_punto);
+    }
 }

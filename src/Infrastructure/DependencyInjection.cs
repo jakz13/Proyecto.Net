@@ -73,6 +73,15 @@ public static class DependencyInjection
         services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
         services.AddScoped<RegistroNotificacionDestinatarioService>();
         services.AddScoped<INotificacionDestinatarioService>(sp => sp.GetRequiredService<RegistroNotificacionDestinatarioService>());
+        // Verificación de cobertura: la dirección de cada envío se ubica con Nominatim y debe caer en una zona del operador
+        services.AddSingleton(new UltimaMilla.Application.Services.OpcionesCobertura { Validar = configuration.GetValue("Cobertura:Validar", true) });
+        services.AddMemoryCache();
+        services.AddHttpClient<IGeocodificador, NominatimGeocodificador>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(configuration["Cobertura:UrlGeocodificador"] ?? "https://nominatim.openstreetmap.org/");
+            cliente.Timeout = TimeSpan.FromSeconds(15);
+            cliente.DefaultRequestHeaders.UserAgent.ParseAdd("UltimaMilla-Geocodificador/1.0");
+        });
         services.AddHttpClient<IWebhookSender, HttpWebhookSender>(cliente => cliente.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(() =>
             {

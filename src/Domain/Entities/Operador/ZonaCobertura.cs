@@ -74,6 +74,81 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
         PoligonoGeografico = nuevoPoligono.Trim();
     }
 
+    /// <summary>
+    /// Indica si la coordenada cae dentro del polígono de la zona. El polígono se guarda como texto JSON:
+    /// una lista de pares [latitud, longitud] o un GeoJSON (donde el orden es [longitud, latitud]).
+    /// Si el texto no se puede interpretar como polígono, la zona no contiene ningún punto.
+    /// </summary>
+    public bool Contiene(double latitud, double longitud)
+    {
+        var vertices = LeerVertices(PoligonoGeografico);
+        if (vertices.Count < 3)
+            return false;
+
+        // Trazado de rayos: se cuentan los lados que cruza una semirrecta horizontal desde el punto
+        var dentro = false;
+        for (int i = 0, j = vertices.Count - 1; i < vertices.Count; j = i++)
+        {
+            var (latI, lngI) = vertices[i];
+            var (latJ, lngJ) = vertices[j];
+            if ((lngI > longitud) != (lngJ > longitud) &&
+                latitud < (latJ - latI) * (longitud - lngI) / (lngJ - lngI) + latI)
+            {
+                dentro = !dentro;
+            }
+        }
+
+        return dentro;
+    }
+
+    private static List<(double Lat, double Lng)> LeerVertices(string texto)
+    {
+        var resultado = new List<(double, double)>();
+        try
+        {
+            using var documento = System.Text.Json.JsonDocument.Parse(texto);
+            var raiz = documento.RootElement;
+            var esGeoJson = false;
+
+            if (raiz.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                esGeoJson = true;
+                if (raiz.TryGetProperty("features", out var features) && features.GetArrayLength() > 0)
+                    raiz = features[0];
+                if (raiz.TryGetProperty("geometry", out var geometria))
+                    raiz = geometria;
+                if (!raiz.TryGetProperty("coordinates", out raiz))
+                    return resultado;
+            }
+
+            // Se baja por los niveles de anidación hasta la lista de pares (el primer anillo en un GeoJSON)
+            while (raiz.ValueKind == System.Text.Json.JsonValueKind.Array && raiz.GetArrayLength() > 0 &&
+                   raiz[0].ValueKind == System.Text.Json.JsonValueKind.Array &&
+                   raiz[0].GetArrayLength() > 0 && raiz[0][0].ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                raiz = raiz[0];
+            }
+
+            if (raiz.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return resultado;
+
+            foreach (var par in raiz.EnumerateArray())
+            {
+                if (par.ValueKind != System.Text.Json.JsonValueKind.Array || par.GetArrayLength() < 2)
+                    continue;
+                var a = par[0].GetDouble();
+                var b = par[1].GetDouble();
+                resultado.Add(esGeoJson ? (b, a) : (a, b));
+            }
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+        {
+            resultado.Clear();
+        }
+
+        return resultado;
+    }
+
     public void AgregarFranjaHoraria(FranjaHoraria franja)
     {
         ArgumentNullException.ThrowIfNull(franja);

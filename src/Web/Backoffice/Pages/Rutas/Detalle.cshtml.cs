@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Frontend.Contracts.Interfaces;
 using UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
+using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 
 namespace UltimaMilla.Backoffice.Pages.Rutas;
 
@@ -15,11 +16,13 @@ public class DetalleModel : PageModel
 {
     private readonly IRutasApi _rutasApi;
     private readonly IMotivosNoEntregaApi _motivosNoEntregaApi;
+    private readonly ITableroApi _tableroApi;
 
-    public DetalleModel(IRutasApi rutasApi, IMotivosNoEntregaApi motivosNoEntregaApi)
+    public DetalleModel(IRutasApi rutasApi, IMotivosNoEntregaApi motivosNoEntregaApi, ITableroApi tableroApi)
     {
         _rutasApi = rutasApi;
         _motivosNoEntregaApi = motivosNoEntregaApi;
+        _tableroApi = tableroApi;
     }
 
     public HojaDeRutaDto? HojaDeRuta { get; private set; }
@@ -66,6 +69,27 @@ public class DetalleModel : PageModel
 
         await CargarDatosComplementariosAsync(id);
         return Page();
+    }
+
+    /// <summary>Última posición reportada por el vehículo de la ruta; la página la consulta para mover el camión en el mapa sin recargar.</summary>
+    public async Task<IActionResult> OnGetPosicionAsync(Guid id)
+    {
+        VehiculoEnVivoDto? vivo = null;
+        try { vivo = await _tableroApi.ObtenerDetalleVehiculoEnVivoAsync(id); }
+        catch { /* sin conexión con la API: la página conserva la posición que ya mostraba */ }
+
+        if (vivo is null)
+            return new JsonResult(new { disponible = false });
+
+        return new JsonResult(new
+        {
+            disponible = true,
+            vehiculoId = vivo.VehiculoId,
+            latitud = vivo.Latitud,
+            longitud = vivo.Longitud,
+            velocidadKmh = vivo.VelocidadKmh,
+            ultimaActualizacion = vivo.UltimaActualizacion
+        });
     }
 
     public async Task<IActionResult> OnPostReasignarAsync(Guid id)

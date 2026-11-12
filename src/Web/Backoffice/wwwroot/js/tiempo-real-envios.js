@@ -31,6 +31,7 @@
     var hayOtroCambio = false;
     var ultimoCambio = null;
     var escuchas = [];
+    var escuchasPosicion = [];
 
     function paginaPideTiempoReal() {
         return document.body && document.body.getAttribute('data-tiempo-real-envios') === 'true';
@@ -253,6 +254,11 @@
                 .build();
 
             conexion.on('EnvioCambioEstado', alRecibirCambio);
+            conexion.on('PosicionVehiculo', function (datos) {
+                escuchasPosicion.forEach(function (fn) {
+                    try { fn(datos); } catch (e) { /* una escucha defectuosa no debe frenar a las demás */ }
+                });
+            });
             conexion.on('IdentidadVisualActualizada', function () {
                 if (paginaPideTiempoReal()) programarActualizacion();
             });
@@ -273,6 +279,10 @@
         /** Permite a una página reaccionar al cambio de estado de un envío con su propia lógica. */
         alCambiarEstado: function (fn) {
             if (typeof fn === 'function') escuchas.push(fn);
+        },
+        /** Permite a una página recibir la posición en vivo de los vehículos (evento PosicionVehiculo del hub). */
+        alCambiarPosicion: function (fn) {
+            if (typeof fn === 'function') escuchasPosicion.push(fn);
         },
         /** Fuerza una actualización inmediata de los datos de la página. */
         actualizarAhora: actualizarPagina,

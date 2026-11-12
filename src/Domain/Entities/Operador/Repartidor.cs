@@ -32,8 +32,7 @@ public class Repartidor : Entity, IMustHaveTenant
         if (operadorId == Guid.Empty)
             throw new DomainValidationException("El identificador del operador no puede ser vacío.");
 
-        if (string.IsNullOrWhiteSpace(documento))
-            throw new DomainValidationException("El documento del repartidor no puede ser vacío.");
+        ValidarDocumento(documento);
 
         if (string.IsNullOrWhiteSpace(telefono))
             throw new DomainValidationException("El teléfono del repartidor no puede ser vacío.");
@@ -44,6 +43,24 @@ public class Repartidor : Entity, IMustHaveTenant
         Documento = documento.Trim();
         Telefono = telefono.Trim();
         Estado = string.IsNullOrWhiteSpace(estado) ? "Disponible" : estado.Trim();
+    }
+
+    /// <summary>Marca de los repartidores creados automáticamente a partir de un usuario, que todavía no tienen cédula cargada.</summary>
+    public const string DocumentoSinDato = "S/D";
+
+    /// <summary>La cédula debe tener al menos 8 dígitos (se ignoran puntos, guiones y espacios).</summary>
+    public const int MinimoDigitosDocumento = 8;
+
+    public static void ValidarDocumento(string? documento)
+    {
+        if (string.IsNullOrWhiteSpace(documento))
+            throw new DomainValidationException("El documento del repartidor no puede ser vacío.");
+
+        if (documento.Trim() == DocumentoSinDato)
+            return;
+
+        if (documento.Count(char.IsDigit) < MinimoDigitosDocumento)
+            throw new DomainValidationException($"La cédula del repartidor debe tener al menos {MinimoDigitosDocumento} dígitos.");
     }
 
     public void AsignarVehiculo(Guid vehiculoId)
@@ -69,8 +86,7 @@ public class Repartidor : Entity, IMustHaveTenant
 
     public void ActualizarDocumento(string documento)
     {
-        if (string.IsNullOrWhiteSpace(documento))
-            throw new DomainValidationException("El documento del repartidor no puede ser vacío.");
+        ValidarDocumento(documento);
 
         Documento = documento.Trim();
     }

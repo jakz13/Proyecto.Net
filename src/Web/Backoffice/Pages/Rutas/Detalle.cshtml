@@ -644,18 +644,47 @@ else
         var datosHojaDeRuta = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ruta));
     </script>
     <script>
+        var posicionRealCamion = null;
+        var rutaIdDetalle = '@(Model.HojaDeRuta?.Id)';
+        var idMapaDetalle = 'mapaDetalleRutaLeaflet';
+
+        function dibujarMapaDetalle() {
+            if (!datosHojaDeRuta || !window.MapasUltimaMilla) return;
+            datosHojaDeRuta.posicionReal = posicionRealCamion;
+            window.MapasUltimaMilla.renderizarMapaDetalleRuta(idMapaDetalle, datosHojaDeRuta);
+        }
+
+        // Posición real del vehículo: se consulta al abrir, cada pocos segundos y al llegar el evento en vivo
+        function aplicarPosicion(lat, lng) {
+            if (!isFinite(lat) || !isFinite(lng)) return;
+            posicionRealCamion = { lat: lat, lng: lng };
+            if (window.MapasUltimaMilla) window.MapasUltimaMilla.moverCamionRuta(idMapaDetalle, lat, lng);
+        }
+
+        function consultarPosicion() {
+            if (document.visibilityState === 'hidden') return Promise.resolve();
+            return fetch('?handler=Posicion&id=' + encodeURIComponent(rutaIdDetalle), {
+                credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' }
+            }).then(function (res) { return res.ok ? res.json() : null; })
+              .then(function (p) { if (p && p.disponible) aplicarPosicion(p.latitud, p.longitud); })
+              .catch(function () { /* se reintenta en el próximo ciclo */ });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
-            if (datosHojaDeRuta && window.MapasUltimaMilla) {
-                window.MapasUltimaMilla.renderizarMapaDetalleRuta('mapaDetalleRutaLeaflet', datosHojaDeRuta);
+            consultarPosicion().then(dibujarMapaDetalle);
+            setInterval(consultarPosicion, 5000);
+
+            if (window.TiempoRealEnvios && window.TiempoRealEnvios.alCambiarPosicion) {
+                window.TiempoRealEnvios.alCambiarPosicion(function (d) {
+                    var hoja = d && (d.hojaDeRutaId || d.HojaDeRutaId);
+                    if (hoja && String(hoja).toLowerCase() !== rutaIdDetalle.toLowerCase()) return;
+                    aplicarPosicion(d.latitud !== undefined ? d.latitud : d.Latitud, d.longitud !== undefined ? d.longitud : d.Longitud);
+                });
             }
         });
 
         // Un envío de la ruta cambió de estado: las paradas del mapa se redibujan con los datos nuevos
-        document.addEventListener('tiempo-real:actualizado', function () {
-            if (datosHojaDeRuta && window.MapasUltimaMilla) {
-                window.MapasUltimaMilla.renderizarMapaDetalleRuta('mapaDetalleRutaLeaflet', datosHojaDeRuta);
-            }
-        });
+        document.addEventListener('tiempo-real:actualizado', dibujarMapaDetalle);
 
         function simularDescargaMovil() {
             var alerta = document.getElementById('alertaDescargaMovil');

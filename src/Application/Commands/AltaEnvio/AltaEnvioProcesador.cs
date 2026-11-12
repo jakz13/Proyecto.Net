@@ -1,5 +1,6 @@
 using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Application.Services;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Exceptions;
 
@@ -20,6 +21,7 @@ public class AltaEnvioProcesador
     private readonly ICuadroTarifarioRepository _cuadroTarifarioRepository;
     private readonly IClock _clock;
     private readonly IOutboxStorage _outboxStorage;
+    private readonly VerificadorCobertura? _verificadorCobertura;
 
     public AltaEnvioProcesador(
         IEnvioRepository envioRepository,
@@ -27,7 +29,8 @@ public class AltaEnvioProcesador
         IDireccionRepository direccionRepository,
         ICuadroTarifarioRepository cuadroTarifarioRepository,
         IClock clock,
-        IOutboxStorage outboxStorage)
+        IOutboxStorage outboxStorage,
+        VerificadorCobertura? verificadorCobertura = null)
     {
         _envioRepository = envioRepository;
         _destinatarioRepository = destinatarioRepository;
@@ -35,6 +38,7 @@ public class AltaEnvioProcesador
         _cuadroTarifarioRepository = cuadroTarifarioRepository;
         _clock = clock;
         _outboxStorage = outboxStorage;
+        _verificadorCobertura = verificadorCobertura;
     }
 
     public async Task<AltaEnvioResultDto> ProcesarAsync(
@@ -79,14 +83,34 @@ public class AltaEnvioProcesador
             request.Destinatario.Email,
             request.Destinatario.Telefono);
 
+        // Solo se admiten envíos dentro de las zonas de cobertura que definió el operador
+        var zonaId = request.Direccion.ZonaCoberturaId;
+        var latitud = request.Direccion.Latitud;
+        var longitud = request.Direccion.Longitud;
+        if (_verificadorCobertura is not null)
+        {
+            var cobertura = await _verificadorCobertura.VerificarAsync(
+                operadorId,
+                request.Direccion.Calle,
+                request.Direccion.Numero,
+                request.Direccion.Ciudad,
+                zonaId,
+                latitud,
+                longitud,
+                cancellationToken);
+            zonaId = cobertura.ZonaCoberturaId;
+            latitud = cobertura.Latitud ?? latitud;
+            longitud = cobertura.Longitud ?? longitud;
+        }
+
         var direccion = new Direccion(
             Guid.NewGuid(),
             request.Direccion.Calle,
             request.Direccion.Numero,
             request.Direccion.Ciudad,
-            request.Direccion.ZonaCoberturaId,
-            request.Direccion.Latitud,
-            request.Direccion.Longitud,
+            zonaId,
+            latitud,
+            longitud,
             request.Direccion.Referencia);
 
         var codigoSeguimiento = await GenerarCodigoSeguimientoUnicoAsync(cancellationToken);

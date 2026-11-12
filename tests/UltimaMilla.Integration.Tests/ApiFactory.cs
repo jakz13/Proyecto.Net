@@ -39,6 +39,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", ConexionDeLaBase);
         // Las pruebas inician sesión muchas veces desde la misma IP: el tope de producción las bloquearía
         Environment.SetEnvironmentVariable("RateLimit__LoginPorMinuto", "100000");
+        // Sin salida a Internet no hay geocodificador: la regla de cobertura se prueba aparte, con un geocodificador falso (VerificadorCoberturaTests)
+        Environment.SetEnvironmentVariable("Cobertura__Validar", "false");
     }
 
     protected override void Dispose(bool disposing)

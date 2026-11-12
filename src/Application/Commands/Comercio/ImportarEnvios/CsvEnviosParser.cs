@@ -8,7 +8,8 @@ namespace UltimaMilla.Application.Commands.Comercio.ImportarEnvios;
 /// <summary>
 /// Lee el archivo CSV de importación (separador coma o punto y coma, una fila por envío con un bulto).
 /// Columnas obligatorias: referencia, modalidad, destinatario, calle, numero, ciudad, peso, alto, ancho, profundo.
-/// Opcionales: documento, email, telefono. Peso en kg y medidas en cm.
+/// Opcionales: documento, email, telefono, latitud y longitud (con coordenadas no hace falta ubicar la dirección, y el lote se procesa más rápido).
+/// Peso en kg y medidas en cm.
 /// </summary>
 public static class CsvEnviosParser
 {
@@ -62,17 +63,38 @@ public static class CsvEnviosParser
                 continue;
             }
 
+            double? latitud = null, longitud = null;
+            if (Opcional("latitud") is not null || Opcional("longitud") is not null)
+            {
+                if (!TryCoordenada(Opcional("latitud"), out var lat) || !TryCoordenada(Opcional("longitud"), out var lng))
+                {
+                    filas.Add(new FilaImportacion(numero, null, "Latitud y longitud deben informarse juntas, como números (use punto para los decimales)."));
+                    continue;
+                }
+
+                latitud = lat;
+                longitud = lng;
+            }
+
             filas.Add(new FilaImportacion(numero, new AltaEnvioCommand(
                 Guid.Empty,
                 Valor("modalidad"),
                 new DestinatarioAltaDto(Valor("destinatario"), Opcional("documento"), Opcional("email"), Opcional("telefono")),
-                new DireccionAltaDto(Valor("calle"), Valor("numero"), Valor("ciudad")),
+                new DireccionAltaDto(Valor("calle"), Valor("numero"), Valor("ciudad"), null, latitud, longitud),
                 new List<BultoAltaDto> { new(peso, alto, ancho, profundo) },
                 null,
                 Valor("referencia"))));
         }
 
         return filas;
+    }
+
+    private static bool TryCoordenada(string? texto, out double valor)
+    {
+        valor = 0;
+        return !string.IsNullOrWhiteSpace(texto)
+            && double.TryParse(texto, NumberStyles.Float, CultureInfo.InvariantCulture, out valor)
+            && Math.Abs(valor) <= 180;
     }
 
     private static bool TryDecimal(string texto, out decimal valor) =>

@@ -11,6 +11,7 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
         });
 
+        services.AddScoped<Services.VerificadorCobertura>();
         services.AddScoped<Commands.AltaEnvio.AltaEnvioProcesador>();
         services.AddScoped<Commands.Retiros.SolicitarRetiro.SolicitarRetiroProcesador>();
         services.AddScoped<Commands.Mensajeria.AvisoComercioEntregador>();

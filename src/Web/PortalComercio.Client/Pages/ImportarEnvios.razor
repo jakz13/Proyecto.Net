@@ -148,6 +148,10 @@ else if (resultado is null)
                             <span class="badge bg-light text-dark border">peso, alto, ancho, profundo</span>
                         </li>
                     </ul>
+                    <p class="small text-muted mb-3">
+                        Solo se admiten envíos dentro de las zonas de cobertura del operador: las direcciones que queden fuera se informan como error en su fila.
+                        Opcionalmente puede agregar las columnas <strong>latitud</strong> y <strong>longitud</strong> para acelerar la importación.
+                    </p>
                     <div class="d-grid">
                         <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2"
                                 @onclick="DescargarPlantillaCsv">
