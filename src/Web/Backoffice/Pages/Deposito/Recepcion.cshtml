@@ -215,7 +215,7 @@ else
                                                 <input class="form-check-input chk-recibido" type="checkbox"
                                                        id="chk-recibido-@bulto.Identificacion"
                                                        checked
-                                                       onchange="alternarRecibido('@bulto.Identificacion')">
+                                                       onchange="alternarRecibido(@System.Text.Json.JsonSerializer.Serialize(bulto.Identificacion))">
                                                 <label class="form-check-label text-success small fw-semibold" id="badge-estado-@bulto.Identificacion" for="chk-recibido-@bulto.Identificacion">
                                                     Escaneado correcto
                                                 </label>
@@ -225,7 +225,7 @@ else
                                             <div class="form-check form-switch d-inline-block mb-0">
                                                 <input class="form-check-input chk-danado" type="checkbox"
                                                        id="chk-danado-@bulto.Identificacion"
-                                                       onchange="alternarDanado('@bulto.Identificacion')"
+                                                       onchange="alternarDanado(@System.Text.Json.JsonSerializer.Serialize(bulto.Identificacion))"
                                                        title="Marcar si el bulto arribó con daños físicos">
                                                 <label class="form-check-label small text-danger fw-semibold" for="chk-danado-@bulto.Identificacion" style="font-size: 0.75rem;">
                                                     Dañado / Averiado

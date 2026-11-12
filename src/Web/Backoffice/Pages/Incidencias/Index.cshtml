@@ -220,7 +220,7 @@
                                                 data-bs-toggle="tooltip" 
                                                 data-bs-placement="top" 
                                                 title="Ver resolución"
-                                                onclick="abrirModalResolucion('@inc.NumeroIncidencia', '@(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? "")', '@(inc.DespachadorCierre ?? "Despachador")', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(inc.ResolucionDetalle)))">
+                                                onclick="abrirModalResolucion(@System.Text.Json.JsonSerializer.Serialize(inc.NumeroIncidencia), @System.Text.Json.JsonSerializer.Serialize(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? ""), @System.Text.Json.JsonSerializer.Serialize(inc.DespachadorCierre ?? "Despachador"), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(inc.ResolucionDetalle)))">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <polyline points="20 6 9 17 4 12"></polyline>
                                             </svg>
@@ -588,10 +588,10 @@
 
             // Afectación
             var afectacionTexto = '';
-            if (envio) afectacionTexto += 'Envío: ' + envio + (destinatario ? ' (' + destinatario + ')' : '') + '<br/>';
-            if (ruta) afectacionTexto += 'Ruta: ' + ruta + ' ';
-            if (vehiculo) afectacionTexto += '[' + vehiculo + '] ';
-            if (repartidor) afectacionTexto += 'Repartidor: ' + repartidor;
+            if (envio) afectacionTexto += 'Envío: ' + escaparHtmlTexto(envio) + (destinatario ? ' (' + escaparHtmlTexto(destinatario) + ')' : '') + '<br/>';
+            if (ruta) afectacionTexto += 'Ruta: ' + escaparHtmlTexto(ruta) + ' ';
+            if (vehiculo) afectacionTexto += '[' + escaparHtmlTexto(vehiculo) + '] ';
+            if (repartidor) afectacionTexto += 'Repartidor: ' + escaparHtmlTexto(repartidor);
             if (!afectacionTexto) afectacionTexto = 'General / Sin unidad específica';
             document.getElementById('modalBitacoraAfectacion').innerHTML = afectacionTexto;
 
@@ -625,10 +625,10 @@
                     var d = document.createElement('div');
                     d.className = 'border-bottom pb-2 mb-2 small';
                     d.innerHTML = '<div class="d-flex justify-content-between align-items-center text-secondary" style="font-size: 0.725rem;">' +
-                                  '<span><strong>' + (ent.Usuario || 'Sistema') + '</strong></span>' +
-                                  '<span>' + fechaStr + '</span>' +
+                                  '<span><strong>' + escaparHtmlTexto(ent.Usuario || 'Sistema') + '</strong></span>' +
+                                  '<span>' + escaparHtmlTexto(fechaStr) + '</span>' +
                                   '</div>' +
-                                  '<div class="text-dark mt-1">' + ent.Comentario + '</div>';
+                                  '<div class="text-dark mt-1">' + escaparHtmlTexto(ent.Comentario) + '</div>';
                     lista.appendChild(d);
                 });
             }
@@ -688,6 +688,12 @@
                 if (btnNota) { btnNota.classList.remove('active'); btnNota.classList.remove('btn-dark'); btnNota.classList.add('btn-outline-dark'); }
                 if (btnCerrar) { btnCerrar.classList.add('active'); btnCerrar.classList.remove('btn-outline-success'); btnCerrar.classList.add('btn-success'); }
             }
+        }
+
+        function escaparHtmlTexto(valor) {
+            var d = document.createElement('div');
+            d.textContent = valor === null || valor === undefined ? '' : String(valor);
+            return d.innerHTML;
         }
     </script>
 }

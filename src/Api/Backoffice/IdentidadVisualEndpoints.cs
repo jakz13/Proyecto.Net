@@ -58,11 +58,17 @@ public static partial class IdentidadVisualEndpoints
             string operadorId,
             AppDbContext db,
             ICurrentTenant tenant,
+            IConfiguration configuracion,
+            IWebHostEnvironment entorno,
             CancellationToken ct,
             IDistributedCacheService? cache = null) =>
             RespuestasBackoffice.Ejecutar(async () =>
             {
-                var id = Guid.TryParse(operadorId, out var parsed) ? parsed : tenant.OperadorId;
+                // Consultar la marca de un operador cualquiera por su identificador, sin sesión, solo sirve al selector de la demo local
+                if (!ModoDemo.Permitido(configuracion, entorno))
+                    return Results.NotFound();
+
+                var id =Guid.TryParse(operadorId, out var parsed) ? parsed : tenant.OperadorId;
                 return Results.Ok(await ObtenerAsync(db, id, ct, cache));
             }))
         .WithName("ObtenerIdentidadOperadorDemo")

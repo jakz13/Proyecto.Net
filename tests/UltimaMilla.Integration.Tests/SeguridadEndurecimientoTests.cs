@@ -19,6 +19,19 @@ public class SeguridadEndurecimientoTests
 
     public SeguridadEndurecimientoTests(ApiFactory factory) => _factory = factory;
 
+    // ----- Marca de un operador cualquiera, sin sesión -----
+
+    [FactPostgres]
+    public async Task LaMarcaDeUnOperadorPorSuIdentificador_NoSeEntregaSinSesionFueraDelModoDemo()
+    {
+        var servidor = _factory.WithWebHostBuilder(b => b.UseSetting("Auth:PermitirModoDemo", "false"));
+        var cliente = servidor.CreateClient();
+
+        var respuesta = await cliente.GetAsync("/api/v1/identidad-visual/operadores-demo/11111111-1111-1111-1111-111111111111");
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
     // ----- SSRF en los avisos a comercios -----
 
     [Theory]

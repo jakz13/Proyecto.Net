@@ -192,7 +192,7 @@ else
                                                        type="checkbox" 
                                                        id="chk_@bulto.EnvioId" 
                                                        checked 
-                                                       onchange="alternarEstadoCarga('@bulto.EnvioId')" />
+                                                       onchange="alternarEstadoCarga(@System.Text.Json.JsonSerializer.Serialize(bulto.EnvioId))" />
                                                 <label class="form-check-label small fw-semibold text-success lbl-estado-carga" id="lbl_@bulto.EnvioId" for="chk_@bulto.EnvioId">
                                                     Cargado
                                                 </label>

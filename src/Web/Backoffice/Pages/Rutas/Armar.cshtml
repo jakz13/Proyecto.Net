@@ -667,11 +667,17 @@ else if (Model.ErroresValidacion.Count > 0)
             items.forEach(function (it, idx) {
                 var li = document.createElement('li');
                 li.className = 'mb-1';
-                li.innerHTML = '<span class="fw-semibold text-dark">' + it.dest + '</span> ' +
-                    '<span class="text-muted" style="font-size: 0.72rem;">(' + it.dir + ')</span> ' +
-                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.65rem;">' + it.franja + '</span>';
+                li.innerHTML = '<span class="fw-semibold text-dark">' + escaparHtmlTexto(it.dest) + '</span> ' +
+                    '<span class="text-muted" style="font-size: 0.72rem;">(' + escaparHtmlTexto(it.dir) + ')</span> ' +
+                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.65rem;">' + escaparHtmlTexto(it.franja) + '</span>';
                 lista.appendChild(li);
             });
+        }
+
+        function escaparHtmlTexto(valor) {
+            var d = document.createElement('div');
+            d.textContent = valor === null || valor === undefined ? '' : String(valor);
+            return d.innerHTML;
         }
     </script>
 }

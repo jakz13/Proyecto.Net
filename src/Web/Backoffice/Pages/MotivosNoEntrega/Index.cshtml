@@ -196,7 +196,7 @@
                                             <!-- Botón Editar -->
                                             <button type="button"
                                                     class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
-                                                    onclick="abrirModalEdicion('@motivo.Id', '@motivo.Codigo', '@Html.Raw(Html.Encode(motivo.Descripcion))', @motivo.Activo.ToString().ToLower())"
+                                                    onclick="abrirModalEdicion(@System.Text.Json.JsonSerializer.Serialize(motivo.Id), @System.Text.Json.JsonSerializer.Serialize(motivo.Codigo), @System.Text.Json.JsonSerializer.Serialize(motivo.Descripcion), @motivo.Activo.ToString().ToLower())"
                                                     data-bs-toggle="tooltip"
                                                     data-bs-placement="top"
                                                     title="Editar descripción">

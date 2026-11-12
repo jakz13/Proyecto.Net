@@ -328,7 +328,7 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionVehiculo('@vehiculo.Id', '@vehiculo.Patente', '@vehiculo.Tipo', @vehiculo.CapacidadPeso, @vehiculo.CapacidadVolumen, @(vehiculo.Activo ? "true" : "false"))">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionVehiculo(@System.Text.Json.JsonSerializer.Serialize(vehiculo.Id), @System.Text.Json.JsonSerializer.Serialize(vehiculo.Patente), @System.Text.Json.JsonSerializer.Serialize(vehiculo.Tipo), @vehiculo.CapacidadPeso, @vehiculo.CapacidadVolumen, @(vehiculo.Activo ? "true" : "false"))">
                                                 Editar
                                             </button>
                                             <form method="post" asp-page-handler="CambiarEstadoVehiculo" class="d-inline">
@@ -630,7 +630,7 @@
                                                     <span class="badge bg-dark-subtle text-dark border font-monospace" style="font-size: 0.725rem;">@repartidor.VehiculoPatente</span>
                                                     <span class="text-muted small ms-1">(@repartidor.VehiculoTipo)</span>
                                                 </div>
-                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Cambiar o retirar unidad" onclick="abrirAsignacionVehiculo('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '@(repartidor.VehiculoAsignadoId?.ToString() ?? "")')">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Cambiar o retirar unidad" onclick="abrirAsignacionVehiculo(@System.Text.Json.JsonSerializer.Serialize(repartidor.Id), @System.Text.Json.JsonSerializer.Serialize(repartidor.NombreCompleto), @System.Text.Json.JsonSerializer.Serialize(repartidor.VehiculoAsignadoId?.ToString() ?? ""))">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                         <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
                                                     </svg>
@@ -641,7 +641,7 @@
                                         {
                                             <div class="d-flex align-items-center gap-2">
                                                 <span class="text-muted small">Sin vehículo</span>
-                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="abrirAsignacionVehiculo('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '')">
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="abrirAsignacionVehiculo(@System.Text.Json.JsonSerializer.Serialize(repartidor.Id), @System.Text.Json.JsonSerializer.Serialize(repartidor.NombreCompleto), '')">
                                                     + Asignar
                                                 </button>
                                             </div>
@@ -649,7 +649,7 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionRepartidor('@repartidor.Id', '@Html.Raw(Html.Encode(repartidor.NombreCompleto))', '@repartidor.Email', '@repartidor.Documento', '@repartidor.Telefono', '@repartidor.Estado', '@(repartidor.VehiculoAsignadoId?.ToString() ?? "")')">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;" onclick="abrirEdicionRepartidor(@System.Text.Json.JsonSerializer.Serialize(repartidor.Id), @System.Text.Json.JsonSerializer.Serialize(repartidor.NombreCompleto), @System.Text.Json.JsonSerializer.Serialize(repartidor.Email), @System.Text.Json.JsonSerializer.Serialize(repartidor.Documento), @System.Text.Json.JsonSerializer.Serialize(repartidor.Telefono), @System.Text.Json.JsonSerializer.Serialize(repartidor.Estado), @System.Text.Json.JsonSerializer.Serialize(repartidor.VehiculoAsignadoId?.ToString() ?? ""))">
                                                 Editar
                                             </button>
                                             <form method="post" asp-page-handler="CambiarEstadoRepartidor" class="d-inline">

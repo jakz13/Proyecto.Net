@@ -214,7 +214,7 @@
                                                     data-bs-placement="top"
                                                     title="Declarar Extraviado"
                                                     aria-label="Declarar Extraviado"
-                                                    onclick="abrirModalExtravio('@envio.Id', '@envio.CodigoSeguimiento', '@(envio.ComercioNombre ?? "Comercio General")', '@envio.NombreDestinatario', '@envio.Estado')">
+                                                    onclick="abrirModalExtravio(@System.Text.Json.JsonSerializer.Serialize(envio.Id), @System.Text.Json.JsonSerializer.Serialize(envio.CodigoSeguimiento), @System.Text.Json.JsonSerializer.Serialize(envio.ComercioNombre ?? "Comercio General"), @System.Text.Json.JsonSerializer.Serialize(envio.NombreDestinatario), @System.Text.Json.JsonSerializer.Serialize(envio.Estado))">
                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <circle cx="12" cy="12" r="10"></circle>
                                                     <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -228,7 +228,7 @@
                                                 data-bs-placement="top"
                                                 title="Historial de Trazabilidad"
                                                 aria-label="Historial de Trazabilidad"
-                                                onclick="abrirModalHistorial('@envio.Id', '@envio.CodigoSeguimiento')">
+                                                onclick="abrirModalHistorial(@System.Text.Json.JsonSerializer.Serialize(envio.Id), @System.Text.Json.JsonSerializer.Serialize(envio.CodigoSeguimiento))">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <circle cx="12" cy="12" r="10"></circle>
                                                 <polyline points="12 6 12 12 16 14"></polyline>

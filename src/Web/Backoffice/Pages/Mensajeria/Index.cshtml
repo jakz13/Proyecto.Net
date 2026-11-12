@@ -323,7 +323,7 @@
                                         <td class="text-end">
                                             <div class="d-inline-flex align-items-center gap-1">
                                                 <!-- Botón Inspeccionar en Offcanvas lateral (mantiene lista y scroll visibles) -->
-                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1 btn-accion-inspeccionar" title="Inspeccionar detalle del mensaje" aria-label="Inspeccionar detalle del mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirOffcanvasDetalle('@mensaje.Id', this)">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm p-1 btn-accion-inspeccionar" title="Inspeccionar detalle del mensaje" aria-label="Inspeccionar detalle del mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirOffcanvasDetalle(@System.Text.Json.JsonSerializer.Serialize(mensaje.Id), this)">
                                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                                         <circle cx="12" cy="12" r="3"></circle>
@@ -333,7 +333,7 @@
                                                 <!-- Botón Descartar: abre modal con motivo obligatorio -->
                                                 @if (!esDescartado)
                                                 {
-                                                    <button type="button" class="btn btn-outline-danger btn-sm p-1" title="Descartar mensaje de la cola" aria-label="Descartar mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirModalDescartar('@mensaje.Id', '@mensaje.TipoLegible')">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm p-1" title="Descartar mensaje de la cola" aria-label="Descartar mensaje #@mensaje.Id.ToString()[..8]" onclick="abrirModalDescartar(@System.Text.Json.JsonSerializer.Serialize(mensaje.Id), @System.Text.Json.JsonSerializer.Serialize(mensaje.TipoLegible))">
                                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                             <circle cx="12" cy="12" r="10"></circle>
                                                             <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -345,7 +345,7 @@
                                                 <!-- Reintento directo individual (abre panel/modal de confirmación) -->
                                                 @if (esPendiente)
                                                 {
-                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="abrirModalReintentoIndividual('@mensaje.Id')" title="Reintentar procesamiento">
+                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="abrirModalReintentoIndividual(@System.Text.Json.JsonSerializer.Serialize(mensaje.Id))" title="Reintentar procesamiento">
                                                         Reintentar
                                                     </button>
                                                 }
