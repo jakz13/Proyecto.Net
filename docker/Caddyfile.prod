@@ -71,6 +71,28 @@
 	}
 }
 
+# Seguimiento público (sin login): el destinatario ingresa el código de envío. La API se sirve también aquí (mismo origen).
+{$DOMINIO_SEGUIMIENTO} {
+	import seguridad
+	encode gzip
+
+	@api path /api/* /hubs/*
+	handle @api {
+		reverse_proxy api1:8080 api2:8080 {
+			lb_policy cookie
+			health_uri /ready
+			health_interval 10s
+			health_timeout 8s
+			health_fails 3
+			lb_try_duration 5s
+		}
+	}
+
+	handle {
+		reverse_proxy seguimiento-publico:80
+	}
+}
+
 # Panel de observabilidad (Grafana). Prometheus no se publica: solo Grafana lo consulta por la red interna.
 {$DOMINIO_PANEL} {
 	import seguridad

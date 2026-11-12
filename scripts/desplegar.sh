@@ -19,7 +19,7 @@ DESTINO="$VM_USUARIO@$VM_HOST"
 SSH_OPC=(-i "$VM_CLAVE_SSH" -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
 
 SERVICIOS=("$@")
-[ ${#SERVICIOS[@]} -eq 0 ] && SERVICIOS=(api worker backoffice portal panel)
+[ ${#SERVICIOS[@]} -eq 0 ] && SERVICIOS=(api worker backoffice portal seguimiento panel)
 
 compose=(); imagenes=(); construir=()
 for s in "${SERVICIOS[@]}"; do
@@ -28,8 +28,9 @@ for s in "${SERVICIOS[@]}"; do
     worker)     compose+=(worker);          construir+=(worker);          imagenes+=(ultimamilla/worker:latest) ;;
     backoffice) compose+=(backoffice);      construir+=(backoffice);      imagenes+=(ultimamilla/backoffice:latest) ;;
     portal)     compose+=(portal-comercio); construir+=(portal-comercio); imagenes+=(ultimamilla/portal-comercio:latest) ;;
+    seguimiento) compose+=(seguimiento-publico); construir+=(seguimiento-publico); imagenes+=(ultimamilla/seguimiento-publico:latest) ;;
     panel)      compose+=(prometheus grafana) ;;
-    *) echo "Servicio desconocido: $s (api|worker|backoffice|portal|panel)"; exit 1 ;;
+    *) echo "Servicio desconocido: $s (api|worker|backoffice|portal|seguimiento|panel)"; exit 1 ;;
   esac
 done
 
@@ -39,7 +40,7 @@ if [ ${#construir[@]} -gt 0 ]; then
   paso "Construyendo imágenes: ${construir[*]}"
   # El compose exige estas variables al interpolarse; para construir sus valores no importan
   POSTGRES_PASSWORD=x RABBITMQ_PASSWORD=x JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-  DOMINIO=x DOMINIO_COMERCIO=x DOMINIO_PANEL=x GRAFANA_PASSWORD=x \
+  DOMINIO=x DOMINIO_COMERCIO=x DOMINIO_PANEL=x DOMINIO_SEGUIMIENTO=x GRAFANA_PASSWORD=x \
     docker compose -f docker-compose.prod.yml build "${construir[@]}"
 fi
 

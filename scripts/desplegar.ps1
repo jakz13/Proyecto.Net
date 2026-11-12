@@ -16,17 +16,19 @@
     .\scripts\desplegar.ps1 -Servicios api        # solo la API (lo más rápido)
     .\scripts\desplegar.ps1 -Servicios backoffice
     .\scripts\desplegar.ps1 -Servicios portal
+    .\scripts\desplegar.ps1 -Servicios seguimiento
 #>
 param(
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
-    [ValidateSet('api', 'worker', 'backoffice', 'portal', 'panel')]
-    [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'panel'),
+    [ValidateSet('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel')]
+    [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel'),
 
     [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.65.113' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
-    [string]$DominioPanel = 'panel.shippingbox.duckdns.org'
+    [string]$DominioPanel = 'panel.shippingbox.duckdns.org',
+    [string]$DominioSeguimiento = 'seguimiento.shippingbox.duckdns.org'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,7 +65,7 @@ Write-Host 'Docker listo.'
 
 # ---------------------------------------------------------------- Construcción
 # api -> servicio de compose api1; portal -> portal-comercio (api1 y api2 comparten la misma imagen)
-$mapaServicio = @{ api = @('api1'); worker = @('worker'); backoffice = @('backoffice'); portal = @('portal-comercio'); panel = @('prometheus', 'grafana') }
+$mapaServicio = @{ api = @('api1'); worker = @('worker'); backoffice = @('backoffice'); portal = @('portal-comercio'); seguimiento = @('seguimiento-publico'); panel = @('prometheus', 'grafana') }
 $serviciosCompose = @($Servicios | ForEach-Object { $mapaServicio[$_] })
 # Prometheus y Grafana usan imágenes públicas: no se construyen ni se envían desde esta PC
 $construibles = @($serviciosCompose | Where-Object { $_ -notin 'prometheus', 'grafana' })
@@ -72,8 +74,8 @@ $imagenes = @($construibles | ForEach-Object { if ($_ -eq 'api1') { 'ultimamilla
 Paso "Construyendo imágenes: $($construibles -join ', ')"
 # El compose exige estas variables al interpolarse; para construir sus valores no importan
 $respaldo = @{}
-foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO', 'DOMINIO_PANEL', 'GRAFANA_PASSWORD') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
-$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'; $env:DOMINIO_PANEL = 'x'; $env:GRAFANA_PASSWORD = 'x'
+foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO', 'DOMINIO_PANEL', 'DOMINIO_SEGUIMIENTO', 'GRAFANA_PASSWORD') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
+$env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'; $env:DOMINIO_PANEL = 'x'; $env:DOMINIO_SEGUIMIENTO = 'x'; $env:GRAFANA_PASSWORD = 'x'
 try {
     if ($construibles.Count -gt 0) {
         docker compose -f docker-compose.prod.yml build @construibles
@@ -124,6 +126,7 @@ function Esperar200($url) {
 }
 $sitios = @("https://$Dominio/ready")
 if ($Servicios -contains 'portal') { $sitios += "https://$DominioComercio/" }
+if ($Servicios -contains 'seguimiento') { $sitios += "https://$DominioSeguimiento/" }
 if ($Servicios -contains 'panel') { $sitios += "https://$DominioPanel/api/health" }
 foreach ($url in $sitios) {
     Paso "Verificando $url"

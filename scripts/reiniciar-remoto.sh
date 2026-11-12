@@ -18,6 +18,9 @@ esperar() {
   return 1
 }
 
+# Los archivos montados (Grafana, Prometheus, RabbitMQ) los leen contenedores con otro usuario: deben ser legibles
+chmod -R a+rX docker
+
 $C up -d --no-build --no-deps postgres redis rabbitmq caddy
 for s in $SERVICIOS; do
   case "$s" in
