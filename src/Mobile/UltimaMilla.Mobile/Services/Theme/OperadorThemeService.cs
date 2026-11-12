@@ -33,8 +33,8 @@ public class OperadorThemeService : IOperadorThemeService
         try
         {
             var nombre = Preferences.Default.Get(PrefKeyNombreComercial, "Última Milla");
-            var colorPrimario = Preferences.Default.Get(PrefKeyColorPrimario, "#2563EB");
-            var colorSecundario = Preferences.Default.Get(PrefKeyColorSecundario, "#64748B");
+            var colorPrimario = Preferences.Default.Get(PrefKeyColorPrimario, "#1D4ED8");
+            var colorSecundario = Preferences.Default.Get(PrefKeyColorSecundario, "#F97316");
             var logoUrl = Preferences.Default.Get(PrefKeyLogoUrl, string.Empty);
             var telefono = Preferences.Default.Get(PrefKeyTelefono, string.Empty);
             var email = Preferences.Default.Get(PrefKeyEmail, string.Empty);
@@ -46,8 +46,8 @@ public class OperadorThemeService : IOperadorThemeService
             {
                 OperadorId = opId,
                 NombreComercial = string.IsNullOrWhiteSpace(nombre) ? "Última Milla" : nombre,
-                ColorPrimarioHex = NormalizarHex(colorPrimario, "#2563EB"),
-                ColorSecundarioHex = NormalizarHex(colorSecundario, "#64748B"),
+                ColorPrimarioHex = NormalizarHex(colorPrimario, "#1D4ED8"),
+                ColorSecundarioHex = NormalizarHex(colorSecundario, "#F97316"),
                 LogoUrl = string.IsNullOrWhiteSpace(logoUrl) ? null : logoUrl,
                 TelefonoContacto = string.IsNullOrWhiteSpace(telefono) ? null : telefono,
                 EmailContacto = string.IsNullOrWhiteSpace(email) ? null : email
@@ -69,8 +69,14 @@ public class OperadorThemeService : IOperadorThemeService
 
     private void AplicarIdentidadInterno(OperadorIdentidadVisualModel identidad, bool persistir)
     {
-        identidad.ColorPrimarioHex = NormalizarHex(identidad.ColorPrimarioHex, "#2563EB");
-        identidad.ColorSecundarioHex = NormalizarHex(identidad.ColorSecundarioHex, "#64748B");
+        identidad.ColorPrimarioHex = NormalizarHex(identidad.ColorPrimarioHex, "#1D4ED8");
+        identidad.ColorSecundarioHex = NormalizarHex(identidad.ColorSecundarioHex, "#F97316");
+
+        var primario = ParsearColor(identidad.ColorPrimarioHex, Color.FromArgb("#1D4ED8"));
+        var secundarioRaw = ParsearColor(identidad.ColorSecundarioHex, Color.FromArgb("#F97316"));
+        var secundario = GarantizarContrasteSecundario(primario, secundarioRaw);
+
+        identidad.ColorSecundarioHex = $"#{Math.Clamp((int)(secundario.Red * 255), 0, 255):X2}{Math.Clamp((int)(secundario.Green * 255), 0, 255):X2}{Math.Clamp((int)(secundario.Blue * 255), 0, 255):X2}";
 
         IdentidadActual = identidad;
 
@@ -100,39 +106,63 @@ public class OperadorThemeService : IOperadorThemeService
         {
             try
             {
-                var primario = ParsearColor(identidad.ColorPrimarioHex, Color.FromArgb("#2563EB"));
-                var secundario = ParsearColor(identidad.ColorSecundarioHex, Color.FromArgb("#64748B"));
-
                 var primarioOscuro = AjustarBrillo(primario, -0.15f);
-                var primarioClaro = primario.WithAlpha(0.12f);
+                var primarioSuave = MezclarConBlanco(primario, 0.14f);
                 var secundarioOscuro = AjustarBrillo(secundario, -0.15f);
-                var secundarioClaro = secundario.WithAlpha(0.12f);
+                var secundarioSuave = MezclarConBlanco(secundario, 0.15f);
+
+                var headerBg = Color.FromArgb("#0F172A");
+                var headerText = Color.FromArgb("#FFFFFF");
+                var cardBorder = Color.FromArgb("#E2E8F0");
+                var logoSource = identidad.LogoSource;
 
                 var resources = Application.Current?.Resources;
                 if (resources != null)
                 {
                     resources["Primary"] = primario;
                     resources["PrimaryColor"] = primario;
+                    resources["CorporatePrimaryColor"] = primario;
                     resources["PrimaryDark"] = primarioOscuro;
-                    resources["PrimaryLight"] = primarioClaro;
+                    resources["PrimaryLight"] = primarioSuave;
+                    resources["PrimaryLightColor"] = primarioSuave;
+                    resources["PrimarySoftBackground"] = primarioSuave;
                     resources["PrimaryBrush"] = new SolidColorBrush(primario);
                     resources["CorporatePrimaryBrush"] = new SolidColorBrush(primario);
 
                     resources["Secondary"] = secundario;
                     resources["SecondaryColor"] = secundario;
+                    resources["CorporateSecondaryColor"] = secundario;
                     resources["SecondaryDark"] = secundarioOscuro;
-                    resources["SecondaryLight"] = secundarioClaro;
+                    resources["SecondaryLight"] = secundarioSuave;
+                    resources["SecondaryLightColor"] = secundarioSuave;
+                    resources["SecondarySoftBackground"] = secundarioSuave;
                     resources["SecondaryBrush"] = new SolidColorBrush(secundario);
+                    resources["CorporateSecondaryBrush"] = new SolidColorBrush(secundario);
+                    resources["AccentColor"] = secundario;
+                    resources["AccentBrush"] = new SolidColorBrush(secundario);
+
+                    resources["HeaderBackgroundColor"] = headerBg;
+                    resources["HeaderTextColor"] = headerText;
+                    resources["CardBorderColor"] = cardBorder;
+                    resources["CardBorder"] = cardBorder;
 
                     resources["NombreOperadorActual"] = identidad.NombreComercial;
+                    resources["InicialesOperadorActual"] = identidad.Iniciales;
                     resources["LogoOperadorUrl"] = identidad.LogoUrl ?? string.Empty;
+                    resources["LogoSource"] = logoSource;
+                    resources["TieneLogoOperador"] = logoSource is not null;
+                    resources["MostrarInicialesOperador"] = logoSource is null;
                 }
 
                 if (Shell.Current != null)
                 {
-                    Shell.SetTabBarBackgroundColor(Shell.Current, Color.FromArgb("#0F172A"));
+                    Shell.SetBackgroundColor(Shell.Current, headerBg);
+                    Shell.SetForegroundColor(Shell.Current, headerText);
+                    Shell.SetTitleColor(Shell.Current, headerText);
+                    Shell.SetTabBarBackgroundColor(Shell.Current, Color.FromArgb("#FFFFFF"));
                     Shell.SetTabBarTitleColor(Shell.Current, primario);
                     Shell.SetTabBarForegroundColor(Shell.Current, primario);
+                    Shell.SetTabBarUnselectedColor(Shell.Current, secundario);
                 }
             }
             catch (Exception ex)
@@ -144,6 +174,9 @@ public class OperadorThemeService : IOperadorThemeService
         });
     }
 
+    public Task<OperadorIdentidadVisualModel?> SincronizarIdentidadVisualAsync(CancellationToken ct = default)
+        => DescargarYActualizarIdentidadAsync(ct);
+
     public async Task<OperadorIdentidadVisualModel?> DescargarYActualizarIdentidadAsync(CancellationToken ct = default)
     {
         try
@@ -154,7 +187,7 @@ public class OperadorThemeService : IOperadorThemeService
             var response = await client.GetAsync("/api/mobile/v1/operador/identidad-visual", ct);
             if (!response.IsSuccessStatusCode)
             {
-                // Fallback secundario si se consulta endpoint general
+                // Fallback secundario si se consulta endpoint general del Backoffice
                 response = await client.GetAsync("/api/v1/identidad-visual", ct);
             }
 
@@ -167,15 +200,25 @@ public class OperadorThemeService : IOperadorThemeService
                 if (dto != null)
                 {
                     var nombre = !string.IsNullOrWhiteSpace(dto.NombreComercial) ? dto.NombreComercial : "Última Milla";
-                    var colorPri = !string.IsNullOrWhiteSpace(dto.ColorPrimarioHex) ? dto.ColorPrimarioHex : (!string.IsNullOrWhiteSpace(dto.ColorPrimario) ? dto.ColorPrimario : "#2563EB");
-                    var colorSec = !string.IsNullOrWhiteSpace(dto.ColorSecundarioHex) ? dto.ColorSecundarioHex : (!string.IsNullOrWhiteSpace(dto.ColorSecundario) ? dto.ColorSecundario : "#64748B");
+                    var colorPri = !string.IsNullOrWhiteSpace(dto.ColorPrimarioHex)
+                        ? dto.ColorPrimarioHex
+                        : (!string.IsNullOrWhiteSpace(dto.ColorPrimario) ? dto.ColorPrimario : "#1D4ED8");
+                    var colorSec = !string.IsNullOrWhiteSpace(dto.ColorSecundarioHex)
+                        ? dto.ColorSecundarioHex
+                        : (!string.IsNullOrWhiteSpace(dto.ColorSecundario) ? dto.ColorSecundario : "#F97316");
+
+                    Guid? opId = null;
+                    if (!string.IsNullOrWhiteSpace(dto.OperadorId) && Guid.TryParse(dto.OperadorId, out var parsedGuid))
+                    {
+                        opId = parsedGuid;
+                    }
 
                     var modelo = new OperadorIdentidadVisualModel
                     {
-                        OperadorId = dto.OperadorId,
+                        OperadorId = opId,
                         NombreComercial = nombre.Trim(),
-                        ColorPrimarioHex = NormalizarHex(colorPri, "#2563EB"),
-                        ColorSecundarioHex = NormalizarHex(colorSec, "#64748B"),
+                        ColorPrimarioHex = NormalizarHex(colorPri, "#1D4ED8"),
+                        ColorSecundarioHex = NormalizarHex(colorSec, "#F97316"),
                         LogoUrl = string.IsNullOrWhiteSpace(dto.LogoUrl) ? null : dto.LogoUrl.Trim(),
                         TelefonoContacto = string.IsNullOrWhiteSpace(dto.TelefonoContacto) ? null : dto.TelefonoContacto.Trim(),
                         EmailContacto = string.IsNullOrWhiteSpace(dto.EmailContacto) ? null : dto.EmailContacto.Trim()
@@ -230,9 +273,95 @@ public class OperadorThemeService : IOperadorThemeService
         return new Color(r, g, b, c.Alpha);
     }
 
+    private static Color MezclarConBlanco(Color c, float opacidadColor)
+    {
+        float t = Math.Clamp(opacidadColor, 0f, 1f);
+        float r = 1f - (1f - c.Red) * t;
+        float g = 1f - (1f - c.Green) * t;
+        float b = 1f - (1f - c.Blue) * t;
+        return new Color(r, g, b, 1f);
+    }
+
+    private static Color GarantizarContrasteSecundario(Color primario, Color secundario)
+    {
+        double dr = primario.Red - secundario.Red;
+        double dg = primario.Green - secundario.Green;
+        double db = primario.Blue - secundario.Blue;
+        double distancia = Math.Sqrt(dr * dr + dg * dg + db * db);
+
+        if (distancia < 0.28)
+        {
+            RgbToHsl(primario.Red, primario.Green, primario.Blue, out double h, out double s, out double l);
+
+            double nuevoHue = (h + 150.0) % 360.0;
+            double nuevaSaturacion = Math.Clamp(s > 0.4 ? s : 0.75, 0.45, 0.90);
+            double nuevaLuminosidad = l > 0.5 ? 0.38 : 0.62;
+
+            HslToRgb(nuevoHue, nuevaSaturacion, nuevaLuminosidad, out double r, out double g, out double b);
+            return new Color((float)r, (float)g, (float)b, 1.0f);
+        }
+
+        return secundario;
+    }
+
+    private static void RgbToHsl(double r, double g, double b, out double h, out double s, out double l)
+    {
+        double max = Math.Max(r, Math.Max(g, b));
+        double min = Math.Min(r, Math.Min(g, b));
+        l = (max + min) / 2.0;
+
+        if (Math.Abs(max - min) < 0.0001)
+        {
+            h = 0;
+            s = 0;
+        }
+        else
+        {
+            double d = max - min;
+            s = l > 0.5 ? d / (2.0 - max - min) : d / (max + min);
+
+            if (Math.Abs(max - r) < 0.0001)
+                h = (g - b) / d + (g < b ? 6.0 : 0.0);
+            else if (Math.Abs(max - g) < 0.0001)
+                h = (b - r) / d + 2.0;
+            else
+                h = (r - g) / d + 4.0;
+
+            h *= 60.0;
+        }
+    }
+
+    private static void HslToRgb(double h, double s, double l, out double r, out double g, out double b)
+    {
+        if (Math.Abs(s) < 0.0001)
+        {
+            r = g = b = l;
+            return;
+        }
+
+        double q = l < 0.5 ? l * (1.0 + s) : l + s - (l * s);
+        double p = 2.0 * l - q;
+        double hk = h / 360.0;
+
+        r = HueToRgb(p, q, hk + 1.0 / 3.0);
+        g = HueToRgb(p, q, hk);
+        b = HueToRgb(p, q, hk - 1.0 / 3.0);
+    }
+
+    private static double HueToRgb(double p, double q, double t)
+    {
+        if (t < 0.0) t += 1.0;
+        if (t > 1.0) t -= 1.0;
+        if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+        if (t < 1.0 / 2.0) return q;
+        if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+        return p;
+    }
+
     private class IdentidadVisualMobileResponseDto
     {
-        public Guid? OperadorId { get; set; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(GuidOrStringConverter))]
+        public string? OperadorId { get; set; }
         public string? NombreComercial { get; set; }
         public string? ColorPrimarioHex { get; set; }
         public string? ColorSecundarioHex { get; set; }
@@ -242,5 +371,20 @@ public class OperadorThemeService : IOperadorThemeService
         public string? TelefonoContacto { get; set; }
         public string? EmailContacto { get; set; }
     }
-}
 
+    private sealed class GuidOrStringConverter : System.Text.Json.Serialization.JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+                return reader.GetString();
+            if (reader.TokenType == JsonTokenType.Null)
+                return null;
+            using var doc = JsonDocument.ParseValue(ref reader);
+            return doc.RootElement.ToString();
+        }
+
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value);
+    }
+}

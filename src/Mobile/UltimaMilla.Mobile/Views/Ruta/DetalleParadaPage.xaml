@@ -6,7 +6,7 @@
              x:Class="UltimaMilla.Mobile.Views.Ruta.DetalleParadaPage"
              x:DataType="vm:DetalleParadaViewModel"
              Title="Detalle de Parada"
-             Shell.NavBarIsVisible="False"
+             Shell.NavBarIsVisible="True"
              Shell.TabBarIsVisible="False"
              BackgroundColor="{StaticResource PageBackground}">
 
@@ -50,14 +50,14 @@
                     <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="Auto, *, Auto" RowSpacing="12" ColumnSpacing="12">
                         <!-- Identificador de Parada -->
                         <Border Grid.Row="0" Grid.Column="0"
-                                BackgroundColor="#EFF6FF"
-                                Stroke="#BFDBFE"
+                                BackgroundColor="{DynamicResource SecondarySoftBackground}"
+                                Stroke="{DynamicResource SecondaryColor}"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 8"
                                 Padding="10,6"
                                 VerticalOptions="Center">
                             <Label Text="{Binding Parada.Orden, StringFormat='Parada {0}'}"
-                                   TextColor="{StaticResource Primary}"
+                                   TextColor="{DynamicResource SecondaryColor}"
                                    FontAttributes="Bold"
                                    FontSize="13" />
                         </Border>

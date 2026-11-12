@@ -11,191 +11,270 @@
 
     <ScrollView>
         <VerticalStackLayout
-            Spacing="20"
-            Padding="{DynamicResource PaddingLogin}"
-            VerticalOptions="Center">
+            Spacing="18"
+            Padding="20,28"
+            VerticalOptions="Center"
+            MaximumWidthRequest="440">
 
-            <!-- Encabezado Corporativo Dinámico por Operador / Marca Blanca -->
-            <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
-                <!-- Logotipo o Iniciales Corporativas -->
-                <Grid HeightRequest="64" WidthRequest="64" HorizontalOptions="Center">
-                    <!-- Si tiene URL de logo -->
-                    <Image Source="{Binding LogoOperadorUrl}"
-                           IsVisible="{Binding TieneLogoUrl}"
-                           Aspect="AspectFit"
-                           HeightRequest="60"
-                           WidthRequest="60"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
-
-                    <!-- Fallback: Círculo con Iniciales del Operador -->
-                    <Border IsVisible="{Binding MostrarIniciales}"
-                            StrokeShape="RoundRectangle 32"
-                            StrokeThickness="0"
-                            BackgroundColor="{DynamicResource Primary}"
-                            HeightRequest="64"
-                            WidthRequest="64"
-                            HorizontalOptions="Center"
-                            VerticalOptions="Center">
-                        <Label Text="{Binding InicialesOperador}"
-                               TextColor="White"
-                               FontSize="22"
-                               FontAttributes="Bold"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center" />
-                    </Border>
-                </Grid>
-
-                <Label
-                    Text="{Binding NombreOperador}"
-                    FontSize="{DynamicResource FontSizeLoginTitulo}"
-                    FontAttributes="Bold"
-                    HorizontalOptions="Center"
-                    TextColor="#0F172A" />
-
-                <Label
-                    Text="Inicio de Sesión - Operaciones en Terreno"
-                    FontSize="14"
-                    FontAttributes="Bold"
-                    HorizontalOptions="Center"
-                    HorizontalTextAlignment="Center"
-                    TextColor="#475569" />
-            </VerticalStackLayout>
-
-            <!-- Contenedor del Formulario -->
+            <!-- Tarjeta Central Elevada estilo Backoffice Login con Barra Superior de Acento -->
             <Border
                 StrokeShape="RoundRectangle 12"
                 StrokeThickness="1"
-                Stroke="{StaticResource CardBorder}"
-                BackgroundColor="{StaticResource CardBackground}"
-                Padding="{DynamicResource PaddingTarjetaLogin}"
-                Margin="0,8,0,0">
+                Stroke="{DynamicResource CardBorderColor}"
+                BackgroundColor="#FFFFFF"
+                Padding="0">
+                <Border.Shadow>
+                    <Shadow Brush="#000000" Offset="0,4" Radius="14" Opacity="0.08" />
+                </Border.Shadow>
 
-                <VerticalStackLayout Spacing="16">
+                <VerticalStackLayout Spacing="0">
+                    <!-- Barra Superior Corporativa Dual (PrimaryColor + SecondaryColor) -->
+                    <Grid ColumnDefinitions="2*, *" HeightRequest="6">
+                        <BoxView Grid.Column="0" Color="{DynamicResource PrimaryColor}" />
+                        <BoxView Grid.Column="1" Color="{DynamicResource SecondaryColor}" />
+                    </Grid>
 
-                    <!-- Campo Usuario / Email -->
-                    <VerticalStackLayout Spacing="6">
-                        <Label
-                            Text="Usuario / Email"
-                            FontSize="13"
-                            FontAttributes="Bold"
-                            TextColor="{StaticResource TextPrimary}" />
+                    <!-- Cabecera Oscura de Marca del Operador (Alineada con Sidebar/Header del Backoffice) -->
+                    <Border StrokeThickness="0"
+                            StrokeShape="Rectangle"
+                            BackgroundColor="{DynamicResource HeaderBackgroundColor}"
+                            Padding="24,20,24,18">
+                        <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
+                            <Grid HeightRequest="64" WidthRequest="64" HorizontalOptions="Center">
+                                <!-- Si el operador tiene Logo (URL, Ruta o Base64) -->
+                                <Border IsVisible="{Binding TieneLogoUrl}"
+                                        StrokeShape="RoundRectangle 12"
+                                        Stroke="{DynamicResource SecondaryColor}"
+                                        StrokeThickness="2"
+                                        BackgroundColor="#FFFFFF"
+                                        HeightRequest="64"
+                                        WidthRequest="64"
+                                        Padding="4"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center">
+                                    <Image Source="{Binding LogoSource}"
+                                           Aspect="AspectFit"
+                                           HeightRequest="52"
+                                           WidthRequest="52"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center" />
+                                </Border>
 
-                        <Entry
-                            Placeholder="repartidor@gmail.com"
-                            Text="{Binding Usuario}"
-                            Keyboard="Email"
-                            ClearButtonVisibility="WhileEditing"
-                            IsEnabled="{Binding IsNotBusy}" />
-                    </VerticalStackLayout>
+                                <!-- Fallback: Cuadro Redondeado con Iniciales del Operador -->
+                                <Border IsVisible="{Binding MostrarIniciales}"
+                                        StrokeShape="RoundRectangle 14"
+                                        Stroke="{DynamicResource SecondaryColor}"
+                                        StrokeThickness="2"
+                                        BackgroundColor="{DynamicResource PrimaryColor}"
+                                        HeightRequest="64"
+                                        WidthRequest="64"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding InicialesOperador}"
+                                           TextColor="#FFFFFF"
+                                           FontSize="22"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center" />
+                                </Border>
+                            </Grid>
 
-                    <!-- Campo Contraseña -->
-                    <VerticalStackLayout Spacing="6">
-                        <Label
-                            Text="Contraseña"
-                            FontSize="13"
-                            FontAttributes="Bold"
-                            TextColor="{StaticResource TextPrimary}" />
+                            <Label Text="{Binding NombreOperador}"
+                                   FontSize="22"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="Center"
+                                   HorizontalTextAlignment="Center"
+                                   TextColor="#FFFFFF" />
 
-                        <Entry
-                            Placeholder="Ingrese su contraseña"
-                            Text="{Binding Password}"
-                            IsPassword="True"
-                            ClearButtonVisibility="WhileEditing"
-                            IsEnabled="{Binding IsNotBusy}" />
-                    </VerticalStackLayout>
-
-                    <!-- Mensajes de Estado / Error -->
-                    <Label
-                        Text="{Binding ErrorMessage}"
-                        TextColor="#DC2626"
-                        FontSize="13"
-                        HorizontalOptions="Center"
-                        HorizontalTextAlignment="Center"
-                        IsVisible="{Binding HasError}" />
-
-                    <Label
-                        Text="{Binding StatusMessage}"
-                        TextColor="#15803D"
-                        FontSize="13"
-                        HorizontalOptions="Center"
-                        HorizontalTextAlignment="Center"
-                        IsVisible="{Binding HasStatus}" />
-
-                    <!-- Indicador de Carga -->
-                    <ActivityIndicator
-                        IsRunning="{Binding IsBusy}"
-                        IsVisible="{Binding IsBusy}"
-                        Color="#2563EB"
-                        HorizontalOptions="Center" />
-
-                    <!-- Botón Principal Ingresar -->
-                    <Button
-                        Text="Ingresar"
-                        Command="{Binding LoginCommand}"
-                        IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="{DynamicResource Primary}"
-                        TextColor="White"
-                        FontAttributes="Bold"
-                        CornerRadius="10"
-                        HeightRequest="48"
-                        Margin="0,4,0,0" />
-
-                    <!-- Botón Ingreso con Biometría -->
-                    <Button
-                        Text="Ingresar con Biometría"
-                        Command="{Binding LoginConBiometriaCommand}"
-                        IsVisible="{Binding PuedeUsarBiometria}"
-                        IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="{DynamicResource Secondary}"
-                        TextColor="White"
-                        FontAttributes="Bold"
-                        CornerRadius="10"
-                        HeightRequest="44" />
-
-                    <!-- Selector discreto de servidor (Nube / Local) -->
-                    <Border
-                        StrokeShape="RoundRectangle 8"
-                        StrokeThickness="1"
-                        Stroke="#E2E8F0"
-                        BackgroundColor="#F8FAFC"
-                        Padding="10,6"
-                        Margin="0,4,0,0">
-                        <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
-                            <VerticalStackLayout Grid.Column="0" Spacing="1" VerticalOptions="Center">
-                                <HorizontalStackLayout Spacing="4">
-                                    <Label
-                                        Text="Servidor:"
-                                        FontSize="11"
-                                        TextColor="#64748B" />
-                                    <Label
-                                        Text="{Binding TipoServidorTexto}"
-                                        FontSize="11"
-                                        FontAttributes="Bold"
-                                        TextColor="#0F172A" />
-                                </HorizontalStackLayout>
-                                <Label
-                                    Text="{Binding ServidorActivo}"
-                                    FontSize="10"
-                                    TextColor="#475569"
-                                    LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-
-                            <Button
-                                Grid.Column="1"
-                                Text="Cambiar"
-                                Command="{Binding AlternarServidorCommand}"
-                                IsEnabled="{Binding IsNotBusy}"
-                                BackgroundColor="Transparent"
-                                TextColor="#2563EB"
-                                FontSize="11"
-                                FontAttributes="Bold"
-                                HeightRequest="32"
-                                Padding="8,0"
-                                VerticalOptions="Center" />
-                        </Grid>
+                            <Border BackgroundColor="{DynamicResource SecondaryColor}"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 6"
+                                    Padding="10,3"
+                                    HorizontalOptions="Center">
+                                <Label Text="PLATAFORMA DE OPERACIONES EN TERRENO"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="#FFFFFF"
+                                       HorizontalOptions="Center" />
+                            </Border>
+                        </VerticalStackLayout>
                     </Border>
 
+                    <!-- Línea divisoria en SecondaryColor como en la cabecera del Backoffice -->
+                    <BoxView HeightRequest="2" Color="{DynamicResource SecondaryColor}" />
+
+                    <!-- Cuerpo del Formulario Empresarial -->
+                    <VerticalStackLayout Spacing="16" Padding="24,22,24,24">
+
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Acceso de Personal Operativo"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A" />
+                            <Label Text="Ingrese sus credenciales corporativas para sincronizar su jornada."
+                                   FontSize="12"
+                                   TextColor="#64748B" />
+                        </VerticalStackLayout>
+
+                        <!-- Campo Usuario / Email -->
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="CORREO ELECTRONICO / USUARIO"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="#475569" />
+
+                            <Border StrokeShape="RoundRectangle 8"
+                                    Stroke="#CBD5E1"
+                                    StrokeThickness="1.2"
+                                    BackgroundColor="#FFFFFF"
+                                    Padding="12,0"
+                                    HeightRequest="46">
+                                <Entry Placeholder="repartidor@gmail.com"
+                                       Text="{Binding Usuario}"
+                                       Keyboard="Email"
+                                       ClearButtonVisibility="WhileEditing"
+                                       IsEnabled="{Binding IsNotBusy}"
+                                       FontSize="14"
+                                       VerticalOptions="Center" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <!-- Campo Contraseña -->
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="CONTRASENA"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="#475569" />
+
+                            <Border StrokeShape="RoundRectangle 8"
+                                    Stroke="#CBD5E1"
+                                    StrokeThickness="1.2"
+                                    BackgroundColor="#FFFFFF"
+                                    Padding="12,0"
+                                    HeightRequest="46">
+                                <Entry Placeholder="Ingrese su contraseña"
+                                       Text="{Binding Password}"
+                                       IsPassword="True"
+                                       ClearButtonVisibility="WhileEditing"
+                                       IsEnabled="{Binding IsNotBusy}"
+                                       FontSize="14"
+                                       VerticalOptions="Center" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <!-- Mensajes de Estado / Error -->
+                        <Border IsVisible="{Binding HasError}"
+                                BackgroundColor="#FEF2F2"
+                                Stroke="#FCA5A5"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,8">
+                            <Label Text="{Binding ErrorMessage}"
+                                   TextColor="#B91C1C"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center" />
+                        </Border>
+
+                        <Border IsVisible="{Binding HasStatus}"
+                                BackgroundColor="#F0FDF4"
+                                Stroke="#86EFAC"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,8">
+                            <Label Text="{Binding StatusMessage}"
+                                   TextColor="#15803D"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center" />
+                        </Border>
+
+                        <!-- Indicador de Carga -->
+                        <ActivityIndicator
+                            IsRunning="{Binding IsBusy}"
+                            IsVisible="{Binding IsBusy}"
+                            Color="{DynamicResource PrimaryColor}"
+                            HorizontalOptions="Center" />
+
+                        <!-- Botón Principal Ingresar -->
+                        <Button
+                            Text="Iniciar Sesion"
+                            Command="{Binding LoginCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            BackgroundColor="{DynamicResource PrimaryColor}"
+                            TextColor="#FFFFFF"
+                            FontAttributes="Bold"
+                            FontSize="14"
+                            CornerRadius="8"
+                            HeightRequest="48"
+                            Margin="0,2,0,0" />
+
+                        <!-- Botón Ingreso con Biometría -->
+                        <Button
+                            Text="Ingresar con Biometria"
+                            Command="{Binding LoginConBiometriaCommand}"
+                            IsVisible="{Binding PuedeUsarBiometria}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            BackgroundColor="{DynamicResource SecondarySoftBackground}"
+                            TextColor="{DynamicResource SecondaryColor}"
+                            BorderColor="{DynamicResource SecondaryColor}"
+                            BorderWidth="1.5"
+                            FontAttributes="Bold"
+                            FontSize="13"
+                            CornerRadius="8"
+                            HeightRequest="44" />
+
+                        <!-- Selector discreto de servidor (Nube / Local) -->
+                        <Border
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="1"
+                            Stroke="#E2E8F0"
+                            BackgroundColor="#F8FAFC"
+                            Padding="12,8"
+                            Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="4, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
+                                <BoxView Grid.Column="0"
+                                         WidthRequest="4"
+                                         CornerRadius="2"
+                                         Color="{DynamicResource SecondaryColor}"
+                                         VerticalOptions="Fill" />
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                    <HorizontalStackLayout Spacing="4">
+                                        <Label Text="ENTORNO:"
+                                               FontSize="10"
+                                               FontAttributes="Bold"
+                                               TextColor="#64748B" />
+                                        <Label Text="{Binding TipoServidorTexto}"
+                                               FontSize="10"
+                                               FontAttributes="Bold"
+                                               TextColor="{DynamicResource PrimaryColor}" />
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding ServidorActivo}"
+                                           FontSize="11"
+                                           TextColor="#334155"
+                                           LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+
+                                <Button Grid.Column="2"
+                                        Text="Cambiar"
+                                        Command="{Binding AlternarServidorCommand}"
+                                        IsEnabled="{Binding IsNotBusy}"
+                                        BackgroundColor="{DynamicResource SecondarySoftBackground}"
+                                        TextColor="{DynamicResource SecondaryColor}"
+                                        BorderColor="{DynamicResource SecondaryColor}"
+                                        BorderWidth="1"
+                                        FontSize="11"
+                                        FontAttributes="Bold"
+                                        HeightRequest="30"
+                                        MinimumHeightRequest="30"
+                                        CornerRadius="6"
+                                        Padding="10,0"
+                                        VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
 

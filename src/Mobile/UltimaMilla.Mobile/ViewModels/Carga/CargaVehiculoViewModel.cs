@@ -9,6 +9,7 @@ using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Carga;
 
@@ -123,6 +124,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly ISyncService? _syncService;
     private readonly IHttpClientFactory? _httpClientFactory;
     private readonly IBiometricAuthService? _biometricAuthService;
+    private readonly IOperadorThemeService? _themeService;
     private IDispatcherTimer? _vigilanciaDespacho;
     private bool _actualizandoSelectorRuta;
 
@@ -235,6 +237,99 @@ public partial class CargaVehiculoViewModel : ObservableObject
         _ => string.Empty
     };
 
+    // =========================================================================
+    // BANNER / TOAST CORPORATIVO DE AVISO RÁPIDO
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarToast;
+
+    [ObservableProperty]
+    private string _mensajeToast = string.Empty;
+
+    [ObservableProperty]
+    private Color _toastBgColor = Color.FromArgb("#16A34A");
+
+    public void MostrarAvisoRapido(string mensaje, bool esExito = true)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            MensajeToast = mensaje;
+            ToastBgColor = esExito
+                ? (Application.Current?.Resources.TryGetValue("SecondaryColor", out var sc) == true && sc is Color c ? c : Color.FromArgb("#16A34A"))
+                : Color.FromArgb("#DC2626");
+            MostrarToast = true;
+
+            var timer = Application.Current?.Dispatcher?.CreateTimer();
+            if (timer != null)
+            {
+                timer.Interval = TimeSpan.FromSeconds(2.5);
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    MostrarToast = false;
+                };
+                timer.Start();
+            }
+        });
+    }
+
+    // =========================================================================
+    // ESCENARIO A: MODAL CORPORATIVO DE BULTO SOBRANTE / NO ASIGNADO
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarModalBultoSobrante;
+
+    [ObservableProperty]
+    private string _codigoSobranteDetectado = string.Empty;
+
+    [ObservableProperty]
+    private string _motivoSobranteTexto = "Bulto no asignado a la hoja de ruta actual - Sobrante";
+
+    [ObservableProperty]
+    private string _observacionSobranteInput = string.Empty;
+
+    // =========================================================================
+    // ESCENARIO B: MODAL CORPORATIVO DE CONFIRMACIÓN DE CARGA (COMPLETA VS DISCREPANCIAS)
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarModalConfirmarCarga;
+
+    [ObservableProperty]
+    private bool _esCargaCompletaSinFaltantes = true;
+
+    [ObservableProperty]
+    private bool _tieneBultosFaltantes = false;
+
+    [ObservableProperty]
+    private int _totalEnviosCustodiaCount;
+
+    [ObservableProperty]
+    private int _totalBultosCustodiaCount;
+
+    [ObservableProperty]
+    private string _vehiculoCustodiaTexto = string.Empty;
+
+    [ObservableProperty]
+    private string _rutaCustodiaTexto = string.Empty;
+
+    public ObservableCollection<BultoCargaItemViewModel> BultosFaltantesDetalle { get; } = new();
+
+    [ObservableProperty]
+    private string _enviosExcluidosTexto = string.Empty;
+
+    public List<string> MotivosDiscrepanciaOpciones { get; } = new()
+    {
+        "Bulto Faltante en Anden",
+        "Empaque Danado",
+        "Rechazado en Carga"
+    };
+
+    [ObservableProperty]
+    private string _motivoDiscrepanciaSeleccionado = "Bulto Faltante en Anden";
+
+    [ObservableProperty]
+    private string _detalleDocumentalDiscrepanciaInput = string.Empty;
+
     public string ResumenEstadoTexto
     {
         get
@@ -253,7 +348,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         }
     }
 
-    public CargaVehiculoViewModel() : this(null, null, null, null)
+    public CargaVehiculoViewModel() : this(null, null, null, null, null)
     {
     }
 
@@ -261,12 +356,14 @@ public partial class CargaVehiculoViewModel : ObservableObject
         ILocalDatabaseService? localDatabaseService,
         ISyncService? syncService = null,
         IHttpClientFactory? httpClientFactory = null,
-        IBiometricAuthService? biometricAuthService = null)
+        IBiometricAuthService? biometricAuthService = null,
+        IOperadorThemeService? themeService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _httpClientFactory = httpClientFactory;
         _biometricAuthService = biometricAuthService;
+        _themeService = themeService;
     }
 
     /// <summary>Carga la ruta guardada en el dispositivo. Si todavía no hay ninguna, la pantalla lo informa en lugar de inventar datos.</summary>
@@ -496,6 +593,11 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
         try
         {
+            if (_themeService is not null)
+            {
+                await _themeService.SincronizarIdentidadVisualAsync();
+            }
+
             await _syncService.SincronizarOperacionesPendientesAsync();
             await _syncService.DescargarYActualizarRutasDelServidorAsync();
             await CargarRutasDesdeSQLiteAsync();
@@ -635,13 +737,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
             CodigoEscaneoInput = string.Empty;
             ActualizarConteos();
 
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Bulto Verificado",
-                    $"Bulto {bultoPendiente.CodigoBulto} cargado correctamente ({BultosCargados} de {BultosTotales} bultos cargados).\nEnvío: {bultoPendiente.CodigoSeguimiento}\nDestinatario: {bultoPendiente.Destinatario}",
-                    "Continuar");
-            }
+            MostrarAvisoRapido($"Bulto {bultoPendiente.CodigoBulto} cargado ({BultosCargados} de {BultosTotales})");
             return;
         }
 
@@ -651,57 +747,16 @@ public partial class CargaVehiculoViewModel : ObservableObject
         {
             CodigoEscaneoInput = string.Empty;
             ActualizarConteos();
-
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Bulto Ya Cargado",
-                    $"El bulto {yaCargado.CodigoBulto} ya fue escaneado y verificado previamente en el vehículo.",
-                    "Aceptar");
-            }
+            MostrarAvisoRapido($"El bulto {yaCargado.CodigoBulto} ya fue escaneado previamente", esExito: false);
             return;
         }
 
-        // 3. No coincide con ningún bulto de la ruta activa -> registrar como discrepancia/sobrante mostrando código recibido y códigos esperados
-        var yaRegistradoSobrante = BultosSobrantes.FirstOrDefault(s =>
-            string.Equals(NormalizarCodigoEscaneado(s.CodigoBulto), codigoLimpio, StringComparison.OrdinalIgnoreCase));
-
-        if (yaRegistradoSobrante == null)
-        {
-            BultosSobrantes.Add(new BultoCargaItemViewModel
-            {
-                CodigoBulto = codigoLimpio,
-                Identificacion = codigoLimpio,
-                Destinatario = "Sin asignar",
-                Direccion = "No corresponde a esta hoja de ruta",
-                ParadaOrden = 0,
-                EsSobrante = true,
-                VerificadoEnCarga = true
-            });
-        }
-
-        var codigosEsperados = BultosPendientes
-            .Concat(BultosCargadosLista)
-            .Select(b => b.CodigoBulto)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var textoEsperados = codigosEsperados.Count > 0
-            ? string.Join(", ", codigosEsperados)
-            : "Ninguno";
-
-        MensajeDiscrepancia = $"Discrepancia detectada: El código '{codigoLimpio}' no pertenece a esta hoja de ruta (Sobrante). Códigos esperados en la ruta: {textoEsperados}.";
+        // 3. No coincide con ningún bulto de la ruta activa -> disparar modal de bulto sobrante
         CodigoEscaneoInput = string.Empty;
-        ActualizarConteos();
-
-        if (Shell.Current is not null)
-        {
-            await Shell.Current.DisplayAlertAsync(
-                "Discrepancia Detectada",
-                $"El código recibido '{codigoLimpio}' no pertenece a esta hoja de ruta y se registró como sobrante.\n\nCódigos esperados en la ruta:\n{textoEsperados}",
-                "Entendido");
-        }
+        CodigoSobranteDetectado = codigoLimpio;
+        MotivoSobranteTexto = "Bulto no asignado a la hoja de ruta actual - Sobrante";
+        ObservacionSobranteInput = string.Empty;
+        MostrarModalBultoSobrante = true;
     }
 
     [RelayCommand]
@@ -757,38 +812,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
     [RelayCommand]
     private async Task EscanearBultoAsync()
     {
-        if (Shell.Current is null)
-            return;
-
-        var opcion = await Shell.Current.DisplayActionSheetAsync(
-            "Control de Carga en Vehículo",
-            "Cancelar",
-            null,
-            "Escanear con cámara",
-            "Ingresar código manual...");
-
-        if (string.IsNullOrEmpty(opcion) || opcion == "Cancelar")
-            return;
-
-        if (opcion == "Escanear con cámara")
-        {
-            await EscanearConCamaraAsync();
-        }
-        else if (opcion == "Ingresar código manual...")
-        {
-            var codigoIngresado = await Shell.Current.DisplayPromptAsync(
-                "Ingreso Manual de Bulto",
-                "Ingrese el código del bulto:",
-                "Validar",
-                "Cancelar",
-                "Código del bulto");
-
-            var codigoLimpio = NormalizarCodigoEscaneado(codigoIngresado);
-            if (!string.IsNullOrWhiteSpace(codigoLimpio))
-            {
-                await ProcesarCodigoEscaneadoAsync(codigoLimpio);
-            }
-        }
+        await EscanearConCamaraAsync();
     }
 
     [RelayCommand]
@@ -833,13 +857,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         // El recorrido solo empieza cuando el servidor ya despachó la ruta (lo hace el despachador desde el depósito)
         if (!PuedeIniciarRecorrido)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Ruta sin despachar",
-                    "El despachador del depósito todavía no despachó esta hoja de ruta. Espere su verificación o toque Actualizar.",
-                    "Entendido");
-            }
+            MostrarAvisoRapido("El despachador del depósito todavía no despachó esta hoja de ruta.", esExito: false);
             return;
         }
 
@@ -851,13 +869,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
             if (!autorizado)
             {
-                if (Shell.Current is not null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Operación Cancelada",
-                        "No se completó la verificación de identidad. La custodia de la carga no fue confirmada.",
-                        "Entendido");
-                }
+                MostrarAvisoRapido("Verificación biométrica no completada. Custodia cancelada.", esExito: false);
                 return;
             }
         }
@@ -906,13 +918,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 }
             }
 
+            MostrarAvisoRapido("Hoja de ruta iniciada en calle con éxito.");
             if (Shell.Current is not null)
             {
-                await Shell.Current.DisplayAlertAsync(
-                    "Recorrido Iniciado",
-                    "Hoja de ruta iniciada en calle.",
-                    "Aceptar");
-
                 await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }
@@ -923,46 +931,111 @@ public partial class CargaVehiculoViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ConfirmarCargaAsync()
+    private void RegistrarDiscrepanciaSobrante()
+    {
+        var codigo = CodigoSobranteDetectado;
+        if (!string.IsNullOrWhiteSpace(codigo))
+        {
+            var ya = BultosSobrantes.FirstOrDefault(s =>
+                string.Equals(NormalizarCodigoEscaneado(s.CodigoBulto), codigo, StringComparison.OrdinalIgnoreCase));
+
+            if (ya == null)
+            {
+                BultosSobrantes.Add(new BultoCargaItemViewModel
+                {
+                    CodigoBulto = codigo,
+                    Identificacion = codigo,
+                    Destinatario = "Sin asignar",
+                    Direccion = string.IsNullOrWhiteSpace(ObservacionSobranteInput) ? "Sobrante detectado en carga" : ObservacionSobranteInput.Trim(),
+                    ParadaOrden = 0,
+                    EsSobrante = true,
+                    VerificadoEnCarga = true
+                });
+            }
+
+            MensajeDiscrepancia = $"Discrepancia registrada: Bulto sobrante '{codigo}'.";
+            ActualizarConteos();
+            MostrarAvisoRapido($"Discrepancia registrada: Sobrante {codigo}");
+        }
+
+        MostrarModalBultoSobrante = false;
+        CodigoSobranteDetectado = string.Empty;
+        ObservacionSobranteInput = string.Empty;
+    }
+
+    [RelayCommand]
+    private void DescartarDiscrepanciaSobrante()
+    {
+        MostrarModalBultoSobrante = false;
+        CodigoSobranteDetectado = string.Empty;
+        ObservacionSobranteInput = string.Empty;
+    }
+
+    [RelayCommand]
+    private void ConfirmarCarga()
+    {
+        SolicitarConfirmarCarga();
+    }
+
+    [RelayCommand]
+    private void SolicitarConfirmarCarga()
     {
         if (IsBusy)
             return;
 
-        if (!PuedeConfirmarCarga)
+        if (BultosCargadosLista.Count == 0 && BultosSobrantes.Count == 0)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Carga Incompleta",
-                    "Debe escanear al menos un bulto antes de confirmar la carga.",
-                    "Entendido");
-            }
+            MostrarAvisoRapido("Debe escanear al menos un bulto antes de confirmar la carga.", esExito: false);
             return;
         }
 
+        var enviosIds = BultosCargadosLista.Select(b => b.EnvioId).Where(id => id != Guid.Empty).Distinct().ToList();
+        TotalEnviosCustodiaCount = enviosIds.Count > 0 ? enviosIds.Count : 1;
+        TotalBultosCustodiaCount = BultosCargadosLista.Count + BultosSobrantes.Count;
+        VehiculoCustodiaTexto = string.IsNullOrWhiteSpace(Patente) ? "Vehículo en calle" : $"{Patente} ({VehiculoTipo})";
+        RutaCustodiaTexto = string.IsNullOrWhiteSpace(NumeroRuta) ? "Hoja de ruta activa" : NumeroRuta;
+
+        BultosFaltantesDetalle.Clear();
+        foreach (var b in BultosPendientes)
+        {
+            BultosFaltantesDetalle.Add(b);
+        }
+
+        TieneBultosFaltantes = BultosPendientes.Count > 0;
+        EsCargaCompletaSinFaltantes = !TieneBultosFaltantes;
+
+        if (TieneBultosFaltantes)
+        {
+            var enviosIncompletos = BultosPendientes
+                .Select(b => string.IsNullOrWhiteSpace(b.CodigoSeguimiento) ? b.CodigoBulto : b.CodigoSeguimiento)
+                .Distinct()
+                .ToList();
+
+            EnviosExcluidosTexto = enviosIncompletos.Count > 0
+                ? string.Join(", ", enviosIncompletos)
+                : "Ninguno";
+        }
+        else
+        {
+            EnviosExcluidosTexto = string.Empty;
+        }
+
+        MostrarModalConfirmarCarga = true;
+    }
+
+    [RelayCommand]
+    private void CerrarModalConfirmarCarga()
+    {
+        MostrarModalConfirmarCarga = false;
+    }
+
+    [RelayCommand]
+    private async Task EjecutarConfirmacionCargaDesdeModalAsync()
+    {
+        MostrarModalConfirmarCarga = false;
+
         var faltantes = BultosPendientes.Count;
         var sobrantes = BultosSobrantes.Count;
-
-        // Flujo alternativo de discrepancia (faltantes o sobrantes)
-        if (faltantes > 0 || sobrantes > 0)
-        {
-            if (Shell.Current is not null)
-            {
-                var codigosFaltantes = string.Join(", ", BultosPendientes.Select(b => b.CodigoBulto));
-                var mensajeAlerta = faltantes > 0
-                    ? $"Se detectaron {faltantes} bulto(s) faltante(s) sin escanear:\n{codigosFaltantes}\n\nLos envíos que no tengan todos sus bultos cargados quedarán excluidos de la ruta activa y volverán a depósito.\n\n¿Desea informar la carga al depósito?"
-                    : $"Se detectaron {sobrantes} bulto(s) sobrante(s).\n\n¿Desea registrar las discrepancias e informar la carga al depósito?";
-
-                var continuar = await Shell.Current.DisplayAlertAsync(
-                    "Confirmación con Discrepancias",
-                    mensajeAlerta,
-                    "Informar carga",
-                    "Revisar Bultos");
-
-                if (!continuar)
-                    return;
-            }
-        }
 
         if (_biometricAuthService != null)
         {
@@ -972,13 +1045,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
             if (!autorizado)
             {
-                if (Shell.Current is not null)
-                {
-                    await Shell.Current.DisplayAlertAsync(
-                        "Operación Cancelada",
-                        "No se completó la verificación de identidad. La custodia de la carga no fue confirmada.",
-                        "Entendido");
-                }
+                MostrarAvisoRapido("Verificación biométrica no completada. Custodia cancelada.", esExito: false);
                 return;
             }
         }
@@ -994,10 +1061,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
             var idempotencyKey = $"CARGA-{HojaDeRutaId:N}";
             var observaciones = (faltantes > 0 || sobrantes > 0)
-                ? $"Discrepancia de carga: {faltantes} faltantes, {sobrantes} sobrantes. {MensajeDiscrepancia}".Trim()
+                ? $"Discrepancia de carga: {faltantes} faltantes, {sobrantes} sobrantes. Motivo: {MotivoDiscrepanciaSeleccionado}. {DetalleDocumentalDiscrepanciaInput} {MensajeDiscrepancia}".Trim()
                 : "Carga completa y verificada sin discrepancias";
 
-            // Offline-first: primero queda guardado en el dispositivo (la ruta pasa a "EnCarga", nunca a "Despachada")
             if (_localDatabaseService is not null)
             {
                 await _localDatabaseService.ConfirmarCargaLocalAsync(HojaDeRutaId, codigosCargados);
@@ -1019,7 +1085,6 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 opId = await _localDatabaseService.EncolarOperacionAsync(TiposOperacionOffline.ConfirmarCarga, JsonSerializer.Serialize(payload));
             }
 
-            bool enviadoOnline = false;
             if (_syncService?.IsOnline == true && _httpClientFactory is not null)
             {
                 try
@@ -1033,34 +1098,23 @@ public partial class CargaVehiculoViewModel : ObservableObject
                         ObservacionesDiscrepancia = observaciones
                     });
 
-                    if (response.IsSuccessStatusCode)
+                    if (response.IsSuccessStatusCode && _localDatabaseService is not null && opId != 0)
                     {
-                        enviadoOnline = true;
-                        if (_localDatabaseService is not null && opId != 0)
-                        {
-                            await _localDatabaseService.MarcarComoSincronizadoAsync(opId);
-                        }
+                        await _localDatabaseService.MarcarComoSincronizadoAsync(opId);
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Queda en la cola y se reenvía al recuperar la conexión
                     System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Confirmación de carga en cola: {ex.Message}");
                 }
             }
 
             ActualizarConteos();
+            MostrarAvisoRapido("Carga registrada y custodia confirmada con éxito");
 
-            if (Shell.Current is not null)
+            if (Shell.Current != null && faltantes == 0)
             {
-                string detalleConexion = enviadoOnline
-                    ? "La carga ya está informada al depósito. Falta que el despachador la verifique y despache la ruta."
-                    : "Guardado en el dispositivo. Se enviará al depósito apenas haya conexión.";
-
-                await Shell.Current.DisplayAlertAsync(
-                    "Carga informada",
-                    $"La carga del vehículo {Patente} quedó registrada.\n{detalleConexion}",
-                    "Entendido");
+                await Shell.Current.GoToAsync("//RutaDiaPage");
             }
         }
         finally

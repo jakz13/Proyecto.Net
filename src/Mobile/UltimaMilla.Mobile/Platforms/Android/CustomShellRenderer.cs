@@ -68,6 +68,10 @@ public class CustomShellItemRenderer : ShellItemRenderer
         {
             try
             {
+                // Fondo pizarra corporativo alineado con Backoffice Web
+                bottomNav.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#0F172A"));
+                bottomNav.Elevation = 8f;
+
                 // El primer hijo de BottomNavigationView es BottomNavigationMenuView
                 if (bottomNav.GetChildAt(0) is ViewGroup menuView)
                 {
@@ -97,6 +101,8 @@ public class CustomShellItemRenderer : ShellItemRenderer
                                         {
                                             tv.Gravity = GravityFlags.Center;
                                             tv.TextAlignment = global::Android.Views.TextAlignment.Center;
+                                            tv.SetTypeface(tv.Typeface, global::Android.Graphics.TypefaceStyle.Bold);
+                                            tv.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12.5f);
                                         }
                                     }
                                 }

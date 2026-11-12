@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Despliega el proyecto en la VM de Azure (shippingbox.duckdns.org).
 
@@ -103,8 +103,11 @@ foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO'
 $env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'; $env:DOMINIO_PANEL = 'x'; $env:DOMINIO_SEGUIMIENTO = 'x'; $env:GRAFANA_PASSWORD = 'x'
 try {
     if ($construibles.Count -gt 0) {
-        docker compose -f docker-compose.prod.yml build @construibles
-        Verificar 'docker compose build'
+        foreach ($svc in $construibles) {
+            Paso "Construyendo imagen para: $svc"
+            docker compose -f docker-compose.prod.yml build $svc
+            Verificar "docker compose build $svc"
+        }
     }
 }
 finally {

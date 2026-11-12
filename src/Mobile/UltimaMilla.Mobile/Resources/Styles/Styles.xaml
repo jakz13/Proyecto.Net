@@ -83,7 +83,7 @@
     <!-- Estilo implícito para Button: Botón Primario por defecto (Ergonómico para calle 50+ px) -->
     <Style TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryColor}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="CornerRadius" Value="12" />
@@ -102,7 +102,7 @@
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryDark}" />
                             <Setter Property="Scale" Value="0.97" />
                             <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
@@ -123,7 +123,7 @@
     <!-- Botón Primario Explícito (PrimaryButton) -->
     <Style x:Key="PrimaryButton" TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryColor}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="CornerRadius" Value="12" />
@@ -142,7 +142,7 @@
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryDark}" />
                             <Setter Property="Scale" Value="0.97" />
                             <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
@@ -280,12 +280,12 @@
         </Setter>
     </Style>
 
-    <!-- Botón Secundario (Gris neutral con feedback) -->
+    <!-- Botón Secundario (Estilizado con Color Secundario dinámico) -->
     <Style x:Key="SecondaryButton" TargetType="Button">
-        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource SecondaryLight}" />
-        <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
-        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="TextColor" Value="{DynamicResource SecondaryColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SecondaryLight}" />
+        <Setter Property="BorderColor" Value="{DynamicResource SecondaryColor}" />
+        <Setter Property="BorderWidth" Value="1.5" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="CornerRadius" Value="12" />
@@ -299,11 +299,50 @@
                     <VisualState x:Name="Normal">
                         <VisualState.Setters>
                             <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="TextColor" Value="{DynamicResource SecondaryColor}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="#E2E8F0" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource SecondaryColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+                            <Setter Property="Scale" Value="0.97" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botón Secundario Relleno (Fondo con Color Secundario y texto blanco) -->
+    <Style x:Key="SecondaryFilledButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SecondaryColor}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="HeightRequest" Value="50" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="Shadow" Value="{x:Null}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1.0" />
+                            <Setter Property="Opacity" Value="1.0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource SecondaryDark}" />
                             <Setter Property="Scale" Value="0.97" />
                             <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
@@ -384,13 +423,13 @@
         </Setter>
     </Style>
 
-    <!-- Botón de Acción en Tarjeta ("Gestionar" / "Detalle ➔") -->
+    <!-- Botón de Acción en Tarjeta ("Gestionar" / "Ver Detalle") -->
     <Style x:Key="SmallActionButton" TargetType="Button">
         <Setter Property="TextColor" Value="{StaticResource TextInverse}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryColor}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBotonChico}" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="{DynamicResource PaddingBotonChico}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
@@ -405,7 +444,7 @@
                     </VisualState>
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryDark}" />
                             <Setter Property="Scale" Value="0.95" />
                         </VisualState.Setters>
                     </VisualState>
@@ -467,18 +506,33 @@
     <!-- ESTILOS GLOBALES: TARJETAS (Cards) Y BORDES                       -->
     <!-- ================================================================= -->
 
-    <!-- Estilo explícito para Tarjetas de Entregas / Envíos (CardView) -->
+    <!-- Estilo explícito para Tarjetas de Entregas / Envíos (CardView - Equivalente a .panel-estandar del Backoffice) -->
     <Style x:Key="CardView" TargetType="Border">
-        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
-        <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <Setter Property="Stroke" Value="{DynamicResource CardBorderColor}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
         <Setter Property="Padding" Value="{DynamicResource PaddingTarjeta}" />
         <Setter Property="Shadow">
             <Shadow Brush="#000000"
-                    Offset="0,2"
-                    Radius="8"
-                    Opacity="0.06" />
+                    Offset="0,1"
+                    Radius="4"
+                    Opacity="0.05" />
+        </Setter>
+    </Style>
+
+    <!-- Tarjeta KPI Métrica (Equivalente a .metrica-card / _TarjetaMetrica.cshtml del Backoffice) -->
+    <Style x:Key="KpiCard" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <Setter Property="Stroke" Value="{DynamicResource CardBorderColor}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="BackgroundColor" Value="#FFFFFF" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Shadow">
+            <Shadow Brush="#000000"
+                    Offset="0,1"
+                    Radius="3"
+                    Opacity="0.04" />
         </Setter>
     </Style>
 
@@ -529,7 +583,7 @@
     <!-- ESTILOS GLOBALES: PROGRESSBAR NATIVO                             -->
     <!-- ================================================================= -->
     <Style x:Key="ModernProgressBar" TargetType="ProgressBar">
-        <Setter Property="ProgressColor" Value="{StaticResource Primary}" />
+        <Setter Property="ProgressColor" Value="{DynamicResource SecondaryColor}" />
         <Setter Property="HeightRequest" Value="8" />
     </Style>
 

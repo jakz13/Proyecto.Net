@@ -183,6 +183,11 @@ public class SyncService : ISyncService, IDisposable
         {
             try
             {
+                if (_themeService != null)
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+                }
+
                 var client = _httpClientFactory.CreateClient("BackendApi");
                 client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
@@ -263,7 +268,7 @@ public class SyncService : ISyncService, IDisposable
                 // Sincronizar también la identidad visual del operador en caso de cambios desde el Backoffice
                 if (_themeService != null)
                 {
-                    _ = Task.Run(() => _themeService.DescargarYActualizarIdentidadAsync(cancellationToken));
+                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -326,6 +331,11 @@ public class SyncService : ISyncService, IDisposable
         {
             try
             {
+                if (_themeService != null)
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+                }
+
                 var client = _httpClientFactory.CreateClient("BackendApi");
                 client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
@@ -1085,6 +1095,11 @@ public class SyncService : ISyncService, IDisposable
         {
             try
             {
+                if (_themeService != null)
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+                }
+
                 var client = _httpClientFactory.CreateClient("BackendApi");
                 client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
@@ -1192,6 +1207,11 @@ public class SyncService : ISyncService, IDisposable
         {
             try
             {
+                if (_themeService != null)
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+                }
+
                 var client = _httpClientFactory.CreateClient("BackendApi");
                 client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
