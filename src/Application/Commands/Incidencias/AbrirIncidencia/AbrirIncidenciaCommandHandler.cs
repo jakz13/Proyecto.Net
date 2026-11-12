@@ -15,6 +15,7 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IOutboxStorage _outboxStorage;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public AbrirIncidenciaCommandHandler(
         IIncidenciaRepository incidenciaRepository,
@@ -23,7 +24,8 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
         ICurrentTenant currentTenant,
         IClock clock,
         IUnitOfWork unitOfWork,
-        IOutboxStorage outboxStorage)
+        IOutboxStorage outboxStorage,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _incidenciaRepository = incidenciaRepository;
         _envioRepository = envioRepository;
@@ -32,6 +34,7 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
         _clock = clock;
         _unitOfWork = unitOfWork;
         _outboxStorage = outboxStorage;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<IncidenciaResultDto> Handle(AbrirIncidenciaCommand request, CancellationToken cancellationToken)
@@ -72,6 +75,15 @@ public class AbrirIncidenciaCommandHandler : IRequestHandler<AbrirIncidenciaComm
         await _incidenciaRepository.AddAsync(incidencia, cancellationToken);
         await _outboxStorage.SaveAsync(EventosIntegracion.DeIncidencia(EventosIntegracion.Tipos.IncidenciaAbierta, incidencia), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            await _tableroNotifier.NotificarCambioRutaAsync(
+                incidencia.OperadorId,
+                incidencia.HojaDeRutaId ?? incidencia.Id,
+                "IncidenciaAbierta",
+                cancellationToken);
+        }
 
         return IncidenciaMapper.ToResult(incidencia);
     }

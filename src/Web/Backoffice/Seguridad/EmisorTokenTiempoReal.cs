@@ -45,10 +45,18 @@ public static class EmisorTokenTiempoReal
     /// en Docker, por ejemplo, el servidor llega a la API como "http://api:8080" pero el navegador solo la ve en "http://localhost:5000".
     /// Sin configuración específica se usa la misma que el servidor.
     /// </summary>
-    public static string UrlPublicaDeLaApi(IConfiguration? configuracion) =>
-        configuracion?["ApiSettings:BaseUrlPublica"]
-        ?? configuracion?["ApiSettings:BaseUrl"]
-        ?? "http://localhost:5000";
+    public static string UrlPublicaDeLaApi(IConfiguration? configuracion)
+    {
+        var publica = configuracion?["ApiSettings:BaseUrlPublica"] ?? configuracion?["ApiSettings:PublicUrl"];
+        if (!string.IsNullOrWhiteSpace(publica))
+            return publica;
+
+        var baseUrl = configuracion?["ApiSettings:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(baseUrl) && !baseUrl.Contains("//api:", StringComparison.OrdinalIgnoreCase))
+            return baseUrl;
+
+        return "http://localhost:5000";
+    }
 
     private static Guid ResolverOperador(ClaimsPrincipal usuarioSesion, MockContextoOperador? contextoOperador)
     {

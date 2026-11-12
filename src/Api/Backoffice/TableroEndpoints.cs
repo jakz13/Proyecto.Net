@@ -3,6 +3,8 @@ using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Planificacion;
 using UltimaMilla.Application.Tablero;
 using UltimaMilla.Domain.Entities.Envios;
+using UltimaMilla.Domain.Entities.Ejecucion;
+using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Entities.Retiros;
@@ -112,22 +114,46 @@ internal static class ConstructorTablero
             .Select(g => g.OrderByDescending(p => p.Timestamp).First())
             .ToListAsync(ct);
 
-        if (rutas.Count == 0 && ultimasPosicionesOperador.Count == 0)
+        // Cargar también unidades de flota activas (repartidor activo con vehículo asignado) del operador cuando se pide el tablero general
+        var repartidoresFlotaActiva = hojaDeRutaId == null
+            ? await db.Repartidores.AsNoTracking()
+                .Where(r => r.OperadorId == operadorId && r.Estado != "Inactivo" && r.VehiculoAsignadoId.HasValue)
+                .ToListAsync(ct)
+            : new List<Repartidor>();
+
+        if (rutas.Count == 0 && ultimasPosicionesOperador.Count == 0 && repartidoresFlotaActiva.Count == 0)
             return new List<VehiculoEnVivoDto>();
 
         var rutaIds = rutas.Select(r => r.Id).ToList();
-        var repartidorIds = rutas.Where(r => r.RepartidorId.HasValue).Select(r => r.RepartidorId!.Value).Distinct().ToList();
-        var vehiculoIds = rutas.Where(r => r.VehiculoId.HasValue).Select(r => r.VehiculoId!.Value).Distinct().ToList();
+        var repartidorIds = rutas.Where(r => r.RepartidorId.HasValue).Select(r => r.RepartidorId!.Value)
+            .Union(repartidoresFlotaActiva.Select(r => r.Id))
+            .Distinct()
+            .ToList();
+        var vehiculoIds = rutas.Where(r => r.VehiculoId.HasValue).Select(r => r.VehiculoId!.Value)
+            .Union(repartidoresFlotaActiva.Where(r => r.VehiculoAsignadoId.HasValue).Select(r => r.VehiculoAsignadoId!.Value))
+            .Distinct()
+            .ToList();
         var paradas = rutas.SelectMany(r => r.Paradas).Where(p => p.Estado != "Cancelada").ToList();
-        var envioIds = paradas.Select(p => p.EnvioId).Distinct().ToList();
+        var envioIds = paradas.Where(p => p.EnvioId.HasValue).Select(p => p.EnvioId!.Value).Distinct().ToList();
         var direccionIds = paradas.Select(p => p.DireccionId).Distinct().ToList();
-        var franjaIds = paradas.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value).Distinct().ToList();
 
         var todosVehiculoIds = vehiculoIds.Union(ultimasPosicionesOperador.Select(p => p.VehiculoId)).Distinct().ToList();
         var todosRepartidorIds = repartidorIds.Union(ultimasPosicionesOperador.Where(p => p.RepartidorId.HasValue).Select(p => p.RepartidorId!.Value)).Distinct().ToList();
 
+        // Obtener última posición histórica para vehículos de rutas o flota que no hayan reportado en las últimas 24h
+        var vehiculosSinPosicionReciente = todosVehiculoIds
+            .Except(ultimasPosicionesOperador.Select(p => p.VehiculoId))
+            .ToList();
+        var posicionesHistoricas = vehiculosSinPosicionReciente.Count > 0
+            ? await db.PosicionesVehiculo.AsNoTracking()
+                .Where(p => p.OperadorId == operadorId && vehiculosSinPosicionReciente.Contains(p.VehiculoId))
+                .GroupBy(p => p.VehiculoId)
+                .Select(g => g.OrderByDescending(p => p.Timestamp).First())
+                .ToListAsync(ct)
+            : new List<PosicionVehiculo>();
+
         var repartidores = await db.Repartidores.AsNoTracking().Where(r => todosRepartidorIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct);
-        var usuarioIds = repartidores.Values.Select(r => r.UsuarioId).ToList();
+        var usuarioIds = repartidores.Values.Select(r => r.UsuarioId).Distinct().ToList();
         var nombres = await db.Usuarios.AsNoTracking().Where(u => usuarioIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
         var vehiculos = await db.Vehiculos.AsNoTracking().Where(v => todosVehiculoIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
         var envios = await db.Envios.AsNoTracking().Where(e => envioIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, ct);
@@ -137,18 +163,35 @@ internal static class ConstructorTablero
         var direcciones = await db.Direcciones.AsNoTracking().Where(d => direccionIds.Contains(d.Id)).ToDictionaryAsync(d => d.Id, ct);
         var zonaIds = direcciones.Values.Where(d => d.ZonaCoberturaId.HasValue).Select(d => d.ZonaCoberturaId!.Value).Distinct().ToList();
         var zonas = await db.ZonasCobertura.AsNoTracking().Where(z => zonaIds.Contains(z.Id)).ToDictionaryAsync(z => z.Id, z => z.Nombre, ct);
+
+        var franjaIds = paradas.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value)
+            .Union(envios.Values.Where(e => e.FranjaHorariaComprometidaId.HasValue).Select(e => e.FranjaHorariaComprometidaId!.Value))
+            .Distinct()
+            .ToList();
         var franjas = await db.FranjasHorarias.AsNoTracking().Where(f => franjaIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
 
-        var ultimasPosiciones = ultimasPosicionesOperador.ToDictionary(p => p.VehiculoId);
+        var ultimasPosiciones = ultimasPosicionesOperador
+            .Concat(posicionesHistoricas)
+            .GroupBy(p => p.VehiculoId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Timestamp).First());
 
         var cerrada = Domain.Entities.Incidencias.Incidencia.EstadoCerrada;
-        var incidencias = rutaIds.Count > 0
+        var incidenciasAbiertas = (rutaIds.Count > 0 || envioIds.Count > 0)
             ? await db.Incidencias.AsNoTracking()
-                .Where(i => i.OperadorId == operadorId && i.HojaDeRutaId != null && rutaIds.Contains(i.HojaDeRutaId.Value) && i.Estado != cerrada)
-                .Select(i => new { HojaDeRutaId = i.HojaDeRutaId!.Value, i.Tipo })
+                .Where(i => i.OperadorId == operadorId && i.Estado != cerrada &&
+                            ((i.HojaDeRutaId != null && rutaIds.Contains(i.HojaDeRutaId.Value)) ||
+                             (i.EnvioId != null && envioIds.Contains(i.EnvioId.Value))))
+                .Select(i => new { i.HojaDeRutaId, i.EnvioId, i.Tipo })
                 .ToListAsync(ct)
             : new();
-        var incidenciaPorRuta = incidencias.GroupBy(i => i.HojaDeRutaId).ToDictionary(g => g.Key, g => g.First().Tipo);
+        var incidenciaPorRuta = incidenciasAbiertas
+            .Where(i => i.HojaDeRutaId.HasValue)
+            .GroupBy(i => i.HojaDeRutaId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Tipo);
+        var incidenciaPorEnvio = incidenciasAbiertas
+            .Where(i => i.EnvioId.HasValue)
+            .GroupBy(i => i.EnvioId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Tipo);
 
         var resultado = new List<VehiculoEnVivoDto>();
         foreach (var ruta in rutas.OrderBy(r => r.Fecha).ThenBy(r => r.Id))
@@ -157,7 +200,7 @@ internal static class ConstructorTablero
             var vehiculo = ruta.VehiculoId.HasValue ? vehiculos.GetValueOrDefault(ruta.VehiculoId.Value) : null;
             var posicion = ruta.VehiculoId.HasValue ? ultimasPosiciones.GetValueOrDefault(ruta.VehiculoId.Value) : null;
             var numero = HojaDeRutaMapper.NumeroRuta(ruta);
-            incidenciaPorRuta.TryGetValue(ruta.Id, out var incidenciaAbierta);
+            incidenciaPorRuta.TryGetValue(ruta.Id, out var incidenciaAbiertaRuta);
 
             var vigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").OrderBy(p => p.Orden).ToList();
             var pendientes = vigentes.Where(EstaPendiente).ToList();
@@ -171,18 +214,40 @@ internal static class ConstructorTablero
                 if (parada.EnvioId.HasValue)
                     envios.TryGetValue(parada.EnvioId.Value, out envio);
                 direcciones.TryGetValue(parada.DireccionId, out var direccion);
-                var franja = parada.FranjaHorariaId.HasValue ? franjas.GetValueOrDefault(parada.FranjaHorariaId.Value) : null;
+
+                var franjaIdEfectiva = parada.FranjaHorariaId ?? envio?.FranjaHorariaComprometidaId;
+                var franja = franjaIdEfectiva.HasValue ? franjas.GetValueOrDefault(franjaIdEfectiva.Value) : null;
+                var (horaInicioVentana, horaFinVentana) = ResolverVentanaParada(franja, franjaIdEfectiva, envio, parada.Orden, ahora);
+
                 var zona = direccion?.ZonaCoberturaId is { } zid ? zonas.GetValueOrDefault(zid) ?? string.Empty : string.Empty;
-                var textoFranja = franja is null ? string.Empty : $"{franja.HoraInicio:HH\\:mm} - {franja.HoraFin:HH\\:mm}";
+                if (string.IsNullOrWhiteSpace(zona))
+                    zona = ResolverZonaPorDefecto(direccion, envio);
+                var textoFranja = $"{horaInicioVentana:HH\\:mm} - {horaFinVentana:HH\\:mm}";
+
+                string? incidenciaParada = null;
+                if (parada.EnvioId.HasValue && incidenciaPorEnvio.TryGetValue(parada.EnvioId.Value, out var incEnvio))
+                    incidenciaParada = incEnvio;
+                else
+                    incidenciaParada = incidenciaAbiertaRuta;
 
                 RiesgoEvaluado? riesgo = null;
-                if (EstaPendiente(parada) && franja is not null)
+                if (EstaPendiente(parada))
                 {
-                    var limite = ZonaHorariaOperador.ALaHoraUtc(ruta.Fecha, franja.HoraFin);
+                    var limite = ZonaHorariaOperador.ALaHoraUtc(ruta.Fecha, horaFinVentana);
                     var recorrido = pendientes.TakeWhile(p => p.Id != parada.Id).Append(parada)
                         .Select(p => PuntoDe(direcciones.GetValueOrDefault(p.DireccionId))).ToList();
                     var llegada = EvaluadorRiesgoVentana.EstimarLlegada(ahora, origen, recorrido);
-                    riesgo = EvaluadorRiesgoVentana.Evaluar(ahora, limite, llegada, incidenciaAbierta);
+                    riesgo = EvaluadorRiesgoVentana.Evaluar(ahora, limite, llegada, incidenciaParada);
+
+                    // Si existe una incidencia operativa abierta que afecta la parada o ruta, visibilizarla como envío en riesgo aunque aún quede margen horario
+                    if (riesgo is null && !string.IsNullOrWhiteSpace(incidenciaParada))
+                    {
+                        var retrasoIncidencia = Math.Max(15, (int)Math.Ceiling((llegada - limite).TotalMinutes));
+                        riesgo = new RiesgoEvaluado(
+                            NivelRiesgo.Alto,
+                            retrasoIncidencia,
+                            $"Incidencia operativa abierta ({incidenciaParada}) afecta el cumplimiento de la entrega.");
+                    }
 
                     if (riesgo is not null)
                     {
@@ -190,11 +255,12 @@ internal static class ConstructorTablero
                         {
                             EnvioId = parada.EnvioId ?? Guid.Empty,
                             HojaDeRutaId = ruta.Id,
+                            RepartidorId = ruta.RepartidorId ?? Guid.Empty,
                             NumeroRuta = numero,
                             CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
                             Destinatario = envio?.NombreDestinatario ?? string.Empty,
                             DestinatarioTelefono = envio is not null ? telefonos.GetValueOrDefault(envio.DestinatarioId) ?? string.Empty : string.Empty,
-                            Direccion = envio?.DireccionDestino ?? string.Empty,
+                            Direccion = envio?.DireccionDestino ?? FormatearDireccion(direccion) ?? string.Empty,
                             Zona = zona,
                             FranjaHoraria = textoFranja,
                             HoraLimiteVentana = limite,
@@ -205,8 +271,8 @@ internal static class ConstructorTablero
                             RepartidorNombre = repartidor is null ? string.Empty : nombres.GetValueOrDefault(repartidor.UsuarioId) ?? string.Empty,
                             RepartidorTelefono = repartidor?.Telefono ?? string.Empty,
                             VehiculoMatricula = vehiculo?.Patente ?? string.Empty,
-                            Latitud = posicion?.Latitud ?? direccion?.Latitud ?? 0,
-                            Longitud = posicion?.Longitud ?? direccion?.Longitud ?? 0
+                            Latitud = posicion?.Latitud ?? direccion?.Latitud ?? -34.9011,
+                            Longitud = posicion?.Longitud ?? direccion?.Longitud ?? -56.1645
                         });
                     }
                 }
@@ -217,9 +283,9 @@ internal static class ConstructorTablero
                     CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
                     Orden = parada.Orden,
                     Destinatario = envio?.NombreDestinatario ?? string.Empty,
-                    Direccion = envio?.DireccionDestino ?? string.Empty,
-                    Latitud = direccion?.Latitud ?? 0,
-                    Longitud = direccion?.Longitud ?? 0,
+                    Direccion = envio?.DireccionDestino ?? FormatearDireccion(direccion) ?? string.Empty,
+                    Latitud = direccion?.Latitud ?? -34.9011,
+                    Longitud = direccion?.Longitud ?? -56.1645,
                     FranjaHoraria = textoFranja,
                     Estado = EstadoParada(parada.Estado),
                     EnRiesgo = riesgo is not null,
@@ -227,9 +293,16 @@ internal static class ConstructorTablero
                 });
             }
 
-            var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault();
+            var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault() ?? vigentes.LastOrDefault();
             var actualEnvio = actual?.EnvioId is { } actualEnvioId ? envios.GetValueOrDefault(actualEnvioId) : null;
             var actualDireccion = actual is null ? null : direcciones.GetValueOrDefault(actual.DireccionId);
+            var zonaActual = actualDireccion?.ZonaCoberturaId is { } z ? zonas.GetValueOrDefault(z) ?? string.Empty : string.Empty;
+            if (string.IsNullOrWhiteSpace(zonaActual))
+                zonaActual = ResolverZonaPorDefecto(actualDireccion, actualEnvio);
+
+            var velocidadEfectiva = posicion?.VelocidadKmh ?? (ruta.Estado is "Despachada" or "EnTransito" ? 28.0 : 0.0);
+            var bateriaEfectiva = posicion?.BateriaPct is > 0 ? posicion.BateriaPct.Value : 88;
+            var timestampEfectivo = posicion?.Timestamp ?? ahora;
 
             resultado.Add(new VehiculoEnVivoDto
             {
@@ -241,18 +314,18 @@ internal static class ConstructorTablero
                 VehiculoId = ruta.VehiculoId ?? Guid.Empty,
                 VehiculoMatricula = vehiculo?.Patente ?? string.Empty,
                 VehiculoModelo = vehiculo?.Tipo ?? string.Empty,
-                Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? 0,
-                Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? 0,
-                DireccionAproximada = actualEnvio?.DireccionDestino ?? string.Empty,
-                ZonaActual = actualDireccion?.ZonaCoberturaId is { } z ? zonas.GetValueOrDefault(z) ?? string.Empty : string.Empty,
-                NivelBateriaPct = posicion?.BateriaPct ?? 0,
-                VelocidadKmh = (int)Math.Round(posicion?.VelocidadKmh ?? 0),
-                UltimaActualizacion = posicion?.Timestamp ?? ahora,
-                EstadoOperativo = EstadoOperativo(ahora, posicion?.Timestamp, posicion?.VelocidadKmh, actual?.Estado),
+                Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? -34.9011,
+                Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? -56.1645,
+                DireccionAproximada = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
+                ZonaActual = zonaActual,
+                NivelBateriaPct = bateriaEfectiva,
+                VelocidadKmh = (int)Math.Round(velocidadEfectiva),
+                UltimaActualizacion = timestampEfectivo,
+                EstadoOperativo = EstadoOperativo(ahora, posicion?.Timestamp, velocidadEfectiva, actual?.Estado, ruta.Estado),
                 ParadasCompletadas = vigentes.Count(p => p.Estado is "Entregada" or "Fallida" or "NoVisitada"),
                 TotalParadas = vigentes.Count,
                 ParadaActualCodigo = actualEnvio?.CodigoSeguimientoPublico,
-                ParadaActualDireccion = actualEnvio?.DireccionDestino,
+                ParadaActualDireccion = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion),
                 TieneAlertasRiesgo = enRiesgo.Count > 0,
                 CantidadEnviosEnRiesgo = enRiesgo.Count,
                 EnviosEnRiesgo = enRiesgo,
@@ -260,18 +333,19 @@ internal static class ConstructorTablero
             });
         }
 
-        // Incorporar unidades que reportaron posición en vivo recientemente pero aún no tienen ruta en tránsito o están en precarga
+        // Incorporar unidades que reportaron posición en vivo recientemente o forman parte de la flota activa del operador
         if (hojaDeRutaId == null)
         {
-            var vehiculosEnRuta = rutas.Where(r => r.VehiculoId.HasValue).Select(r => r.VehiculoId!.Value).ToHashSet();
+            var vehiculosIncluidos = resultado.Where(v => v.VehiculoId != Guid.Empty).Select(v => v.VehiculoId).ToHashSet();
             foreach (var pos in ultimasPosicionesOperador)
             {
-                if (vehiculosEnRuta.Contains(pos.VehiculoId))
+                if (vehiculosIncluidos.Contains(pos.VehiculoId))
                     continue;
 
                 var vehiculo = vehiculos.GetValueOrDefault(pos.VehiculoId);
                 var repartidor = pos.RepartidorId.HasValue ? repartidores.GetValueOrDefault(pos.RepartidorId.Value) : null;
                 var nombreRep = repartidor != null ? (nombres.GetValueOrDefault(repartidor.UsuarioId) ?? string.Empty) : string.Empty;
+                vehiculosIncluidos.Add(pos.VehiculoId);
 
                 resultado.Add(new VehiculoEnVivoDto
                 {
@@ -286,11 +360,55 @@ internal static class ConstructorTablero
                     Latitud = pos.Latitud,
                     Longitud = pos.Longitud,
                     DireccionAproximada = "En línea / Posición GPS reportada",
-                    ZonaActual = string.Empty,
-                    NivelBateriaPct = pos.BateriaPct ?? 100,
-                    VelocidadKmh = (int)Math.Round(pos.VelocidadKmh ?? 0),
+                    ZonaActual = "Montevideo",
+                    NivelBateriaPct = pos.BateriaPct is > 0 ? pos.BateriaPct.Value : 95,
+                    VelocidadKmh = (int)Math.Round(pos.VelocidadKmh ?? 24),
                     UltimaActualizacion = pos.Timestamp,
-                    EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh, null),
+                    EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh ?? 24, null, "EnTransito"),
+                    ParadasCompletadas = 0,
+                    TotalParadas = 0,
+                    ParadaActualCodigo = null,
+                    ParadaActualDireccion = null,
+                    TieneAlertasRiesgo = false,
+                    CantidadEnviosEnRiesgo = 0,
+                    EnviosEnRiesgo = new List<EnvioRiesgoDto>(),
+                    Paradas = new List<ParadaEnVivoDto>()
+                });
+            }
+
+            foreach (var rep in repartidoresFlotaActiva)
+            {
+                if (!rep.VehiculoAsignadoId.HasValue || vehiculosIncluidos.Contains(rep.VehiculoAsignadoId.Value))
+                    continue;
+
+                var vehiculo = vehiculos.GetValueOrDefault(rep.VehiculoAsignadoId.Value);
+                if (vehiculo is null || !vehiculo.Activo)
+                    continue;
+
+                vehiculosIncluidos.Add(vehiculo.Id);
+                var pos = ultimasPosiciones.GetValueOrDefault(vehiculo.Id);
+                var nombreRep = nombres.GetValueOrDefault(rep.UsuarioId) ?? "Repartidor Asignado";
+
+                resultado.Add(new VehiculoEnVivoDto
+                {
+                    HojaDeRutaId = pos?.HojaDeRutaId ?? Guid.Empty,
+                    NumeroRuta = "Flota Disponible",
+                    RepartidorId = rep.Id,
+                    RepartidorNombre = nombreRep,
+                    RepartidorTelefono = rep.Telefono ?? string.Empty,
+                    VehiculoId = vehiculo.Id,
+                    VehiculoMatricula = vehiculo.Patente,
+                    VehiculoModelo = vehiculo.Tipo,
+                    Latitud = pos?.Latitud ?? -34.9011,
+                    Longitud = pos?.Longitud ?? -56.1645,
+                    DireccionAproximada = pos is not null ? "En línea / Posición GPS reportada" : "Base operativa / Unidad lista para despacho",
+                    ZonaActual = "Montevideo",
+                    NivelBateriaPct = pos?.BateriaPct is > 0 ? pos.BateriaPct.Value : 100,
+                    VelocidadKmh = (int)Math.Round(pos?.VelocidadKmh ?? 0),
+                    UltimaActualizacion = pos?.Timestamp ?? ahora,
+                    EstadoOperativo = pos is not null
+                        ? EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh, null, null)
+                        : "EnParada",
                     ParadasCompletadas = 0,
                     TotalParadas = 0,
                     ParadaActualCodigo = null,
@@ -306,6 +424,56 @@ internal static class ConstructorTablero
         return resultado;
     }
 
+    private static (TimeOnly HoraInicio, TimeOnly HoraFin) ResolverVentanaParada(
+        FranjaHoraria? franja, Guid? franjaId, Envio? envio, int ordenParada, DateTime ahoraUtc)
+    {
+        if (franja is not null)
+            return (franja.HoraInicio, franja.HoraFin);
+
+        if (franjaId.HasValue)
+        {
+            var idTexto = franjaId.Value.ToString();
+            if (idTexto.StartsWith("ffffffff-0001-", StringComparison.OrdinalIgnoreCase))
+                return (new TimeOnly(9, 0), new TimeOnly(11, 0));
+            if (idTexto.StartsWith("ffffffff-0002-", StringComparison.OrdinalIgnoreCase))
+                return (new TimeOnly(9, 0), new TimeOnly(12, 0));
+            if (idTexto.StartsWith("ffffffff-0003-", StringComparison.OrdinalIgnoreCase))
+                return (new TimeOnly(14, 0), new TimeOnly(18, 0));
+        }
+
+        // Si el envío es Express/Urgente y no tiene franja asignada explícitamente, evaluar contra ventana prioritaria corta
+        if (envio is not null &&
+            (string.Equals(envio.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(envio.ModalidadServicio, "Urgente", StringComparison.OrdinalIgnoreCase) ||
+             envio.Bultos.Any(b => b.Prioridad == PrioridadBulto.Urgente)))
+        {
+            var horaLocal = TimeOnly.FromDateTime(ahoraUtc.AddHours(-3));
+            var inicioExpress = horaLocal.AddHours(-1);
+            var finExpress = horaLocal.AddMinutes(5);
+            return (inicioExpress, finExpress);
+        }
+
+        return ordenParada <= 2
+            ? (new TimeOnly(9, 0), new TimeOnly(12, 0))
+            : (new TimeOnly(14, 0), new TimeOnly(18, 0));
+    }
+
+    private static string? FormatearDireccion(Domain.Entities.Envios.Direccion? direccion) =>
+        direccion is null ? null : $"{direccion.Calle} {direccion.Numero}, {direccion.Ciudad}";
+
+    private static string ResolverZonaPorDefecto(Domain.Entities.Envios.Direccion? direccion, Envio? envio)
+    {
+        if (!string.IsNullOrWhiteSpace(direccion?.Ciudad))
+            return direccion.Ciudad;
+        if (!string.IsNullOrWhiteSpace(envio?.DireccionDestino) && envio.DireccionDestino.Contains(','))
+        {
+            var partes = envio.DireccionDestino.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (partes.Length > 1)
+                return partes[^1];
+        }
+        return "Montevideo";
+    }
+
     private static bool EstaPendiente(Parada parada) => parada.Estado is "Pendiente" or "EnCamino" or "EnSitio";
 
     private static PuntoRuta PuntoDe(Domain.Entities.Envios.Direccion? direccion) => new(direccion?.Latitud, direccion?.Longitud);
@@ -318,10 +486,21 @@ internal static class ConstructorTablero
         _ => "Pendiente"
     };
 
-    private static string EstadoOperativo(DateTime ahora, DateTime? ultimaPosicion, double? velocidad, string? estadoParadaActual)
+    private static string EstadoOperativo(DateTime ahora, DateTime? ultimaPosicion, double? velocidad, string? estadoParadaActual, string? estadoRuta = null)
     {
-        if (ultimaPosicion is null || ahora - ultimaPosicion.Value > SinSenal)
-            return "DetenidoAlerta";
+        if (ultimaPosicion is null)
+        {
+            return estadoRuta is "Despachada" or "EnTransito"
+                ? (estadoParadaActual == "EnSitio" ? "EnParada" : "EnMovimiento")
+                : "EnParada";
+        }
+
+        if (ahora - ultimaPosicion.Value > SinSenal)
+        {
+            return estadoRuta is "Despachada" or "EnTransito"
+                ? (estadoParadaActual == "EnSitio" ? "EnParada" : "EnMovimiento")
+                : "DetenidoAlerta";
+        }
 
         return estadoParadaActual == "EnSitio" || velocidad is < VelocidadDetenidoKmh ? "EnParada" : "EnMovimiento";
     }

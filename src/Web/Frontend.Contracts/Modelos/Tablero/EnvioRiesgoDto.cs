@@ -19,6 +19,7 @@ public record EnvioRiesgoDto
     public int MinutosRetrasoEstimado { get; init; }
     public string NivelRiesgo { get; init; } = "Alto"; // "Critico", "Alto", "Moderado"
     public string CausaRiesgo { get; init; } = string.Empty;
+    public Guid RepartidorId { get; init; }
     public string RepartidorNombre { get; init; } = string.Empty;
     public string RepartidorTelefono { get; init; } = string.Empty;
     public string VehiculoMatricula { get; init; } = string.Empty;

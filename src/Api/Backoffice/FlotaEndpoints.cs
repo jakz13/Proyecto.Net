@@ -63,9 +63,8 @@ public static class FlotaEndpoints
             [FromBody] CrearVehiculoDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var patente = (dto.Patente ?? string.Empty).Trim().ToUpperInvariant();
             if (await db.Vehiculos.AnyAsync(v => v.OperadorId == tenant.OperadorId && v.Patente == patente, ct))
@@ -74,6 +73,9 @@ public static class FlotaEndpoints
             var vehiculo = new Vehiculo(Guid.NewGuid(), tenant.OperadorId, patente, dto.Tipo, dto.CapacidadPeso, dto.CapacidadVolumen);
             await db.Vehiculos.AddAsync(vehiculo, ct);
             await db.SaveChangesAsync(ct);
+
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, vehiculo.Id, "FlotaActualizada", ct);
 
             return Results.Created($"/api/v1/flota/vehiculos/{vehiculo.Id}",
                 (await MapearVehiculosAsync(db, tenant.OperadorId, new[] { vehiculo }, ct)).Single());
@@ -86,9 +88,8 @@ public static class FlotaEndpoints
             [FromBody] ActualizarVehiculoDto dto,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var vehiculo = await db.Vehiculos.FirstOrDefaultAsync(v => v.Id == id && v.OperadorId == tenant.OperadorId, ct);
             if (vehiculo is null)
@@ -103,6 +104,9 @@ public static class FlotaEndpoints
             if (dto.Activo) vehiculo.Activar(); else vehiculo.Desactivar();
             await db.SaveChangesAsync(ct);
 
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, vehiculo.Id, "FlotaActualizada", ct);
+
             return Results.Ok((await MapearVehiculosAsync(db, tenant.OperadorId, new[] { vehiculo }, ct)).Single());
         }))
         .WithName("ActualizarVehiculo")
@@ -113,9 +117,8 @@ public static class FlotaEndpoints
             [FromBody] CambioEstadoActivoRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var vehiculo = await db.Vehiculos.FirstOrDefaultAsync(v => v.Id == id && v.OperadorId == tenant.OperadorId, ct);
             if (vehiculo is null)
@@ -123,6 +126,10 @@ public static class FlotaEndpoints
 
             if (cuerpo.Activo) vehiculo.Activar(); else vehiculo.Desactivar();
             await db.SaveChangesAsync(ct);
+
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, vehiculo.Id, "FlotaActualizada", ct);
+
             return Results.NoContent();
         }))
         .WithName("CambiarEstadoVehiculo")
@@ -205,6 +212,7 @@ public static class FlotaEndpoints
             if (notifier is not null)
             {
                 await notifier.NotificarIdentidadVisualActualizadaAsync(tenant.OperadorId, ct);
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, repartidor.Id, "FlotaActualizada", ct);
             }
 
             return Results.Created($"/api/v1/flota/repartidores/{repartidor.Id}",
@@ -219,9 +227,8 @@ public static class FlotaEndpoints
             IPasswordHasherService hasher,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
             if (repartidor is null)
@@ -262,6 +269,9 @@ public static class FlotaEndpoints
             if (dto.VehiculoAsignadoId.HasValue) repartidor.AsignarVehiculo(dto.VehiculoAsignadoId.Value); else repartidor.DesasignarVehiculo();
             await db.SaveChangesAsync(ct);
 
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, repartidor.Id, "FlotaActualizada", ct);
+
             return Results.Ok((await MapearRepartidoresAsync(db, new[] { repartidor }, ct)).Single());
         }))
         .WithName("ActualizarRepartidor")
@@ -272,9 +282,8 @@ public static class FlotaEndpoints
             [FromBody] AsignarVehiculoRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
             if (repartidor is null)
@@ -286,6 +295,10 @@ public static class FlotaEndpoints
 
             if (cuerpo.VehiculoId.HasValue) repartidor.AsignarVehiculo(cuerpo.VehiculoId.Value); else repartidor.DesasignarVehiculo();
             await db.SaveChangesAsync(ct);
+
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, repartidor.Id, "FlotaActualizada", ct);
+
             return Results.NoContent();
         }))
         .WithName("AsignarVehiculoARepartidor")
@@ -296,9 +309,8 @@ public static class FlotaEndpoints
             [FromBody] CambioEstadoRepartidorRequest cuerpo,
             AppDbContext db,
             ICurrentTenant tenant,
-
-
-            CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
+            CancellationToken ct,
+            ITableroRealtimeNotifier? notifier = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var repartidor = await db.Repartidores.FirstOrDefaultAsync(r => r.Id == id && r.OperadorId == tenant.OperadorId, ct);
             if (repartidor is null)
@@ -318,6 +330,10 @@ public static class FlotaEndpoints
                     usuario.Activar();
             }
             await db.SaveChangesAsync(ct);
+
+            if (notifier is not null)
+                await notifier.NotificarCambioRutaAsync(tenant.OperadorId, repartidor.Id, "FlotaActualizada", ct);
+
             return Results.NoContent();
         }))
         .WithName("CambiarEstadoRepartidor")
