@@ -235,7 +235,7 @@ public static class MobileRutasEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        group.MapPost("/carga/confirmar", async (
+        var confirmarCargaHandler = async (
             [FromRoute] Guid hojaDeRutaId,
             [FromBody] ConfirmarCargaRequest request,
             [FromServices] IMediator mediator,
@@ -246,7 +246,8 @@ public static class MobileRutasEndpoints
                 var command = new ConfirmarCargaCommand(
                     hojaDeRutaId,
                     request.CodigosBultosCargados,
-                    request.IdempotencyKey);
+                    request.IdempotencyKey,
+                    request.ObservacionesDiscrepancia);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Ok(resultado);
@@ -263,15 +264,26 @@ public static class MobileRutasEndpoints
             {
                 return Results.Forbid();
             }
-        })
-        .WithName("ConfirmarCarga")
-        .WithSummary("Confirmar la carga del vehículo")
-        .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache. No transiciona envíos.")
-        .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status403Forbidden)
-        .WithOpenApi();
+        };
+
+        group.MapPost("/carga/confirmar", confirmarCargaHandler)
+            .WithName("ConfirmarCarga")
+            .WithSummary("Confirmar la carga del vehículo y despachar la hoja de ruta")
+            .WithDescription("Registra los bultos cargados en el vehículo, desvincula envíos incompletos devolviéndolos a depósito y despacha automáticamente la hoja de ruta y los envíos completos a EnTránsito.")
+            .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithOpenApi();
+
+        group.MapPost("/confirmar-carga", confirmarCargaHandler)
+            .WithName("ConfirmarCargaAlias")
+            .WithSummary("Confirmar la carga del vehículo y despachar la hoja de ruta (alias)")
+            .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithOpenApi();
 
         // C) Iniciar recorrido (Transición de Despachada a EnTransito)
         group.MapPost("/iniciar-recorrido", async (
@@ -707,7 +719,8 @@ public record ValidarCargaRequest(List<string> CodigosBultosEscaneados);
 
 public record ConfirmarCargaRequest(
     List<string> CodigosBultosCargados,
-    string IdempotencyKey
+    string IdempotencyKey,
+    string? ObservacionesDiscrepancia = null
 );
 
 public record SeleccionarParadaRequest(

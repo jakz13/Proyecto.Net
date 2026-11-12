@@ -240,6 +240,7 @@
                                               StartInteraction="OnSignatureStartInteraction"
                                               DragInteraction="OnSignatureDragInteraction"
                                               EndInteraction="OnSignatureEndInteraction"
+                                              CancelInteraction="OnSignatureCancelInteraction"
                                               HeightRequest="180"
                                               HorizontalOptions="Fill"
                                               VerticalOptions="Fill" />

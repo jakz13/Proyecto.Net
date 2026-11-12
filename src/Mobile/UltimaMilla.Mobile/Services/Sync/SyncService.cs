@@ -539,7 +539,7 @@ public class SyncService : ISyncService, IDisposable
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "ConfirmarCarga", detallesErrores, cancellationToken);
                                 if (ok)
                                 {
-                                    // El despacho de la ruta lo hace el despachador desde el depósito: la app solo informa la carga
+                                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnTransito");
                                     exitosas++;
                                 }
                                 else

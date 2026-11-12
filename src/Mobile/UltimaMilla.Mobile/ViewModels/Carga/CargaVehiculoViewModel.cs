@@ -7,9 +7,11 @@ using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
+using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Carga;
 
@@ -125,6 +127,8 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly IHttpClientFactory? _httpClientFactory;
     private readonly IBiometricAuthService? _biometricAuthService;
     private readonly IOperadorThemeService? _themeService;
+    private readonly IGeolocalizacionTrackingService? _trackingService;
+    private readonly IAuthService? _authService;
     private IDispatcherTimer? _vigilanciaDespacho;
     private bool _actualizandoSelectorRuta;
 
@@ -348,7 +352,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         }
     }
 
-    public CargaVehiculoViewModel() : this(null, null, null, null, null)
+    public CargaVehiculoViewModel() : this(null, null, null, null, null, null, null)
     {
     }
 
@@ -357,13 +361,17 @@ public partial class CargaVehiculoViewModel : ObservableObject
         ISyncService? syncService = null,
         IHttpClientFactory? httpClientFactory = null,
         IBiometricAuthService? biometricAuthService = null,
-        IOperadorThemeService? themeService = null)
+        IOperadorThemeService? themeService = null,
+        IGeolocalizacionTrackingService? trackingService = null,
+        IAuthService? authService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _httpClientFactory = httpClientFactory;
         _biometricAuthService = biometricAuthService;
         _themeService = themeService;
+        _trackingService = trackingService;
+        _authService = authService;
     }
 
     /// <summary>Carga la ruta guardada en el dispositivo. Si todavía no hay ninguna, la pantalla lo informa en lugar de inventar datos.</summary>
@@ -1059,6 +1067,19 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 .Concat(BultosSobrantes.Select(s => s.CodigoBulto))
                 .ToList();
 
+            var enviosIncompletosIds = BultosPendientes
+                .Where(b => !b.EsSobrante && b.EnvioId != Guid.Empty)
+                .Select(b => b.EnvioId)
+                .ToHashSet();
+
+            var enviosCompletosCount = BultosCargadosLista
+                .Where(b => !b.EsSobrante && (b.EnvioId == Guid.Empty || !enviosIncompletosIds.Contains(b.EnvioId)))
+                .Select(b => b.EnvioId != Guid.Empty ? b.EnvioId : b.Id)
+                .Distinct()
+                .Count();
+
+            var puedeDespacharEnTransito = enviosCompletosCount > 0 || faltantes == 0;
+
             var idempotencyKey = $"CARGA-{HojaDeRutaId:N}";
             var observaciones = (faltantes > 0 || sobrantes > 0)
                 ? $"Discrepancia de carga: {faltantes} faltantes, {sobrantes} sobrantes. Motivo: {MotivoDiscrepanciaSeleccionado}. {DetalleDocumentalDiscrepanciaInput} {MensajeDiscrepancia}".Trim()
@@ -1067,9 +1088,13 @@ public partial class CargaVehiculoViewModel : ObservableObject
             if (_localDatabaseService is not null)
             {
                 await _localDatabaseService.ConfirmarCargaLocalAsync(HojaDeRutaId, codigosCargados);
+                if (puedeDespacharEnTransito)
+                {
+                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(HojaDeRutaId, "EnTransito");
+                }
             }
 
-            EstadoHojaDeRuta = "EnCarga";
+            EstadoHojaDeRuta = puedeDespacharEnTransito ? "EnTransito" : "EnCarga";
 
             var payload = new ConfirmarCargaOfflinePayload
             {
@@ -1098,9 +1123,21 @@ public partial class CargaVehiculoViewModel : ObservableObject
                         ObservacionesDiscrepancia = observaciones
                     });
 
-                    if (response.IsSuccessStatusCode && _localDatabaseService is not null && opId != 0)
+                    if (response.IsSuccessStatusCode)
                     {
-                        await _localDatabaseService.MarcarComoSincronizadoAsync(opId);
+                        if (_localDatabaseService is not null && opId != 0)
+                        {
+                            await _localDatabaseService.MarcarComoSincronizadoAsync(opId);
+                        }
+
+                        if (_localDatabaseService is not null && puedeDespacharEnTransito)
+                        {
+                            await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(HojaDeRutaId, "EnTransito");
+                        }
+                    }
+                    else if (_syncService is not null)
+                    {
+                        await _syncService.SincronizarOperacionesPendientesAsync();
                     }
                 }
                 catch (Exception ex)
@@ -1109,10 +1146,52 @@ public partial class CargaVehiculoViewModel : ObservableObject
                 }
             }
 
-            ActualizarConteos();
-            MostrarAvisoRapido("Carga registrada y custodia confirmada con éxito");
+            if (puedeDespacharEnTransito && enviosIncompletosIds.Count > 0)
+            {
+                var bultosRetirados = BultosPendientes
+                    .Where(b => enviosIncompletosIds.Contains(b.EnvioId))
+                    .ToList();
+                foreach (var bultoRetirado in bultosRetirados)
+                {
+                    BultosPendientes.Remove(bultoRetirado);
+                }
 
-            if (Shell.Current != null && faltantes == 0)
+                var cargadosDeEnviosRetirados = BultosCargadosLista
+                    .Where(b => enviosIncompletosIds.Contains(b.EnvioId))
+                    .ToList();
+                foreach (var bultoRetirado in cargadosDeEnviosRetirados)
+                {
+                    BultosCargadosLista.Remove(bultoRetirado);
+                }
+            }
+
+            if (_trackingService is not null && EstadoHojaDeRuta is "EnTransito" or "Despachada")
+            {
+                try
+                {
+                    var repartidorId = _trackingService.RepartidorIdActivo;
+                    if (_trackingService.IsTrackingActive)
+                    {
+                        _trackingService.HojaDeRutaIdActiva = HojaDeRutaId;
+                    }
+                    else
+                    {
+                        await _trackingService.IniciarTrackingAsync(HojaDeRutaId, repartidorId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Error al iniciar tracking: {ex.Message}");
+                }
+            }
+
+            ActualizarConteos();
+            MostrarAvisoRapido(
+                EstadoHojaDeRuta == "EnTransito"
+                    ? "Carga confirmada y hoja de ruta en tránsito"
+                    : "Carga registrada con éxito");
+
+            if (Shell.Current != null && EstadoHojaDeRuta is "EnTransito" or "Despachada")
             {
                 await Shell.Current.GoToAsync("//RutaDiaPage");
             }

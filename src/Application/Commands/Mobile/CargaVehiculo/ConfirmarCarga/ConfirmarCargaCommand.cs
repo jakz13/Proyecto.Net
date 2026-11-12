@@ -2,11 +2,13 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 
-/// <summary>Registra qué bultos se cargaron efectivamente en el vehículo. No despacha la ruta: eso lo hace el operario.</summary>
+/// <summary>Registra los bultos cargados efectivamente en el vehículo y ejecuta el despacho automático de la hoja de ruta.</summary>
 public record ConfirmarCargaCommand(
     Guid HojaDeRutaId,
     List<string> CodigosBultosCargados,
-    string IdempotencyKey
+    string IdempotencyKey,
+    string? ObservacionesDiscrepancia = null,
+    bool DespacharAutomaticamente = true
 ) : IRequest<ConfirmarCargaResultDto>;
 
 public record ConfirmarCargaResultDto(
@@ -16,4 +18,6 @@ public record ConfirmarCargaResultDto(
     int TotalBultosFaltantes,
     int TotalBultosSobrantes,
     bool Idempotente,
-    string Mensaje);
+    string Mensaje,
+    int EnviosEnTransito = 0,
+    IReadOnlyList<Guid>? EnviosRetiradosIds = null);

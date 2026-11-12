@@ -80,16 +80,19 @@ public class DespachoYCargaCommandHandlerTests
     private static List<string> CodigosDe(params Envio[] envios) =>
         envios.SelectMany(e => e.Bultos).Select(b => b.Identificacion).ToList();
 
-    private Task<ConfirmarCargaResultDto> Cargar(HojaDeRuta ruta, IEnumerable<string> codigos, string clave = "clave-1") =>
-        HandlerCarga().Handle(new ConfirmarCargaCommand(ruta.Id, codigos.ToList(), clave), CancellationToken.None);
+    private Task<ConfirmarCargaResultDto> Cargar(HojaDeRuta ruta, IEnumerable<string> codigos, string clave = "clave-1", bool despacharAutomaticamente = true) =>
+        HandlerCarga().Handle(new ConfirmarCargaCommand(ruta.Id, codigos.ToList(), clave, null, despacharAutomaticamente), CancellationToken.None);
+
+    private Task<ConfirmarCargaResultDto> CargarSoloEscaneo(HojaDeRuta ruta, IEnumerable<string> codigos, string clave = "clave-1") =>
+        Cargar(ruta, codigos, clave, despacharAutomaticamente: false);
 
     private Task<DespachoResultDto> Despachar(HojaDeRuta ruta, string? observaciones = null) =>
         HandlerDespacho().Handle(new DespacharHojaDeRutaCommand(ruta.Id, observaciones), CancellationToken.None);
 
-    // ---- registrar la carga ----
+    // ---- registrar la carga y despacho automático desde móvil ----
 
     [Fact]
-    public async Task Carga_CompletaSinDiscrepancias_DejaLaRutaEnCargaSinTocarLosEnvios()
+    public async Task Carga_CompletaSinDiscrepancias_DespachaAutomaticamenteRutaYEnviosAEnTransito()
     {
         var a = CrearEnvioClasificado();
         var b = CrearEnvioClasificado();
@@ -97,13 +100,38 @@ public class DespachoYCargaCommandHandlerTests
 
         var resultado = await Cargar(ruta, CodigosDe(a, b));
 
-        Assert.Equal("EnCarga", resultado.EstadoRuta);
+        Assert.Equal("EnTransito", resultado.EstadoRuta);
         Assert.Equal(2, resultado.TotalBultosCargados);
         Assert.Equal(0, resultado.TotalBultosFaltantes);
+        Assert.Equal(2, resultado.EnviosEnTransito);
         Assert.False(resultado.Idempotente);
         Assert.Equal(2, ruta.EscaneosCarga.Count);
-        Assert.All(new[] { a, b }, e => Assert.Equal(EstadoEnvio.AsignadoARuta, e.EstadoActual));
+        Assert.All(new[] { a, b }, e =>
+        {
+            Assert.Equal(EstadoEnvio.EnTransito, e.EstadoActual);
+            Assert.Equal("DespachoRuta", e.Eventos.Last().TipoEvento);
+            Assert.All(e.Bultos, bu => Assert.Equal("CargadoEnVehiculo", bu.EstadoBulto));
+        });
         Assert.Equal(1, _uow.Confirmaciones);
+    }
+
+    [Fact]
+    public async Task Carga_ConEnvioCompletoYOtroIncompleto_DespachaCompletoYRetiraIncompletoADeposito()
+    {
+        var completo = CrearEnvioClasificado();
+        var incompleto = CrearEnvioClasificado(bultos: 2);
+        var ruta = CrearRutaLiberada(completo, incompleto);
+
+        var resultado = await Cargar(ruta, CodigosDe(completo).Append(incompleto.Bultos.First().Identificacion));
+
+        Assert.Equal("EnTransito", resultado.EstadoRuta);
+        Assert.Equal(1, resultado.EnviosEnTransito);
+        Assert.NotNull(resultado.EnviosRetiradosIds);
+        Assert.Single(resultado.EnviosRetiradosIds!, incompleto.Id);
+        Assert.Equal(EstadoEnvio.EnTransito, completo.EstadoActual);
+        Assert.Equal(EstadoEnvio.EnDeposito, incompleto.EstadoActual);
+        Assert.Null(incompleto.HojaDeRutaId);
+        Assert.Equal("Cancelada", ruta.Paradas.Single(p => p.EnvioId == incompleto.Id).Estado);
     }
 
     [Fact]
@@ -164,7 +192,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, CodigosDe(a));
+        await CargarSoloEscaneo(ruta, CodigosDe(a));
         await Despachar(ruta);
         var escaneos = ruta.EscaneosCarga.Count;
 
@@ -222,12 +250,27 @@ public class DespachoYCargaCommandHandlerTests
     // ---- despacho ----
 
     [Fact]
+    public async Task Despacho_PosteriorAConfirmarCargaAutomatica_EsIdempotente()
+    {
+        var a = CrearEnvioClasificado();
+        var ruta = CrearRutaLiberada(a);
+        await Cargar(ruta, CodigosDe(a));
+
+        var resultado = await Despachar(ruta);
+
+        Assert.True(resultado.Idempotente);
+        Assert.Equal("EnTransito", resultado.Estado);
+        Assert.Equal(1, resultado.EnviosEnTransito);
+        Assert.Empty(_outbox.Mensajes);
+    }
+
+    [Fact]
     public async Task Despacho_ConTodoCargado_PasaLosEnviosAEnTransitoYLaRutaADespachada()
     {
         var a = CrearEnvioClasificado();
         var b = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a, b);
-        await Cargar(ruta, CodigosDe(a, b));
+        await CargarSoloEscaneo(ruta, CodigosDe(a, b));
 
         var resultado = await Despachar(ruta, "Salida normal");
 
@@ -253,7 +296,7 @@ public class DespachoYCargaCommandHandlerTests
         var completo = CrearEnvioClasificado();
         var incompleto = CrearEnvioClasificado(bultos: 2);
         var ruta = CrearRutaLiberada(completo, incompleto);
-        await Cargar(ruta, CodigosDe(completo).Append(incompleto.Bultos.First().Identificacion));
+        await CargarSoloEscaneo(ruta, CodigosDe(completo).Append(incompleto.Bultos.First().Identificacion));
 
         var resultado = await Despachar(ruta);
 
@@ -274,7 +317,7 @@ public class DespachoYCargaCommandHandlerTests
         var a = CrearEnvioClasificado(bultos: 2);
         var b = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a, b);
-        await Cargar(ruta, CodigosDe(b));
+        await CargarSoloEscaneo(ruta, CodigosDe(b));
         await Despachar(ruta);
 
         Assert.Null(a.ObtenerMotivoNoAsignable());
@@ -286,7 +329,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado(bultos: 2);
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, new[] { a.Bultos.First().Identificacion });
+        await CargarSoloEscaneo(ruta, new[] { a.Bultos.First().Identificacion });
         var confirmaciones = _uow.Confirmaciones;
 
         await Assert.ThrowsAsync<DomainValidationException>(() => Despachar(ruta));
@@ -314,7 +357,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, CodigosDe(a));
+        await CargarSoloEscaneo(ruta, CodigosDe(a));
         await Despachar(ruta);
         var eventos = a.Eventos.Count;
         var mensajes = _outbox.Mensajes.Count;
@@ -334,8 +377,8 @@ public class DespachoYCargaCommandHandlerTests
         var b = CrearEnvioClasificado();
         var primera = CrearRutaLiberada(a);
         var segunda = CrearRutaLiberada(b);
-        await Cargar(primera, CodigosDe(a));
-        await Cargar(segunda, CodigosDe(b), "clave-2");
+        await CargarSoloEscaneo(primera, CodigosDe(a));
+        await CargarSoloEscaneo(segunda, CodigosDe(b), "clave-2");
         await Despachar(primera);
 
         var ex = await Assert.ThrowsAsync<DomainValidationException>(() => Despachar(segunda));
@@ -359,7 +402,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, CodigosDe(a));
+        await CargarSoloEscaneo(ruta, CodigosDe(a));
         _tenant.OperadorId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Despachar(ruta));
@@ -371,7 +414,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado();
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, CodigosDe(a));
+        await CargarSoloEscaneo(ruta, CodigosDe(a));
         _tenant.UsuarioId = null;
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Despachar(ruta));
