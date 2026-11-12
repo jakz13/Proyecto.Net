@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Comercio.GenerarEtiquetasEnvios;
 
 /// <summary>
-/// Genera los datos de las etiquetas físicas para uno o más envíos admitidos del comercio (UC-27).
+/// Genera los datos de las etiquetas físicas para uno o más envíos admitidos del comercio.
 /// </summary>
 public record GenerarEtiquetasEnviosQuery(IReadOnlyList<Guid> EnvioIds) : IRequest<EtiquetasGeneradasResultDto>;
 

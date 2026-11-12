@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Cliente HTTP para consumir los endpoints de flota, vehículos y repartidores de la API backend (RF-06).
+/// Cliente HTTP para consumir los endpoints de flota, vehículos y repartidores de la API backend.
 /// </summary>
 public class HttpFlotaApi : IFlotaApi
 {

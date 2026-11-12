@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Enums;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Parámetros de filtrado y paginación para el listado de envíos (UC-28).
+/// Parámetros de filtrado y paginación para el listado de envíos.
 /// </summary>
 public record FiltroEnviosDto
 {

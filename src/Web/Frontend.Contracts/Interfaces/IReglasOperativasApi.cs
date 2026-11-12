@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la gestión y versionado de las reglas operativas del operador logístico (UC-04, RF-04).
+/// Contrato de servicio para la gestión y versionado de las reglas operativas del operador logístico.
 /// </summary>
 public interface IReglasOperativasApi
 {

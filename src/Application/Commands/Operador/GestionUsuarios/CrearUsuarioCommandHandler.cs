@@ -9,7 +9,7 @@ namespace UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 
 /// <summary>
 /// Manejador para la creación de un nuevo usuario en el operador o comercio asociado.
-/// Concatena limpiamente Nombre y Apellido si son provistos por separado (UC-01, RF-01).
+/// Concatena limpiamente Nombre y Apellido si son provistos por separado.
 /// </summary>
 public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, UsuarioDetalleDto>
 {

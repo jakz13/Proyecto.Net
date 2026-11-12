@@ -15,7 +15,7 @@ namespace UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 
 public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeCommand, ResultadoProcesamientoMensaje>
 {
-    /// <summary>Cambios de estado que justifican avisar al destinatario sin que tenga que consultar (UC-35, RF-35).</summary>
+    /// <summary>Cambios de estado que justifican avisar al destinatario sin que tenga que consultar.</summary>
     private static readonly HashSet<EstadoEnvio> EstadosNotificablesAlDestinatario = new()
     {
         EstadoEnvio.Admitido,
@@ -85,17 +85,17 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         if (await _idempotenciaRepository.ExisteAsync(claveMensaje, cancellationToken))
             return new ResultadoProcesamientoMensaje(EstadoProcesamientoMensaje.Duplicado, 0, 0);
 
-        // Eventos del retiro en domicilio (RF 41): su propio mensaje, con el mismo patrón de idempotencia y entrega
+        // Eventos del retiro en domicilio: su propio mensaje, con el mismo patrón de idempotencia y entrega
         if (string.Equals(request.TipoEvento, EventoRetiroPublicado.TipoMensaje, StringComparison.Ordinal))
             return await ProcesarRetiroAsync(request, claveMensaje, cancellationToken);
 
-        // Eventos de cambio de identidad visual del operador (UC-06, RF-05): el worker invalida caché distribuido y registra idempotencia
+        // Eventos de cambio de identidad visual del operador: el worker invalida caché distribuido y registra idempotencia
         if (string.Equals(request.TipoEvento, EventoIdentidadVisualActualizada.TipoMensaje, StringComparison.Ordinal))
             return await ProcesarIdentidadVisualAsync(request, claveMensaje, cancellationToken);
 
         if (!string.Equals(request.TipoEvento, EventoEnvioPublicado.TipoMensaje, StringComparison.Ordinal))
         {
-            // Un reintento manual desde la cola de fallidos no puede resolverse en silencio si nadie sabe atenderlo (UC-42)
+            // Un reintento manual desde la cola de fallidos no puede resolverse en silencio si nadie sabe atenderlo
             if (string.Equals(request.AgregadoOrigen, EventoEnvioPublicado.OrigenColaFallidos, StringComparison.Ordinal))
                 throw new MensajeSinManejadorException(request.TipoEvento);
 
@@ -115,7 +115,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         if (envio.OperadorId != evento.OperadorId)
             throw new MensajeInvalidoException($"El envío '{evento.EnvioId}' no pertenece al operador del evento.");
 
-        // Invalidación del caché de seguimiento público al procesar un evento del envío (RNF 6.7)
+        // Invalidación del caché de seguimiento público al procesar un evento del envío
         if (_cacheService is not null)
         {
             await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
@@ -140,7 +140,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
 
     /// <summary>
     /// Procesa el cambio de estado de un retiro: invalida el caché del seguimiento público y genera los avisos a los comercios suscriptos.
-    /// El contrato de los avisos está versionado (RF 36): los retiros solo viajan en el contrato v2, de modo que las integraciones que ya
+    /// El contrato de los avisos está versionado: los retiros solo viajan en el contrato v2, de modo que las integraciones que ya
     /// recibían avisos con el formato original (v1) no se ven afectadas por esta funcionalidad nueva.
     /// </summary>
     private async Task<ResultadoProcesamientoMensaje> ProcesarRetiroAsync(
@@ -310,7 +310,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
                 int bultosEntregados = bultosEvento.Count(b => string.Equals(b.EstadoBulto, MaquinaEstadosBulto.Entregado, StringComparison.Ordinal));
                 int bultosPendientes = Math.Max(0, totalBultos - bultosEntregados);
 
-                // Contrato v2 (RF-36): incorpora versión explícita, resumen de avance y eventos a nivel de bulto
+                // Contrato v2: incorpora versión explícita, resumen de avance y eventos a nivel de bulto
                 payload = JsonSerializer.Serialize(new
                 {
                     versionContrato = SuscripcionAviso.ContratoV2,
@@ -339,7 +339,7 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
             }
             else
             {
-                // Contrato v1 (RF-36): preserva intacto el formato original para no afectar integraciones existentes
+                // Contrato v1: preserva intacto el formato original para no afectar integraciones existentes
                 payload = JsonSerializer.Serialize(new
                 {
                     avisoId,

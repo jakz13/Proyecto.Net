@@ -35,7 +35,7 @@ x-api: &api
     SEED_API_KEY_DEMO: ${SEED_API_KEY_DEMO:-}
     # Receptor anónimo de pruebas de avisos (/api/testing/webhook-receiver): apagado salvo que se lo habilite para una demostración
     Avisos__ReceptorDePrueba__Habilitado: ${RECEPTOR_PRUEBA_AVISOS:-false}
-    # Configuración SMTP para notificaciones por correo al destinatario (RF-27, UC-35)
+    # Configuración SMTP para notificaciones por correo al destinatario
     Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
     Smtp__Port: ${SMTP_PORT:-587}
     Smtp__UsarSsl: ${SMTP_SSL:-true}
@@ -212,7 +212,7 @@ services:
     mem_limit: 32m
     networks: [interna]
 
-  # Observabilidad: Prometheus recolecta métricas y Grafana las muestra (UC-44). Solo accesible por Caddy.
+  # Observabilidad: Prometheus recolecta métricas y Grafana las muestra. Solo accesible por Caddy.
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: unless-stopped

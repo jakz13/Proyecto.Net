@@ -9,7 +9,7 @@ namespace UltimaMilla.Application.Commands.Operador.GestionTarifas;
 
 /// <summary>
 /// Manejador que publica una nueva versión del cuadro tarifario, cerrando la vigencia de las versiones previas
-/// e invalidando de inmediato las entradas del operador en el caché distribuido (UC-03, RNF 6.7).
+/// e invalidando de inmediato las entradas del operador en el caché distribuido.
 /// </summary>
 public class PublicarVersionCuadroTarifarioCommandHandler : IRequestHandler<PublicarVersionCuadroTarifarioCommand, CuadroTarifarioDetalleDto>
 {

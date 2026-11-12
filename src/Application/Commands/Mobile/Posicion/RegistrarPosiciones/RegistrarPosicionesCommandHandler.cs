@@ -116,7 +116,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         await _posicionRepository.AddRangeAsync(posiciones, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Tiempo real (RF-29): una sola notificación por vehículo y lote, con la posición más reciente; no condiciona el resultado
+        // Tiempo real: una sola notificación por vehículo y lote, con la posición más reciente; no condiciona el resultado
         if (_tableroNotifier is not null)
         {
             foreach (var ultima in posiciones.GroupBy(x => x.VehiculoId).Select(g => g.OrderByDescending(x => x.Timestamp).First()))

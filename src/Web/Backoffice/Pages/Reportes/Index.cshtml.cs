@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 namespace UltimaMilla.Backoffice.Pages.Reportes;
 
 /// <summary>
-/// Controlador de la vista de reportes de gestión operativa y comercial (UC-13, RF-30).
+/// Controlador de la vista de reportes de gestión operativa y comercial.
 /// </summary>
 [Authorize(Roles = "Administrador,Despachador")]
 public class IndexModel : PageModel

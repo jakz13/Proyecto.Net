@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Mensajeria;
 
 /// <summary>
-/// Representa un mensaje retenido en la cola de fallidos (Dead Letter Queue) tras agotar sus reintentos automáticos (UC-42).
+/// Representa un mensaje retenido en la cola de fallidos (Dead Letter Queue) tras agotar sus reintentos automáticos.
 /// </summary>
 public record MensajeFallidoDto
 {
@@ -56,7 +56,7 @@ public record MensajeFallidoDto
     public string Estado { get; init; } = "Fallido";
 
     /// <summary>
-    /// Motivo documentado al momento de descartar el mensaje (UC-42).
+    /// Motivo documentado al momento de descartar el mensaje.
     /// </summary>
     public string? MotivoDescarte { get; init; }
 

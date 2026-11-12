@@ -1,4 +1,4 @@
-# Provisioning automático de la fuente de datos Prometheus en Grafana (UC-44, §8.3)
+# Provisioning automático de la fuente de datos Prometheus en Grafana
 apiVersion: 1
 
 datasources:

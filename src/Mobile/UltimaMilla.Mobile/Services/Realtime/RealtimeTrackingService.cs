@@ -7,7 +7,7 @@ using UltimaMilla.Mobile.Services.Notifications;
 namespace UltimaMilla.Mobile.Services.Realtime;
 
 /// <summary>
-/// Cliente de SignalR resiliente y de alto rendimiento para transmisión de telemetría en tiempo real (Hito 4).
+/// Cliente de SignalR resiliente y de alto rendimiento para transmisión de telemetría en tiempo real .
 /// Gestiona reconexiones automáticas, inyección de credenciales JWT y tolerancia a caídas de red móvil.
 /// </summary>
 public class RealtimeTrackingService : IRealtimeTrackingService
@@ -53,7 +53,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
             {
-                // RNF 6.3: Inyección del token Bearer persistido para autenticar el canal de SignalR
+                // Inyección del token Bearer persistido para autenticar el canal de SignalR
                 options.AccessTokenProvider = async () =>
                 {
                     try

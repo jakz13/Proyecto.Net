@@ -200,7 +200,7 @@ public class EntregaParcialBultosTests
         Assert.Equal(1, dto.BultosPendientes);
         Assert.Equal("2 de 3 bultos entregados", dto.AvanceEntregaBultos);
 
-        // RF-35: verificar que el JSON serializado del seguimiento público no expone identificadores internos de bultos
+        // verificar que el JSON serializado del seguimiento público no expone identificadores internos de bultos
         var json = JsonSerializer.Serialize(dto);
         Assert.DoesNotContain("BLT-A1", json);
         Assert.DoesNotContain("BLT-A2", json);

@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Incidencias;
 namespace UltimaMilla.Backoffice.Pages.Incidencias;
 
 /// <summary>
-/// Modelo de página para la consulta, registro, seguimiento y cierre de incidencias operativas (UC-11).
+/// Modelo de página para la consulta, registro, seguimiento y cierre de incidencias operativas.
 /// </summary>
 [Authorize(Roles = "Despachador")]
 public class IndexModel : PageModel

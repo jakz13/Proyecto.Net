@@ -13,7 +13,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Cambio de requerimientos 2.2 (retiro en domicilio, RF 37 a RF 41) de punta a punta contra Postgres real y con sesiones reales por perfil:
+/// Cambio de requerimientos 2.2 (retiro en domicilio) de punta a punta contra Postgres real y con sesiones reales por perfil:
 /// solicitud del comercio, hoja de ruta mixta, registro en la calle, rendición, seguimiento público, avisos versionados y aislamiento.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]
@@ -72,7 +72,7 @@ public class RetiroEnDomicilioApiTests
 
     /// <summary>
     /// Cada prueba trabaja con su propio repartidor y vehículo: los tests comparten la base y un repartidor con una hoja de ruta despachada
-    /// sin rendir (UC-16) no puede recibir otra. Así ninguna prueba depende de lo que dejaron las demás.
+    /// sin rendir no puede recibir otra. Así ninguna prueba depende de lo que dejaron las demás.
     /// </summary>
     private sealed record Dotacion(Guid RepartidorId, Guid VehiculoId, HttpClient Repartidor);
 
@@ -131,7 +131,7 @@ public class RetiroEnDomicilioApiTests
         var repartidor = dot.Repartidor;
         var deposito = await DepositoAsync();
 
-        // RF 37 y RF 41: el comercio solicita el retiro y se tarifa con la regla de retiro del cuadro vigente
+        // el comercio solicita el retiro y se tarifa con la regla de retiro del cuadro vigente
         var referencia = "REF-" + Sufijo();
         var creado = await Json(await comercio.PostAsJsonAsync("/api/comercio/retiros", SolicitudDeRetiro(referencia)), HttpStatusCode.Created);
         var retiroId = creado.GetProperty("id").GetGuid();
@@ -147,7 +147,7 @@ public class RetiroEnDomicilioApiTests
         Assert.Equal(retiroId, repetido.GetProperty("id").GetGuid());
         Assert.True(repetido.GetProperty("duplicado").GetBoolean());
 
-        // RF 39: hoja de ruta mixta con una entrega y un retiro
+        // hoja de ruta mixta con una entrega y un retiro
         var envio = await CrearEnvioClasificadoAsync();
         var ruta = await Json(await despachador.PostAsJsonAsync("/api/planificacion/hojas-de-ruta", new
         {
@@ -179,7 +179,7 @@ public class RetiroEnDomicilioApiTests
             new { codigosBultosCargados = new[] { envio.Bulto }, idempotencyKey = Guid.NewGuid().ToString() }), HttpStatusCode.OK);
         await Json(await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
 
-        // RF 40: la app descarga la ruta con la parada de retiro y sus bultos
+        // la app descarga la ruta con la parada de retiro y sus bultos
         var descarga = await Json(await repartidor.GetAsync($"/api/mobile/v1/rutas?fecha={DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}"), HttpStatusCode.OK);
         var rutaDescargada = descarga.GetProperty("rutas").EnumerateArray().Single(r => r.GetProperty("hojaDeRutaId").GetGuid() == rutaId);
         var paradaDescargada = rutaDescargada.GetProperty("paradas").EnumerateArray().Single(p => p.GetProperty("paradaId").GetGuid() == paradaRetiroId);
@@ -218,7 +218,7 @@ public class RetiroEnDomicilioApiTests
         var reenviado = await Json(await repartidor.PostAsJsonAsync(rutaMovil, cuerpoRetiro), HttpStatusCode.OK);
         Assert.True(reenviado.GetProperty("idempotente").GetBoolean());
 
-        // Seguimiento público (RF 41): el comprador usa el mismo enlace y no se expone ningún dato personal
+        // Seguimiento público: el comprador usa el mismo enlace y no se expone ningún dato personal
         var publico = await Json(await _factory.CreateClient().GetAsync($"/api/seguimiento/{codigo}"), HttpStatusCode.OK);
         Assert.Equal("Retiro", publico.GetProperty("tipo").GetString());
         Assert.Equal("Retirado", publico.GetProperty("estadoRetiro").GetString());
@@ -521,7 +521,7 @@ public class RetiroEnDomicilioApiTests
         var creado = await Json(await comercio.PostAsJsonAsync("/api/comercio/retiros", SolicitudDeRetiro(cantidadBultos: 2)), HttpStatusCode.Created);
         Assert.Equal(120m, creado.GetProperty("tarifa").GetDecimal());
 
-        // Tablero de operación (RF 41): el retiro nuevo cuenta como pendiente de asignar y como retiro en gestión
+        // Tablero de operación: el retiro nuevo cuenta como pendiente de asignar y como retiro en gestión
         var despues = await Json(await admin.GetAsync("/api/tablero/resumen"), HttpStatusCode.OK);
         Assert.Equal(pendientesAntes + 1, despues.GetProperty("retirosPendientes").GetInt32());
         Assert.True(despues.GetProperty("retirosEnCurso").GetInt32() >= 1);

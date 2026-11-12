@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Services;
 
 /// <summary>
-/// Servicio de validación de consistencia y superposiciones de franjas horarias (UC-02, RF-02).
+/// Servicio de validación de consistencia y superposiciones de franjas horarias.
 /// </summary>
 public static class ValidadorFranjasHorarias
 {

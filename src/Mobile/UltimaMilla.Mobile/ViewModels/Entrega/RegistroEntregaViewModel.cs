@@ -11,7 +11,7 @@ using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
 
-/// <summary>Un bulto de la parada con la marca de si se entrega ahora (entrega parcial, RF 31 a 36).</summary>
+/// <summary>Un bulto de la parada con la marca de si se entrega ahora (entrega parcial).</summary>
 public partial class BultoEntregaItemViewModel : ObservableObject
 {
     public string Codigo { get; init; } = string.Empty;

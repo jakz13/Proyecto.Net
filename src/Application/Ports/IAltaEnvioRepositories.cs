@@ -23,7 +23,7 @@ public interface IDireccionRepository
 /// <summary>Elemento que vincula un comercio con su relación hacia un operador específico.</summary>
 public record ComercioConRelacionOperador(Comercio Comercio, ComercioOperador Relacion);
 
-/// <summary>Relación comercio-operador, usada para autenticar la integración por clave de API y gestión de comercios (UC-01).</summary>
+/// <summary>Relación comercio-operador, usada para autenticar la integración por clave de API y gestión de comercios.</summary>
 public interface IComercioOperadorRepository
 {
     Task<ComercioOperador?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);

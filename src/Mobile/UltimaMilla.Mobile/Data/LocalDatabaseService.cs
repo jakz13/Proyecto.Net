@@ -28,7 +28,7 @@ public interface ILocalDatabaseService
     Task RegistrarErrorAsync(int id, string error);
     Task<int> ObtenerCantidadPendientesAsync();
 
-    // Persistencia y consulta de hoja de ruta local (UC-17, UC-18, UC-19, UC-20, UC-21)
+    // Persistencia y consulta de hoja de ruta local
     Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null, DateTime? fechaRuta = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync(Guid? hojaDeRutaId = null);
     Task<List<HojaDeRutaLocal>> ListarHojasDeRutaLocalesAsync();
@@ -48,7 +48,7 @@ public interface ILocalDatabaseService
     Task MarcarEventoGeocercaSincronizadoAsync(int eventoLocalId);
     Task<EstadoCifradoDiagnosticoDto> VerificarCifradoActivoAsync();
 
-    // Envíos admitidos para recepción física en depósito (UC-14 offline-first)
+    // Envíos admitidos para recepción física en depósito (offline-first)
     Task GuardarEnviosAdmitidosDepositoAsync(IEnumerable<EnvioAdmitidoDepositoLocal> envios);
     Task<List<EnvioAdmitidoDepositoLocal>> ObtenerEnviosAdmitidosDepositoAsync();
     Task MarcarEnvioAdmitidoRecepcionadoLocalAsync(Guid envioId);
@@ -92,7 +92,7 @@ public class LocalDatabaseService : ILocalDatabaseService
     }
 
     /// <summary>
-    /// Obtiene la clave criptográfica desde SecureStorage del dispositivo (RNF 6.3 y RNF 6.11).
+    /// Obtiene la clave criptográfica desde SecureStorage del dispositivo.
     /// Si aún no existe, genera una clave aleatoria de 32 bytes (256 bits), la almacena de forma segura y la retorna.
     /// Si SecureStorage falla en Android (por ejemplo tras reinstalación o inconsistencia transitoria del Keystore),
     /// intenta limpiar y reintentar, o aplica un fallback resiliente con clave de 256 bits generada por el dispositivo

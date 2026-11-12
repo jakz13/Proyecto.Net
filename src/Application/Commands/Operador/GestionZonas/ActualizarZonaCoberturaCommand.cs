@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionZonas;
 
 /// <summary>
-/// Comando para actualizar los datos, polígono y franjas horarias de una zona de cobertura (UC-02).
+/// Comando para actualizar los datos, polígono y franjas horarias de una zona de cobertura.
 /// </summary>
 public record ActualizarZonaCoberturaCommand(
     Guid Id,

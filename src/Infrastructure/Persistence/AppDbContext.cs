@@ -161,7 +161,7 @@ public class AppDbContext : DbContext
             builder.HasKey(p => p.Id);
             builder.Ignore(p => p.EsRetiro);
             builder.Property(p => p.Estado).IsRequired().HasMaxLength(50);
-            // Las hojas de ruta son mixtas (RF 39): una parada entrega un envío o retira un retiro
+            // Las hojas de ruta son mixtas: una parada entrega un envío o retira un retiro
             builder.Property(p => p.Tipo).IsRequired().HasMaxLength(20).HasDefaultValue(Parada.TipoEntrega);
             builder.HasIndex(p => p.RetiroId);
         });
@@ -185,7 +185,7 @@ public class AppDbContext : DbContext
             builder.HasIndex(h => new { h.OperadorId, h.Fecha });
         });
 
-        // Retiro en domicilio (cambio de requerimientos 2.2, RF 37 a RF 41)
+        // Retiro en domicilio (cambio de requerimientos 2.2)
         modelBuilder.Entity<Retiro>(builder =>
         {
             builder.ToTable("Retiros");

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Resultado tras confirmar la recepción del bulto devuelto por parte del comercio (UC-32).
+/// Resultado tras confirmar la recepción del bulto devuelto por parte del comercio.
 /// </summary>
 public record ConfirmarDevolucionResultDto(
     Guid EnvioId,

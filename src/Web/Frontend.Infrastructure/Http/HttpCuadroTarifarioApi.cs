@@ -9,7 +9,7 @@ namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
 /// Implementación basada en HTTP/REST de ICuadroTarifarioApi.
-/// Conecta el Backoffice con los endpoints de cuadros tarifarios y versionado del backend (UC-03, RF-03).
+/// Conecta el Backoffice con los endpoints de cuadros tarifarios y versionado del backend.
 /// </summary>
 public class HttpCuadroTarifarioApi : ICuadroTarifarioApi
 {

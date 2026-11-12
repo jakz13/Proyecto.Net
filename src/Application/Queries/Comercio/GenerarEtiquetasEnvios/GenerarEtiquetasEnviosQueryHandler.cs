@@ -73,7 +73,7 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
             if (comercioActualId.HasValue && comercioActualId.Value != Guid.Empty && envio.ComercioId != comercioActualId.Value)
                 throw new UnauthorizedAccessException("Acceso denegado: el envío no pertenece al comercio autenticado.");
 
-            // Precondición de UC-27: el envío debe estar en estado Admitido
+            // Precondición de el envío debe estar en estado Admitido
             if (envio.EstadoActual != EstadoEnvio.Admitido)
                 throw new DomainValidationException(
                     $"El envío '{envio.CodigoSeguimientoPublico}' se encuentra en estado '{envio.EstadoActual}'. Solo se pueden generar etiquetas para envíos en estado Admitido.");

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 
 /// <summary>
-/// Modelo para el alta de una zona de cobertura geográfica y sus franjas horarias (UC-02, RF-02).
+/// Modelo para el alta de una zona de cobertura geográfica y sus franjas horarias.
 /// </summary>
 public record CrearZonaCoberturaDto
 {

@@ -10,7 +10,7 @@ public class Parada : Entity
 
     public Guid HojaDeRutaId { get; private set; }
 
-    /// <summary>"Entrega" (lleva un envío al destinatario) o "Retiro" (retira bultos en el domicilio del comprador, RF 39).</summary>
+    /// <summary>"Entrega" (lleva un envío al destinatario) o "Retiro" (retira bultos en el domicilio del comprador).</summary>
     public string Tipo { get; private set; } = TipoEntrega;
 
     /// <summary>Envío que se entrega en la parada; null en las paradas de retiro.</summary>
@@ -59,7 +59,7 @@ public class Parada : Entity
         Estado = string.IsNullOrWhiteSpace(estado) ? "Pendiente" : estado.Trim();
     }
 
-    /// <summary>Crea una parada de retiro en domicilio (RF 39): la hoja de ruta pasa a ser mixta, con entregas y retiros.</summary>
+    /// <summary>Crea una parada de retiro en domicilio: la hoja de ruta pasa a ser mixta, con entregas y retiros.</summary>
     public static Parada ParaRetiro(Guid id, Guid hojaDeRutaId, Guid retiroId, int orden, Guid direccionId, Guid? franjaHorariaId = null)
     {
         if (id == Guid.Empty)

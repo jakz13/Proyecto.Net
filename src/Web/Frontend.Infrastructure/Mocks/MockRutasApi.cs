@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para el armado, validación y liberación de hojas de ruta (UC-08).
+/// Implementación simulada en memoria para el armado, validación y liberación de hojas de ruta.
 /// </summary>
 public class MockRutasApi : IRutasApi
 {
@@ -21,7 +21,7 @@ public class MockRutasApi : IRutasApi
     // Catálogo de envíos en depósito pendientes de asignar
     private static readonly List<EnvioPendienteRutaDto> _enviosEnDeposito = new();
 
-    // Registro histórico de eventos de reasignación e incidencias en ruta (UC-10, RF-12, RF-15)
+    // Registro histórico de eventos de reasignación e incidencias en ruta
     private static readonly List<EventoReasignacionDto> _historialReasignaciones = new();
 
     internal static object BloqueoCompartido => _bloqueo;
@@ -187,7 +187,7 @@ public class MockRutasApi : IRutasApi
                 }
             });
 
-            // 2. Hojas de ruta preexistentes para pruebas de despacho y reasignación en ruta (UC-09, UC-10)
+            // 2. Hojas de ruta preexistentes para pruebas de despacho y reasignación en ruta
             var fechaHoy = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // Ruta A: Liberada (sin despachar aún) - Lista para reasignación directa o despacho
@@ -374,7 +374,7 @@ public class MockRutasApi : IRutasApi
                 }
             });
 
-            // 3. Evento histórico inicial para log de auditoría (RF-12, RF-15)
+            // 3. Evento histórico inicial para log de auditoría
             _historialReasignaciones.Add(new EventoReasignacionDto
             {
                 Id = Guid.NewGuid(),
@@ -487,7 +487,7 @@ public class MockRutasApi : IRutasApi
             };
         }
 
-        // 2. Límite máximo de paradas permitidas por ruta (Regla operativa RF-13)
+        // 2. Límite máximo de paradas permitidas por ruta
         const int maximoParadas = 25;
         if (dto.EnviosIds.Count > maximoParadas)
         {
@@ -512,7 +512,7 @@ public class MockRutasApi : IRutasApi
                 pesoTotal += envio.PesoKg;
                 volumenTotal += envio.VolumenM3;
 
-                // Validación de compatibilidad de franja horaria con el turno de la ruta (RF-14)
+                // Validación de compatibilidad de franja horaria con el turno de la ruta
                 if (dto.Turno == "Mañana" && envio.Turno == "Tarde")
                 {
                     errores.Add($"Incompatibilidad horaria: El envío {envio.CodigoSeguimiento} tiene franja comprometida '{envio.FranjaHoraria}' (Tarde) y no puede incluirse en el turno Mañana.");
@@ -524,7 +524,7 @@ public class MockRutasApi : IRutasApi
             }
         }
 
-        // 5. Validación de capacidad de peso y volumen del vehículo (RF-15)
+        // 5. Validación de capacidad de peso y volumen del vehículo
         if (vehiculo != null)
         {
             if (pesoTotal > vehiculo.CapacidadPeso)
@@ -584,7 +584,7 @@ public class MockRutasApi : IRutasApi
                 }
             }
 
-            // Ordenamiento de paradas según criterio adoptado (RF-16)
+            // Ordenamiento de paradas según criterio adoptado
             List<EnvioPendienteRutaDto> enviosOrdenados;
             if (dto.CriterioOrdenamiento == "FranjaHoraria")
             {
@@ -647,7 +647,7 @@ public class MockRutasApi : IRutasApi
 
             var numeroRuta = $"HR-{dto.Fecha:yyyy}-{Interlocked.Increment(ref _contadorRutas):D4}";
 
-            // Construir la nueva Hoja de Ruta Liberada (Postcondición UC-08)
+            // Construir la nueva Hoja de Ruta Liberada
             var nuevaRuta = new HojaDeRutaDto
             {
                 Id = Guid.NewGuid(),
@@ -707,7 +707,7 @@ public class MockRutasApi : IRutasApi
     }
 
     /// <summary>
-    /// Ejecuta la reasignación, reprogramación o registro de no entrega de un envío en ruta (UC-10, RF-13, RF-15).
+    /// Ejecuta la reasignación, reprogramación o registro de no entrega de un envío en ruta.
     /// </summary>
     public Task<ResultadoReasignacionDto> ReasignarOReprogramarEnvioAsync(ReasignarEnvioDto dto, string despachadorUsuario, CancellationToken cancelacion = default)
     {
@@ -756,8 +756,8 @@ public class MockRutasApi : IRutasApi
 
             if (estaDespachada)
             {
-                // Flujo alternativo (UC-10): Ruta ya despachada y en tránsito
-                // Se registra como "No Entregado" con motivo interno del catálogo y vuelve a depósito en la rendición (UC-16).
+                // Flujo alternativo: Ruta ya despachada y en tránsito
+                // Se registra como "No Entregado" con motivo interno del catálogo y vuelve a depósito en la rendición.
                 var codigoMotivo = string.IsNullOrWhiteSpace(dto.CodigoMotivoNoEntrega) ? "INCIDENCIA_DESPACHADOR" : dto.CodigoMotivoNoEntrega;
 
                 var paradasModificadas = rutaActual.Paradas.Select(p =>
@@ -770,7 +770,7 @@ public class MockRutasApi : IRutasApi
                             MotivoNoEntrega = codigoMotivo,
                             ObservacionesIncidencia = $"Cancelado en tránsito por despachador ({despachadorUsuario}): {motivoLegible}",
                             FechaIncidencia = DateTime.UtcNow,
-                            HistorialReasignacion = $"Registrado como No Entregado ({codigoMotivo}). Bulto en retorno para rendición en depósito (UC-16)."
+                            HistorialReasignacion = $"Registrado como No Entregado ({codigoMotivo}). Bulto en retorno para rendición en depósito."
                         };
                     }
                     return p;
@@ -783,7 +783,7 @@ public class MockRutasApi : IRutasApi
                     SelloModificacion = Guid.NewGuid().ToString("N")
                 };
 
-                var notificacionRepartidor = $"ALERTA PRIORITARIA APP REPARTIDOR ({rutaActual.RepartidorNombre}): Omitir entrega de {parada.CodigoSeguimiento} en {parada.Direccion}. Motivo: {motivoLegible}. Retener paquete en vehículo para rendición en depósito (UC-16).";
+                var notificacionRepartidor = $"ALERTA PRIORITARIA APP REPARTIDOR ({rutaActual.RepartidorNombre}): Omitir entrega de {parada.CodigoSeguimiento} en {parada.Direccion}. Motivo: {motivoLegible}. Retener paquete en vehículo para rendición en depósito.";
 
                 var eventoAuditoria = new EventoReasignacionDto
                 {
@@ -795,7 +795,7 @@ public class MockRutasApi : IRutasApi
                     Motivo = motivoLegible,
                     Detalle = dto.DetalleMotivo,
                     AccionRealizada = "Registro No Entregado en Tránsito (Catálogo interno)",
-                    DestinoNuevo = "Pendiente de Rendición de Depósito (UC-16)",
+                    DestinoNuevo = "Pendiente de Rendición de Depósito",
                     DespachadorUsuario = despachadorUsuario,
                     NotificacionRepartidor = notificacionRepartidor
                 };
@@ -805,14 +805,14 @@ public class MockRutasApi : IRutasApi
                 {
                     Exitoso = true,
                     Mensaje = $"Envío '{parada.CodigoSeguimiento}' registrado como 'No Entregado' en ruta despachada por {motivoLegible}. Se emitió alerta prioritaria al repartidor.",
-                    NuevoEstadoEnvio = "No Entregado (Pendiente Rendición UC-16)",
+                    NuevoEstadoEnvio = "No Entregado (Pendiente Rendición)",
                     NotificacionRepartidor = notificacionRepartidor,
                     RegistroAuditoria = $"Evento de auditoría registrado por el despachador {despachadorUsuario}."
                 });
             }
             else
             {
-                // Flujo principal (UC-10): Ruta aún no despachada (Borrador o Liberada)
+                // Flujo principal: Ruta aún no despachada (Borrador o Liberada)
                 // Se retira la parada de la ruta actual
                 var paradasRestantes = rutaActual.Paradas
                     .Where(p => p.EnvioId != parada.EnvioId)
@@ -1022,7 +1022,7 @@ public class MockRutasApi : IRutasApi
     }
 
     /// <summary>
-    /// Consulta el log de eventos de reasignaciones e incidencias en ruta (RF-12, RF-15).
+    /// Consulta el log de eventos de reasignaciones e incidencias en ruta.
     /// </summary>
     public Task<IReadOnlyList<EventoReasignacionDto>> ListarEventosReasignacionAsync(Guid? hojaDeRutaId = null, CancellationToken cancelacion = default)
     {

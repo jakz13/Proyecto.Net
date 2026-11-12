@@ -34,7 +34,7 @@ using UltimaMilla.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Logs estructurados en JSON compacto con Serilog (UC-44, §6.12)
+// Logs estructurados en JSON compacto con Serilog
 builder.Host.UseSerilog((contexto, servicios, configuracion) =>
 {
     configuracion
@@ -46,7 +46,7 @@ builder.Host.UseSerilog((contexto, servicios, configuracion) =>
         .WriteTo.Console(new CompactJsonFormatter());
 });
 
-// Métricas y trazas distribuidas con OpenTelemetry (UC-44, §6.12)
+// Métricas y trazas distribuidas con OpenTelemetry
 var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(recurso => recurso.AddService("ultimamilla-api"))
@@ -364,7 +364,7 @@ app.MapHealthChecks("/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/ready", new HealthCheckOptions { Predicate = verificacion => verificacion.Tags.Contains("ready") });
 app.MapHealthChecks("/health");
 
-// Endpoint de métricas para Prometheus (UC-44, §6.12)
+// Endpoint de métricas para Prometheus
 app.MapPrometheusScrapingEndpoint("/metrics").AllowAnonymous();
 
 // Custom CSS for modern Swagger UI
@@ -548,13 +548,13 @@ mobileApi.MapGet("/ping", async (IMediator mediator) =>
 .WithName("CheckMobileConnectivity")
 .WithOpenApi();
 
-// Registrar endpoints de autenticación y autorización por token (UC-40)
+// Registrar endpoints de autenticación y autorización por token
 app.MapAuthEndpoints();
 
-// Registrar endpoints de operación en calle (UC-18, UC-19, UC-20, UC-21)
+// Registrar endpoints de operación en calle
 app.MapMobileRutasEndpoints();
 
-// Posición del vehículo durante la jornada (RF-23)
+// Posición del vehículo durante la jornada
 app.MapMobilePosicionEndpoints();
 
 // Identidad visual y operador para la app móvil
@@ -563,31 +563,31 @@ app.MapMobileOperadorEndpoints();
 // Operaciones de depósito para la app móvil
 app.MapMobileDepositoEndpoints();
 
-// Tablero de operación en vivo con posiciones GPS de la app (RF-23, RF-29)
+// Tablero de operación en vivo con posiciones GPS de la app
 app.MapTableroEnVivoEndpoints();
 
-// Reportes de gestión (RF-30)
+// Reportes de gestión
 app.MapReportesEndpoints();
 
-// Liquidaciones a comercios y cuenta corriente (RF-30, RF-34)
+// Liquidaciones a comercios y cuenta corriente
 app.MapLiquidacionesEndpoints();
 
-// Registrar endpoints de depósito (UC-14, UC-15)
+// Registrar endpoints de depósito
 app.MapDepositoEndpoints();
 
-// Registrar endpoints de planificación (UC-08, UC-09)
+// Registrar endpoints de planificación
 app.MapPlanificacionEndpoints();
 
-// Registrar tablero de operacion en vivo (UC-12)
+// Registrar tablero de operacion en vivo
 app.MapTableroEndpoints();
 
-// Registrar consultas de envío: seguimiento público (UC-33) y detalle para Backoffice
+// Registrar consultas de envío: seguimiento público y detalle para Backoffice
 app.MapConsultasEnvioEndpoints();
 
-// Registrar gestión de incidencias (UC-11)
+// Registrar gestión de incidencias
 app.MapIncidenciasEndpoints();
 
-// Registrar reglas operativas y motivos de no entrega (UC-04, UC-05)
+// Registrar reglas operativas y motivos de no entrega
 app.MapOperadorConfiguracionEndpoints();
 
 // Retiro en domicilio (cambio de requerimientos 2.2): portal, API por clave, backoffice y repartidor
@@ -596,7 +596,7 @@ app.MapRetirosEndpoints();
 // Banderas de funcionalidad por operador (activables por el administrador de la plataforma)
 app.MapFuncionalidadesEndpoints();
 
-// Registrar canales de alta: archivo masivo (UC-25) y API de integración (UC-26)
+// Registrar canales de alta: archivo masivo y API de integración
 app.MapAltaEnvioCanalesEndpoints();
 app.MapAvisosComercioEndpoints();
 
@@ -616,7 +616,7 @@ app.MapHub<TableroHub>("/hubs/tablero");
 // Tiempo real del seguimiento público (anónimo): comparte el límite de tasa por IP de la consulta pública
 app.MapHub<SeguimientoHub>("/hubs/seguimiento").RequireRateLimiting(ConsultasEnvioEndpoints.PoliticaLimiteSeguimiento);
 
-// Hub de SignalR para streaming de telemetría de operaciones y seguimiento de flota (Hito 4 / RNF 6.10)
+// Hub de SignalR para streaming de telemetría de operaciones y seguimiento de flota
 app.MapHub<OperacionHub>("/hubs/operacion");
 
 await app.RunAsync();

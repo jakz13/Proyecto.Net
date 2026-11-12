@@ -14,14 +14,14 @@ using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
-/// <summary>Tablero de operación en vivo: flota en calle y envíos en riesgo de incumplir su ventana (UC-12, RF-29).</summary>
+/// <summary>Tablero de operación en vivo: flota en calle y envíos en riesgo de incumplir su ventana.</summary>
 public static class TableroEnVivoEndpoints
 {
     public static IEndpointRouteBuilder MapTableroEnVivoEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/tablero")
             .RequireAuthorization(PoliticasApi.Operaciones)
-            .WithTags("Tablero de operación en vivo (UC-12, RF-29)");
+            .WithTags("Tablero de operación en vivo");
 
         grupo.MapGet("/resumen", (AppDbContext db, ICurrentTenant tenant, IClock reloj, CancellationToken ct) =>
             RespuestasBackoffice.Ejecutar(async () =>
@@ -38,7 +38,7 @@ public static class TableroEnVivoEndpoints
                 var enTransito = await db.Envios.AsNoTracking()
                     .CountAsync(e => e.OperadorId == tenant.OperadorId && e.EstadoActual == EstadoEnvio.EnTransito, ct);
 
-                // El retiro en domicilio se incorpora al tablero (RF 41): cuántos esperan una ruta y cuántos están en gestión
+                // El retiro en domicilio se incorpora al tablero: cuántos esperan una ruta y cuántos están en gestión
                 var retirosPorEstado = await db.Retiros.AsNoTracking().IgnoreAutoIncludes()
                     .Where(r => r.OperadorId == tenant.OperadorId)
                     .GroupBy(r => r.EstadoActual)

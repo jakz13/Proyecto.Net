@@ -357,7 +357,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
 
     /// <summary>
     /// Recorre los candidatos en orden e incluye cada uno mientras entre en la cantidad de paradas y en la capacidad del vehículo.
-    /// La capacidad se valida a lo largo del recorrido (RF 39): las entregas salen cargadas desde el depósito y los retiros suman carga
+    /// La capacidad se valida a lo largo del recorrido: las entregas salen cargadas desde el depósito y los retiros suman carga
     /// desde la parada en que se suben, por lo que cada incorporación se verifica sobre la ruta completa en orden.
     /// </summary>
     private static List<Candidato> SeleccionarSegunRestricciones(

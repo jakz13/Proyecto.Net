@@ -176,7 +176,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             }
         }
 
-        // Hoja de ruta mixta (RF 39): los bultos retirados en domicilio llegan al depósito con el repartidor, y un retiro
+        // Hoja de ruta mixta: los bultos retirados en domicilio llegan al depósito con el repartidor, y un retiro
         // que nunca se visitó vuelve a quedar pendiente de asignación. Se resuelve antes de cerrar la ruta, que marca las paradas no visitadas.
         var retirosRecibidos = await ProcesarRetirosAlRendirAsync(ruta, usuarioId, cancellationToken);
 

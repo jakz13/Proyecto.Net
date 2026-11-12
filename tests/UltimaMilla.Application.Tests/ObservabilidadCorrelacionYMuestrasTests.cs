@@ -9,7 +9,7 @@ using UltimaMilla.Domain.Entities.Seguimiento;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas unitarias exhaustivas de correlación distribuida, métricas de negocio y arquitectura limpia (UC-44, §6.12, Regla 08).
+/// Pruebas unitarias exhaustivas de correlación distribuida, métricas de negocio y arquitectura limpia (Regla 08).
 /// </summary>
 public class ObservabilidadCorrelacionYMuestrasTests
 {

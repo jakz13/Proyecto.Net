@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Commands.Operador.GestionZonas;
 
 /// <summary>
-/// Comando para activar o dar de baja lógica a una zona de cobertura (UC-02).
+/// Comando para activar o dar de baja lógica a una zona de cobertura.
 /// </summary>
 public record CambiarEstadoZonaCoberturaCommand(
     Guid Id,

@@ -13,6 +13,6 @@ public record ArmarHojaDeRutaDto
     public string CriterioOrdenamiento { get; init; } = "FranjaHoraria"; // "FranjaHoraria", "OptimoGeografico", "Manual"
     public List<Guid> EnviosIds { get; init; } = new();
 
-    /// <summary>Retiros en domicilio que se incluyen en la ruta: la hoja de ruta pasa a ser mixta (RF 39).</summary>
+    /// <summary>Retiros en domicilio que se incluyen en la ruta: la hoja de ruta pasa a ser mixta.</summary>
     public List<Guid> RetirosIds { get; init; } = new();
 }

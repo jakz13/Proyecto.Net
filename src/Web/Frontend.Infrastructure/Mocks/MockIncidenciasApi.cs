@@ -4,7 +4,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Incidencias;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de gestión de incidencias operativas (UC-11).
+/// Implementación simulada en memoria del servicio de gestión de incidencias operativas.
 /// </summary>
 public class MockIncidenciasApi : IIncidenciasApi
 {

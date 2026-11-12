@@ -4,7 +4,7 @@ using System.Diagnostics.Metrics;
 namespace UltimaMilla.Application.Common;
 
 /// <summary>
-/// Centraliza la construcción de claves, tiempos de expiración y nombres de casos de uso del caché distribuido (RNF 6.7).
+/// Centraliza la construcción de claves, tiempos de expiración y nombres de casos de uso del caché distribuido.
 /// Todas las claves de configuración y operación distinguen explícitamente al operador logístico para impedir filtraciones entre inquilinos.
 /// </summary>
 public static class ClavesCache
@@ -86,7 +86,7 @@ public static class ClavesCache
 }
 
 /// <summary>
-/// Instrumentación de métricas de aciertos, fallos, invalidaciones y errores de caché por caso de uso (RNF 6.7 y RNF 6.12).
+/// Instrumentación de métricas de aciertos, fallos, invalidaciones y errores de caché por caso de uso.
 /// Emite contadores compatibles con OpenTelemetry (<see cref="Meter"/>) y mantiene un estado consultable para el tablero técnico.
 /// </summary>
 public static class MedidorCache

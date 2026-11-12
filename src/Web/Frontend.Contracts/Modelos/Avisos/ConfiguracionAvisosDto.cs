@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Avisos;
 
 /// <summary>
-/// Configuración integral de avisos automáticos y webhooks del comercio (UC-29).
+/// Configuración integral de avisos automáticos y webhooks del comercio.
 /// </summary>
 public record ConfiguracionAvisosDto
 {
@@ -47,7 +47,7 @@ public record AvisoHistorialDto(
     int Intentos);
 
 /// <summary>
-/// Detalle completo de un aviso enviado hacia el sistema del comercio con payload y respuesta HTTP (UC-30).
+/// Detalle completo de un aviso enviado hacia el sistema del comercio con payload y respuesta HTTP.
 /// </summary>
 public record AvisoHistorialDetalleDto(
     Guid Id,
@@ -66,7 +66,7 @@ public record AvisoHistorialDetalleDto(
     DateTime? ProximoReintento);
 
 /// <summary>
-/// Resultado tras solicitar el reenvío manual de un aviso fallido o agotado (UC-30).
+/// Resultado tras solicitar el reenvío manual de un aviso fallido o agotado.
 /// </summary>
 public record ResultadoReintentoAvisoDto(
     Guid AvisoId,

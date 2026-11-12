@@ -15,7 +15,7 @@ public class PruebaDeEntrega : Entity
     public double? Longitud { get; private set; }
     public DateTime TimestampDispositivo { get; private set; }
 
-    /// <summary>Códigos de los bultos efectivamente entregados respaldados por esta prueba de entrega (RF-32). Se persiste.</summary>
+    /// <summary>Códigos de los bultos efectivamente entregados respaldados por esta prueba de entrega. Se persiste.</summary>
     public IReadOnlyList<string> CodigosBultosEntregados { get; private set; } = Array.Empty<string>();
 
     protected PruebaDeEntrega() { }

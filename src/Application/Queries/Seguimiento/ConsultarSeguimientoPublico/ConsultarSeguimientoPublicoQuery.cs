@@ -3,11 +3,11 @@ using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico;
 
-/// <summary>Consulta anónima del estado de un envío por su código de seguimiento (UC-33, RF-35).</summary>
+/// <summary>Consulta anónima del estado de un envío por su código de seguimiento.</summary>
 public record ConsultarSeguimientoPublicoQuery(string CodigoSeguimiento) : IRequest<SeguimientoPublicoDto?>;
 
 /// <summary>
-/// Vista pública del envío. Muestra el avance de entrega a nivel de bultos (RF-35) sin exponer nombres de terceros,
+/// Vista pública del envío. Muestra el avance de entrega a nivel de bultos sin exponer nombres de terceros,
 /// direcciones, documentos ni identificadores internos de bultos.
 /// </summary>
 public record SeguimientoPublicoDto(

@@ -3,7 +3,7 @@ using UltimaMilla.Domain.Entities.Operador;
 namespace UltimaMilla.Application.Ports;
 
 /// <summary>
-/// Puerto de persistencia para cuadros tarifarios versionados y sus reglas asociadas (UC-03, RF-03).
+/// Puerto de persistencia para cuadros tarifarios versionados y sus reglas asociadas.
 /// </summary>
 public interface ICuadroTarifarioRepository
 {

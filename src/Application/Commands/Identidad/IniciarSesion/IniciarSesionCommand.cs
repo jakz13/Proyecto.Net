@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Commands.Identidad.IniciarSesion;
 
 /// <summary>
-/// Comando para autenticación y emisión de token según UC-40.
+/// Comando para autenticación y emisión de token.
 /// </summary>
 public record IniciarSesionCommand(string Email, string Password) : IRequest<IniciarSesionResultadoDto>;
 

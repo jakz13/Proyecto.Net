@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del cuadro tarifario y sus versiones (UC-03, RF-03).
+/// Implementación simulada en memoria del cuadro tarifario y sus versiones.
 /// Gestiona la versión vigente activa y conserva el historial con sus rangos de vigencia cerrados.
 /// </summary>
 public class MockCuadroTarifarioApi : ICuadroTarifarioApi

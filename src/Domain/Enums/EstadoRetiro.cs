@@ -1,7 +1,7 @@
 namespace UltimaMilla.Domain.Enums;
 
 /// <summary>
-/// Estados del ciclo de vida de un retiro en domicilio (RF 38). El flujo comienza en el comprador y termina en el comercio,
+/// Estados del ciclo de vida de un retiro en domicilio. El flujo comienza en el comprador y termina en el comercio,
 /// a diferencia del envío, que va del comercio al destinatario.
 /// </summary>
 public enum EstadoRetiro

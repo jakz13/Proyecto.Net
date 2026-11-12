@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 
 /// <summary>
-/// Parámetros de búsqueda y filtrado para el catálogo de motivos de no entrega (UC-05).
+/// Parámetros de búsqueda y filtrado para el catálogo de motivos de no entrega.
 /// </summary>
 public class FiltroMotivosNoEntregaDto
 {

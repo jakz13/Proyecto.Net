@@ -10,8 +10,8 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas unitarias de los casos de uso de gestión de suscripciones de webhooks (UC-36),
-/// consulta de historial y reenvío manual de avisos agotados o fallidos (UC-30).
+/// Pruebas unitarias de los casos de uso de gestión de suscripciones de webhooks,
+/// consulta de historial y reenvío manual de avisos agotados o fallidos.
 /// </summary>
 public class GestionarWebhooksHandlerTests
 {

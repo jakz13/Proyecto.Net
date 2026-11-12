@@ -6,7 +6,7 @@ using UltimaMilla.Application.Ports;
 namespace UltimaMilla.Application.Queries.Operador.GestionTarifas;
 
 /// <summary>
-/// Consulta para listar el historial completo de versiones de cuadros tarifarios del operador (UC-03, RNF 6.7).
+/// Consulta para listar el historial completo de versiones de cuadros tarifarios del operador.
 /// </summary>
 public record ListarVersionesCuadroTarifarioQuery : IRequest<IReadOnlyList<CuadroTarifarioDetalleDto>>;
 

@@ -78,7 +78,7 @@ public class MarcarEnvioExtraviadoCommandHandler : IRequestHandler<MarcarEnvioEx
         {
             try
             {
-                // Notifica al comercio en tiempo real y al seguimiento público sobre la incidencia de extravío (RF-11, RF-26)
+                // Notifica al comercio en tiempo real y al seguimiento público sobre la incidencia de extravío
                 await _tableroNotifier.NotificarEnvioCambioEstadoAsync(
                     envio.OperadorId,
                     envio.ComercioOperadorId,

@@ -42,7 +42,7 @@ public class AuthDelegatingHandler : DelegatingHandler
             }
         }
 
-        // RNF 6.12 (UC-44): Identificador de correlación para seguir la operación desde la app móvil hasta el worker
+        // Identificador de correlación para seguir la operación desde la app móvil hasta el worker
         if (!request.Headers.Contains(CabeceraCorrelacion))
         {
             request.Headers.TryAddWithoutValidation(CabeceraCorrelacion, Guid.NewGuid().ToString("N"));

@@ -7,8 +7,8 @@ using UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 namespace UltimaMilla.Backoffice.Pages.ReglasOperativas;
 
 /// <summary>
-/// Vista principal del caso de uso UC-04: Configurar reglas operativas.
-/// Permite gestionar la versión vigente, revisar el historial cerrado y simular el cumplimiento de reglas (RF-04).
+/// Vista principal del caso de uso Configurar reglas operativas.
+/// Permite gestionar la versión vigente, revisar el historial cerrado y simular el cumplimiento de reglas.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel

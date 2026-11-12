@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 
 /// <summary>
-/// Representa un envío en riesgo de incumplir la franja o ventana horaria comprometida con el cliente (RF-29).
+/// Representa un envío en riesgo de incumplir la franja o ventana horaria comprometida con el cliente.
 /// </summary>
 public record EnvioRiesgoDto
 {

@@ -7,7 +7,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Queries.Deposito;
 
 /// <summary>
-/// Manejador de la consulta para obtener el detalle operativo de una hoja de ruta para su rendición en depósito (UC-16).
+/// Manejador de la consulta para obtener el detalle operativo de una hoja de ruta para su rendición en depósito.
 /// Expone bultos entregados, bultos que deben ser devueltos físicamente, envíos sin intento de entrega y motivos internos.
 /// </summary>
 public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaParaRendicionQuery, RutaParaRendicionDetalleDto>

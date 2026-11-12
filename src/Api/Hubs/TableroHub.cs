@@ -7,7 +7,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Api.Hubs;
 
 /// <summary>
-/// Hub de SignalR para la difusión en tiempo real de hitos operativos del tablero (UC-12, RF-29).
+/// Hub de SignalR para la difusión en tiempo real de hitos operativos del tablero.
 /// Aísla las conexiones por operador logístico a partir de los claims verificados del token, nunca de parámetros enviados por el cliente.
 /// </summary>
 [Authorize]

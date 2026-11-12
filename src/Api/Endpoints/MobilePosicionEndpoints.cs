@@ -12,7 +12,7 @@ public static class MobilePosicionEndpoints
 {
     public static IEndpointRouteBuilder MapMobilePosicionEndpoints(this IEndpointRouteBuilder app)
     {
-        // RF-23: la app envía la posición durante la jornada, en vivo o en lotes acumulados sin conexión
+        // la app envía la posición durante la jornada, en vivo o en lotes acumulados sin conexión
         app.MapPost("/api/mobile/v1/posiciones", async (
             [FromBody] RegistrarPosicionesCommand comando,
             [FromServices] IMediator mediator,
@@ -39,7 +39,7 @@ public static class MobilePosicionEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Repartidor)
-        .WithTags("Mobile - Posición del vehículo (RF-23)")
+        .WithTags("Mobile - Posición del vehículo")
         .WithName("RegistrarPosicionesVehiculo")
         .WithSummary("Registrar las posiciones del vehículo del repartidor autenticado")
         .WithDescription("Acepta una o varias posiciones (hasta 500) con el instante en que el dispositivo las tomó, para sincronizar lo acumulado sin conexión.")

@@ -35,12 +35,12 @@ public interface IIdentidadVisualApi
     Task<SesionOperadorDto> AbrirSesionConOperadorAsync(string operadorId, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Actualiza la identidad visual (marca, colores, contacto) del operador actual (UC-06, RF-05).
+    /// Actualiza la identidad visual (marca, colores, contacto) del operador actual.
     /// </summary>
     Task<IdentidadVisualDto> ActualizarIdentidadVisualAsync(ActualizarIdentidadVisualDto dto, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Envía un correo electrónico de prueba al destinatario con la identidad visual del operador actual (RF-27, UC-35).
+    /// Envía un correo electrónico de prueba al destinatario con la identidad visual del operador actual.
     /// </summary>
     Task<(bool Exitoso, string Mensaje)> ProbarCorreoIdentidadAsync(
         string emailDestino,

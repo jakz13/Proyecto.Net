@@ -4,7 +4,7 @@ namespace UltimaMilla.Application.Queries.Tablero;
 public record RiesgoVentana(string Nivel, int MinutosParaCierreVentana, string Causa);
 
 /// <summary>
-/// Regla de riesgo del tablero (UC-12). La plataforma no calcula tiempos de viaje, así que el riesgo se estima solo con datos reales:
+/// Regla de riesgo del tablero. La plataforma no calcula tiempos de viaje, así que el riesgo se estima solo con datos reales:
 /// la hora actual, el cierre de la ventana comprometida y la cantidad de paradas que quedan por atender hasta llegar a ese envío.
 /// <list type="bullet">
 /// <item><description>Crítico: la ventana ya venció y el envío sigue pendiente.</description></item>

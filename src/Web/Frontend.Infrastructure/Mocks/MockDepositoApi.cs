@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Envios;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de depósito para pruebas locales y demo sin backend (UC-14).
+/// Implementación simulada en memoria del servicio de depósito para pruebas locales y demo sin backend.
 /// </summary>
 public class MockDepositoApi : IDepositoApi
 {

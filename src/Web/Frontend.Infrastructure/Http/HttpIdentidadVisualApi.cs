@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en cliente HTTP REST de IIdentidadVisualApi (UC-06, RF-05).
+/// Implementación basada en cliente HTTP REST de IIdentidadVisualApi.
 /// Conecta la administración de identidad visual con los endpoints del backend.
 /// </summary>
 public class HttpIdentidadVisualApi : IIdentidadVisualApi

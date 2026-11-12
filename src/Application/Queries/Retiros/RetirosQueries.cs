@@ -7,11 +7,11 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Queries.Retiros;
 
-/// <summary>Retiros del comercio autenticado, con su estado (portal del comercio, RF 37).</summary>
+/// <summary>Retiros del comercio autenticado, con su estado (portal del comercio).</summary>
 public record ListarRetirosDelComercioQuery(EstadoRetiro? Estado = null, int Pagina = 1, int TamanoPagina = 20)
     : IRequest<PaginaRetirosDto>;
 
-/// <summary>Retiros del operador agrupados por estado: alimenta el tablero de operación y los reportes (RF 41).</summary>
+/// <summary>Retiros del operador agrupados por estado: alimenta el tablero de operación y los reportes.</summary>
 public record ListarRetirosDelOperadorQuery(EstadoRetiro? Estado = null) : IRequest<ResumenRetirosOperadorDto>;
 
 public record ObtenerDetalleRetiroQuery(Guid RetiroId) : IRequest<RetiroDetalleDto>;

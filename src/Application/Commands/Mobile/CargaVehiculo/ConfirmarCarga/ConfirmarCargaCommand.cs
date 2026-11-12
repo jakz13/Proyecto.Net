@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 
-/// <summary>Registra qué bultos se cargaron efectivamente en el vehículo. No despacha la ruta: eso lo hace el operario (UC-09).</summary>
+/// <summary>Registra qué bultos se cargaron efectivamente en el vehículo. No despacha la ruta: eso lo hace el operario.</summary>
 public record ConfirmarCargaCommand(
     Guid HojaDeRutaId,
     List<string> CodigosBultosCargados,

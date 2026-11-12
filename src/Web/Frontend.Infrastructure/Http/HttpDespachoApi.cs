@@ -10,7 +10,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en HTTP/REST de IDespachoApi para el control de salida física de vehículos (UC-09).
+/// Implementación basada en HTTP/REST de IDespachoApi para el control de salida física de vehículos.
 /// Se comunica directamente con los endpoints del módulo de Planificación y Depósito en la Web API.
 /// </summary>
 public class HttpDespachoApi : IDespachoApi
@@ -155,7 +155,7 @@ public class HttpDespachoApi : IDespachoApi
     }
 
     /// <summary>
-    /// Confirma formalmente la salida del vehículo (UC-09).
+    /// Confirma formalmente la salida del vehículo.
     /// </summary>
     public async Task<ResultadoDespachoDto> ConfirmarDespachoAsync(ConfirmarDespachoDto dto, string operarioUsuario, CancellationToken cancelacion = default)
     {
@@ -163,7 +163,7 @@ public class HttpDespachoApi : IDespachoApi
 
         if (dto.SimularRutaPreviaSinRendir)
         {
-            const string msgSimulacion = "El repartidor asignado posee una hoja de ruta previa sin rendir en depósito (UC-16). Debe registrar su rendición antes de autorizar una nueva salida.";
+            const string msgSimulacion = "El repartidor asignado posee una hoja de ruta previa sin rendir en depósito. Debe registrar su rendición antes de autorizar una nueva salida.";
             return new ResultadoDespachoDto
             {
                 Exitoso = false,

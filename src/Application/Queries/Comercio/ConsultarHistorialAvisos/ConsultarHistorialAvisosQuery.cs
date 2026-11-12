@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Comercio.ConsultarHistorialAvisos;
 
 /// <summary>
-/// Consulta el historial de avisos enviados hacia los sistemas del comercio con soporte de filtros (UC-30, RF-28).
+/// Consulta el historial de avisos enviados hacia los sistemas del comercio con soporte de filtros.
 /// </summary>
 public record ConsultarHistorialAvisosQuery(
     string? Estado = null,

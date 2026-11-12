@@ -11,7 +11,7 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Tests;
 
-/// <summary>Cubre UC-18 (registrar la carga escaneada) y UC-09 (despacho por el operario) sobre una ruta armada.</summary>
+/// <summary>Cubre el registro de la carga escaneada y el despacho por el operario sobre una ruta armada.</summary>
 public class DespachoYCargaCommandHandlerTests
 {
     private static readonly DateOnly Viernes = new(2026, 10, 16);
@@ -86,7 +86,7 @@ public class DespachoYCargaCommandHandlerTests
     private Task<DespachoResultDto> Despachar(HojaDeRuta ruta, string? observaciones = null) =>
         HandlerDespacho().Handle(new DespacharHojaDeRutaCommand(ruta.Id, observaciones), CancellationToken.None);
 
-    // ---- UC-18: registrar la carga ----
+    // ---- registrar la carga ----
 
     [Fact]
     public async Task Carga_CompletaSinDiscrepancias_DejaLaRutaEnCargaSinTocarLosEnvios()
@@ -219,7 +219,7 @@ public class DespachoYCargaCommandHandlerTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Cargar(ruta, CodigosDe(a)));
     }
 
-    // ---- UC-09: despacho ----
+    // ---- despacho ----
 
     [Fact]
     public async Task Despacho_ConTodoCargado_PasaLosEnviosAEnTransitoYLaRutaADespachada()

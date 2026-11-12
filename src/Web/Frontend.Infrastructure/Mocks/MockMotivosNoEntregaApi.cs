@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para la gestión del catálogo de motivos de no entrega (UC-05, RF-04, RF-21).
+/// Implementación simulada en memoria para la gestión del catálogo de motivos de no entrega.
 /// Permite probar altas, ediciones, bajas lógicas y simulación de sincronización hacia la app móvil sin requerir backend.
 /// </summary>
 public class MockMotivosNoEntregaApi : IMotivosNoEntregaApi

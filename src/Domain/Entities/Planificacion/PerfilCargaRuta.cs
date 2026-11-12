@@ -12,7 +12,7 @@ public readonly record struct ResultadoPerfilCarga(
     string? Motivo);
 
 /// <summary>
-/// Validación de capacidad de una hoja de ruta mixta (RF 39). Con solo entregas la carga máxima es la del inicio, porque el vehículo
+/// Validación de capacidad de una hoja de ruta mixta. Con solo entregas la carga máxima es la del inicio, porque el vehículo
 /// sale cargado y solo se descarga. Con retiros la carga varía a lo largo del recorrido: los bultos retirados ocupan lugar desde la
 /// parada en que se suben, así que hay que recorrer la ruta en orden y comprobar la capacidad después de cada parada.
 /// </summary>

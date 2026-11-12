@@ -5,7 +5,7 @@ using UltimaMilla.Domain.Entities.Operador;
 namespace UltimaMilla.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// Implementación con Entity Framework Core del repositorio de cuadros tarifarios versionados (UC-03, RF-03).
+/// Implementación con Entity Framework Core del repositorio de cuadros tarifarios versionados.
 /// </summary>
 public class EfCuadroTarifarioRepository : ICuadroTarifarioRepository
 {

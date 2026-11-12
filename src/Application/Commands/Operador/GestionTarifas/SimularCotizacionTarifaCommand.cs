@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionTarifas;
 
 /// <summary>
-/// Comando para simular la cotización de un envío bajo la versión vigente del cuadro tarifario (UC-03).
+/// Comando para simular la cotización de un envío bajo la versión vigente del cuadro tarifario.
 /// </summary>
 public record SimularCotizacionTarifaCommand(
     decimal PesoKg,

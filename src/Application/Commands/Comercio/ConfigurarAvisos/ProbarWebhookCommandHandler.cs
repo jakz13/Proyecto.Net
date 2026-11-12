@@ -61,7 +61,7 @@ public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand,
             evento = "ping_diagnostico",
             timestamp = timestampUtc.ToString("o"),
             comercioOperadorId = comercioOperadorId.Value,
-            mensaje = "Mensaje de prueba de conectividad y firma HMAC emitido por la Plataforma Última Milla (UC-29).",
+            mensaje = "Mensaje de prueba de conectividad y firma HMAC emitido por la Plataforma Última Milla.",
             datosPrueba = new
             {
                 envioCodigo = "TRK-PRUEBA-0001",

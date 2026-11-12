@@ -5,7 +5,7 @@ using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Application.Commands.Indicadores;
 
-/// <summary>Reglas compartidas por el recálculo de indicadores (UC-37) y el cierre diario (UC-38) para clasificar los resultados de un día.</summary>
+/// <summary>Reglas compartidas por el recálculo de indicadores y el cierre diario para clasificar los resultados de un día.</summary>
 public static class ResultadosDelDia
 {
     /// <summary>Último resultado de entrega (entregado o no entregado) del envío dentro del intervalo, o <c>null</c> si no tuvo ninguno.</summary>

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 
 /// <summary>
-/// Parámetros para retirar, reasignar o reprogramar un envío incluido en una hoja de ruta (UC-10, RF-13, RF-15).
+/// Parámetros para retirar, reasignar o reprogramar un envío incluido en una hoja de ruta.
 /// </summary>
 public record ReasignarEnvioDto
 {

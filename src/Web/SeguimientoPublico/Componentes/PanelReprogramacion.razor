@@ -1,7 +1,7 @@
 @using UltimaMilla.Frontend.Contracts.Modelos.Seguimiento
 @inject ISeguimientoApi SeguimientoApi
 
-<div class="panel-reprogramacion shadow-xs" role="region" aria-label="Solicitud de reprogramación de entrega (UC-34)">
+<div class="panel-reprogramacion shadow-xs" role="region" aria-label="Solicitud de reprogramación de entrega">
     <div class="panel-reprogramacion__encabezado">
         <Icono Nombre="reloj" Tamano="18" />
         <h3 class="panel-reprogramacion__titulo">¿Deseás reprogramar la fecha u horario de entrega?</h3>
@@ -98,7 +98,7 @@
         }
     }
 
-    <!-- Alerta de Resultado (Aceptada / Rechazada con motivo RF-26) -->
+    <!-- Alerta de Resultado (Aceptada / Rechazada con motivo) -->
     @if (resultadoEvaluacion != null)
     {
         @if (resultadoEvaluacion.Aceptada)

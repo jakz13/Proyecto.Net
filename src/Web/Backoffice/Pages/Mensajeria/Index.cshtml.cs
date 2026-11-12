@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.Mensajeria;
 
 /// <summary>
-/// Modelo de página para el caso de uso UC-42: Reintentar mensajes fallidos de la cola.
+/// Modelo de página para el caso de uso Reintentar mensajes fallidos de la cola.
 /// Permite al Administrador consultar la cola interna de mensajes de la plataforma retenidos tras agotar
 /// sus reintentos automáticos, inspeccionar su causa y solicitar el reintento manual individual o por lotes.
 /// </summary>
@@ -39,7 +39,7 @@ public class IndexModel : PageModel
     [TempData]
     public string? MensajeError { get; set; }
 
-    // Resumen de Métricas de la Cola según Vocabulario Canónico (UC-42)
+    // Resumen de Métricas de la Cola según Vocabulario Canónico
     public int TotalPendientes => Mensajes.Count(m => m.EstadoCanonico == "Pendiente");
     public int TotalReintentados => Mensajes.Count(m => m.EstadoCanonico == "Reintentado");
     public int TotalDescartados => Mensajes.Count(m => m.EstadoCanonico == "Descartado");
@@ -142,7 +142,7 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
-    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio (UC-42).
+    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio.
     /// </summary>
     public async Task<IActionResult> OnPostDescartarAsync(Guid id, string motivo)
     {

@@ -9,7 +9,7 @@ namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
 /// Implementación basada en HTTP/REST de IZonasCoberturaApi.
-/// Conecta el Backoffice con los endpoints de zonas de cobertura y franjas horarias del backend (UC-02, RF-02).
+/// Conecta el Backoffice con los endpoints de zonas de cobertura y franjas horarias del backend.
 /// </summary>
 public class HttpZonasCoberturaApi : IZonasCoberturaApi
 {

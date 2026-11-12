@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 
 /// <summary>
-/// Representa una franja horaria de entrega asociada a una zona de cobertura (UC-02, RF-02).
+/// Representa una franja horaria de entrega asociada a una zona de cobertura.
 /// </summary>
 public record FranjaHorariaDto
 {

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Incidencias;
 
 /// <summary>
-/// Modelo de datos que representa una incidencia operativa registrada durante la jornada (UC-11).
+/// Modelo de datos que representa una incidencia operativa registrada durante la jornada.
 /// </summary>
 public record IncidenciaDto
 {

@@ -11,14 +11,14 @@ using UltimaMilla.Api.Auth;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>
-/// Endpoints para el caso de uso UC-01: Gestión de usuarios y asignación de perfiles (RF-01, RF-31).
+/// Endpoints para el caso de uso Gestión de usuarios y asignación de perfiles.
 /// </summary>
 public static class UsuariosEndpoints
 {
     public static IEndpointRouteBuilder MapUsuariosBackofficeEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/usuarios")
-            .WithTags("Backoffice · Usuarios (UC-01)")
+            .WithTags("Backoffice · Usuarios")
             .RequireAuthorization(PoliticasApi.Administracion)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
@@ -163,7 +163,7 @@ public static class UsuariosEndpoints
             }).ToList());
         }))
         .RequireAuthorization(PoliticasApi.Administracion)
-        .WithTags("Backoffice · Usuarios (UC-01)")
+        .WithTags("Backoffice · Usuarios")
         .WithName("ListarPerfiles")
         .WithSummary("Perfiles disponibles para asignar a los usuarios")
         .Produces<IReadOnlyList<PerfilDto>>();

@@ -24,7 +24,7 @@
                        Tipo="@(esErrorLimiteTasa ? MensajeEstado.TipoAlerta.Aviso : MensajeEstado.TipoAlerta.Error)" />
     }
 
-    <!-- Retiro en domicilio (RF 41): el comprador lo sigue por el mismo enlace que un envío -->
+    <!-- Retiro en domicilio: el comprador lo sigue por el mismo enlace que un envío -->
     @if (seguimiento != null && seguimiento.EsRetiro)
     {
         <div class="tarjeta-envio" data-tipo="retiro">
@@ -166,7 +166,7 @@
                     </div>
                 }
 
-                <!-- Reprogramación de Entrega (UC-34) -->
+                <!-- Reprogramación de Entrega -->
                 @if (seguimiento.PermiteReprogramacion)
                 {
                     <PanelReprogramacion CodigoSeguimiento="@seguimiento.CodigoSeguimiento"
@@ -176,7 +176,7 @@
                 <!-- Línea de Tiempo de Hitos Históricos (Diseño sobrio y limpio) -->
                 <LineaTiempoEventos Eventos="@seguimiento.HistorialEventos" />
 
-                <!-- Garantía de Privacidad Explícita (Sin el texto RF-25) -->
+                <!-- Garantía de Privacidad Explícita -->
                 <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
                     <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
                     <div class="small text-secondary" style="font-size: 0.775rem;">

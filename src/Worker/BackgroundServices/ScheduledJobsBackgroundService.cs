@@ -10,8 +10,8 @@ using UltimaMilla.Application.Queries.Tablero;
 namespace UltimaMilla.Worker.BackgroundServices;
 
 /// <summary>
-/// Tareas periódicas del worker: reintento de avisos a comercios cuyo plazo de espera venció (UC-36) y, pasada la hora de cierre,
-/// recálculo de indicadores (UC-37) y cierre diario (UC-38) de cada operador activo. Cada operador se procesa en su propio alcance.
+/// Tareas periódicas del worker: reintento de avisos a comercios cuyo plazo de espera venció y, pasada la hora de cierre,
+/// recálculo de indicadores y cierre diario de cada operador activo. Cada operador se procesa en su propio alcance.
 /// Si hay más de una instancia, la unicidad de los cierres y la idempotencia de los comandos evitan que un día se cierre dos veces.
 /// </summary>
 public class ScheduledJobsBackgroundService : BackgroundService

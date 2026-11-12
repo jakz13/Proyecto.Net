@@ -9,7 +9,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas exhaustivas para el caso de uso UC-30 Consultar historial de entregas de avisos y reintentar.
+/// Pruebas exhaustivas para Consultar historial de entregas de avisos y reintentar.
 /// </summary>
 public class HistorialReintentoAvisosHandlerTests
 {

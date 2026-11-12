@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de zonas de cobertura y franjas horarias (UC-02, RF-02).
+/// Implementación simulada en memoria del servicio de zonas de cobertura y franjas horarias.
 /// Incluye validación de superposiciones horarias inconsistentes para el operador logístico.
 /// </summary>
 public class MockZonasCoberturaApi : IZonasCoberturaApi
@@ -275,7 +275,7 @@ public class MockZonasCoberturaApi : IZonasCoberturaApi
 
     /// <summary>
     /// Valida que no haya franjas horarias con inicio posterior al fin ni solapamientos en el mismo día.
-    /// Flujo principal de UC-02: "El sistema valida que no haya superposiciones inconsistentes y guarda la configuración."
+    /// Flujo principal de "El sistema valida que no haya superposiciones inconsistentes y guarda la configuración."
     /// </summary>
     public Task<(bool EsValido, string? MensajeError)> ValidarSuperposicionFranjasAsync(
         IEnumerable<CrearFranjaHorariaDto> franjas,

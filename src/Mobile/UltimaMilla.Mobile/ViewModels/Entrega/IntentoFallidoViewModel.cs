@@ -11,7 +11,7 @@ using UltimaMilla.Mobile.ViewModels.Ruta;
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
 
 /// <summary>
-/// Intento de entrega fallido (UC-21): motivo del catálogo del operador, observaciones, fotografía real de la fachada y posición real.
+/// Intento de entrega fallido: motivo del catálogo del operador, observaciones, fotografía real de la fachada y posición real.
 /// </summary>
 [QueryProperty(nameof(Parada), "Parada")]
 public partial class IntentoFallidoViewModel : EvidenciaViewModelBase

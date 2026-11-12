@@ -14,7 +14,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Infrastructure.Services;
 
 /// <summary>
-/// Servicio de notificación al destinatario (UC-35, RF-27, Sección 5.1.5 y 5.5 de la Letra).
+/// Servicio de notificación al destinatario (Sección 5.1.5 y 5.5 de la Letra).
 /// Registra siempre el evento con el contacto enmascarado en el log estructurado (Regla 05) y,
 /// cuando el canal es Email y existen credenciales SMTP configuradas, envía un correo HTML real
 /// personalizado con la Identidad Visual del Operador y el enlace directo al Seguimiento Público.

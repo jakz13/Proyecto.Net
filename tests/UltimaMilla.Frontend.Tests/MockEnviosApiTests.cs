@@ -7,7 +7,7 @@ using Xunit;
 namespace UltimaMilla.Frontend.Tests;
 
 /// <summary>
-/// Pruebas unitarias para MockEnviosApi validando la simulación en memoria de UC-25 (importación masiva y reimportación idempotente).
+/// Pruebas unitarias para MockEnviosApi validando la simulación en memoria de la (importación masiva y reimportación idempotente).
 /// </summary>
 public class MockEnviosApiTests
 {

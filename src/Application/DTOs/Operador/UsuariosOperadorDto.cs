@@ -1,7 +1,7 @@
 namespace UltimaMilla.Application.DTOs.Operador;
 
 /// <summary>
-/// DTO con la información detallada de un usuario del operador o comercio asociado (UC-01).
+/// DTO con la información detallada de un usuario del operador o comercio asociado.
 /// </summary>
 public record UsuarioDetalleDto(
     Guid Id,
@@ -27,7 +27,7 @@ public record ResultadoPaginadoUsuariosDto(
 );
 
 /// <summary>
-/// DTO con la información de un perfil o rol disponible en el sistema (UC-01, RF-01).
+/// DTO con la información de un perfil o rol disponible en el sistema.
 /// </summary>
 public record PerfilDetalleDto(
     Guid Id,

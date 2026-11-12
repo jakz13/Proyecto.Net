@@ -1,4 +1,4 @@
-# Configuración de recolección de métricas de Prometheus (UC-44, §8.2)
+# Configuración de recolección de métricas de Prometheus
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

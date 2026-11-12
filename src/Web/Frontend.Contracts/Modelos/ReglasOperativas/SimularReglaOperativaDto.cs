@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 
 /// <summary>
-/// Parámetros para simular la aplicación operativa de las reglas vigentes sobre un envío en curso (UC-04, RF-04).
+/// Parámetros para simular la aplicación operativa de las reglas vigentes sobre un envío en curso.
 /// </summary>
 public record SimularReglaOperativaDto
 {

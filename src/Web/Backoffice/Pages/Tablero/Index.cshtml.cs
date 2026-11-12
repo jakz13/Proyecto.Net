@@ -13,7 +13,7 @@ using UltimaMilla.Infrastructure.Services;
 namespace UltimaMilla.Backoffice.Pages.Tablero;
 
 /// <summary>
-/// Controlador del tablero de operación en vivo para el monitoreo de flota, alertas de ventana horaria e intervención (UC-12, RF-29).
+/// Controlador del tablero de operación en vivo para el monitoreo de flota, alertas de ventana horaria e intervención.
 /// </summary>
 [Authorize(Roles = "Despachador")]
 public class IndexModel : PageModel

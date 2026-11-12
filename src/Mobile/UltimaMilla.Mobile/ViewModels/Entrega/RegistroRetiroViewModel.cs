@@ -24,7 +24,7 @@ public partial class BultoRetiroItemViewModel : ObservableObject
 }
 
 /// <summary>
-/// Retiro en domicilio (RF 37 a 41): el repartidor retira en el domicilio del comprador uno o más bultos para llevarlos al comercio.
+/// Retiro en domicilio: el repartidor retira en el domicilio del comprador uno o más bultos para llevarlos al comercio.
 /// Se registra con la identificación de cada bulto (escaneo), la fotografía de su estado y la firma de quien los entrega, también sin conexión.
 /// </summary>
 [QueryProperty(nameof(Parada), "Parada")]

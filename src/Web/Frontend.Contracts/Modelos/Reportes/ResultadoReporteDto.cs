@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 
 /// <summary>
-/// Contenedor integral de resultados agregados y desglosados del reporte generado (UC-13, RF-30).
+/// Contenedor integral de resultados agregados y desglosados del reporte generado.
 /// </summary>
 public record ResultadoReporteDto
 {

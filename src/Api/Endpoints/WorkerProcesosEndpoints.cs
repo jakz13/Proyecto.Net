@@ -16,10 +16,10 @@ namespace UltimaMilla.Api.Endpoints;
 
 /// <summary>
 /// Endpoints de soporte para demostrar y verificar los procesos del worker y avisos a comercios:
-/// receptor de prueba de avisos a comercios con verificación de firma HMAC y simulación de fallas (RNF 6.9),
-/// gestión de suscripciones de webhook por comercio (UC-36), historial y reenvío manual de avisos (UC-30),
-/// métricas de aciertos y fallos del caché distribuido por caso de uso (RNF 6.7),
-/// y ejecución bajo demanda del recálculo de indicadores (UC-37) y cierre diario (UC-38) del operador autenticado.
+/// receptor de prueba de avisos a comercios con verificación de firma HMAC y simulación de fallas,
+/// gestión de suscripciones de webhook por comercio, historial y reenvío manual de avisos,
+/// métricas de aciertos y fallos del caché distribuido por caso de uso,
+/// y ejecución bajo demanda del recálculo de indicadores y cierre diario del operador autenticado.
 /// </summary>
 public static class WorkerProcesosEndpoints
 {
@@ -57,7 +57,7 @@ public static class WorkerProcesosEndpoints
     private static void MapReceptorDePrueba(IEndpointRouteBuilder app)
     {
         var receptor = app.MapGroup("/api/testing/webhook-receiver")
-            .WithTags("Receptor de prueba de Webhooks (§6.9)");
+            .WithTags("Receptor de prueba de Webhooks");
 
         receptor.MapPost("/", async (
             HttpRequest request,
@@ -96,7 +96,7 @@ public static class WorkerProcesosEndpoints
         })
         .AllowAnonymous()
         .WithName("RecibirWebhookDePrueba")
-        .WithSummary("Receptor de prueba para avisos automáticos a comercios (§6.9)");
+        .WithSummary("Receptor de prueba para avisos automáticos a comercios");
 
         receptor.MapPut("/configuracion", async (
             [FromBody] ConfigurarReceptorWebhookRequest req,
@@ -130,7 +130,7 @@ public static class WorkerProcesosEndpoints
     private static IEndpointRouteBuilder MapSuscripcionesYProcesos(IEndpointRouteBuilder app)
     {
         var suscripciones = app.MapGroup("/api/comercio/webhooks/suscripciones")
-            .WithTags("Suscripciones de Webhooks del Comercio (UC-36)")
+            .WithTags("Suscripciones de Webhooks del Comercio")
             .RequireAuthorization(PoliticasApi.Comercio);
 
         suscripciones.MapPost("/", async (
@@ -165,7 +165,7 @@ public static class WorkerProcesosEndpoints
             }
         })
         .WithName("CrearSuscripcionWebhookComercio")
-        .WithSummary("Registrar una nueva suscripción de webhook para avisos automáticos al comercio (UC-36)");
+        .WithSummary("Registrar una nueva suscripción de webhook para avisos automáticos al comercio");
 
         suscripciones.MapGet("/", async (
             [FromQuery] Guid? comercioOperadorId,
@@ -208,7 +208,7 @@ public static class WorkerProcesosEndpoints
         .WithSummary("Desactivar una suscripción de webhook del comercio");
 
         var operacionWebhooks = app.MapGroup("/api/operacion/webhooks")
-            .WithTags("Historial y Reenvío de Webhooks (UC-30)")
+            .WithTags("Historial y Reenvío de Webhooks")
             .RequireAuthorization(PoliticasApi.Administracion);
 
         operacionWebhooks.MapGet("/historial", async (
@@ -249,10 +249,10 @@ public static class WorkerProcesosEndpoints
             }
         })
         .WithName("ReenviarWebhookManualOperacion")
-        .WithSummary("Forzar el reenvío manual de un aviso automático a comercio fallido o agotado (UC-30)");
+        .WithSummary("Forzar el reenvío manual de un aviso automático a comercio fallido o agotado");
 
         var procesos = app.MapGroup("/api/operacion/procesos")
-            .WithTags("Procesos de operación (UC-37, UC-38)")
+            .WithTags("Procesos de operación")
             .RequireAuthorization(PoliticasApi.Administracion);
 
         procesos.MapPost("/recalcular-indicadores", async (
@@ -274,7 +274,7 @@ public static class WorkerProcesosEndpoints
             }
         })
         .WithName("RecalcularIndicadoresCumplimiento")
-        .WithSummary("Recalcular indicadores de cumplimiento del operador para una fecha (UC-37)");
+        .WithSummary("Recalcular indicadores de cumplimiento del operador para una fecha");
 
         procesos.MapPost("/cierre-diario", async (
             [FromQuery] DateOnly? fecha,
@@ -295,7 +295,7 @@ public static class WorkerProcesosEndpoints
             }
         })
         .WithName("EjecutarCierreDiarioOperacion")
-        .WithSummary("Ejecutar el cierre diario consolidado de la operación (UC-38)");
+        .WithSummary("Ejecutar el cierre diario consolidado de la operación");
 
         app.MapGet("/api/operacion/cache/metricas", (IConfiguration configuration) =>
         {
@@ -305,7 +305,7 @@ public static class WorkerProcesosEndpoints
             return Results.Ok(MedidorCache.ObtenerResumen(proveedor));
         })
         .RequireAuthorization(PoliticasApi.Administracion)
-        .WithTags("Caché distribuido (RNF 6.7)")
+        .WithTags("Caché distribuido")
         .WithName("ObtenerMetricasCacheDistribuido")
         .WithSummary("Consultar las métricas de aciertos, fallos e invalidaciones del caché distribuido por caso de uso")
         .Produces<ResumenMetricasCacheDto>(StatusCodes.Status200OK);

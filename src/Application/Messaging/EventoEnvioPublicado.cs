@@ -2,15 +2,15 @@ using System.Text.Json;
 
 namespace UltimaMilla.Application.Messaging;
 
-/// <summary>Detalle del estado de un bulto individual incluido en el evento publicado para avisos versionados a comercios (RF-36).</summary>
+/// <summary>Detalle del estado de un bulto individual incluido en el evento publicado para avisos versionados a comercios.</summary>
 public record EventoBultoPublicado(
     string Identificacion,
     string EstadoBulto,
     string? MotivoNoEntrega = null);
 
 /// <summary>
-/// Evento de negocio que la API deja en el outbox ante cada cambio de estado de un envío (UC-39) y que el worker consume
-/// para notificar al destinatario (UC-35) y avisar al comercio (UC-36, RF-36). Incluye el operador para que el worker procese
+/// Evento de negocio que la API deja en el outbox ante cada cambio de estado de un envío y que el worker consume
+/// para notificar al destinatario y avisar al comercio. Incluye el operador para que el worker procese
 /// siempre con alcance explícito de inquilino y no contenga datos personales del destinatario.
 /// </summary>
 public record EventoEnvioPublicado(
@@ -28,7 +28,7 @@ public record EventoEnvioPublicado(
     /// <summary>Tipo de evento del outbox con el que se publica y se enruta este mensaje.</summary>
     public const string TipoMensaje = "EnvioCambioEstado";
 
-    /// <summary>Origen con el que el backoffice reencola un mensaje desde la cola de fallidos (UC-42).</summary>
+    /// <summary>Origen con el que el backoffice reencola un mensaje desde la cola de fallidos.</summary>
     public const string OrigenColaFallidos = "ColaFallidos";
 
     public static readonly JsonSerializerOptions OpcionesJson = new(JsonSerializerDefaults.Web);
@@ -56,7 +56,7 @@ public record EventoEnvioPublicado(
 }
 
 /// <summary>
-/// Evento de negocio que la API registra en el outbox cuando cambia la identidad visual de un operador (UC-06, RF-05)
+/// Evento de negocio que la API registra en el outbox cuando cambia la identidad visual de un operador
 /// para que el worker invalide el caché distribuido y deje trazabilidad de la actualización.
 /// </summary>
 public record EventoIdentidadVisualActualizada(

@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en HTTP/REST de ISeguimientoApi para la consulta pública y anónima de envíos (UC-33).
+/// Implementación basada en HTTP/REST de ISeguimientoApi para la consulta pública y anónima de envíos.
 /// Se conecta con el endpoint del backend /api/seguimiento/{codigoSeguimiento} cumpliendo con:
 /// - Anti-enumeración: ante código no existente retorna null (mapeando HTTP 404 a null).
 /// - Control de tasa de peticiones: mapea HTTP 429 a ApiExcepcion con EsLimiteDeTasa = true.
@@ -64,7 +64,7 @@ public class HttpSeguimientoApi : ISeguimientoApi
             );
         }
 
-        // Caso 404: regla obligatoria de anti-enumeración (UC-33)
+        // Caso 404: regla obligatoria de anti-enumeración
         if (respuesta.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
@@ -103,7 +103,7 @@ public class HttpSeguimientoApi : ISeguimientoApi
     }
 
     /// <summary>
-    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío (UC-34).
+    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío.
     /// </summary>
     public async Task<FranjasDisponiblesDto?> ObtenerFranjasDisponiblesAsync(string codigoSeguimiento, CancellationToken cancelacion = default)
     {
@@ -129,7 +129,7 @@ public class HttpSeguimientoApi : ISeguimientoApi
     }
 
     /// <summary>
-    /// Envía la solicitud de cambio de franja horaria a evaluación del operador (UC-34, RF-26).
+    /// Envía la solicitud de cambio de franja horaria a evaluación del operador.
     /// </summary>
     public async Task<ResultadoReprogramacionDto> SolicitarReprogramacionAsync(string codigoSeguimiento, Guid franjaHorariaId, CancellationToken cancelacion = default)
     {

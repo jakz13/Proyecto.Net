@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la gestión del catálogo de motivos de no entrega (UC-05, RF-04, RF-21).
+/// Contrato de servicio para la gestión del catálogo de motivos de no entrega.
 /// Permite al Administrador dar de alta, editar y activar/desactivar motivos,
 /// impactando en los motivos que descarga la aplicación del repartidor en su próxima sincronización.
 /// </summary>
@@ -20,7 +20,7 @@ public interface IMotivosNoEntregaApi
     Task<MotivoNoEntregaDto?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Da de alta un nuevo motivo de no entrega en el catálogo (UC-05).
+    /// Da de alta un nuevo motivo de no entrega en el catálogo.
     /// </summary>
     Task<MotivoNoEntregaDto> CrearMotivoAsync(CrearMotivoNoEntregaDto dto, CancellationToken cancellationToken = default);
 
@@ -31,7 +31,7 @@ public interface IMotivosNoEntregaApi
 
     /// <summary>
     /// Conmuta o establece el estado activo/inactivo de un motivo.
-    /// Al desactivarlo, el sistema lo retira de la próxima sincronización de la app del repartidor (RF-21).
+    /// Al desactivarlo, el sistema lo retira de la próxima sincronización de la app del repartidor.
     /// </summary>
     Task CambiarEstadoAsync(Guid id, bool activo, CancellationToken cancellationToken = default);
 

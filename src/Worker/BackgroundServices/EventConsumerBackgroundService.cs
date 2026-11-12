@@ -14,9 +14,9 @@ using UltimaMilla.Infrastructure.Messaging;
 namespace UltimaMilla.Worker.BackgroundServices;
 
 /// <summary>
-/// Consume los eventos de la cola del worker (§6.8). La idempotencia la resuelve el caso de uso; acá se maneja la entrega:
+/// Consume los eventos de la cola del worker. La idempotencia la resuelve el caso de uso; acá se maneja la entrega:
 /// ante una falla el mensaje vuelve por una cola de espera con retraso creciente (5 s, 20 s, 60 s) y, agotados los reintentos,
-/// queda registrado en la cola de fallidos para que el administrador lo consulte y lo reintente (UC-42).
+/// queda registrado en la cola de fallidos para que el administrador lo consulte y lo reintente.
 /// </summary>
 public class EventConsumerBackgroundService : BackgroundService
 {
@@ -110,7 +110,7 @@ public class EventConsumerBackgroundService : BackgroundService
         _ = Guid.TryParse(LeerTexto(propiedades, RabbitMqTopology.CabeceraAgregadoId), out var agregadoId);
         var payload = Encoding.UTF8.GetString(entrega.Body.Span);
 
-        // Correlación de extremo a extremo (UC-44, §6.12): toma el CorrelationId del mensaje o del payload
+        // Correlación de extremo a extremo: toma el CorrelationId del mensaje o del payload
         var correlationId = ContextoCorrelacion.NormalizarOGenerar(
             !string.IsNullOrWhiteSpace(propiedades.CorrelationId)
                 ? propiedades.CorrelationId

@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Backoffice.Pages.Rutas;
 
 /// <summary>
-/// Controlador de la vista de detalle de hoja de ruta y reasignación / reprogramación de envíos (UC-10, RF-12, RF-13, RF-15).
+/// Controlador de la vista de detalle de hoja de ruta y reasignación / reprogramación de envíos.
 /// </summary>
 [Authorize(Roles = "Despachador")]
 public class DetalleModel : PageModel
@@ -35,7 +35,7 @@ public class DetalleModel : PageModel
     public IReadOnlyList<MotivoNoEntregaDto> MotivosCatalogo { get; private set; } = new List<MotivoNoEntregaDto>();
 
     /// <summary>
-    /// Historial de auditoría de reasignaciones e incidencias de esta hoja de ruta (RF-12, RF-15).
+    /// Historial de auditoría de reasignaciones e incidencias de esta hoja de ruta.
     /// </summary>
     public IReadOnlyList<EventoReasignacionDto> HistorialEventos { get; private set; } = new List<EventoReasignacionDto>();
 

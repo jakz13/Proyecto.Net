@@ -4,8 +4,8 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Domain.Entities.Ejecucion;
 
 /// <summary>
-/// Posición del vehículo informada por el dispositivo del repartidor durante la jornada (RF-23).
-/// Es la fuente del mapa del tablero en vivo (RF-29).
+/// Posición del vehículo informada por el dispositivo del repartidor durante la jornada.
+/// Es la fuente del mapa del tablero en vivo.
 /// </summary>
 public class PosicionVehiculo : Entity
 {

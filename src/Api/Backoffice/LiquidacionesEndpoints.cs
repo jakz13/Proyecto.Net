@@ -8,7 +8,7 @@ using UltimaMilla.Api.Auth;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>
-/// Liquidación a los comercios y cuenta corriente (RF-30, RF-34). El operador cierra el período y genera las liquidaciones;
+/// Liquidación a los comercios y cuenta corriente. El operador cierra el período y genera las liquidaciones;
 /// cada comercio consulta su estado de cuenta y las liquidaciones que le corresponden.
 /// </summary>
 public static class LiquidacionesEndpoints
@@ -21,7 +21,7 @@ public static class LiquidacionesEndpoints
     {
         var operador = app.MapGroup("/api/liquidaciones")
             .RequireAuthorization(PoliticasApi.Administracion)
-            .WithTags("Liquidaciones a comercios (RF-30)");
+            .WithTags("Liquidaciones a comercios");
 
         operador.MapPost("/generar", (GenerarLiquidacionesDto peticion, AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>
             RespuestasBackoffice.Ejecutar(async () =>
@@ -92,7 +92,7 @@ public static class LiquidacionesEndpoints
         // Vista del propio comercio (portal): solo ve su información
         var comercio = app.MapGroup("/api/comercio")
             .RequireAuthorization(PoliticasApi.Comercio)
-            .WithTags("Cuenta corriente y liquidaciones del comercio (RF-34)");
+            .WithTags("Cuenta corriente y liquidaciones del comercio");
 
         comercio.MapGet("/cuenta-corriente", (AppDbContext db, ICurrentTenant tenant, CancellationToken ct) =>
             RespuestasBackoffice.Ejecutar(async () =>

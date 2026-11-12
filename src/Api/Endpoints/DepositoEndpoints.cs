@@ -18,7 +18,7 @@ public static class DepositoEndpoints
     public static IEndpointRouteBuilder MapDepositoEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/deposito/envios/{envioId:guid}")
-            .WithTags("Depósito (UC-14, UC-15)")
+            .WithTags("Depósito")
             .RequireAuthorization(PoliticasApi.Deposito);
 
         group.MapPost("/recepcion", async (
@@ -85,7 +85,7 @@ public static class DepositoEndpoints
         })
         .WithName("MarcarEnvioExtraviado")
         .WithSummary("Declarar un envío como extraviado")
-        .WithDescription("Estado terminal (RF-11). Si el envío estaba en una hoja de ruta se retira de ella, y se publica el evento para avisar al comercio.")
+        .WithDescription("Estado terminal. Si el envío estaba en una hoja de ruta se retira de ella, y se publica el evento para avisar al comercio.")
         .Produces<MarcarEnvioExtraviadoResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -129,7 +129,7 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-16: rendición del repartidor al regresar a depósito
+        // rendición del repartidor al regresar a depósito
         app.MapPost("/api/deposito/hojas-de-ruta/{hojaDeRutaId:guid}/rendicion", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromBody] RendirHojaDeRutaRequest request,
@@ -164,9 +164,9 @@ public static class DepositoEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Deposito)
-        .WithTags("Depósito (UC-14, UC-15, UC-16)")
+        .WithTags("Depósito")
         .WithName("RendirHojaDeRuta")
-        .WithSummary("Registrar la rendición del repartidor (UC-16)")
+        .WithSummary("Registrar la rendición del repartidor")
         .WithDescription("Contrasta los bultos entregados, devueltos y pendientes. Los envíos que volvieron sin intento quedan como no entregados con un motivo interno y vuelven a depósito; los reprogramados vuelven a depósito y los que están en devolución quedan pendientes de entrega al comercio. Cierra la ruta y habilita al repartidor.")
         .Produces<RendicionResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -175,12 +175,12 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status409Conflict)
         .WithOpenApi();
 
-        // UC-16: listado de hojas de ruta pendientes de rendición al regreso a depósito
+        // listado de hojas de ruta pendientes de rendición al regreso a depósito
         app.MapGet("/api/deposito/hojas-de-ruta-pendientes-rendicion", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarRutasPendientesRendicionQuery(), ct)))
         .RequireAuthorization(PoliticasApi.Deposito)
-        .WithTags("Depósito (UC-14, UC-15, UC-16)")
+        .WithTags("Depósito")
         .WithName("ListarRutasPendientesRendicion")
         .WithSummary("Listar hojas de ruta pendientes de rendición")
         .WithDescription("Obtiene las hojas de ruta en estado Despachada, EnTransito o Finalizada del operador para procesar la rendición del repartidor al regreso.")
@@ -189,7 +189,7 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-16: detalle de hoja de ruta para rendición
+        // detalle de hoja de ruta para rendición
         app.MapGet("/api/deposito/hojas-de-ruta/{hojaDeRutaId:guid}/rendicion", async (
             [FromRoute] Guid hojaDeRutaId,
             [FromServices] IMediator mediator,
@@ -213,7 +213,7 @@ public static class DepositoEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Deposito)
-        .WithTags("Depósito (UC-14, UC-15, UC-16)")
+        .WithTags("Depósito")
         .WithName("ObtenerRutaParaRendicion")
         .WithSummary("Obtener detalle de hoja de ruta para rendición")
         .WithDescription("Obtiene los datos de la hoja de ruta, bultos que viajaron, entregas exitosas, bultos esperados de retorno y catálogo de motivos internos.")
@@ -224,12 +224,12 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-14: listado de envíos en estado Admitido pendientes de recepción física en depósito
+        // listado de envíos en estado Admitido pendientes de recepción física en depósito
         app.MapGet("/api/deposito/envios-admitidos", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosAdmitidosQuery(), ct)))
         .RequireAuthorization(PoliticasApi.Deposito)
-        .WithTags("Depósito (UC-14, UC-15)")
+        .WithTags("Depósito")
         .WithName("ListarEnviosAdmitidos")
         .WithSummary("Listar envíos admitidos pendientes de recepción en depósito")
         .WithDescription("Obtiene los envíos en estado Admitido del operador actual para su posterior escaneo y recepción física.")
@@ -238,12 +238,12 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-15: listado de envíos en estado EnDeposito para clasificación de bultos
+        // listado de envíos en estado EnDeposito para clasificación de bultos
         app.MapGet("/api/deposito/envios-en-deposito", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosEnDepositoQuery(), ct)))
         .RequireAuthorization(PoliticasApi.Deposito)
-        .WithTags("Depósito (UC-14, UC-15)")
+        .WithTags("Depósito")
         .WithName("ListarEnviosEnDeposito")
         .WithSummary("Listar envíos en depósito para clasificación de bultos")
         .WithDescription("Obtiene los envíos en estado EnDeposito del operador actual indicando el estado de clasificación de sus bultos.")

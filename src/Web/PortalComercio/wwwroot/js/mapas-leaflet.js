@@ -683,7 +683,7 @@
     }
 
     /**
-     * 1. Renderiza el mapa de seguimiento individual de un envío (Portal del Comercio UC-28 y Backoffice Trazabilidad).
+     * 1. Renderiza el mapa de seguimiento individual de un envío (Portal del Comercio y Backoffice).
      */
     function renderizarMapaSeguimientoEnvio(idContenedor, envio) {
         if (!envio) return;
@@ -852,7 +852,7 @@
     }
 
     /**
-     * 2. Renderiza el mapa táctico de toda la flota en el Tablero de Operaciones en Vivo (Backoffice UC-12).
+     * 2. Renderiza el mapa táctico de toda la flota en el Tablero de Operaciones en Vivo.
      */
     function renderizarMapaTableroFlota(idContenedor, vehiculos, callbackSeleccion) {
         // En cada actualización en vivo el mapa se redibuja: se conserva la vista que dejó el usuario (zoom y desplazamiento)

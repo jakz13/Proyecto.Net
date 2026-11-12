@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Queries.Operador.GestionZonas;
 
 /// <summary>
-/// Consulta para listar zonas de cobertura del operador con filtros de texto y estado (UC-02).
+/// Consulta para listar zonas de cobertura del operador con filtros de texto y estado.
 /// </summary>
 public record ListarZonasCoberturaQuery(
     string? Busqueda = null,

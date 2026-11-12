@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Deposito;
 
 /// <summary>
-/// Representa un envío admitido listo para su recepción física en el muelle de depósito (UC-14, RF-10).
+/// Representa un envío admitido listo para su recepción física en el muelle de depósito.
 /// </summary>
 public record EnvioAdmitidoDto(
     Guid EnvioId,

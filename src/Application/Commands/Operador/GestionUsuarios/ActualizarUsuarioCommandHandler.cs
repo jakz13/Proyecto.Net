@@ -8,7 +8,7 @@ namespace UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 
 /// <summary>
 /// Manejador para modificar los datos, perfil y estado de un usuario del operador.
-/// Concatena limpiamente Nombre y Apellido si son provistos por separado (UC-01, RF-01).
+/// Concatena limpiamente Nombre y Apellido si son provistos por separado.
 /// </summary>
 public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuarioCommand, UsuarioDetalleDto>
 {

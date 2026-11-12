@@ -26,7 +26,7 @@ public static class DatabaseSeeder
 
     public static readonly Guid DefaultHojaDeRutaId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
 
-    // Identificadores de Perfiles del sistema (UC-40)
+    // Identificadores de Perfiles del sistema
     public static readonly Guid DefaultPerfilAdminId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     public static readonly Guid DefaultPerfilDespachadorId = Guid.Parse("10000000-0000-0000-0000-000000000002");
     public static readonly Guid DefaultPerfilOperarioId = Guid.Parse("10000000-0000-0000-0000-000000000003");
@@ -304,8 +304,8 @@ public static class DatabaseSeeder
     }
 
     /// <summary>
-    /// Las paradas de la ruta demo apuntan a direcciones que deben tener coordenadas reales para que el mapa del tablero (RF-29)
-    /// ubique cada parada, y el vehículo necesita una primera posición reportada (RF-23). Es idempotente y no pisa datos existentes.
+    /// Las paradas de la ruta demo apuntan a direcciones que deben tener coordenadas reales para que el mapa del tablero
+    /// ubique cada parada, y el vehículo necesita una primera posición reportada. Es idempotente y no pisa datos existentes.
     /// </summary>
     private static async Task SembrarGeolocalizacionRutaDemoAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
@@ -392,7 +392,7 @@ public static class DatabaseSeeder
     /// </summary>
     private static async Task SembrarOperacionAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
-        // El motivo interno de la rendición debe existir también en bases sembradas antes de UC-16
+        // El motivo interno de la rendición debe existir también en bases sembradas antes de la rendición
         if (!await context.MotivosNoEntrega.IgnoreQueryFilters().AnyAsync(m => m.OperadorId == DefaultOperadorId && m.Codigo == "RETORNO_SIN_INTENTO", cancellationToken))
         {
             await context.MotivosNoEntrega.AddAsync(
@@ -437,7 +437,7 @@ public static class DatabaseSeeder
 
     /// <summary>
     /// Siembra los perfiles, permisos, segundo operador logístico (multitenancy con configuración distinta)
-    /// y usuarios del sistema con contraseñas hasheadas para la demo y pruebas de UC-40.
+    /// y usuarios del sistema con contraseñas hasheadas para la demo y pruebas de inicio de sesión.
     /// </summary>
     public static async Task SembrarIdentidadYMultitenancyAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken)
     {
@@ -468,7 +468,7 @@ public static class DatabaseSeeder
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        // 2. Segundo Operador Logístico (configuración distinta para multitenancy §15/10)
+        // 2. Segundo Operador Logístico (configuración distinta para multitenancy)
         if (!await context.Operadores.AnyAsync(o => o.Id == Operador2Id, cancellationToken))
         {
             var op2 = new Operador(
@@ -507,7 +507,7 @@ public static class DatabaseSeeder
 
         await context.SaveChangesAsync(cancellationToken);
 
-        // 3. Usuarios de prueba para cada perfil y operador con contraseñas hasheadas (UC-40)
+        // 3. Usuarios de prueba para cada perfil y operador con contraseñas hasheadas
         var hasher = new PasswordHasherService();
         var usuarios = new List<Usuario>
         {

@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
-/// <summary>Cliente HTTP del retiro en domicilio (RF 37 a RF 41): portal del comercio y backoffice del operador.</summary>
+/// <summary>Cliente HTTP del retiro en domicilio: portal del comercio y backoffice del operador.</summary>
 public class HttpRetirosApi : IRetirosApi
 {
     private static readonly JsonSerializerOptions Opciones = new(JsonSerializerDefaults.Web);

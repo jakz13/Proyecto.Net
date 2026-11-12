@@ -3,7 +3,7 @@ using UltimaMilla.Domain.Enums;
 namespace UltimaMilla.Domain.Entities.Retiros;
 
 /// <summary>
-/// Máquina de estados declarativa del retiro en domicilio (RF 38). Convive con la del envío pero es independiente de ella:
+/// Máquina de estados declarativa del retiro en domicilio. Convive con la del envío pero es independiente de ella:
 /// las transiciones válidas están en una tabla verificable y el estado del retiro no puede modificarse fuera de la entidad.
 /// </summary>
 public static class MaquinaEstadosRetiro
@@ -43,7 +43,7 @@ public static class MaquinaEstadosRetiro
         };
 
     /// <summary>
-    /// Transiciones adicionales que solo se admiten al resolver un conflicto de sincronización (RF 24): el repartidor trabajó sin conexión
+    /// Transiciones adicionales que solo se admiten al resolver un conflicto de sincronización: el repartidor trabajó sin conexión
     /// y, mientras tanto, el servidor sacó el retiro de la ruta o lo canceló. Prevalece lo realizado físicamente en el domicilio, con su evidencia,
     /// y el conflicto queda asentado. Es una política explícita y verificable, no una excepción dispersa en el código.
     /// </summary>

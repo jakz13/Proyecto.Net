@@ -1,4 +1,4 @@
-# Provisioning automático de tableros de Grafana desde archivos JSON (UC-44, §8.3)
+# Provisioning automático de tableros de Grafana desde archivos JSON
 # Montar ./docker/grafana/dashboards en /var/lib/grafana/dashboards:ro
 apiVersion: 1
 

@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Liquidaciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
-/// <summary>Implementación simulada de ICuentaCorrienteApi para la demo sin backend (RF-34).</summary>
+/// <summary>Implementación simulada de ICuentaCorrienteApi para la demo sin backend.</summary>
 public class MockCuentaCorrienteApi : ICuentaCorrienteApi
 {
     private static readonly Guid Comercio = Guid.Parse("00000000-0000-0000-0000-0000000000c1");

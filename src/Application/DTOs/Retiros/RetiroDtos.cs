@@ -37,7 +37,7 @@ public record RetiroDetalleDto(
 
 public record PaginaRetirosDto(IReadOnlyList<RetiroResumenDto> Items, int Total, int Pagina, int TamanoPagina);
 
-/// <summary>Retiros del operador agrupados por estado, para el tablero de operación y los reportes (RF 41).</summary>
+/// <summary>Retiros del operador agrupados por estado, para el tablero de operación y los reportes.</summary>
 public record ResumenRetirosOperadorDto(
     IReadOnlyDictionary<string, int> PorEstado,
     int Total,

@@ -4,7 +4,7 @@ using UltimaMilla.Application.Ports;
 namespace UltimaMilla.Application.Queries.Comercio.ConsultarHistorialAvisos;
 
 /// <summary>
-/// Recupera y mapea el historial detallado de avisos y webhooks para el comercio autenticado (UC-30).
+/// Recupera y mapea el historial detallado de avisos y webhooks para el comercio autenticado.
 /// </summary>
 public class ConsultarHistorialAvisosQueryHandler : IRequestHandler<ConsultarHistorialAvisosQuery, IReadOnlyList<AvisoHistorialDetalleDto>>
 {

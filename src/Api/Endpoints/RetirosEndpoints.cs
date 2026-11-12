@@ -14,7 +14,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Api.Endpoints;
 
 /// <summary>
-/// Retiro en domicilio (cambio de requerimientos 2.2, RF 37 a RF 41). A pedido del comercio, el operador retira bultos en el domicilio
+/// Retiro en domicilio (cambio de requerimientos 2.2). A pedido del comercio, el operador retira bultos en el domicilio
 /// del comprador y los hace llegar al comercio. El comercio lo solicita desde el portal o por API; el operador lo planifica en hojas de
 /// ruta mixtas; el repartidor lo registra en la calle, también sin conectividad.
 /// </summary>
@@ -58,10 +58,10 @@ public static class RetirosEndpoints
     public static IEndpointRouteBuilder MapRetirosEndpoints(this IEndpointRouteBuilder app)
     {
         // =====================================================================
-        // PORTAL DEL COMERCIO (RF 37): el comercio solicita y sigue sus retiros
+        // PORTAL DEL COMERCIO: el comercio solicita y sigue sus retiros
         // =====================================================================
         var portal = app.MapGroup("/api/comercio/retiros")
-            .WithTags("Retiro en domicilio · Portal del comercio (RF 37)")
+            .WithTags("Retiro en domicilio · Portal del comercio")
             .RequireAuthorization(PoliticasApi.Comercio);
 
         portal.MapPost("/", (
@@ -118,7 +118,7 @@ public static class RetirosEndpoints
         .WithOpenApi();
 
         // =====================================================================
-        // API POR CLAVE (RF 37): el sistema del comercio solicita el retiro
+        // API POR CLAVE: el sistema del comercio solicita el retiro
         // =====================================================================
         app.MapPost("/api/integracion/v1/retiros", async (
             [FromBody] SolicitarRetiroRequest request,
@@ -154,7 +154,7 @@ public static class RetirosEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting(AltaEnvioCanalesEndpoints.PoliticaLimiteIntegracion)
-        .WithTags("Integración por API · Retiros (RF 37)")
+        .WithTags("Integración por API · Retiros")
         .WithName("SolicitarRetiroPorApi")
         .WithSummary("Solicitud de retiro en domicilio desde el sistema del comercio")
         .WithDescription("Se autentica con la cabecera X-Api-Key. Con referenciaExterna, reintentar devuelve el retiro ya registrado (200) en vez de crear otro.")
@@ -167,10 +167,10 @@ public static class RetirosEndpoints
         .WithOpenApi();
 
         // =====================================================================
-        // BACKOFFICE (RF 38, RF 39, RF 41): el operador planifica y sigue los retiros
+        // BACKOFFICE: el operador planifica y sigue los retiros
         // =====================================================================
         var backoffice = app.MapGroup("/api/retiros")
-            .WithTags("Retiro en domicilio · Backoffice (RF 38, RF 41)")
+            .WithTags("Retiro en domicilio · Backoffice")
             .RequireAuthorization(PoliticasApi.Despacho);
 
         backoffice.MapGet("/", (
@@ -215,7 +215,7 @@ public static class RetirosEndpoints
         .WithOpenApi();
 
         var planificacion = app.MapGroup("/api/retiros")
-            .WithTags("Retiro en domicilio · Planificación (RF 39)")
+            .WithTags("Retiro en domicilio · Planificación")
             .RequireAuthorization(PoliticasApi.Operaciones);
 
         planificacion.MapPost("/{id:guid}/reprogramar", (
@@ -248,10 +248,10 @@ public static class RetirosEndpoints
         .WithOpenApi();
 
         // =====================================================================
-        // APLICACIÓN DEL REPARTIDOR (RF 40): registra el retiro en el domicilio
+        // APLICACIÓN DEL REPARTIDOR: registra el retiro en el domicilio
         // =====================================================================
         var movil = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}/paradas/{paradaId:guid}/retiro")
-            .WithTags("Mobile · Retiro en domicilio (RF 40)")
+            .WithTags("Mobile · Retiro en domicilio")
             .RequireAuthorization(PoliticasApi.Repartidor);
 
         movil.MapPost("/", (
@@ -267,7 +267,7 @@ public static class RetirosEndpoints
                     request.NombreEntrega, request.DocumentoEntrega,
                     request.Latitud, request.Longitud, request.FechaHoraDispositivoUtc), ct))))
         .WithName("RegistrarRetiroRealizado")
-        .WithSummary("RF 40: registrar el retiro con identificación de bultos, fotografía y firma")
+        .WithSummary("registrar el retiro con identificación de bultos, fotografía y firma")
         .WithDescription("Admite el envío diferido sin conectividad (clave de idempotencia). Si el servidor cambió el retiro mientras el dispositivo estaba sin conexión, prevalece lo ocurrido en el domicilio y el conflicto queda asentado.")
         .Produces<RetiroMovilResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

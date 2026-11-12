@@ -10,7 +10,7 @@ public record BultoRetiroSolicitudDto
     public decimal Profundo { get; set; } = 20;
 }
 
-/// <summary>Solicitud de retiro en domicilio que hace el comercio desde su portal (RF 37).</summary>
+/// <summary>Solicitud de retiro en domicilio que hace el comercio desde su portal.</summary>
 public record SolicitarRetiroDto
 {
     public string NombreContacto { get; set; } = string.Empty;
@@ -81,7 +81,7 @@ public record PaginaRetirosDto
     public int Total { get; init; }
 }
 
-/// <summary>Retiros del operador con el conteo por estado, para el tablero y los reportes (RF 41).</summary>
+/// <summary>Retiros del operador con el conteo por estado, para el tablero y los reportes.</summary>
 public record ResumenRetirosOperadorDto
 {
     public Dictionary<string, int> PorEstado { get; init; } = new();

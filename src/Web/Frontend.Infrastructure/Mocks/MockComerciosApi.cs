@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de gestión de comercios (UC-01).
+/// Implementación simulada en memoria del servicio de gestión de comercios.
 /// Soporta control de concurrencia optimista con lanzamiento de HTTP 409 Conflict ante sellos discordantes.
 /// </summary>
 public class MockComerciosApi : IComerciosApi

@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Enums;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Seguimiento;
 
 /// <summary>
-/// Modelo de datos expuesto al público general para el seguimiento anónimo de envíos (UC-33, RF-35).
+/// Modelo de datos expuesto al público general para el seguimiento anónimo de envíos.
 /// No contiene nombres de terceros, direcciones completas, ni IDs primarios de base de datos.
 /// </summary>
 public record SeguimientoPublicoDto
@@ -19,7 +19,7 @@ public record SeguimientoPublicoDto
     public int BultosPendientes { get; init; }
     public string? AvanceEntregaBultos { get; init; }
 
-    /// <summary>"Envio" o "Retiro": el comprador usa el mismo enlace público para seguir ambos (RF 41).</summary>
+    /// <summary>"Envio" o "Retiro": el comprador usa el mismo enlace público para seguir ambos.</summary>
     public string Tipo { get; init; } = "Envio";
 
     /// <summary>Estado del retiro cuando <see cref="Tipo"/> es "Retiro"; en ese caso <see cref="EstadoActual"/> no aplica.</summary>

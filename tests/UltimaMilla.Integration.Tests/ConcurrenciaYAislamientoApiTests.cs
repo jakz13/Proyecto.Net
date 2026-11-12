@@ -14,8 +14,8 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Garantías transversales del módulo de operación sobre Postgres real: exclusión mutua en la asignación de envíos (RF-15),
-/// aislamiento entre operadores (6.5) y el estado terminal de extraviado (RF-11).
+/// Garantías transversales del módulo de operación sobre Postgres real: exclusión mutua en la asignación de envíos,
+/// aislamiento entre operadores (6.5) y el estado terminal de extraviado.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]
 public class ConcurrenciaYAislamientoApiTests

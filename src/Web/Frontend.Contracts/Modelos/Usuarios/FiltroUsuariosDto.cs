@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 /// <summary>
-/// Criterios de búsqueda y filtrado para el listado de usuarios (UC-01, RF-31).
+/// Criterios de búsqueda y filtrado para el listado de usuarios.
 /// </summary>
 public record FiltroUsuariosDto
 {

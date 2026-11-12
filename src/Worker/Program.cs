@@ -18,11 +18,11 @@ using UltimaMilla.Worker.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Puerto propio del Worker para exponer /metrics a Prometheus (por defecto 9464, UC-44 §6.12)
+// Puerto propio del Worker para exponer /metrics a Prometheus (por defecto 9464)
 var puertoMetricas = builder.Configuration.GetValue<int?>("Metrics:Port") ?? 9464;
 builder.WebHost.UseUrls($"http://0.0.0.0:{puertoMetricas}");
 
-// Logs estructurados en JSON compacto con Serilog (UC-44, §6.12)
+// Logs estructurados en JSON compacto con Serilog
 builder.Host.UseSerilog((contexto, servicios, configuracion) =>
 {
     configuracion
@@ -34,7 +34,7 @@ builder.Host.UseSerilog((contexto, servicios, configuracion) =>
         .WriteTo.Console(new CompactJsonFormatter());
 });
 
-// Métricas y trazas distribuidas con OpenTelemetry (UC-44, §6.12)
+// Métricas y trazas distribuidas con OpenTelemetry
 var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(recurso => recurso.AddService("ultimamilla-worker"))

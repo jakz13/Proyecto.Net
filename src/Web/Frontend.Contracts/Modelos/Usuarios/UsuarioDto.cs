@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 /// <summary>
-/// Representa un usuario del operador o de un comercio asociado (UC-01, RF-31).
+/// Representa un usuario del operador o de un comercio asociado.
 /// </summary>
 public record UsuarioDto
 {

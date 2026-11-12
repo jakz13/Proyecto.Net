@@ -8,9 +8,9 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.Flota;
 
 /// <summary>
-/// Modelo de página para el caso de uso UC-07: Gestionar repartidores y vehículos.
+/// Modelo de página para el caso de uso Gestionar repartidores y vehículos.
 /// Permite al Administrador dar de alta vehículos con su capacidad de peso y volumen,
-/// dar de alta repartidores y opcionalmente asociarlos a un vehículo para la planificación de rutas (RF-06).
+/// dar de alta repartidores y opcionalmente asociarlos a un vehículo para la planificación de rutas.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel

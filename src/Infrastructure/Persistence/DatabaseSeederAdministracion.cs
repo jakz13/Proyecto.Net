@@ -26,7 +26,7 @@ public static class DatabaseSeederAdministracion
 
     public static readonly Guid IdentidadVisualId = Guid.Parse("a4000000-0000-0000-0000-000000000001");
 
-    /// <summary>Reglas de la tarifa propia del retiro en domicilio (RF 41), una por operador y con precios distintos.</summary>
+    /// <summary>Reglas de la tarifa propia del retiro en domicilio, una por operador y con precios distintos.</summary>
     public static readonly Guid ReglaRetiroOperador1Id = Guid.Parse("99999999-0003-0000-0000-000000000001");
     public static readonly Guid ReglaRetiroOperador2Id = Guid.Parse("99999999-0003-0000-0000-000000000002");
 
@@ -47,7 +47,7 @@ public static class DatabaseSeederAdministracion
     }
 
     /// <summary>
-    /// El retiro en domicilio tiene su propia tarifa dentro del cuadro tarifario (RF 41). Se agrega al cuadro vigente de cada operador
+    /// El retiro en domicilio tiene su propia tarifa dentro del cuadro tarifario. Se agrega al cuadro vigente de cada operador
     /// de la demo si todavía no existe, de modo que también quede disponible en bases creadas antes de este módulo.
     /// </summary>
     private static async Task SembrarTarifaDeRetiroAsync(AppDbContext context, CancellationToken ct)

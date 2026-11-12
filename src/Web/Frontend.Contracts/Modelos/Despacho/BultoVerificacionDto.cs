@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Despacho;
 
 /// <summary>
-/// Representa un bulto verificado durante el control de salida en depósito (UC-09, UC-18).
+/// Representa un bulto verificado durante el control de salida en depósito.
 /// </summary>
 public record BultoVerificacionDto
 {

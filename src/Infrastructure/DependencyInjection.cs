@@ -88,7 +88,7 @@ public static class DependencyInjection
                 };
             });
 
-        // Observabilidad (UC-44): métricas de negocio expuestas a Prometheus
+        // Observabilidad: métricas de negocio expuestas a Prometheus
         services.AddSingleton<IMetricasNegocio, MetricasNegocio>();
 
         // Servicios transversales y caché distribuido (Redis en despliegue, memoria compartida en pruebas sin Redis)

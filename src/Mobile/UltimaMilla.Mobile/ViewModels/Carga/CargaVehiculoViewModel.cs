@@ -943,7 +943,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         var faltantes = BultosPendientes.Count;
         var sobrantes = BultosSobrantes.Count;
 
-        // UC-18 / UC-09: Flujo alternativo de discrepancia (faltantes o sobrantes)
+        // Flujo alternativo de discrepancia (faltantes o sobrantes)
         if (faltantes > 0 || sobrantes > 0)
         {
             if (Shell.Current is not null)

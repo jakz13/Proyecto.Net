@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 
 /// <summary>
-/// Modelo para modificar la descripción o estado de un motivo de no entrega existente (UC-05).
+/// Modelo para modificar la descripción o estado de un motivo de no entrega existente.
 /// </summary>
 public class ActualizarMotivoNoEntregaDto
 {

@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para la gestión y reintento de mensajes fallidos en colas asíncronas (UC-42).
+/// Implementación simulada en memoria para la gestión y reintento de mensajes fallidos en colas asíncronas.
 /// Simula la Dead Letter Queue (DLQ) interna de la plataforma para eventos, webhooks y sincronizaciones móviles.
 /// </summary>
 public class MockMensajeriaApi : IMensajeriaApi
@@ -271,7 +271,7 @@ public class MockMensajeriaApi : IMensajeriaApi
             var actual = _colaFallidos[indice];
             var motivoFinal = string.IsNullOrWhiteSpace(motivo) ? "Descartado manualmente por el administrador" : motivo.Trim();
 
-            // Descarte lógico: no elimina el registro, cambia su estado y preserva auditoría (UC-42)
+            // Descarte lógico: no elimina el registro, cambia su estado y preserva auditoría
             var descartado = actual with
             {
                 Estado = "Descartado",

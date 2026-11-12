@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Mensajeria;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la gestión y reintento de mensajes fallidos en colas asíncronas (UC-42).
+/// Contrato de servicio para la gestión y reintento de mensajes fallidos en colas asíncronas.
 /// Permite al Administrador consultar la cola de fallidos (Dead Letter Queue) y solicitar el reintento manual
 /// de uno o múltiples mensajes de la plataforma.
 /// </summary>
@@ -33,7 +33,7 @@ public interface IMensajeriaApi
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio (UC-42).
+    /// Descarta lógicamente un mensaje de la cola de fallidos registrando el motivo obligatorio.
     /// </summary>
     Task<bool> DescartarMensajeAsync(Guid id, string motivo, CancellationToken cancelacion = default);
 

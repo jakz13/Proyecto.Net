@@ -4,7 +4,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del monitoreo del tablero de operaciones en vivo (UC-12, RF-29).
+/// Implementación simulada en memoria del monitoreo del tablero de operaciones en vivo.
 /// </summary>
 public class MockTableroApi : ITableroApi
 {

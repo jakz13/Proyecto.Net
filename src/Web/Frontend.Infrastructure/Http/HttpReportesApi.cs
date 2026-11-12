@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
-/// <summary>Cliente HTTP de los reportes de gestión (UC-13, RF-30).</summary>
+/// <summary>Cliente HTTP de los reportes de gestión.</summary>
 public class HttpReportesApi : IReportesApi
 {
     private readonly HttpClient _http;

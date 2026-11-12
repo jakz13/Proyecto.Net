@@ -5,7 +5,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Domain.Entities.Retiros;
 
 /// <summary>
-/// Retiro en domicilio (cambio de requerimientos, RF 37 a RF 41): a pedido del comercio, el operador concurre al domicilio del
+/// Retiro en domicilio (cambio de requerimientos): a pedido del comercio, el operador concurre al domicilio del
 /// comprador, retira uno o más bultos y los hace llegar al comercio. No es una devolución de un envío que no pudo entregarse:
 /// el flujo comienza en el comprador y termina en el comercio.
 /// Pertenece a un operador (primer nivel de aislamiento) y a la relación comercio-operador que lo pidió (segundo nivel).
@@ -20,7 +20,7 @@ public class Retiro : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, I
     public Guid OperadorId { get; private set; }
     public Guid ComercioOperadorId { get; private set; }
 
-    /// <summary>Código con el que el comprador sigue el retiro por el mismo enlace público que los envíos (RF 41). Empieza con "RET-".</summary>
+    /// <summary>Código con el que el comprador sigue el retiro por el mismo enlace público que los envíos. Empieza con "RET-".</summary>
     public string CodigoSeguimientoPublico { get; private set; } = string.Empty;
 
     /// <summary>Identificador del retiro en el sistema del comercio; permite reintentar la solicitud sin duplicarla.</summary>
@@ -41,7 +41,7 @@ public class Retiro : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, I
     public Guid? HojaDeRutaId { get; private set; }
     public DateTime FechaSolicitud { get; private set; }
 
-    // Datos del retiro efectivo, capturados por el repartidor en el domicilio (RF 40)
+    // Datos del retiro efectivo, capturados por el repartidor en el domicilio
     public DateTime? FechaRetiro { get; private set; }
     public string? NombreEntrega { get; private set; }
     public string? DocumentoEntrega { get; private set; }
@@ -142,7 +142,7 @@ public class Retiro : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, I
         SelloModificacion = Guid.NewGuid();
     }
 
-    /// <summary>El retiro tiene su propia tarifa dentro del cuadro tarifario vigente (RF 41).</summary>
+    /// <summary>El retiro tiene su propia tarifa dentro del cuadro tarifario vigente.</summary>
     public void AplicarTarifa(decimal tarifa, Guid reglaTarifaId)
     {
         if (tarifa < 0)
@@ -189,7 +189,7 @@ public class Retiro : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, I
     }
 
     /// <summary>
-    /// Registra el retiro efectivo en el domicilio (RF 40): identificación de los bultos por escaneo, fotografía de su estado y firma
+    /// Registra el retiro efectivo en el domicilio: identificación de los bultos por escaneo, fotografía de su estado y firma
     /// de quien los entrega, con la posición y la hora del dispositivo. Todos los bultos solicitados deben escanearse.
     /// </summary>
     public void RegistrarRetiro(

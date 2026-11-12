@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Entities.Seguimiento;
 namespace UltimaMilla.Application.Commands.Comercio.ConfigurarAvisos;
 
 /// <summary>
-/// Comando para configurar la URL, la versión de contrato y los eventos ante los cuales el comercio recibirá avisos automáticos (UC-29, RF-36).
+/// Comando para configurar la URL, la versión de contrato y los eventos ante los cuales el comercio recibirá avisos automáticos.
 /// </summary>
 public record ConfigurarAvisosCommand(
     string UrlWebhook,

@@ -6,7 +6,7 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Commands.Retiros.SolicitarRetiro;
 
-/// <summary>Solicitud de retiro desde el portal del comercio (RF 37).</summary>
+/// <summary>Solicitud de retiro desde el portal del comercio.</summary>
 public class SolicitarRetiroCommandHandler : IRequestHandler<SolicitarRetiroCommand, SolicitarRetiroResultDto>
 {
     private readonly SolicitarRetiroProcesador _procesador;
@@ -53,7 +53,7 @@ public class SolicitarRetiroCommandHandler : IRequestHandler<SolicitarRetiroComm
     }
 }
 
-/// <summary>Solicitud de retiro por API (RF 37): se autentica con la clave del comercio, igual que el alta de envíos por API.</summary>
+/// <summary>Solicitud de retiro por API: se autentica con la clave del comercio, igual que el alta de envíos por API.</summary>
 public class SolicitarRetiroPorApiCommandHandler : IRequestHandler<SolicitarRetiroPorApiCommand, SolicitarRetiroResultDto>
 {
     private readonly IComercioOperadorRepository _comercioOperadorRepository;

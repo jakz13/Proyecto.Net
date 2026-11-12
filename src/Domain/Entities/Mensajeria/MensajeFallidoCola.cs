@@ -69,7 +69,7 @@ public class MensajeFallidoCola : Entity
     }
 
     /// <summary>
-    /// Descarta lógicamente el mensaje fallido sin eliminarlo físicamente, registrando el motivo (UC-42).
+    /// Descarta lógicamente el mensaje fallido sin eliminarlo físicamente, registrando el motivo.
     /// </summary>
     public void Descartar(string motivo)
     {

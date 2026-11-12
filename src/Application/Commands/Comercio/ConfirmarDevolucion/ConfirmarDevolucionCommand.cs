@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Comercio.ConfirmarDevolucion;
 
-/// <summary>El comercio confirma que recibió el bulto de un envío devuelto (UC-32).</summary>
+/// <summary>El comercio confirma que recibió el bulto de un envío devuelto.</summary>
 public record ConfirmarDevolucionCommand(Guid EnvioId) : IRequest<ConfirmarDevolucionResultDto>;
 
 public record ConfirmarDevolucionResultDto(

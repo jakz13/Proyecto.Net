@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 /// <summary>
-/// Modelo para el alta de un nuevo usuario en el sistema con campos separados de Nombre y Apellido (UC-01, RF-31).
+/// Modelo para el alta de un nuevo usuario en el sistema con campos separados de Nombre y Apellido.
 /// </summary>
 public record CrearUsuarioDto
 {
@@ -32,19 +32,19 @@ public record CrearUsuarioDto
     public Guid? ComercioId { get; init; }
 
     /// <summary>
-    /// Cédula o documento de identidad cuando el rol asignado es Repartidor (RF-06).
+    /// Cédula o documento de identidad cuando el rol asignado es Repartidor.
     /// </summary>
     [StringLength(30, ErrorMessage = "El documento no puede superar los 30 caracteres.")]
     public string? Documento { get; init; }
 
     /// <summary>
-    /// Teléfono celular de contacto cuando el rol asignado es Repartidor (RF-06).
+    /// Teléfono celular de contacto cuando el rol asignado es Repartidor.
     /// </summary>
     [StringLength(30, ErrorMessage = "El teléfono no puede superar los 30 caracteres.")]
     public string? Telefono { get; init; }
 
     /// <summary>
-    /// Vehículo asignado opcional cuando el rol asignado es Repartidor (RF-06).
+    /// Vehículo asignado opcional cuando el rol asignado es Repartidor.
     /// </summary>
     public Guid? VehiculoAsignadoId { get; init; }
 

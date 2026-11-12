@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 
 /// <summary>
-/// Modelo de datos que representa un motivo de no entrega en el catálogo del operador (UC-05, RF-04, RF-21).
+/// Modelo de datos que representa un motivo de no entrega en el catálogo del operador.
 /// </summary>
 public class MotivoNoEntregaDto
 {
@@ -18,7 +18,7 @@ public class MotivoNoEntregaDto
     public string Descripcion { get; set; } = string.Empty;
 
     /// <summary>
-    /// Indica si el motivo está habilitado para descarga y uso en la app móvil del repartidor (RF-21).
+    /// Indica si el motivo está habilitado para descarga y uso en la app móvil del repartidor.
     /// </summary>
     public bool Activo { get; set; }
 

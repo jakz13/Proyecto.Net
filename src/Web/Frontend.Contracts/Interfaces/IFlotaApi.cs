@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Flota;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de API para la gestión integral de vehículos y repartidores (UC-07, RF-06).
+/// Contrato de API para la gestión integral de vehículos y repartidores.
 /// </summary>
 public interface IFlotaApi
 {

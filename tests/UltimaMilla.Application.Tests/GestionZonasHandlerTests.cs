@@ -10,8 +10,7 @@ using Xunit;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Suite de pruebas unitarias exhaustivas para el caso de uso UC-02:
-/// Configuración de zonas de cobertura y franjas horarias con validación de superposiciones y Anti-IDOR.
+/// Suite de pruebas unitarias exhaustivas para el caso de uso /// Configuración de zonas de cobertura y franjas horarias con validación de superposiciones y Anti-IDOR.
 /// </summary>
 public class GestionZonasHandlerTests
 {

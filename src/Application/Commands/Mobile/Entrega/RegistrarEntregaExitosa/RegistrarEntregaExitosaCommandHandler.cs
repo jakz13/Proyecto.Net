@@ -100,9 +100,9 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
-        // Manejo explícito de conflictos de sincronización (RF 24):
-        // si el repartidor completó la entrega física offline pero el servidor ya había retirado o reasignado el envío (UC-10),
-        // prevalece la entrega física real con su prueba y se asienta el conflicto en ConflictoSincronizacion y en el historial (UC-39).
+        // Manejo explícito de conflictos de sincronización:
+        // si el repartidor completó la entrega física offline pero el servidor ya había retirado o reasignado el envío,
+        // prevalece la entrega física real con su prueba y se asienta el conflicto en ConflictoSincronizacion y en el historial.
         // Una segunda visita sobre un envío ya entregado parcialmente es el flujo normal de la entrega por bultos, no un conflicto.
         bool huboConflicto = (envio.EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
             || parada.Estado == "Cancelada";
@@ -120,7 +120,7 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
         }
 
-        // La hoja de ruta debe estar despachada o en tránsito, salvo que se esté resolviendo un conflicto offline (UC-09 / UC-18 / UC-20)
+        // La hoja de ruta debe estar despachada o en tránsito, salvo que se esté resolviendo un conflicto offline
         if (ruta.Estado is not ("Despachada" or "EnTransito") && !huboConflicto)
         {
             throw new DomainValidationException($"No se puede registrar la entrega porque la hoja de ruta no se encuentra en tránsito (Estado actual: '{ruta.Estado}'). Debe escanear y despachar la carga previamente.");

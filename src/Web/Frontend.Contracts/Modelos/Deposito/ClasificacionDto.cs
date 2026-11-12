@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Deposito;
 
 /// <summary>
-/// Representa un envío recepcionado en depósito para clasificación o inclusión en rutas (UC-15).
+/// Representa un envío recepcionado en depósito para clasificación o inclusión en rutas.
 /// </summary>
 public record EnvioEnDepositoDto(
     Guid EnvioId,
@@ -31,7 +31,7 @@ public record BultoClasificadoResumenDto(
     DateTime? FechaClasificacion);
 
 /// <summary>
-/// Solicitud de clasificación de uno o varios bultos de un envío en depósito (UC-15).
+/// Solicitud de clasificación de uno o varios bultos de un envío en depósito.
 /// </summary>
 public record ClasificarBultosRequestDto(
     IReadOnlyList<ItemClasificacionBultoDto> Bultos);

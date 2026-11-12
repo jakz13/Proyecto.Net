@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en cliente HTTP REST de IMotivosNoEntregaApi (UC-05, RF-04, RF-21).
+/// Implementación basada en cliente HTTP REST de IMotivosNoEntregaApi.
 /// Facilita la conexión directa con los endpoints de la API backend cuando esté disponible.
 /// </summary>
 public class HttpMotivosNoEntregaApi : IMotivosNoEntregaApi

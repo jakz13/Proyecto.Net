@@ -7,7 +7,7 @@ using UltimaMilla.Application.Messaging;
 namespace UltimaMilla.Api.Observabilidad;
 
 /// <summary>
-/// Middleware de correlación (UC-44, §6.12):
+/// Middleware de correlación:
 /// 1. Lee el encabezado <c>X-Correlation-Id</c> de la solicitud.
 /// 2. Si falta, supera los 64 caracteres o contiene caracteres no imprimibles, genera un identificador nuevo (GUID).
 /// 3. Lo devuelve siempre en el encabezado <c>X-Correlation-Id</c> de la respuesta.

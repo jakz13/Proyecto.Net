@@ -6,7 +6,7 @@ using UltimaMilla.Domain.Enums;
 namespace UltimaMilla.Application.Queries.Deposito;
 
 /// <summary>
-/// Manejador de la consulta para listar hojas de ruta pendientes de rendición en depósito (UC-16).
+/// Manejador de la consulta para listar hojas de ruta pendientes de rendición en depósito.
 /// Considera las rutas que hayan sido despachadas, se encuentren en tránsito o hayan sido finalizadas en calle.
 /// </summary>
 public class ListarRutasPendientesRendicionQueryHandler : IRequestHandler<ListarRutasPendientesRendicionQuery, IReadOnlyList<RutaPendienteRendicionResumenDto>>

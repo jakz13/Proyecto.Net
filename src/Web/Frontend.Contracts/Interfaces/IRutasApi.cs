@@ -38,12 +38,12 @@ public interface IRutasApi
     Task<bool> LiberarHojaDeRutaAsync(Guid id, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Retira, reasigna a otra ruta, reprograma o marca como no entregado un envío en ruta (UC-10, RF-13, RF-15).
+    /// Retira, reasigna a otra ruta, reprograma o marca como no entregado un envío en ruta.
     /// </summary>
     Task<ResultadoReasignacionDto> ReasignarOReprogramarEnvioAsync(ReasignarEnvioDto dto, string despachadorUsuario, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Consulta el registro histórico de reasignaciones e incidencias de envíos (RF-12, RF-15).
+    /// Consulta el registro histórico de reasignaciones e incidencias de envíos.
     /// </summary>
     Task<IReadOnlyList<EventoReasignacionDto>> ListarEventosReasignacionAsync(Guid? hojaDeRutaId = null, CancellationToken cancelacion = default);
 }

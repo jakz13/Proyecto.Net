@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Demuestra el identificador de correlación de extremo a extremo (letra §6.12).
+    Demuestra el identificador de correlación de extremo a extremo.
 
 .DESCRIPTION
     Da de alta un envío como comercio y lo recibe en depósito, enviando un X-Correlation-Id propio en

@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 
-/// <summary>Procesa un mensaje recibido de la cola de forma idempotente: reprocesar el mismo <see cref="MessageId"/> no repite efectos (§6.8).</summary>
+/// <summary>Procesa un mensaje recibido de la cola de forma idempotente: reprocesar el mismo <see cref="MessageId"/> no repite efectos.</summary>
 public record ProcesarMensajeCommand(
     Guid MessageId,
     string AgregadoOrigen,

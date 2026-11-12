@@ -8,7 +8,7 @@ using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Integration.Tests;
 
-/// <summary>Incidencias (UC-11) y reprogramación por el destinatario (UC-34) contra Postgres real.</summary>
+/// <summary>Incidencias y reprogramación por el destinatario contra Postgres real.</summary>
 [Collection(ColeccionApi.Nombre)]
 public class IncidenciasYReprogramacionApiTests
 {

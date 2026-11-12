@@ -26,7 +26,7 @@ public interface IWebhookSender
     Task<ResultadoWebhook> EnviarAsync(string urlWebhook, string payload, string firma, Guid avisoId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Datos mínimos para notificar un cambio de estado al destinatario (UC-35).</summary>
+/// <summary>Datos mínimos para notificar un cambio de estado al destinatario.</summary>
 public record NotificacionDestinatario(
     Guid EnvioId,
     string CodigoSeguimiento,

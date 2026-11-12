@@ -5,7 +5,7 @@ using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Backoffice;
 
-/// <summary>Historial de los envíos retirados, reasignados o reprogramados de una hoja de ruta (UC-10).</summary>
+/// <summary>Historial de los envíos retirados, reasignados o reprogramados de una hoja de ruta.</summary>
 public static class ReasignacionesEndpoints
 {
     // List y no arreglo: con C# 14 Contains sobre un arreglo no se traduce a SQL en EF Core 8
@@ -51,7 +51,7 @@ public static class ReasignacionesEndpoints
                 e.TipoEvento, e.Timestamp, e.Payload, e.ResponsableUsuarioId)).ToList());
         }))
         .RequireAuthorization(PoliticasApi.Operaciones)
-        .WithTags("Planificación (UC-08, UC-09, UC-10)")
+        .WithTags("Planificación")
         .WithName("ListarReasignacionesDeHojaDeRuta")
         .WithSummary("Historial de retiros y reprogramaciones de los envíos de una hoja de ruta");
 

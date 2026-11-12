@@ -8,7 +8,7 @@ namespace UltimaMilla.Application.Commands.Mensajeria;
 public record ResultadoEntregaAvisos(int Entregados, int EnReintento, int Agotados);
 
 /// <summary>
-/// Entrega avisos automáticos a los comercios (UC-36): llamada HTTP firmada, reintentos con espera creciente y, al agotarse,
+/// Entrega avisos automáticos a los comercios: llamada HTTP firmada, reintentos con espera creciente y, al agotarse,
 /// estado "Agotado" para reenvío manual. Una falla de entrega nunca interrumpe el procesamiento del mensaje que originó el aviso:
 /// queda registrada en el propio aviso y el proceso de reintentos la retoma.
 /// </summary>

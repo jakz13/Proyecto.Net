@@ -10,14 +10,14 @@ using UltimaMilla.Api.Auth;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>
-/// Endpoints para el caso de uso UC-01: Gestión de comercios clientes del operador.
+/// Endpoints para el caso de uso Gestión de comercios clientes del operador.
 /// </summary>
 public static class ComerciosEndpoints
 {
     public static IEndpointRouteBuilder MapComerciosBackofficeEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/comercios")
-            .WithTags("Backoffice · Comercios (UC-01)")
+            .WithTags("Backoffice · Comercios")
             .RequireAuthorization(PoliticasApi.Supervision)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 

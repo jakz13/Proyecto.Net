@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Comercios;
 
 /// <summary>
-/// Criterios de búsqueda y filtrado para el listado de comercios (UC-01).
+/// Criterios de búsqueda y filtrado para el listado de comercios.
 /// </summary>
 public record FiltroComerciosDto
 {

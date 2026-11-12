@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de gestión de usuarios y perfiles (UC-01, RF-31).
+/// Implementación simulada en memoria del servicio de gestión de usuarios y perfiles.
 /// </summary>
 public class MockUsuariosApi : IUsuariosApi
 {

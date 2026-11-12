@@ -30,11 +30,11 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public int MaxParadasPorRuta { get; private set; }
     public string? Comentario { get; private set; }
 
-    /// <summary>Indica si el operador admite entregas parciales a nivel de bulto (RF 33). Forma parte de la versión de la regla y se persiste.</summary>
+    /// <summary>Indica si el operador admite entregas parciales a nivel de bulto. Forma parte de la versión de la regla y se persiste.</summary>
     public bool AdmiteEntregaParcial { get; private set; } = true;
 
     /// <summary>
-    /// Define qué sucede con los bultos pendientes tras una entrega parcial (RF 33):
+    /// Define qué sucede con los bultos pendientes tras una entrega parcial:
     /// NuevaVisitaSinRecargo, NuevaVisitaConRecargo o DevolucionAlComercio. Se persiste.
     /// </summary>
     public string PoliticaEntregaParcial { get; private set; } = PoliticaNuevaVisitaSinRecargo;

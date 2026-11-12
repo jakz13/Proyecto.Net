@@ -1,5 +1,5 @@
 /**
- * Tiempo real del estado de los envíos para todas las páginas del backoffice (RF-12, RF-29).
+ * Tiempo real del estado de los envíos para todas las páginas del backoffice.
  *
  * Una sola conexión SignalR al hub de la API, autenticada con un token de corta duración emitido por el propio backoffice
  * (el operador sale de la sesión del servidor). Cuando un envío cambia de estado, la API emite "EnvioCambioEstado" y las páginas que

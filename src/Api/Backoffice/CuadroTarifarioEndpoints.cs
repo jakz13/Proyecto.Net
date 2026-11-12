@@ -9,7 +9,7 @@ using UltimaMilla.Api.Auth;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>
-/// Endpoints para la gestión versionada del cuadro tarifario y simulación de cotizaciones (UC-03, RF-03).
+/// Endpoints para la gestión versionada del cuadro tarifario y simulación de cotizaciones.
 /// Conecta la Minimal API con la capa de Aplicación a través de MediatR.
 /// </summary>
 public static class CuadroTarifarioEndpoints

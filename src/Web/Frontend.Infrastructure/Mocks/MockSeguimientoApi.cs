@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada del servicio de seguimiento público anónimo (UC-33) y reprogramación (UC-34).
+/// Implementación simulada del servicio de seguimiento público anónimo y reprogramación.
 /// Simula códigos conocidos, códigos desconocidos (anti-enumeración) y límite de tasa (HTTP 429).
 /// </summary>
 public class MockSeguimientoApi : ISeguimientoApi

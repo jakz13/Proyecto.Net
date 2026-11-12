@@ -3,7 +3,7 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Retiros;
 
-/// <summary>Bulto que el operador debe retirar en el domicilio del comprador (RF 37). Cada retiro incluye uno o más.</summary>
+/// <summary>Bulto que el operador debe retirar en el domicilio del comprador. Cada retiro incluye uno o más.</summary>
 public class BultoRetiro : Entity
 {
     public Guid RetiroId { get; private set; }

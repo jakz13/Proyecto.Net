@@ -101,7 +101,7 @@ public class RegistrarIntentoFallidoCommandHandler : IRequestHandler<RegistrarIn
 
         // Manejo explícito de conflictos de sincronización (Punto 7):
         // Si el envío ya fue retirado o reasignado en el servidor por el despachador (parada cancelada o envío no en tránsito),
-        // prevalece el estado del servidor; se registra el intento fallido en la bitácora de auditoría (UC-39) y en ConflictoSincronizacion,
+        // prevalece el estado del servidor; se registra el intento fallido en la bitácora de auditoría y en ConflictoSincronizacion,
         // devolviendo un resultado de conflicto resuelto para no bloquear la cola FIFO del repartidor.
         if (parada.Estado == "Cancelada" || (envio.EstadoActual != EstadoEnvio.EnTransito && envio.EstadoActual != EstadoEnvio.Reprogramado && envio.EstadoActual != EstadoEnvio.EnDevolucion))
         {

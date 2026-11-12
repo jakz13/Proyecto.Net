@@ -11,7 +11,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de gestión de envíos y extravíos (UC-24, UC-28, UC-43, RF-11, RF-12).
+/// Implementación simulada en memoria del servicio de gestión de envíos y extravíos.
 /// </summary>
 public class MockEnviosApi : IEnviosApi
 {
@@ -242,7 +242,7 @@ public class MockEnviosApi : IEnviosApi
 
         var consulta = EnviosEnMemoria.AsQueryable();
 
-        // Aislamiento por comercio (UC-28): el portal del comercio muestra únicamente los envíos propios
+        // Aislamiento por comercio: el portal del comercio muestra únicamente los envíos propios
         if (filtro.SoloEnviosPropiosComercio)
         {
             consulta = consulta.Where(e =>
@@ -400,7 +400,7 @@ public class MockEnviosApi : IEnviosApi
 
         EnviosEnMemoria[index] = envioActualizado;
 
-        // Registrar Evento Histórico de Auditoría (RF-11, RF-12)
+        // Registrar Evento Histórico de Auditoría
         var evento = new EventoHistorialEnvioDto
         {
             EnvioId = dto.EnvioId,
@@ -416,7 +416,7 @@ public class MockEnviosApi : IEnviosApi
 
         RegistrarEventoHistorico(dto.EnvioId, evento);
 
-        // Notificar al comercio mediante la bitácora de avisos y webhooks (RF-11)
+        // Notificar al comercio mediante la bitácora de avisos y webhooks
         MockAvisosComercioApi.RegistrarAvisoExtraviado(dto.EnvioId, envioActual.CodigoSeguimiento, dto.MotivoExtravio);
 
         var resultado = new ResultadoDeclaracionExtravioDto
@@ -600,7 +600,7 @@ public class MockEnviosApi : IEnviosApi
     private static readonly Dictionary<string, ResultadoImportacionDto> LotesPorClave = new();
 
     /// <summary>
-    /// Simula la importación masiva de envíos desde archivo CSV con cálculo de tarifas e idempotencia (UC-25, RF-07).
+    /// Simula la importación masiva de envíos desde archivo CSV con cálculo de tarifas e idempotencia.
     /// </summary>
     public Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
         byte[] contenidoArchivo,
@@ -912,7 +912,7 @@ public class MockEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido (UC-27).
+    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido.
     /// </summary>
     public Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
         IReadOnlyList<Guid> envioIds,
@@ -938,7 +938,7 @@ public class MockEnviosApi : IEnviosApi
                     throw new ApiExcepcion(HttpStatusCode.NotFound, $"No se encontró el envío con identificador '{envioId}'.");
                 }
 
-                // Precondición de UC-27: el envío debe estar en estado Admitido
+                // Precondición de el envío debe estar en estado Admitido
                 if (envio.Estado != EstadoEnvioDto.Admitido)
                 {
                     throw new ApiExcepcion(
@@ -996,7 +996,7 @@ public class MockEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución.
     /// </summary>
     public Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(Guid envioId, CancellationToken cancelacion = default)
     {

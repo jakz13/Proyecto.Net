@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Queries.Comercio.ListarEnviosDelComercio;
 
-/// <summary>Listado de los envíos del comercio autenticado, con filtros y paginación (UC-28).</summary>
+/// <summary>Listado de los envíos del comercio autenticado, con filtros y paginación.</summary>
 public record ListarEnviosDelComercioQuery(
     string? Estado = null,
     DateOnly? Desde = null,

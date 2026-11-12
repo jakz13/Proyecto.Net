@@ -4,7 +4,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para la gestión y versionado de reglas operativas (UC-04, RF-04).
+/// Implementación simulada en memoria para la gestión y versionado de reglas operativas.
 /// </summary>
 public class MockReglasOperativasApi : IReglasOperativasApi
 {

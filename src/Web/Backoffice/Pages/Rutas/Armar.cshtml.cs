@@ -22,7 +22,7 @@ public class ArmarModel : PageModel
         _retirosApi = retirosApi;
     }
 
-    /// <summary>Retiros en domicilio pendientes de asignar: pueden sumarse a la ruta, que pasa a ser mixta (RF 39).</summary>
+    /// <summary>Retiros en domicilio pendientes de asignar: pueden sumarse a la ruta, que pasa a ser mixta.</summary>
     public IReadOnlyList<RetiroResumenDto> RetirosPendientes { get; private set; } = new List<RetiroResumenDto>();
 
     [BindProperty]

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Infrastructure.Services;
 
 /// <summary>
-/// Opciones de configuración para el envío real de notificaciones por correo electrónico (SMTP) al destinatario (UC-35, RF-27).
+/// Opciones de configuración para el envío real de notificaciones por correo electrónico (SMTP) al destinatario.
 /// Se enlaza desde la sección "Smtp" de appsettings.json o mediante variables de entorno (Smtp__Usuario, Smtp__Password, etc.).
 /// </summary>
 public sealed class NotificacionesCorreoOptions

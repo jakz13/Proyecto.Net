@@ -64,7 +64,7 @@
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
             "Activos en App Móvil",
             Model.Resumen.MotivosActivosParaMovil.ToString(),
-            "Motivos habilitados para descarga y uso por repartidores (RF-21).",
+            "Motivos habilitados para descarga y uso por repartidores.",
             "text-success",
             "Filtrar Activos →",
             Url.Page("/MotivosNoEntrega/Index", new { estadoFiltro = "activos" })
@@ -83,7 +83,7 @@
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
             "Sincronización Móvil",
-            "RF-21 OK",
+            "OK",
             "Los motivos activos se encuentran disponibles para la app SQLite del repartidor.",
             "text-primary",
             "Ver Catálogo ↓",
@@ -280,7 +280,7 @@
                     <div class="form-check form-switch mb-0">
                         <input asp-for="NuevoMotivo.IniciarActivo" class="form-check-input" type="checkbox" id="checkIniciarActivo" checked />
                         <label class="form-check-label small" for="checkIniciarActivo">
-                            Habilitar de inmediato para descarga en la app del repartidor (RF-21)
+                            Habilitar de inmediato para descarga en la app del repartidor
                         </label>
                     </div>
                 </div>

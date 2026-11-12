@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Enums;
 namespace UltimaMilla.Application.Ports;
 
 /// <summary>
-/// Acceso a datos del retiro en domicilio (RF 37 a RF 41). No confirma cambios: lo hace IUnitOfWork.
+/// Acceso a datos del retiro en domicilio. No confirma cambios: lo hace IUnitOfWork.
 /// Las lecturas con inquilino quedan acotadas al operador por el filtro global; las que no tienen sesión
 /// (seguimiento público, clave de API) lo omiten de forma explícita y se acotan por código o por comercio.
 /// </summary>
@@ -34,7 +34,7 @@ public interface IRetiroRepository
 
     Task<List<Retiro>> ListarPorOperadorAsync(Guid operadorId, EstadoRetiro? estado, CancellationToken cancellationToken = default);
 
-    /// <summary>Cantidad de retiros del operador por estado, para el tablero de operación y los reportes (RF 41).</summary>
+    /// <summary>Cantidad de retiros del operador por estado, para el tablero de operación y los reportes.</summary>
     Task<IReadOnlyDictionary<EstadoRetiro, int>> ContarPorEstadoAsync(Guid operadorId, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Retiro retiro, CancellationToken cancellationToken = default);

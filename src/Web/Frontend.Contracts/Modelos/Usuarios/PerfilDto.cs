@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
 /// <summary>
-/// Representa un rol o perfil del sistema (RF-31).
+/// Representa un rol o perfil del sistema.
 /// </summary>
 public record PerfilDto
 {

@@ -20,7 +20,7 @@ public record TransmisionUbicacionRequest(
 );
 
 /// <summary>
-/// Hub de SignalR para la supervision y streaming de telemetria de operaciones en tiempo real (Hito 4 / RNF 6.10).
+/// Hub de SignalR para la supervision y streaming de telemetria de operaciones en tiempo real.
 /// Permite recibir coordenadas GPS periodicas desde UltimaMilla.Mobile, persistir la posicion
 /// en base de datos para la ultima ubicacion conocida y retransmitirlas al Tablero en Vivo.
 /// </summary>

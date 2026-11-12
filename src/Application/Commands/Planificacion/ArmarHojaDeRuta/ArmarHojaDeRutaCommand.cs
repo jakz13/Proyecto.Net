@@ -4,7 +4,7 @@ namespace UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 
 /// <summary>
 /// Armado y liberación de una hoja de ruta para un repartidor, un vehículo y una jornada. La hoja de ruta puede ser mixta:
-/// entregas de envíos y retiros en domicilio (RF 39). Con SoloValidar se aplican las mismas restricciones pero no se asigna ni se guarda nada.
+/// entregas de envíos y retiros en domicilio. Con SoloValidar se aplican las mismas restricciones pero no se asigna ni se guarda nada.
 /// </summary>
 public record ArmarHojaDeRutaCommand(
     Guid RepartidorId,

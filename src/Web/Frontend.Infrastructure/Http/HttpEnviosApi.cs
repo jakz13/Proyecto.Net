@@ -30,7 +30,7 @@ public class HttpEnviosApi : IEnviosApi
 
     /// <summary>
     /// Consulta el listado de envíos aplicando filtros de estado, fecha, búsqueda y paginación.
-    /// Cuando <see cref="FiltroEnviosDto.SoloEnviosPropiosComercio"/> es verdadero, consulta el endpoint aislado del comercio (UC-28).
+    /// Cuando <see cref="FiltroEnviosDto.SoloEnviosPropiosComercio"/> es verdadero, consulta el endpoint aislado del comercio.
     /// </summary>
     public async Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default)
     {
@@ -120,7 +120,7 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Consulta los envíos propios del comercio autenticado en <c>GET /api/comercio/envios</c> (UC-28).
+    /// Consulta los envíos propios del comercio autenticado en <c>GET /api/comercio/envios</c>.
     /// </summary>
     private async Task<ResultadoPaginadoDto<EnvioDto>?> ListarEnviosDelComercioAsync(FiltroEnviosDto filtro, CancellationToken cancelacion)
     {
@@ -438,7 +438,7 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Declara formalmente un envío como extraviado (UC-43).
+    /// Declara formalmente un envío como extraviado.
     /// </summary>
     public Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default)
     {
@@ -501,7 +501,7 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Carga y procesa masivamente un archivo de envíos calculando tarifas y reconociendo lotes duplicados (UC-25, RF-07).
+    /// Carga y procesa masivamente un archivo de envíos calculando tarifas y reconociendo lotes duplicados.
     /// </summary>
     public async Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
         byte[] contenidoArchivo,
@@ -715,7 +715,7 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Solicita al backend la generación de etiquetas para los envíos admitidos seleccionados y arma el documento descargable (UC-27).
+    /// Solicita al backend la generación de etiquetas para los envíos admitidos seleccionados y arma el documento descargable.
     /// </summary>
     public async Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
         IReadOnlyList<Guid> envioIds,
@@ -772,7 +772,7 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución.
     /// </summary>
     public async Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(Guid envioId, CancellationToken cancelacion = default)
     {

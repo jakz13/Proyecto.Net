@@ -8,9 +8,9 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.MotivosNoEntrega;
 
 /// <summary>
-/// Modelo de página para el caso de uso UC-05: Gestionar catálogo de motivos de no entrega.
+/// Modelo de página para el caso de uso Gestionar catálogo de motivos de no entrega.
 /// Permite al Administrador dar de alta, editar y activar/desactivar motivos,
-/// reflejando de inmediato el catálogo que sincronizará la aplicación móvil del repartidor (RF-04, RF-21).
+/// reflejando de inmediato el catálogo que sincronizará la aplicación móvil del repartidor.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel
@@ -61,7 +61,7 @@ public class IndexModel : PageModel
         try
         {
             var creado = await _motivosApi.CrearMotivoAsync(NuevoMotivo);
-            MensajeExito = $"Motivo '{creado.Codigo}' dado de alta exitosamente. Disponible para sincronización con la app móvil (RF-21).";
+            MensajeExito = $"Motivo '{creado.Codigo}' dado de alta exitosamente. Disponible para sincronización con la app móvil.";
             return RedirectToPage(new { busqueda = Busqueda, estadoFiltro = EstadoFiltro });
         }
         catch (ApiExcepcion ex)
@@ -108,7 +108,7 @@ public class IndexModel : PageModel
             await _motivosApi.CambiarEstadoAsync(id, nuevoEstado);
             if (nuevoEstado)
             {
-                MensajeExito = "Motivo activado. Se incluirá en la próxima sincronización de la app del repartidor (RF-21).";
+                MensajeExito = "Motivo activado. Se incluirá en la próxima sincronización de la app del repartidor.";
             }
             else
             {

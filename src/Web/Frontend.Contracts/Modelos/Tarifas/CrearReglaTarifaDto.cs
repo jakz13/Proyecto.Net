@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 
 /// <summary>
-/// Modelo para dar de alta una regla dentro de una nueva versión del cuadro tarifario (UC-03, RF-03).
+/// Modelo para dar de alta una regla dentro de una nueva versión del cuadro tarifario.
 /// </summary>
 public record CrearReglaTarifaDto
 {

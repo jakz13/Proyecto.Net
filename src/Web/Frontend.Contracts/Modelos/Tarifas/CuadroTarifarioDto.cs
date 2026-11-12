@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 
 /// <summary>
-/// Representa una versión específica del cuadro tarifario de un operador (UC-03, RF-03).
+/// Representa una versión específica del cuadro tarifario de un operador.
 /// </summary>
 public record CuadroTarifarioDto
 {

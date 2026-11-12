@@ -15,7 +15,7 @@ public static class IncidenciasEndpoints
     public static IEndpointRouteBuilder MapIncidenciasEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/backoffice/incidencias")
-            .WithTags("Incidencias (UC-11)")
+            .WithTags("Incidencias")
             .RequireAuthorization(PoliticasApi.Operaciones);
 
         group.MapPost("/", (
@@ -28,7 +28,7 @@ public static class IncidenciasEndpoints
             return Results.Created($"/api/backoffice/incidencias/{resultado.Id}", resultado);
         }))
         .WithName("AbrirIncidencia")
-        .WithSummary("Registrar una incidencia (UC-11)")
+        .WithSummary("Registrar una incidencia")
         .Produces<IncidenciaResultDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 
 /// <summary>
-/// DTO con validaciones para la publicación de una nueva versión de reglas operativas (UC-04, RF-04).
+/// DTO con validaciones para la publicación de una nueva versión de reglas operativas.
 /// </summary>
 public record CrearReglaOperativaDto
 {

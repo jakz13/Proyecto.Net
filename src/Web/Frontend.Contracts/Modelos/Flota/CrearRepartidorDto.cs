@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Flota;
 
 /// <summary>
-/// Parámetros requeridos para dar de alta a un repartidor y opcionalmente asociarlo a un vehículo (RF-06).
+/// Parámetros requeridos para dar de alta a un repartidor y opcionalmente asociarlo a un vehículo.
 /// </summary>
 public record CrearRepartidorDto
 {

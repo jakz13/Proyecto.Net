@@ -1,7 +1,7 @@
 namespace UltimaMilla.Application.DTOs.Operador;
 
 /// <summary>
-/// DTO para la creación de una regla tarifaria dentro de un nuevo cuadro (UC-03, RF-03).
+/// DTO para la creación de una regla tarifaria dentro de un nuevo cuadro.
 /// </summary>
 public record CrearReglaTarifaDto(
     Guid? ZonaCoberturaId,
@@ -35,7 +35,7 @@ public record ReglaTarifaDetalleDto(
 );
 
 /// <summary>
-/// DTO con la información completa y versionada de un cuadro tarifario (UC-03).
+/// DTO con la información completa y versionada de un cuadro tarifario.
 /// </summary>
 public record CuadroTarifarioDetalleDto(
     Guid Id,

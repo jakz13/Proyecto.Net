@@ -3,7 +3,7 @@ using RabbitMQ.Client;
 namespace UltimaMilla.Infrastructure.Messaging;
 
 /// <summary>
-/// Topología de colas del procesamiento asíncrono (§6.8):
+/// Topología de colas del procesamiento asíncrono:
 /// exchange de eventos → cola del worker; reintentos con espera creciente mediante colas con TTL que devuelven el mensaje a la
 /// cola del worker; y cola de fallidos para los mensajes que agotaron sus reintentos.
 /// </summary>

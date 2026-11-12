@@ -7,7 +7,7 @@ using UltimaMilla.Application.Ports;
 namespace UltimaMilla.Application.Queries.Operador.GestionTarifas;
 
 /// <summary>
-/// Consulta para obtener el detalle de una versión específica del cuadro tarifario por su identificador (UC-03, RNF 6.7).
+/// Consulta para obtener el detalle de una versión específica del cuadro tarifario por su identificador.
 /// </summary>
 public record ObtenerCuadroTarifarioPorIdQuery(Guid Id) : IRequest<CuadroTarifarioDetalleDto>;
 

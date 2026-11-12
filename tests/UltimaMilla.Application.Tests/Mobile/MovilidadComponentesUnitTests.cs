@@ -437,7 +437,7 @@ public class MovilidadComponentesUnitTests
     }
 
     // =========================================================================
-    // 4. SEGURIDAD CRIPTOGRÁFICA Y ALMACENAMIENTO SQLCIPHER (RNF 6.3, RNF 6.11)
+    // 4. SEGURIDAD CRIPTOGRÁFICA Y ALMACENAMIENTO SQLCIPHER
     // =========================================================================
 
     public record EstadoCifradoDiagnosticoDto(
@@ -584,7 +584,7 @@ public class MovilidadComponentesUnitTests
     }
 
     // =========================================================================
-    // 6. VALIDACIÓN BIOMÉTRICA EN OPERACIONES SENSIBLES (RNF 6.3, RNF 6.11)
+    // 6. VALIDACIÓN BIOMÉTRICA EN OPERACIONES SENSIBLES
     // =========================================================================
 
     public interface ITestBiometricAuthService

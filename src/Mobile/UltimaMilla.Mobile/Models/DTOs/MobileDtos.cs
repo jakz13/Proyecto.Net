@@ -62,7 +62,7 @@ public record ParadaNavegacionDto(
     DestinatarioContactoDto Destinatario,
     ResumenBultosParadaDto ResumenBultos,
     bool EsParadaActual,
-    // "Entrega" o "Retiro" (retiro en domicilio, RF 37 a 41). En los retiros EnvioId viene vacío y RetiroId identifica la operación
+    // "Entrega" o "Retiro" (retiro en domicilio). En los retiros EnvioId viene vacío y RetiroId identifica la operación
     string Tipo = "Entrega",
     Guid? RetiroId = null
 );

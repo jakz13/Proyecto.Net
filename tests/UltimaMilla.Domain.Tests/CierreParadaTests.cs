@@ -43,7 +43,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC20_EntregaExitosa_ConPruebaValida_TransicionaAEntregadoYGeneraPruebaEIntento()
+    public void EntregaExitosa_ConPruebaValida_TransicionaAEntregadoYGeneraPruebaEIntento()
     {
         // Arrange
         var rutaId = Guid.NewGuid();
@@ -81,7 +81,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC20_EntregaExitosa_FaltandoFirmaExigidaPorRegla_LanzaDomainValidationException()
+    public void EntregaExitosa_FaltandoFirmaExigidaPorRegla_LanzaDomainValidationException()
     {
         // Arrange
         var rutaId = Guid.NewGuid();
@@ -107,7 +107,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC20_EntregaExitosa_EnvioNoEnTransito_LanzaDomainValidationException()
+    public void EntregaExitosa_EnvioNoEnTransito_LanzaDomainValidationException()
     {
         // Arrange
         var envio = new Envio(Guid.NewGuid(), _operadorId, Guid.NewGuid(), "Estandar", "TRK-ADMITIDO");
@@ -128,7 +128,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC21_IntentoFallido_PrimerIntento_TransicionaANoEntregadoYLuegoAReprogramado()
+    public void IntentoFallido_PrimerIntento_TransicionaANoEntregadoYLuegoAReprogramado()
     {
         // Arrange
         var rutaId = Guid.NewGuid();
@@ -169,7 +169,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC21_IntentoFallido_AlcanzaMaximoIntentos_TransicionaAEnDevolucion()
+    public void IntentoFallido_AlcanzaMaximoIntentos_TransicionaAEnDevolucion()
     {
         // Arrange
         var rutaId = Guid.NewGuid();
@@ -209,7 +209,7 @@ public class CierreParadaTests
     }
 
     [Fact]
-    public void UC21_IntentoFallido_ConMotivoInactivo_LanzaDomainValidationException()
+    public void IntentoFallido_ConMotivoInactivo_LanzaDomainValidationException()
     {
         // Arrange
         var rutaId = Guid.NewGuid();

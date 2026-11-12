@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace UltimaMilla.Backoffice.Pages.Observabilidad;
 
 /// <summary>
-/// Modelo de página para el Tablero Técnico de Observabilidad de la Plataforma (UC-44, §6.12).
+/// Modelo de página para el Tablero Técnico de Observabilidad de la Plataforma.
 /// Permite al Administrador técnico monitorear métricas clave de rendimiento, percentiles de latencia,
 /// estado de colas, sincro offline, relación de aciertos de caché y acceder al dashboard de Grafana.
 /// </summary>

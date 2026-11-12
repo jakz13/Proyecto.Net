@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Tablero;
 
 /// <summary>
-/// Tablero de operación en vivo del despachador (UC-12, RF-29): hojas de ruta en ejecución del operador de la sesión,
+/// Tablero de operación en vivo del despachador: hojas de ruta en ejecución del operador de la sesión,
 /// última posición conocida de cada unidad y envíos en riesgo de incumplir su ventana comprometida.
 /// </summary>
 public record ObtenerTableroOperacionQuery : IRequest<TableroOperacionDto>;

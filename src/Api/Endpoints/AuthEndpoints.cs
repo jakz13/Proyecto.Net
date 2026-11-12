@@ -13,7 +13,7 @@ public static class AuthEndpoints
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/auth")
-            .WithTags("Autenticación y Autorización (UC-40)");
+            .WithTags("Autenticación y Autorización");
 
         var loginHandler = async (
             [FromBody] IniciarSesionRequest request,
@@ -48,7 +48,7 @@ public static class AuthEndpoints
             .AllowAnonymous()
             .RequireRateLimiting(PoliticaLimiteLogin)
             .WithName("IniciarSesion")
-            .WithSummary("Iniciar sesión y obtener token JWT (UC-40)")
+            .WithSummary("Iniciar sesión y obtener token JWT")
             .WithDescription("Valida las credenciales del usuario, previene fuerza bruta bloqueando temporalmente tras reiterados fallos, y emite el token JWT con su perfil, operador y comercio asignado.")
             .Produces<IniciarSesionResultadoDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
@@ -61,7 +61,7 @@ public static class AuthEndpoints
         app.MapPost("/api/auth/login", loginHandler)
             .AllowAnonymous()
             .RequireRateLimiting(PoliticaLimiteLogin)
-            .WithTags("Autenticación y Autorización (UC-40)")
+            .WithTags("Autenticación y Autorización")
             .ExcludeFromDescription();
 
         return app;

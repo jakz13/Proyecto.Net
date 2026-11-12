@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 namespace UltimaMilla.Backoffice.Pages.Comercios;
 
 /// <summary>
-/// Controlador de la vista principal del caso de uso UC-01: Gestión de comercios y usuarios.
+/// Controlador de la vista principal del caso de uso Gestión de comercios y usuarios.
 /// Permite listar, filtrar, buscar, dar de alta/baja y modificar comercios y usuarios del operador.
 /// </summary>
 [Authorize(Roles = "Administrador")]

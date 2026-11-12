@@ -4,7 +4,7 @@ namespace UltimaMilla.SeguimientoPublico.Servicios;
 
 /// <summary>
 /// Mantiene la conexión en vivo del seguimiento público: avisa a la página cuando el envío que se está mirando cambia de estado.
-/// No requiere sesión y no recibe datos del envío, solo la señal para volver a consultar (RF-25, RF-36).
+/// No requiere sesión y no recibe datos del envío, solo la señal para volver a consultar.
 /// Si no hay conexión (modo mock, API caída) la página sigue funcionando con la consulta habitual.
 /// </summary>
 public sealed class TiempoRealSeguimientoServicio : IAsyncDisposable

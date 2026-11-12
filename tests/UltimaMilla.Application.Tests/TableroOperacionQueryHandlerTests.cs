@@ -148,7 +148,7 @@ public class TableroOperacionQueryHandlerTests
     }
 
     // =========================================================================
-    // DETECCIÓN DE RIESGOS DE VENTANA COMPROMETIDA (RF-29)
+    // DETECCIÓN DE RIESGOS DE VENTANA COMPROMETIDA
     // =========================================================================
 
     [Fact]

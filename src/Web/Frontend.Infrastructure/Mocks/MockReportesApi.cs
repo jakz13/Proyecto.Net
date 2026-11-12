@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para reportes de gestión operativa y comercial (UC-13, RF-30).
+/// Implementación simulada en memoria para reportes de gestión operativa y comercial.
 /// </summary>
 public class MockReportesApi : IReportesApi
 {

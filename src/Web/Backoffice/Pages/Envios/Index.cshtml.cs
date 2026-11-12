@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Incidencias;
 namespace UltimaMilla.Backoffice.Pages.Envios;
 
 /// <summary>
-/// Controlador de la vista de gestión de envíos y declaración formal de extravío (UC-43, RF-11, RF-12).
+/// Controlador de la vista de gestión de envíos y declaración formal de extravío.
 /// </summary>
 [Authorize(Roles = "Despachador")]
 public class IndexModel : PageModel
@@ -69,7 +69,7 @@ public class IndexModel : PageModel
 
         if (EstadoFiltro == "CandidatosExtravio")
         {
-            // Precondición UC-43: Un envío 'en depósito' o 'en tránsito' no pudo ser ubicado
+            // Precondición Un envío 'en depósito' o 'en tránsito' no pudo ser ubicado
             filtrados = filtrados.Where(e => e.Estado == EstadoEnvioDto.EnDeposito || e.Estado == EstadoEnvioDto.EnTransito);
         }
         else if (EstadoFiltro == "EnDeposito")
@@ -93,7 +93,7 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
-    /// Declara formalmente el envío como extraviado, registra el evento histórico y emite aviso al comercio (UC-43).
+    /// Declara formalmente el envío como extraviado, registra el evento histórico y emite aviso al comercio.
     /// </summary>
     public async Task<IActionResult> OnPostDeclararExtraviadoAsync()
     {

@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Domain.Entities.Retiros;
 
-/// <summary>Registro inmutable de cada cambio del retiro, con marca temporal, origen, responsable y posición cuando corresponda (RF 12 aplicado al retiro).</summary>
+/// <summary>Registro inmutable de cada cambio del retiro, con marca temporal, origen, responsable y posición cuando corresponda.</summary>
 public class EventoRetiro : Entity
 {
     public Guid RetiroId { get; init; }

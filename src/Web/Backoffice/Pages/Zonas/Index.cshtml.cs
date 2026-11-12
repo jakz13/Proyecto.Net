@@ -7,8 +7,8 @@ using UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 namespace UltimaMilla.Backoffice.Pages.Zonas;
 
 /// <summary>
-/// Vista principal del caso de uso UC-02: Configurar zonas de cobertura y franjas horarias.
-/// Permite visualizar polígonos, filtrar, ver horarios de entrega y alternar estado activo/inactivo (RF-02).
+/// Vista principal del caso de uso Configurar zonas de cobertura y franjas horarias.
+/// Permite visualizar polígonos, filtrar, ver horarios de entrega y alternar estado activo/inactivo.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel

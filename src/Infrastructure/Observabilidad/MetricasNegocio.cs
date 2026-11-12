@@ -8,7 +8,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Infrastructure.Observabilidad;
 
 /// <summary>
-/// Implementación del puerto <see cref="IMetricasNegocio"/> sobre <see cref="System.Diagnostics.Metrics"/> (UC-44, §6.12).
+/// Implementación del puerto <see cref="IMetricasNegocio"/> sobre <see cref="System.Diagnostics.Metrics"/>.
 /// Define el único Meter <c>UltimaMilla</c> con los contadores y gauges observados por Prometheus.
 /// Los gauges cachean su lectura unos segundos y nunca propagan excepciones si la base o RabbitMQ no están disponibles.
 /// </summary>
@@ -176,7 +176,7 @@ public sealed class MetricasNegocio : IMetricasNegocio, IDisposable
         }
         catch
         {
-            // Resiliencia (§7): si la base de datos o RabbitMQ no están disponibles, se conserva el último valor conocido
+            // Resiliencia: si la base de datos o RabbitMQ no están disponibles, se conserva el último valor conocido
             Interlocked.Exchange(ref _ticksUltimaActualizacionGauges, ahoraTicks);
         }
         finally

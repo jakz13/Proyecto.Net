@@ -66,7 +66,7 @@ public class SeedingDomainTests
             plazoComprometidoUrgente: TimeSpan.FromHours(24)
         );
 
-        // Act - Simulación de UC-20 (Entrega exitosa)
+        // Act - Simulación de entrega exitosa
         envio.RegistrarEntregaExitosa(
             Parada1Id,
             reglaOperativa,
@@ -120,7 +120,7 @@ public class SeedingDomainTests
             "Cliente ausente / No atiende llamadas"
         );
 
-        // Act - Simulación de UC-21 (Intento fallido)
+        // Act - Simulación de intento fallido
         var (intento, estadoFinal, intentosRestantes) = envio.RegistrarIntentoFallido(
             Parada1Id,
             motivo,

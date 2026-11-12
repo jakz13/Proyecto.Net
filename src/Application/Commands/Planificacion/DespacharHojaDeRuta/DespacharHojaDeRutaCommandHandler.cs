@@ -66,7 +66,7 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
                 "La hoja de ruta ya se encontraba despachada (operación idempotente).");
         }
 
-        // Una hoja de ruta con solo retiros no tiene bultos que cargar en el depósito (RF 39): puede salir sin escaneo de carga
+        // Una hoja de ruta con solo retiros no tiene bultos que cargar en el depósito: puede salir sin escaneo de carga
         var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
         var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
         var tieneRetiros = paradasVigentes.Any(p => p.EsRetiro);
@@ -90,9 +90,9 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
             throw new DomainValidationException($"La hoja de ruta está en estado '{ruta.Estado}': la carga del vehículo debe estar escaneada y sincronizada antes de despachar.");
 
         if (await _rutaRepository.ExisteRutaSinRendirAsync(ruta.RepartidorId!.Value, ruta.Id, cancellationToken))
-            throw new DomainValidationException("El repartidor tiene otra hoja de ruta despachada sin rendir (UC-16).");
+            throw new DomainValidationException("El repartidor tiene otra hoja de ruta despachada sin rendir.");
 
-        // Un envío viaja solo si todos sus bultos disponibles para ruta fueron cargados (RF-34)
+        // Un envío viaja solo si todos sus bultos disponibles para ruta fueron cargados
         var aDespachar = new List<Envio>();
         var aRetirar = new List<Envio>();
         foreach (var envio in envios.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))

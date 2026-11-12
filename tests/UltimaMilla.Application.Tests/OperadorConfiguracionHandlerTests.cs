@@ -36,8 +36,7 @@ public class OperadorConfiguracionHandlerTests
         return motivo;
     }
 
-    // ---------- UC-04 ----------
-
+    
     [Fact]
     public async Task Publicar_PrimeraVersion_QuedaVigenteConVersionUno()
     {
@@ -178,8 +177,7 @@ public class OperadorConfiguracionHandlerTests
             new ObtenerReglaOperativaQueryHandler(_reglas, _tenant).Handle(new ObtenerReglaOperativaQuery(ajena.Id), default));
     }
 
-    // ---------- UC-05 ----------
-
+    
     [Fact]
     public async Task CrearMotivo_Valido_QuedaActivoYConCodigoNormalizado()
     {
@@ -416,7 +414,7 @@ public class OperadorConfiguracionHandlerTests
         Assert.False(m.Activo);
     }
 
-    // ---------- Simulación (UC-04) ----------
+    // ---------- Simulación ----------
 
     [Fact]
     public async Task Simular_SinReglaVigente_DevuelveNoExitoso()

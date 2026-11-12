@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Deposito.ListarEnviosAdmitidos;
 
 /// <summary>
-/// Consulta los envíos en estado 'Admitido' que se encuentran pendientes de recepción física en depósito (UC-14, RF-10).
+/// Consulta los envíos en estado 'Admitido' que se encuentran pendientes de recepción física en depósito.
 /// </summary>
 public record ListarEnviosAdmitidosQuery() : IRequest<IReadOnlyList<EnvioAdmitidoDto>>;
 

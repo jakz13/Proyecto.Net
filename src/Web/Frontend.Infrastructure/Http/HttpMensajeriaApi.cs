@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Cliente HTTP para consumir los endpoints de mensajería asíncrona y cola de fallidos (UC-42).
+/// Cliente HTTP para consumir los endpoints de mensajería asíncrona y cola de fallidos.
 /// </summary>
 public class HttpMensajeriaApi : IMensajeriaApi
 {

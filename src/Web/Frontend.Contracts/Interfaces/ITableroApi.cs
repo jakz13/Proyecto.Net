@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de API para el monitoreo del tablero de operación en vivo de la flota (UC-12, RF-29).
+/// Contrato de API para el monitoreo del tablero de operación en vivo de la flota.
 /// </summary>
 public interface ITableroApi
 {

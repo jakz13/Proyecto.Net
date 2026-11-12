@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Parámetros para declarar formalmente un envío como extraviado (UC-43, RF-11, RF-12).
+/// Parámetros para declarar formalmente un envío como extraviado.
 /// Precondición: El envío debe encontrarse en estado 'EnDeposito' o 'EnTransito'.
 /// </summary>
 public record DeclararExtraviadoDto

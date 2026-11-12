@@ -27,7 +27,7 @@ if (usarMocks)
 }
 else
 {
-    // Registra los clientes HTTP reales para consultar directamente el backend (UC-33 e identidad visual)
+    // Registra los clientes HTTP reales para consultar directamente el backend (seguimiento e identidad visual)
     builder.Services.AgregarHttpClientsFrontend(urlBaseApi);
 }
 

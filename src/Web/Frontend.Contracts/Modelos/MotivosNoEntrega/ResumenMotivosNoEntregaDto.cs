@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 
 /// <summary>
-/// Métricas globales del catálogo de motivos de no entrega y estado de sincronización (UC-05, RF-21).
+/// Métricas globales del catálogo de motivos de no entrega y estado de sincronización.
 /// </summary>
 public class ResumenMotivosNoEntregaDto
 {

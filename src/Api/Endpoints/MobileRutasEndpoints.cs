@@ -28,7 +28,7 @@ public static class MobileRutasEndpoints
     public static IEndpointRouteBuilder MapMobileRutasEndpoints(this IEndpointRouteBuilder app)
     {
         // =========================================================================
-        // UC-17: DESCARGAR HOJAS DE RUTA DE LA JORNADA (RF-18)
+        // DESCARGAR HOJAS DE RUTA DE LA JORNADA
         // =========================================================================
         app.MapGet("/api/mobile/v1/rutas", async (
             [FromQuery] DateOnly? fecha,
@@ -49,10 +49,10 @@ public static class MobileRutasEndpoints
                 return Results.Forbid();
             }
         })
-        .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+        .WithTags("Mobile - Descarga de hoja de ruta")
         .RequireAuthorization(PoliticasApi.Repartidor)
         .WithName("DescargarHojasDeRuta")
-        .WithSummary("UC-17: Descargar las hojas de ruta de la jornada")
+        .WithSummary("Descargar las hojas de ruta de la jornada")
         .WithDescription("Devuelve las hojas de ruta liberadas del repartidor autenticado para la fecha indicada (por defecto hoy), con paradas, destinatarios, bultos y la configuración necesaria para operar sin conexión.")
         .Produces<DescargaHojasDeRutaDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -86,7 +86,7 @@ public static class MobileRutasEndpoints
         };
 
         app.MapGet("/api/mobile/v1/rutas/activa", obtenerRutaActivaHandler)
-            .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+            .WithTags("Mobile - Descarga de hoja de ruta")
             .RequireAuthorization(PoliticasApi.Repartidor)
             .WithName("ObtenerRutaActivaRepartidor")
             .WithSummary("Obtener la hoja de ruta activa del repartidor autenticado")
@@ -118,7 +118,7 @@ public static class MobileRutasEndpoints
                 return Results.Forbid();
             }
         })
-        .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+        .WithTags("Mobile - Descarga de hoja de ruta")
         .RequireAuthorization(PoliticasApi.Repartidor)
         .WithName("ObtenerRutasActivasRepartidor")
         .WithSummary("Obtener todas las hojas de ruta vigentes del repartidor autenticado")
@@ -128,12 +128,12 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         app.MapGet("/api/mobile/v1/rutas/mi-ruta-activa", obtenerRutaActivaHandler)
-            .WithTags("Mobile - Descarga de hoja de ruta (UC-17)")
+            .WithTags("Mobile - Descarga de hoja de ruta")
             .RequireAuthorization(PoliticasApi.Repartidor)
             .ExcludeFromDescription();
 
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
-            .WithTags("Mobile - Operación en Calle (UC-18, UC-19, UC-20, UC-21)")
+            .WithTags("Mobile - Operación en Calle")
             .RequireAuthorization(PoliticasApi.Repartidor)
             .AddEndpointFilter(async (contexto, siguiente) =>
             {
@@ -198,7 +198,7 @@ public static class MobileRutasEndpoints
             .ExcludeFromDescription();
 
         // =========================================================================
-        // UC-18: ESCANEAR BULTOS AL CARGAR EL VEHÍCULO (RF-19)
+        // ESCANEAR BULTOS AL CARGAR EL VEHÍCULO
         // =========================================================================
 
         group.MapPost("/carga/validar", async (
@@ -227,7 +227,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("ValidarEscaneoCarga")
-        .WithSummary("UC-18: Validar escaneo de bultos cargados")
+        .WithSummary("Validar escaneo de bultos cargados")
         .WithDescription("Contrasta los bultos escaneados contra los asignados a la hoja de ruta. Reporta bultos correctos, faltantes y sobrantes.")
         .Produces<ResultadoVerificacionCargaDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -265,8 +265,8 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("ConfirmarCarga")
-        .WithSummary("UC-18: Confirmar la carga del vehículo")
-        .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache (UC-09). No transiciona envíos.")
+        .WithSummary("Confirmar la carga del vehículo")
+        .WithDescription("Registra qué bultos se cargaron efectivamente en el vehículo y deja la ruta lista para que el operario la despache. No transiciona envíos.")
         .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -300,7 +300,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("IniciarRecorrido")
-        .WithSummary("UC-18 / UC-19: Iniciar recorrido en calle de la hoja de ruta")
+        .WithSummary("Iniciar recorrido en calle de la hoja de ruta")
         .WithDescription("Pasa la hoja de ruta de Despachada a EnTransito, emite el evento de inicio hacia el Outbox y habilita la confirmación de entregas.")
         .Produces<IniciarRecorridoResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -309,7 +309,7 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // UC-19: NAVEGAR ENTRE PARADAS
+        // NAVEGAR ENTRE PARADAS
         // =========================================================================
 
         group.MapGet("/paradas", async (
@@ -337,7 +337,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("ObtenerSecuenciaParadas")
-        .WithSummary("UC-19: Obtener secuencia de paradas de la ruta")
+        .WithSummary("Obtener secuencia de paradas de la ruta")
         .WithDescription("Obtiene la lista de paradas ordenadas de la hoja de ruta en curso con datos de destino, destinatario y bultos.")
         .Produces<List<ParadaNavegacionDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -379,7 +379,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("SeleccionarParadaActual")
-        .WithSummary("UC-19: Iniciar navegación hacia parada")
+        .WithSummary("Iniciar navegación hacia parada")
         .WithDescription("Marca la parada en estado EnCamino y notifica vía Outbox (SignalR en tiempo real al Backoffice).")
         .Produces<ParadaActualizadaDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -421,7 +421,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("RegistrarArriboParada")
-        .WithSummary("UC-19: Registrar arribo a parada (EnSitio)")
+        .WithSummary("Registrar arribo a parada (EnSitio)")
         .WithDescription("Marca la parada en estado EnSitio cuando el repartidor llega al domicilio del destinatario.")
         .Produces<ParadaActualizadaDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -430,7 +430,7 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // UC-20: REGISTRAR ENTREGA EXITOSA (RF-20, RF-11, RF-12)
+        // REGISTRAR ENTREGA EXITOSA
         // =========================================================================
         group.MapPost("/paradas/{paradaId:guid}/entrega-exitosa", async (
             [FromRoute] Guid hojaDeRutaId,
@@ -473,7 +473,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("RegistrarEntregaExitosa")
-        .WithSummary("UC-20: Registrar entrega exitosa en parada")
+        .WithSummary("Registrar entrega exitosa en parada")
         .WithDescription("Registra la prueba de entrega (firma, foto, documento) e intento exitoso, transiciona el envío a Entregado, completa la parada, genera EventoEnvio e integration event para webhooks y notificaciones.")
         .Produces<EntregaExitosaResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -483,7 +483,7 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // CAMBIO 2.1: REGISTRAR ENTREGA PARCIAL POR BULTOS (RF-31, RF-32, RF-33, RF-34)
+        // CAMBIO 2.1: REGISTRAR ENTREGA PARCIAL POR BULTOS
         // =========================================================================
         group.MapPost("/paradas/{paradaId:guid}/entrega-parcial", async (
             [FromRoute] Guid hojaDeRutaId,
@@ -526,7 +526,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("RegistrarEntregaParcial")
-        .WithSummary("RF-31 a RF-34: Registrar entrega parcial de bultos en parada")
+        .WithSummary("Registrar entrega parcial de bultos en parada")
         .WithDescription("Registra mediante escaneo qué bultos se entregan y el motivo de no entrega para los restantes, asocia la prueba de entrega a los bultos entregados y deriva el estado del envío.")
         .Produces<EntregaParcialResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -535,7 +535,7 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // UC-21: REGISTRAR INTENTO DE ENTREGA FALLIDO (RF-21, RF-04, RF-11)
+        // REGISTRAR INTENTO DE ENTREGA FALLIDO
         // =========================================================================
         group.MapPost("/paradas/{paradaId:guid}/intento-fallido", async (
             [FromRoute] Guid hojaDeRutaId,
@@ -576,7 +576,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("RegistrarIntentoFallido")
-        .WithSummary("UC-21: Registrar intento de entrega fallido en parada")
+        .WithSummary("Registrar intento de entrega fallido en parada")
         .WithDescription("Registra incidencia con motivo del catálogo del operador. Ejecuta doble transición: 1) EnTransito a NoEntregado; 2) Evaluación contra ReglaOperativa (Reprogramado o EnDevolucion). Marca parada como fallida y notifica.")
         .Produces<ResultadoIntentoFallidoDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -586,7 +586,7 @@ public static class MobileRutasEndpoints
         .WithOpenApi();
 
         // =========================================================================
-        // UC-22: GESTIONAR DEVOLUCIÓN EN LA CALLE (RF-22)
+        // GESTIONAR DEVOLUCIÓN EN LA CALLE
         // =========================================================================
         group.MapPost("/paradas/{paradaId:guid}/retiro-devolucion", async (
             [FromRoute] Guid hojaDeRutaId,
@@ -623,7 +623,7 @@ public static class MobileRutasEndpoints
             }
         })
         .WithName("RegistrarRetiroDevolucion")
-        .WithSummary("UC-22: Registrar el retiro del bulto para devolverlo al depósito")
+        .WithSummary("Registrar el retiro del bulto para devolverlo al depósito")
         .WithDescription("Para un envío en devolución, marca sus bultos en retorno al depósito y registra la devolución como en camino. Es idempotente.")
         .Produces<RetiroDevolucionResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

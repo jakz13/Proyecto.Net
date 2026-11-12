@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Queries.Comercio.ListarDevolucionesDelComercio;
 
-/// <summary>Devoluciones del comercio autenticado. Por defecto las abiertas; con SoloCerradas, las ya confirmadas (UC-32).</summary>
+/// <summary>Devoluciones del comercio autenticado. Por defecto las abiertas; con SoloCerradas, las ya confirmadas.</summary>
 public record ListarDevolucionesDelComercioQuery(
     bool SoloCerradas = false,
     int Pagina = 1,

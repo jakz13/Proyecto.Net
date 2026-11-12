@@ -13,7 +13,7 @@ using UltimaMilla.Api.Auth;
 
 namespace UltimaMilla.Api.Endpoints;
 
-/// <summary>Canales de alta distintos del portal: archivo masivo (UC-25) e integración por API (UC-26).</summary>
+/// <summary>Canales de alta distintos del portal: archivo masivo e integración por API.</summary>
 public static class AltaEnvioCanalesEndpoints
 {
     public const string PoliticaLimiteIntegracion = "integracion-api";
@@ -35,7 +35,7 @@ public static class AltaEnvioCanalesEndpoints
 
     public static IEndpointRouteBuilder MapAltaEnvioCanalesEndpoints(this IEndpointRouteBuilder app)
     {
-        // UC-26: autenticado por clave de API del comercio, no por sesión de usuario
+        // autenticado por clave de API del comercio, no por sesión de usuario
         app.MapPost("/api/integracion/v1/envios", async (
             [FromBody] AltaEnvioApiRequest request,
             [FromHeader(Name = CabeceraClaveApi)] string? claveApi,
@@ -100,7 +100,7 @@ public static class AltaEnvioCanalesEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting(PoliticaLimiteIntegracion)
-        .WithTags("Integración por API (UC-26)")
+        .WithTags("Integración por API")
         .WithName("AltaEnvioPorApi")
         .WithSummary("Alta de un envío desde el sistema del comercio")
         .WithDescription("Se autentica con la cabecera X-Api-Key (la clave de API del comercio). Si se informa referenciaExterna, reintentar con la misma referencia devuelve el envío ya admitido (200) en vez de crear otro.")
@@ -112,7 +112,7 @@ public static class AltaEnvioCanalesEndpoints
         .Produces(StatusCodes.Status429TooManyRequests)
         .WithOpenApi();
 
-        // UC-25: el comercio carga un archivo CSV con muchos envíos
+        // el comercio carga un archivo CSV con muchos envíos
         app.MapPost("/api/comercio/envios/importacion", async (
             IFormFile archivo,
             HttpRequest request,
@@ -158,7 +158,7 @@ public static class AltaEnvioCanalesEndpoints
         })
         .RequireAuthorization(PoliticasApi.Comercio)
         .DisableAntiforgery()
-        .WithTags("Alta masiva (UC-25)")
+        .WithTags("Alta masiva")
         .WithName("ImportarEnvios")
         .WithSummary("Importar envíos desde un archivo CSV")
         .WithDescription("Columnas: referencia, modalidad, destinatario, calle, numero, ciudad, peso, alto, ancho, profundo (opcionales: documento, email, telefono). Informa qué registros se procesaron y cuáles tuvieron error. Reimportar el mismo lote no genera envíos duplicados.")
@@ -168,7 +168,7 @@ public static class AltaEnvioCanalesEndpoints
         .Produces(StatusCodes.Status409Conflict)
         .WithOpenApi();
 
-        // Credenciales de la integración (UC-26): el comercio genera su clave y ve el valor una sola vez
+        // Credenciales de la integración: el comercio genera su clave y ve el valor una sola vez
         app.MapPost("/api/comercio/clave-api", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) =>
@@ -187,7 +187,7 @@ public static class AltaEnvioCanalesEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Integración por API (UC-26)")
+        .WithTags("Integración por API")
         .WithName("RegenerarClaveApi")
         .WithSummary("Generar una nueva clave de API para el comercio")
         .Produces<ClaveApiGeneradaDto>(StatusCodes.Status200OK)
@@ -206,7 +206,7 @@ public static class AltaEnvioCanalesEndpoints
                 })
                 : Results.Forbid())
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Integración por API (UC-26)")
+        .WithTags("Integración por API")
         .WithName("ObtenerClaveApiPruebas")
         .WithSummary("Clave de pruebas (sandbox) de la API pública del comercio")
         .WithOpenApi();

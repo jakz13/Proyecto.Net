@@ -5,7 +5,7 @@ using UltimaMilla.Domain.Entities.Retiros;
 namespace UltimaMilla.Application.Commands.Retiros.SolicitarRetiro;
 
 /// <summary>
-/// El comercio solicita el retiro en domicilio de uno o más bultos (RF 37): indica los bultos, el domicilio, la franja horaria y el motivo.
+/// El comercio solicita el retiro en domicilio de uno o más bultos: indica los bultos, el domicilio, la franja horaria y el motivo.
 /// La referencia externa (opcional) es el identificador de la solicitud en el sistema del comercio y la hace idempotente.
 /// </summary>
 public record SolicitarRetiroCommand(

@@ -7,7 +7,7 @@ using UltimaMilla.Domain.Entities.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionTarifas;
 
 /// <summary>
-/// Manejador para la simulación del cálculo tarifario bajo la versión vigente del operador (UC-03, RNF 6.7).
+/// Manejador para la simulación del cálculo tarifario bajo la versión vigente del operador.
 /// </summary>
 public class SimularCotizacionTarifaCommandHandler : IRequestHandler<SimularCotizacionTarifaCommand, CotizacionSimuladaDto>
 {

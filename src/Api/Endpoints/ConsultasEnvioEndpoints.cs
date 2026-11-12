@@ -21,7 +21,7 @@ public static class ConsultasEnvioEndpoints
 
     public static IEndpointRouteBuilder MapConsultasEnvioEndpoints(this IEndpointRouteBuilder app)
     {
-        // UC-33: consulta pública y anónima; limitada por tasa y sin datos personales
+        // consulta pública y anónima; limitada por tasa y sin datos personales
         app.MapGet("/api/seguimiento/{codigoSeguimiento}", async (
             string codigoSeguimiento,
             [FromServices] IMediator mediator,
@@ -36,7 +36,7 @@ public static class ConsultasEnvioEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting(PoliticaLimiteSeguimiento)
-        .WithTags("Seguimiento público (UC-33)")
+        .WithTags("Seguimiento público")
         .WithName("ConsultarSeguimientoPublico")
         .WithSummary("Consulta pública del estado y la línea de tiempo de un envío")
         .Produces<SeguimientoPublicoDto>(StatusCodes.Status200OK)
@@ -44,7 +44,7 @@ public static class ConsultasEnvioEndpoints
         .Produces(StatusCodes.Status429TooManyRequests)
         .WithOpenApi();
 
-        // UC-34: el destinatario elige otra franja desde el enlace de seguimiento
+        // el destinatario elige otra franja desde el enlace de seguimiento
         app.MapGet("/api/seguimiento/{codigoSeguimiento}/franjas", async (
             string codigoSeguimiento,
             [FromServices] IMediator mediator,
@@ -57,7 +57,7 @@ public static class ConsultasEnvioEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting(PoliticaLimiteSeguimiento)
-        .WithTags("Seguimiento público (UC-33, UC-34)")
+        .WithTags("Seguimiento público")
         .WithName("ListarFranjasDisponibles")
         .WithSummary("Franjas horarias alternativas para reprogramar la entrega")
         .Produces<FranjasDisponiblesDto>(StatusCodes.Status200OK)
@@ -93,7 +93,7 @@ public static class ConsultasEnvioEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting(PoliticaLimiteSeguimiento)
-        .WithTags("Seguimiento público (UC-33, UC-34)")
+        .WithTags("Seguimiento público")
         .WithName("SolicitarReprogramacion")
         .WithSummary("Solicitar la reprogramación de la entrega")
         .WithDescription("Evalúa la solicitud contra las reglas del operador. Siempre responde 200 con el resultado: aceptada, o rechazada con su motivo.")
@@ -175,7 +175,7 @@ public static class ConsultasEnvioEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-27: el comercio genera las etiquetas de uno o más envíos en estado Admitido para adherir al bulto
+        // el comercio genera las etiquetas de uno o más envíos en estado Admitido para adherir al bulto
         app.MapPost("/api/comercio/envios/etiquetas", async (
             [FromBody] GenerarEtiquetasEnviosRequest request,
             [FromServices] IMediator mediator,
@@ -201,7 +201,7 @@ public static class ConsultasEnvioEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Portal del comercio (UC-27)")
+        .WithTags("Portal del comercio")
         .WithName("GenerarEtiquetasEnvios")
         .WithSummary("Generar etiquetas para uno o más envíos admitidos")
         .WithDescription("Valida que los envíos seleccionados estén en estado Admitido y devuelve las etiquetas individuales por cada bulto listas para imprimir o descargar.")
@@ -211,7 +211,7 @@ public static class ConsultasEnvioEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .WithOpenApi();
 
-        // UC-28: el comercio consulta y sigue únicamente sus propios envíos
+        // el comercio consulta y sigue únicamente sus propios envíos
         app.MapGet("/api/comercio/envios", async (
             [FromQuery] string? estado,
             [FromQuery] DateOnly? desde,
@@ -237,7 +237,7 @@ public static class ConsultasEnvioEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Portal del comercio (UC-28)")
+        .WithTags("Portal del comercio")
         .WithName("ListarEnviosDelComercio")
         .WithSummary("Listado de los envíos propios del comercio")
         .WithDescription("Filtra por estado, rango de fechas de alta y texto (destinatario o código de seguimiento). Solo devuelve los envíos del comercio del usuario autenticado.")
@@ -246,7 +246,7 @@ public static class ConsultasEnvioEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        // UC-32: el comercio consulta el estado de sus devoluciones y confirma la recepción del bulto
+        // el comercio consulta el estado de sus devoluciones y confirma la recepción del bulto
         app.MapGet("/api/comercio/devoluciones", async (
             [FromQuery] bool? cerradas,
             [FromQuery] int? pagina,
@@ -269,7 +269,7 @@ public static class ConsultasEnvioEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Portal del comercio (UC-32)")
+        .WithTags("Portal del comercio")
         .WithName("ListarDevolucionesDelComercio")
         .WithSummary("Devoluciones del comercio con su estado")
         .Produces<PaginaDevolucionesDto>(StatusCodes.Status200OK)
@@ -304,7 +304,7 @@ public static class ConsultasEnvioEndpoints
             }
         })
         .RequireAuthorization(PoliticasApi.Comercio)
-        .WithTags("Portal del comercio (UC-32)")
+        .WithTags("Portal del comercio")
         .WithName("ConfirmarDevolucionRecibida")
         .WithSummary("Confirmar la recepción del bulto devuelto")
         .WithDescription("Cierra la devolución desde la perspectiva del comercio: el envío pasa a Devuelto. Es idempotente y solo aplica a envíos propios en devolución.")

@@ -18,7 +18,7 @@ using UltimaMilla.Domain.Enums;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas unitarias exhaustivas del caché distribuido (RNF 6.7 y Aclaración 3.1):
+/// Pruebas unitarias exhaustivas del caché distribuido:
 /// verifica aciertos, fallos, invalidación entre instancias, aislamiento por operador y degradación elegante ante caída del caché.
 /// </summary>
 public class CacheDistribuidoTests

@@ -7,7 +7,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas exhaustivas para el caso de uso UC-29 Configurar avisos automáticos y webhooks.
+/// Pruebas exhaustivas para Configurar avisos automáticos y webhooks.
 /// Valida flujos felices, seguridad, reglas de formato, idoneidad de eventos, persistencia e idempotencia.
 /// </summary>
 public class ConfigurarAvisosHandlerTests

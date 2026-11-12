@@ -14,7 +14,7 @@ using UltimaMilla.Infrastructure.Services;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Pruebas unitarias y de integración de UC-44 (§8.4):
+/// Pruebas unitarias y de integración de la observabilidad:
 /// - CorrelationIdMiddleware (sin encabezado, válido, inválido >64 o no imprimible, devolución en respuesta).
 /// - DistributedCacheService (aciertos y fallos incrementan las métricas correspondientes).
 /// - Endpoint GET /metrics (responde 200 OK y expone http_server_request_duration_seconds y métricas de negocio).
@@ -22,7 +22,7 @@ namespace UltimaMilla.Integration.Tests;
 public class ObservabilidadYMetricasTests
 {
     // =========================================================================
-    // 1. PRUEBAS UNITARIAS DE CorrelationIdMiddleware (§8.4)
+    // 1. PRUEBAS UNITARIAS DE CorrelationIdMiddleware
     // =========================================================================
 
     [Fact]
@@ -107,7 +107,7 @@ public class ObservabilidadYMetricasTests
     }
 
     // =========================================================================
-    // 2. PRUEBAS UNITARIAS DE DistributedCacheService (§8.4)
+    // 2. PRUEBAS UNITARIAS DE DistributedCacheService
     // =========================================================================
 
     [Fact]
@@ -143,7 +143,7 @@ public class ObservabilidadYMetricasTests
     private sealed record DatoPruebaCache(string Codigo);
 
     // =========================================================================
-    // 3. PRUEBA DE INTEGRACIÓN DE GET /metrics (§8.4)
+    // 3. PRUEBA DE INTEGRACIÓN DE GET /metrics
     // =========================================================================
 
     [Fact]

@@ -7,7 +7,7 @@ using UltimaMilla.Domain.Enums;
 
 namespace UltimaMilla.Api.Backoffice;
 
-/// <summary>Reportes de gestión: cumplimiento, motivos de no entrega, volumen y liquidación por comercio (UC-13, RF-30).</summary>
+/// <summary>Reportes de gestión: cumplimiento, motivos de no entrega, volumen y liquidación por comercio.</summary>
 public static class ReportesEndpoints
 {
     public static readonly string[] TiposValidos =
@@ -57,7 +57,7 @@ public static class ReportesEndpoints
             return Results.Ok(resultado);
         }))
         .RequireAuthorization(PoliticasApi.Supervision)
-        .WithTags("Reportes de gestión (UC-13, RF-30)")
+        .WithTags("Reportes de gestión")
         .WithName("GenerarReporteDeGestion")
         .WithSummary("Genera el reporte indicado para el período y los filtros recibidos");
 
@@ -143,7 +143,7 @@ internal sealed class ConstructorReportes
         };
     }
 
-    // ---------------------------------------------------------------- Retiros en domicilio (RF 41)
+    // ---------------------------------------------------------------- Retiros en domicilio
 
     /// <summary>
     /// Retiros solicitados en el período, por comercio: cómo terminaron y lo facturado por los que ya llegaron al comercio.

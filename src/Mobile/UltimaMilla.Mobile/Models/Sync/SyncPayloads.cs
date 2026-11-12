@@ -79,7 +79,7 @@ public class EntregaExitosaOfflinePayload
     public DateTime? FechaHoraDispositivoUtc { get; set; }
 }
 
-/// <summary>Un bulto que no se entregó en una entrega parcial, con su motivo (RF 31 a 36).</summary>
+/// <summary>Un bulto que no se entregó en una entrega parcial, con su motivo.</summary>
 public class BultoNoEntregadoOfflinePayload
 {
     public string CodigoBulto { get; set; } = string.Empty;
@@ -106,7 +106,7 @@ public class EntregaParcialOfflinePayload
     public DateTime? FechaHoraDispositivoUtc { get; set; }
 }
 
-/// <summary>Retiro en domicilio realizado: bultos escaneados, foto de su estado y firma de quien los entrega (RF 40).</summary>
+/// <summary>Retiro en domicilio realizado: bultos escaneados, foto de su estado y firma de quien los entrega.</summary>
 public class RetiroRealizadoOfflinePayload
 {
     public Guid HojaDeRutaId { get; set; }

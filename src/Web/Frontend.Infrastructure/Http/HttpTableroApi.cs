@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
-/// <summary>Cliente HTTP del tablero de operación en vivo (UC-12, RF-29).</summary>
+/// <summary>Cliente HTTP del tablero de operación en vivo.</summary>
 public class HttpTableroApi : ITableroApi
 {
     private readonly HttpClient _http;

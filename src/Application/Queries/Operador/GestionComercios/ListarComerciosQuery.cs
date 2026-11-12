@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Queries.Operador.GestionComercios;
 
 /// <summary>
-/// Consulta para listar comercios clientes del operador con filtros y paginación (UC-01).
+/// Consulta para listar comercios clientes del operador con filtros y paginación.
 /// </summary>
 public record ListarComerciosQuery(
     string? Busqueda = null,

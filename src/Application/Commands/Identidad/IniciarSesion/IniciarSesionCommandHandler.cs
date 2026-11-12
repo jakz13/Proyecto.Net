@@ -7,7 +7,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Commands.Identidad.IniciarSesion;
 
 /// <summary>
-/// Manejador del comando UC-40 Iniciar sesión.
+/// Manejador del comando de inicio de sesión.
 /// Aplica validación de credenciales, protección contra fuerza bruta con bloqueo temporal,
 /// y emite el token JWT con perfil, operador y comercio asignado.
 /// </summary>

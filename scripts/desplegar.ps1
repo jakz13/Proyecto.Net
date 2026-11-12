@@ -38,9 +38,34 @@ Set-Location $raiz
 function Paso($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Verificar($descripcion) { if ($LASTEXITCODE -ne 0) { throw "Falló: $descripcion (código $LASTEXITCODE)" } }
 
-if (-not (Test-Path $Clave)) { throw "No se encuentra la clave SSH en '$Clave'. Indicá otra con -Clave o la variable DESPLIEGUE_CLAVE_SSH." }
 $destino = "azureuser@$Vm"
+
+# ---------------------------------------------------------------- Clave SSH
+# Cada persona usa su propia clave. Si no tiene, se crea aquí; para que la VM la acepte, quien administra
+# la VM debe autorizar la parte pública con scripts\autorizar-clave.ps1 (la privada nunca sale de esta PC).
+if (-not (Test-Path $Clave)) {
+    Paso "No hay clave SSH en '$Clave': se crea una nueva para esta PC"
+    New-Item -ItemType Directory -Force (Split-Path $Clave) | Out-Null
+    ssh-keygen -t ed25519 -N '""' -f $Clave -C "despliegue-$env:USERNAME@$env:COMPUTERNAME" | Out-Null
+    Verificar 'ssh-keygen'
+}
 $opcionesSsh = @('-i', $Clave, '-o', 'ConnectTimeout=20', '-o', 'StrictHostKeyChecking=accept-new')
+
+# BatchMode: no pide contraseña; si la clave no está autorizada falla de inmediato
+$previo = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'   # el rechazo de ssh sale por stderr y no debe cortar el script antes del aviso
+ssh @opcionesSsh -o BatchMode=yes $destino 'true' 2>$null
+$aceptada = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $previo
+if (-not $aceptada) {
+    $publica = if (Test-Path "$Clave.pub") { (Get-Content "$Clave.pub" -Raw).Trim() } else { '(no se encontró el archivo .pub)' }
+    Write-Host "`nLa VM todavía no acepta esta clave SSH." -ForegroundColor Yellow
+    Write-Host "Enviale esta línea (es la clave PÚBLICA, se puede compartir) a quien administra la VM:`n"
+    Write-Host $publica -ForegroundColor Green
+    Write-Host "`nEsa persona corre:  scripts\autorizar-clave.ps1 -Publica `"<la línea de arriba>`""
+    Write-Host "Después volvé a ejecutar este despliegue."
+    throw 'Clave SSH sin autorizar en la VM.'
+}
 
 # ---------------------------------------------------------------- Docker
 Paso 'Comprobando Docker'

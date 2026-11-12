@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroDevolucion;
 
-/// <summary>El repartidor retira el bulto de un envío en devolución y lo lleva de vuelta al depósito (UC-22).</summary>
+/// <summary>El repartidor retira el bulto de un envío en devolución y lo lleva de vuelta al depósito.</summary>
 public record RegistrarRetiroDevolucionCommand(
     Guid HojaDeRutaId,
     Guid ParadaId,

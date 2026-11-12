@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 
 /// <summary>
-/// Parámetros de filtrado para la generación de reportes de gestión operativa y comercial (UC-13, RF-30).
+/// Parámetros de filtrado para la generación de reportes de gestión operativa y comercial.
 /// </summary>
 public record FiltroReporteDto
 {

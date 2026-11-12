@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la gestión y versionado del cuadro tarifario del operador (UC-03, RF-03).
+/// Contrato de servicio para la gestión y versionado del cuadro tarifario del operador.
 /// </summary>
 public interface ICuadroTarifarioApi
 {

@@ -230,7 +230,7 @@ public static partial class IdentidadVisualEndpoints
         })
         .RequireAuthorization(PoliticasApi.Administracion)
         .WithName("ProbarCorreoIdentidadVisual")
-        .WithSummary("Enviar un correo de prueba al destinatario con la identidad visual del operador (UC-35)");
+        .WithSummary("Enviar un correo de prueba al destinatario con la identidad visual del operador");
 
         return app;
     }

@@ -14,7 +14,7 @@ public record ObtenerHojaDeRutaQuery(Guid HojaDeRutaId) : IRequest<HojaDeRutaDet
 /// <summary>Envíos en depósito, ya clasificados, disponibles para incluir en una hoja de ruta.</summary>
 public record ListarEnviosPendientesDeRutaQuery : IRequest<IReadOnlyList<EnvioPendienteDeRutaDto>>;
 
-/// <summary>Control previo al despacho: qué bultos de la ruta se cargaron y cuáles no (UC-09).</summary>
+/// <summary>Control previo al despacho: qué bultos de la ruta se cargaron y cuáles no.</summary>
 public record ObtenerVerificacionDespachoQuery(Guid HojaDeRutaId) : IRequest<VerificacionDespachoDto>;
 
 public record HojaDeRutaResumenDto(

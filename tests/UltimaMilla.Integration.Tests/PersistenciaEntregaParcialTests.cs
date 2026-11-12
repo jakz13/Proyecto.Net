@@ -9,7 +9,7 @@ using UltimaMilla.Infrastructure.Persistence;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// La entrega parcial (RF 31 a RF 36) debe sobrevivir a un reinicio y verse igual desde cualquier instancia de la API y desde el worker.
+/// La entrega parcial debe sobrevivir a un reinicio y verse igual desde cualquier instancia de la API y desde el worker.
 /// Estas pruebas guardan en Postgres real y vuelven a leer con un contexto nuevo, de modo que un dato mantenido solo en memoria falla.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]

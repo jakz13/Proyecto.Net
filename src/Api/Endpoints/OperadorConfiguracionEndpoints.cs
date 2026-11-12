@@ -18,7 +18,7 @@ public static class OperadorConfiguracionEndpoints
     public static IEndpointRouteBuilder MapOperadorConfiguracionEndpoints(this IEndpointRouteBuilder app)
     {
         var reglas = app.MapGroup("/api/reglas-operativas")
-            .WithTags("Reglas operativas (UC-04)")
+            .WithTags("Reglas operativas")
             .RequireAuthorization(PoliticasApi.PersonalDelOperador)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
@@ -53,7 +53,7 @@ public static class OperadorConfiguracionEndpoints
                         r.PoliticaEntregaParcial ?? ReglaOperativa.PoliticaNuevaVisitaSinRecargo), ct);
                     return Results.Created($"/api/reglas-operativas/{dto.Id}", dto);
                 }))
-            .WithName("PublicarReglaOperativa").WithSummary("Publicar una nueva versión de regla operativa (UC-04, RF-33)")
+            .WithName("PublicarReglaOperativa").WithSummary("Publicar una nueva versión de regla operativa")
             .Produces<ReglaOperativaDto>(StatusCodes.Status201Created).Produces(StatusCodes.Status400BadRequest).WithOpenApi();
 
         reglas.MapPost("/simular", ([FromBody] SimularReglaOperativaRequest r, [FromServices] IMediator m, CancellationToken ct) =>
@@ -62,11 +62,11 @@ public static class OperadorConfiguracionEndpoints
                     r.FechaDespacho == default ? DateTime.UtcNow : r.FechaDespacho,
                     r.IntentosRealizados,
                     r.FechaUltimoIntento), ct))))
-            .WithName("SimularReglasOperativas").WithSummary("Simular cumplimiento de reglas operativas para un envío (UC-04)")
+            .WithName("SimularReglasOperativas").WithSummary("Simular cumplimiento de reglas operativas para un envío")
             .Produces<ResultadoSimulacionReglasDto>().WithOpenApi();
 
         var motivos = app.MapGroup("/api/v1/motivos-no-entrega")
-            .WithTags("Motivos de no entrega (UC-05)")
+            .WithTags("Motivos de no entrega")
             .RequireAuthorization(PoliticasApi.PersonalDelOperador)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 
@@ -96,7 +96,7 @@ public static class OperadorConfiguracionEndpoints
                     var dto = await m.Send(new CrearMotivoNoEntregaCommand(r.Codigo, r.Descripcion, r.EsInterno), ct);
                     return Results.Created($"/api/v1/motivos-no-entrega/{dto.Id}", dto);
                 }))
-            .WithName("CrearMotivoNoEntrega").WithSummary("Crear un motivo de no entrega (UC-05)")
+            .WithName("CrearMotivoNoEntrega").WithSummary("Crear un motivo de no entrega")
             .Produces<MotivoNoEntregaDto>(StatusCodes.Status201Created).Produces(StatusCodes.Status400BadRequest).WithOpenApi();
 
         motivos.MapPut("/{id:guid}", ([FromRoute] Guid id, [FromBody] ActualizarMotivoNoEntregaRequest r, [FromServices] IMediator m, CancellationToken ct) =>

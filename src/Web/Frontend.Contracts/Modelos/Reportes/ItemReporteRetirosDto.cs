@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 
 /// <summary>
-/// Fila del reporte de retiros en domicilio por comercio (RF 41): cuántos se solicitaron en el período, cómo terminaron y cuánto se factura
+/// Fila del reporte de retiros en domicilio por comercio: cuántos se solicitaron en el período, cómo terminaron y cuánto se factura
 /// por los que ya llegaron al comercio.
 /// </summary>
 public record ItemReporteRetirosDto

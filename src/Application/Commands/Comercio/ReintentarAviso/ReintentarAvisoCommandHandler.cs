@@ -6,7 +6,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Application.Commands.Comercio.ReintentarAviso;
 
 /// <summary>
-/// Procesa la solicitud de reintento manual de un aviso fallido o agotado (UC-30).
+/// Procesa la solicitud de reintento manual de un aviso fallido o agotado.
 /// </summary>
 public class ReintentarAvisoCommandHandler : IRequestHandler<ReintentarAvisoCommand, ResultadoReintentoAvisoDto>
 {

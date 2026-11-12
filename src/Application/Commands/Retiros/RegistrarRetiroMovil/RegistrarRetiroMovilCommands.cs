@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Commands.Retiros.RegistrarRetiroMovil;
 
 /// <summary>
-/// El repartidor registra el retiro en el domicilio (RF 40): identificación de los bultos por escaneo, fotografía de su estado y firma de
+/// El repartidor registra el retiro en el domicilio: identificación de los bultos por escaneo, fotografía de su estado y firma de
 /// quien los entrega. Funciona sin conectividad: la app lo encola y lo envía al recuperarla, con una clave de idempotencia.
 /// </summary>
 public record RegistrarRetiroRealizadoCommand(

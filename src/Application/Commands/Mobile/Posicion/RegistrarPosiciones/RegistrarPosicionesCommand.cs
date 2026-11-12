@@ -11,7 +11,7 @@ public record PosicionDispositivoDto(
     int? BateriaPct = null,
     Guid? HojaDeRutaId = null);
 
-/// <summary>Registra las posiciones del vehículo del repartidor autenticado (RF-23).</summary>
+/// <summary>Registra las posiciones del vehículo del repartidor autenticado.</summary>
 public record RegistrarPosicionesCommand(IReadOnlyList<PosicionDispositivoDto> Posiciones) : IRequest<RegistrarPosicionesResultDto>;
 
 public record RegistrarPosicionesResultDto(int Recibidas);

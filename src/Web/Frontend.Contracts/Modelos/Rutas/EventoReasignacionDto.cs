@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 
 /// <summary>
-/// Registro histórico del log de eventos de reasignación, reprogramación o retiro de envíos en ruta (UC-10, RF-12, RF-15).
+/// Registro histórico del log de eventos de reasignación, reprogramación o retiro de envíos en ruta.
 /// </summary>
 public record EventoReasignacionDto
 {

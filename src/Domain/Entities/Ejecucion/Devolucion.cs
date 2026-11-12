@@ -35,7 +35,7 @@ public class Devolucion : Entity
     public const string EstadoEnCaminoADeposito = "EnCaminoADeposito";
     public const string EstadoDevuelto = "Devuelto";
 
-    /// <summary>El repartidor retiró el bulto en la calle y lo lleva de vuelta al depósito (UC-22).</summary>
+    /// <summary>El repartidor retiró el bulto en la calle y lo lleva de vuelta al depósito.</summary>
     public void MarcarEnCaminoADeposito()
     {
         if (Estado == EstadoDevuelto)

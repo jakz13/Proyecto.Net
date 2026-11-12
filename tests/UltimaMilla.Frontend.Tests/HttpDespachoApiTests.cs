@@ -8,7 +8,7 @@ using Xunit;
 namespace UltimaMilla.Frontend.Tests;
 
 /// <summary>
-/// Pruebas unitarias para HttpDespachoApi (UC-09).
+/// Pruebas unitarias para HttpDespachoApi.
 /// </summary>
 public class HttpDespachoApiTests
 {

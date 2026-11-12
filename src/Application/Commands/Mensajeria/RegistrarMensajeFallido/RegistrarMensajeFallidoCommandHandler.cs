@@ -27,7 +27,7 @@ public class RegistrarMensajeFallidoCommandHandler : IRequestHandler<RegistrarMe
         if (string.IsNullOrWhiteSpace(request.Payload))
             throw new DomainValidationException("El payload del mensaje fallido no puede ser vacío.");
 
-        // Un reintento manual (UC-42) que vuelve a fallar actualiza el registro original en lugar de duplicarlo
+        // Un reintento manual que vuelve a fallar actualiza el registro original en lugar de duplicarlo
         if (string.Equals(request.AgregadoOrigen, EventoEnvioPublicado.OrigenColaFallidos, StringComparison.Ordinal))
         {
             var existente = await _mensajeFallidoRepository.GetByIdAsync(request.AgregadoId, cancellationToken);

@@ -3,8 +3,8 @@ using UltimaMilla.Frontend.Contracts.Modelos.Seguimiento;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la consulta pública y anónima de seguimiento de envíos (UC-33)
-/// y solicitud de reprogramación de entrega (UC-34).
+/// Contrato de servicio para la consulta pública y anónima de seguimiento de envíos
+/// y solicitud de reprogramación de entrega.
 /// </summary>
 public interface ISeguimientoApi
 {
@@ -15,12 +15,12 @@ public interface ISeguimientoApi
     Task<SeguimientoPublicoDto?> ConsultarSeguimientoAsync(string codigoSeguimiento, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío (UC-34).
+    /// Obtiene las franjas horarias alternativas disponibles para la zona del envío.
     /// </summary>
     Task<FranjasDisponiblesDto?> ObtenerFranjasDisponiblesAsync(string codigoSeguimiento, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Envía la solicitud de cambio de franja horaria a evaluación del operador (UC-34, RF-26).
+    /// Envía la solicitud de cambio de franja horaria a evaluación del operador.
     /// </summary>
     Task<ResultadoReprogramacionDto> SolicitarReprogramacionAsync(string codigoSeguimiento, Guid franjaHorariaId, CancellationToken cancelacion = default);
 

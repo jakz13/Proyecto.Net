@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Seguimiento;
 
 /// <summary>
-/// Modelos para la consulta de franjas horarias y evaluación de reprogramación de entrega (UC-34, RF-26).
+/// Modelos para la consulta de franjas horarias y evaluación de reprogramación de entrega.
 /// </summary>
 public record FranjaDisponibleDto(
     Guid Id,

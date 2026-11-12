@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 
 /// <summary>
-/// Modelo para crear o actualizar una franja horaria de entrega en una zona (UC-02, RF-02).
+/// Modelo para crear o actualizar una franja horaria de entrega en una zona.
 /// </summary>
 public record CrearFranjaHorariaDto
 {

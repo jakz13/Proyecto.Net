@@ -72,7 +72,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         SelloModificacion = Guid.NewGuid();
     }
 
-    /// <summary>Agrega una parada de retiro en domicilio: la ruta pasa a ser mixta (RF 39).</summary>
+    /// <summary>Agrega una parada de retiro en domicilio: la ruta pasa a ser mixta.</summary>
     public Parada AgregarParadaRetiro(Guid retiroId, int orden, Guid direccionId, Guid? franjaHorariaId = null)
     {
         var parada = Parada.ParaRetiro(Guid.NewGuid(), Id, retiroId, orden, direccionId, franjaHorariaId);
@@ -85,7 +85,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public int SiguienteOrden => _paradas.Count == 0 ? 1 : _paradas.Max(p => p.Orden) + 1;
 
     /// <summary>
-    /// Retira un envío de la ruta (UC-10): su parada se cancela y su asignación deja de estar vigente.
+    /// Retira un envío de la ruta: su parada se cancela y su asignación deja de estar vigente.
     /// Solo es posible mientras la parada no esté cerrada.
     /// </summary>
     public void RetirarEnvio(Guid envioId)
@@ -131,7 +131,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     }
 
     /// <summary>
-    /// Registra qué bultos se cargaron efectivamente en el vehículo (UC-18). Cada registro reemplaza al anterior,
+    /// Registra qué bultos se cargaron efectivamente en el vehículo. Cada registro reemplaza al anterior,
     /// por lo que reenviar la misma carga es idempotente. Esa información es la que usa el operario para despachar.
     /// </summary>
     public void RegistrarCargaEscaneada(IEnumerable<Guid> bultosCargadosIds)
@@ -157,7 +157,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public bool BultoFueCargado(Guid bultoId) => _escaneosCarga.Any(e => e.BultoId == bultoId);
 
     /// <summary>
-    /// Despacha la hoja de ruta (UC-09). Requiere que la carga del vehículo ya haya sido escaneada y sincronizada.
+    /// Despacha la hoja de ruta. Requiere que la carga del vehículo ya haya sido escaneada y sincronizada.
     /// </summary>
     public void Despachar()
     {
@@ -181,7 +181,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     }
 
     /// <summary>
-    /// Inicia el recorrido de la hoja de ruta en calle (UC-18 / UC-19).
+    /// Inicia el recorrido de la hoja de ruta en calle.
     /// Requiere que la ruta esté en estado 'Despachada'. Pasa a 'EnTransito'.
     /// </summary>
     public void IniciarRecorrido()
@@ -197,7 +197,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     }
 
     /// <summary>
-    /// Cierra la hoja de ruta tras la rendición del repartidor en depósito (UC-16). Libera sus asignaciones
+    /// Cierra la hoja de ruta tras la rendición del repartidor en depósito. Libera sus asignaciones
     /// para que los envíos que vuelven a depósito puedan incluirse en otra ruta.
     /// </summary>
     public void Rendir()
@@ -301,7 +301,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         return parada;
     }
 
-    /// <summary>Saca un retiro de la ruta antes de la salida: su parada se cancela (RF 39).</summary>
+    /// <summary>Saca un retiro de la ruta antes de la salida: su parada se cancela.</summary>
     public void RetirarRetiro(Guid retiroId)
     {
         if (Estado is not ("Liberada" or "EnCarga"))

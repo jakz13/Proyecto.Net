@@ -64,7 +64,7 @@ public class EditarModel : PageModel
             return Page();
         }
 
-        // Validación de superposiciones inconsistentes (Flujo principal de UC-02)
+        // Validación de superposiciones inconsistentes
         var (esValido, mensajeError) = await _zonasApi.ValidarSuperposicionFranjasAsync(Franjas);
         if (!esValido)
         {

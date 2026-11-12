@@ -12,7 +12,7 @@ public static class Funcionalidad
     /// <summary>Retiro en domicilio (cambio de requerimientos 2.2).</summary>
     public const string RetiroEnDomicilio = "retiro-en-domicilio";
 
-    /// <summary>Solicitud de reprogramación por el destinatario desde el seguimiento público (RF 26).</summary>
+    /// <summary>Solicitud de reprogramación por el destinatario desde el seguimiento público.</summary>
     public const string ReprogramacionPublica = "reprogramacion-publica";
 
     public static readonly IReadOnlyDictionary<string, string> Catalogo = new Dictionary<string, string>(StringComparer.Ordinal)

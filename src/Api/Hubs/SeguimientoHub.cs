@@ -5,11 +5,11 @@ using Microsoft.AspNetCore.SignalR;
 namespace UltimaMilla.Api.Hubs;
 
 /// <summary>
-/// Tiempo real del seguimiento público (RF-25, RF-36): el destinatario, sin cuenta, se suscribe al código de SU envío y recibe
+/// Tiempo real del seguimiento público: el destinatario, sin cuenta, se suscribe al código de SU envío y recibe
 /// una señal cuando cambia de estado. La señal no lleva datos del envío: la página vuelve a consultar el endpoint público, que ya
 /// aplica todas las reglas de privacidad.
 ///
-/// Protección frente a la enumeración de códigos (§6.3):
+/// Protección frente a la enumeración de códigos:
 ///  - La suscripción nunca informa si el código existe: responde igual para códigos válidos e inexistentes.
 ///  - Cada conexión puede seguir pocos códigos.
 ///  - Las conexiones al hub comparten el límite de tasa por IP de la consulta pública.

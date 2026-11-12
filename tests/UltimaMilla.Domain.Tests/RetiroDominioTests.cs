@@ -201,7 +201,7 @@ public class RetiroDominioTests
         Assert.Equal(EstadoRetiro.Cancelado, retiro.EstadoActual);
     }
 
-    // ---------- Evidencia del retiro (RF 40) ----------
+    // ---------- Evidencia del retiro ----------
 
     [Fact]
     public void ElRetiro_ExigeFotografiaFirmaYNombreDeQuienEntrega()
@@ -274,7 +274,7 @@ public class RetiroDominioTests
         Assert.Null(retiro.HojaDeRutaId);
     }
 
-    // ---------- Política de conflicto offline (RF 24) ----------
+    // ---------- Política de conflicto offline ----------
 
     [Fact]
     public void ConflictoOffline_SiElServidorLoSacoDeLaRuta_PrevaleceElRetiroFisico()
@@ -332,7 +332,7 @@ public class RetiroDominioTests
             destinos => Assert.Equal(new[] { EstadoRetiro.Retirado, EstadoRetiro.NoRetirado }, destinos.OrderBy(e => e)));
     }
 
-    // ---------- Capacidad a lo largo del recorrido (RF 39) ----------
+    // ---------- Capacidad a lo largo del recorrido ----------
 
     [Fact]
     public void ConSoloEntregas_LaCargaMaximaEsLaDelInicio()

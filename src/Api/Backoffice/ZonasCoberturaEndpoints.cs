@@ -9,14 +9,14 @@ using UltimaMilla.Api.Auth;
 namespace UltimaMilla.Api.Backoffice;
 
 /// <summary>
-/// Endpoints para el caso de uso UC-02: Zonas de cobertura y franjas horarias de entrega (RF-02).
+/// Endpoints para el caso de uso Zonas de cobertura y franjas horarias de entrega.
 /// </summary>
 public static class ZonasCoberturaEndpoints
 {
     public static IEndpointRouteBuilder MapZonasCoberturaEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/zonas-cobertura")
-            .WithTags("Backoffice · Zonas y franjas (UC-02)")
+            .WithTags("Backoffice · Zonas y franjas")
             .RequireAuthorization(PoliticasApi.PersonalDelOperador)
             .ExigirParaEscritura(PoliticasApi.Administracion);
 

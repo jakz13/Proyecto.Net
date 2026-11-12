@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 
 /// <summary>
-/// Representa una regla de tarifación para envíos dentro de un cuadro tarifario (UC-03, RF-03).
+/// Representa una regla de tarifación para envíos dentro de un cuadro tarifario.
 /// </summary>
 public record ReglaTarifaDto
 {

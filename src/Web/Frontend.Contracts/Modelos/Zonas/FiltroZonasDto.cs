@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 
 /// <summary>
-/// Criterios de búsqueda y filtrado de zonas de cobertura (UC-02, RF-02).
+/// Criterios de búsqueda y filtrado de zonas de cobertura.
 /// </summary>
 public record FiltroZonasDto
 {

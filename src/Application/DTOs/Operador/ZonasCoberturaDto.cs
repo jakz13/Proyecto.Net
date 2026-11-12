@@ -1,7 +1,7 @@
 namespace UltimaMilla.Application.DTOs.Operador;
 
 /// <summary>
-/// DTO para la definición de una franja horaria dentro de una zona de cobertura (UC-02).
+/// DTO para la definición de una franja horaria dentro de una zona de cobertura.
 /// </summary>
 public record CrearFranjaHorariaDto(
     DayOfWeek DiaSemana,
@@ -24,7 +24,7 @@ public record FranjaHorariaDetalleDto(
 );
 
 /// <summary>
-/// DTO con la información detallada de una zona de cobertura y sus franjas asociadas (UC-02).
+/// DTO con la información detallada de una zona de cobertura y sus franjas asociadas.
 /// </summary>
 public record ZonaCoberturaDetalleDto(
     Guid Id,

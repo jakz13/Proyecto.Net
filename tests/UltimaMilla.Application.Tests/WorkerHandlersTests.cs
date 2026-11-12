@@ -94,7 +94,7 @@ public class WorkerHandlersTests
     }
 
     // -------------------------------------------------------------------------
-    // Publicador de Outbox (§6.8)
+    // Publicador de Outbox
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -137,7 +137,7 @@ public class WorkerHandlersTests
     }
 
     // -------------------------------------------------------------------------
-    // Consumidor idempotente, UC-35 (Notificaciones) y UC-36 (Webhooks)
+    // Consumidor idempotente, notificaciones y webhooks
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -325,7 +325,7 @@ public class WorkerHandlersTests
     }
 
     // -------------------------------------------------------------------------
-    // Cola de mensajes fallidos (DLQ y UC-42)
+    // Cola de mensajes fallidos (DLQ)
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -354,7 +354,7 @@ public class WorkerHandlersTests
     }
 
     // -------------------------------------------------------------------------
-    // UC-37 (Indicadores de cumplimiento) y UC-38 (Cierre diario)
+    // Indicadores de cumplimiento y cierre diario
     // -------------------------------------------------------------------------
 
     [Fact]

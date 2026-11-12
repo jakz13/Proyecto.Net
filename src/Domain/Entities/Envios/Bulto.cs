@@ -24,16 +24,16 @@ public class Bulto : Entity
 
     public bool EstaClasificado => FechaClasificacion.HasValue;
 
-    /// <summary>Código del motivo de no entrega registrado para este bulto cuando no pudo entregarse en la parada (RF-32). Se persiste.</summary>
+    /// <summary>Código del motivo de no entrega registrado para este bulto cuando no pudo entregarse en la parada. Se persiste.</summary>
     public string? MotivoNoEntregaCodigo { get; private set; }
 
-    /// <summary>Identificador de la prueba de entrega asociada cuando el bulto fue efectivamente entregado (RF-32). Se persiste.</summary>
+    /// <summary>Identificador de la prueba de entrega asociada cuando el bulto fue efectivamente entregado. Se persiste.</summary>
     public Guid? PruebaDeEntregaId { get; private set; }
 
     /// <summary>Indica si el bulto ya fue entregado al destinatario.</summary>
     public bool EstaEntregado => string.Equals(EstadoBulto, MaquinaEstadosBulto.Entregado, StringComparison.Ordinal);
 
-    /// <summary>Indica si el bulto se encuentra en depósito o pendiente de reenvío y disponible para asignarse a una hoja de ruta (RF-34).</summary>
+    /// <summary>Indica si el bulto se encuentra en depósito o pendiente de reenvío y disponible para asignarse a una hoja de ruta.</summary>
     public bool EstaDisponibleParaRuta =>
         EstadoBulto is MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.PendienteReenvio;
 
@@ -121,7 +121,7 @@ public class Bulto : Entity
         EstadoBulto = MaquinaEstadosBulto.EnRetornoADeposito;
     }
 
-    /// <summary>Registra la entrega efectiva del bulto y lo vincula con la prueba de entrega correspondiente (RF-31, RF-32).</summary>
+    /// <summary>Registra la entrega efectiva del bulto y lo vincula con la prueba de entrega correspondiente.</summary>
     public void MarcarEntregado(Guid? pruebaDeEntregaId = null)
     {
         MaquinaEstadosBulto.ValidarTransicion(Identificacion, EstadoBulto, MaquinaEstadosBulto.Entregado);
@@ -132,7 +132,7 @@ public class Bulto : Entity
 
     /// <summary>
     /// Registra que el bulto no pudo entregarse en la parada, guarda el motivo del catálogo del operador
-    /// y lo transiciona al estado posterior según la regla operativa vigente (RF-32, RF-33).
+    /// y lo transiciona al estado posterior según la regla operativa vigente.
     /// </summary>
     public void MarcarNoEntregado(string codigoMotivo, string? destinoSegunRegla = null)
     {

@@ -4,13 +4,13 @@ using UltimaMilla.Frontend.Contracts.Modelos.Comercios;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para el ABM y gestión de comercios clientes (UC-01).
+/// Contrato de servicio para el ABM y gestión de comercios clientes.
 /// Consumido principalmente por el Backoffice del Operador.
 /// </summary>
 public interface IComerciosApi
 {
     /// <summary>
-    /// Lista los comercios asociados al operador aplicando filtros de búsqueda y paginación (UC-01).
+    /// Lista los comercios asociados al operador aplicando filtros de búsqueda y paginación.
     /// </summary>
     Task<ResultadoPaginadoDto<ComercioDto>> ListarComerciosAsync(FiltroComerciosDto filtro, CancellationToken cancelacion = default);
 

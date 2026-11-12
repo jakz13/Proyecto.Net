@@ -22,7 +22,7 @@ public class ListarEnviosPendientesDeRutaQueryHandler : IRequestHandler<ListarEn
         var enDeposito = await _envioRepository.ListarPorEstadoAsync(_currentTenant.OperadorId, EstadoEnvio.EnDeposito, cancellationToken);
         var entregadosParcialmente = await _envioRepository.ListarPorEstadoAsync(_currentTenant.OperadorId, EstadoEnvio.EntregadoParcialmente, cancellationToken);
 
-        // Solo se ofrecen los envíos que realmente se podrían asignar: clasificados, con dirección de entrega y bultos pendientes disponibles (RF-34)
+        // Solo se ofrecen los envíos que realmente se podrían asignar: clasificados, con dirección de entrega y bultos pendientes disponibles
         return enDeposito
             .Concat(entregadosParcialmente)
             .DistinctBy(e => e.Id)

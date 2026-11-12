@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Mensajeria;
 
 /// <summary>
-/// Resultado del reprocesamiento manual de uno o varios mensajes de la cola de fallidos (UC-42).
+/// Resultado del reprocesamiento manual de uno o varios mensajes de la cola de fallidos.
 /// </summary>
 public record ResultadoReintentoDto
 {

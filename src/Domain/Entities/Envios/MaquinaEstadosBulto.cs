@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Domain.Entities.Envios;
 
 /// <summary>
-/// Máquina de estados declarativa y verificable a nivel de bulto (RF-31).
+/// Máquina de estados declarativa y verificable a nivel de bulto.
 /// Define los estados válidos de cada bulto, sus transiciones permitidas y la regla declarativa
 /// con la que el estado del envío se deriva a partir de los estados individuales de sus bultos.
 /// </summary>
@@ -132,7 +132,7 @@ public static class MaquinaEstadosBulto
         && destinos.Count == 0;
 
     /// <summary>
-    /// Deriva declarativamente el estado que le corresponde al envío a partir de los estados individuales de sus bultos (RF-31).
+    /// Deriva declarativamente el estado que le corresponde al envío a partir de los estados individuales de sus bultos.
     /// Los bultos faltantes en recepción no forman parte de los bultos operativos que viajan hacia el destinatario.
     /// </summary>
     public static EstadoEnvio DerivarEstadoEnvio(IReadOnlyCollection<Bulto> bultos, EstadoEnvio estadoActualEnvio)

@@ -56,7 +56,7 @@ public interface ICierreDiarioRepository
     Task AddAsync(CierreDiarioOperacion cierre, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Consultas de solo lectura que alimentan los procesos programados (UC-37 y UC-38). Todas acotadas a un operador.</summary>
+/// <summary>Consultas de solo lectura que alimentan los procesos programados. Todas acotadas a un operador.</summary>
 public interface IProcesosProgramadosRepository
 {
     Task<List<Guid>> ListarOperadoresActivosAsync(CancellationToken cancellationToken = default);

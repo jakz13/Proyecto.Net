@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Reportes;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de API para la consulta y exportación de reportes de gestión operativa y comercial (UC-13, RF-30).
+/// Contrato de API para la consulta y exportación de reportes de gestión operativa y comercial.
 /// </summary>
 public interface IReportesApi
 {

@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Backoffice.Pages.Despacho;
 
 /// <summary>
-/// Modelo de página para el comprobante y resumen post-despacho de una hoja de ruta (UC-09).
+/// Modelo de página para el comprobante y resumen post-despacho de una hoja de ruta.
 /// </summary>
 [Authorize(Roles = "Despachador,Operario")]
 public class ComprobanteModel : PageModel

@@ -1,4 +1,5 @@
 @page "/login"
+@layout LoginLayout
 @using System.Net
 @inject HttpClient Http
 @inject ITokenStore TokenStore
@@ -6,33 +7,40 @@
 
 <PageTitle>Portal del Comercio — Ingresar</PageTitle>
 
-<div class="row justify-content-center py-4">
-    <div class="col-12 col-sm-8 col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm rounded-3">
-            <div class="card-body p-4">
-                <h1 class="h4 fw-bold mb-1">Ingresar al portal</h1>
-                <p class="text-muted small mb-4">Use las credenciales de su comercio.</p>
-
-                @if (!string.IsNullOrEmpty(error))
-                {
-                    <div class="alert alert-danger py-2 small" role="alert">@error</div>
-                }
-
-                <EditForm Model="modelo" OnValidSubmit="IngresarAsync" FormName="login-comercio">
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold" for="email">Correo electrónico</label>
-                        <InputText id="email" class="form-control" type="email" autocomplete="username" @bind-Value="modelo.Email" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold" for="password">Contraseña</label>
-                        <InputText id="password" class="form-control" type="password" autocomplete="current-password" @bind-Value="modelo.Password" />
-                    </div>
-                    <button type="submit" class="btn btn-marca w-100" disabled="@enCurso">
-                        @(enCurso ? "Ingresando…" : "Ingresar")
-                    </button>
-                </EditForm>
+<div class="card border-0 shadow-sm rounded-3" style="max-width: 440px; width: 100%;">
+    <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center bg-dark text-white rounded-circle mb-3"
+                 style="width: 48px; height: 48px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="1" y="3" width="15" height="13"></rect>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
             </div>
+            <h1 class="h4 fw-bold mb-1">Acceso al Portal del Comercio</h1>
+            <p class="text-muted small mb-0">Ingrese con su correo y contraseña.</p>
         </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger small py-2" role="alert">@error</div>
+        }
+
+        <EditForm Model="modelo" OnValidSubmit="IngresarAsync" FormName="login-comercio">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold" for="email">Correo electrónico</label>
+                <InputText id="email" class="form-control" type="email" autocomplete="username" @bind-Value="modelo.Email" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-semibold" for="password">Contraseña</label>
+                <InputText id="password" class="form-control" type="password" autocomplete="current-password" @bind-Value="modelo.Password" />
+            </div>
+            <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold" disabled="@enCurso">
+                @(enCurso ? "Ingresando…" : "Iniciar Sesión")
+            </button>
+        </EditForm>
     </div>
 </div>
 
@@ -40,6 +48,12 @@
     private readonly CredencialesModelo modelo = new();
     private string? error;
     private bool enCurso;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Entrar al login equivale a empezar de cero: se descarta cualquier token anterior (sesión cerrada o vencida)
+        await TokenStore.EliminarTokenAsync();
+    }
 
     private async Task IngresarAsync()
     {

@@ -4,7 +4,7 @@ namespace UltimaMilla.Application.Messaging;
 
 /// <summary>
 /// Contexto asíncrono del identificador de correlación (<c>X-Correlation-Id</c>) para seguir una operación
-/// de extremo a extremo desde la app móvil o el portal, pasando por la API y el Outbox, hasta el Worker (UC-44, §6.12).
+/// de extremo a extremo desde la app móvil o el portal, pasando por la API y el Outbox, hasta el Worker.
 /// </summary>
 public static class ContextoCorrelacion
 {

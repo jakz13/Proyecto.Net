@@ -5,12 +5,12 @@ namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
 /// Contrato de servicio para operaciones sobre órdenes de envío.
-/// Consumido por el Portal del Comercio (UC-24, UC-28) y Backoffice.
+/// Consumido por el Portal del Comercio y Backoffice.
 /// </summary>
 public interface IEnviosApi
 {
     /// <summary>
-    /// Consulta el listado de envíos aplicando filtros de estado, fechas y paginación (UC-28).
+    /// Consulta el listado de envíos aplicando filtros de estado, fechas y paginación.
     /// </summary>
     Task<ResultadoPaginadoDto<EnvioDto>> ListarEnviosAsync(FiltroEnviosDto filtro, CancellationToken cancelacion = default);
 
@@ -20,13 +20,13 @@ public interface IEnviosApi
     Task<EnvioDto?> ObtenerPorIdAsync(Guid id, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Registra una nueva orden de envío individual (UC-24).
+    /// Registra una nueva orden de envío individual.
     /// El comercio solicitante y el operador son resueltos exclusivamente por el token JWT.
     /// </summary>
     Task<EnvioDto> CrearEnvioAsync(CrearEnvioDto nuevoEnvio, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Declara formalmente un envío en depósito o en tránsito como extraviado (UC-43, RF-11, RF-12).
+    /// Declara formalmente un envío en depósito o en tránsito como extraviado.
     /// </summary>
     Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default);
 
@@ -46,7 +46,7 @@ public interface IEnviosApi
     Task<ImagenEvidenciaDto?> ObtenerImagenEvidenciaAsync(Guid envioId, Guid intentoId, string tipo, CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Importa masivamente órdenes de envío a partir de un archivo CSV con cálculo de tarifas e idempotencia (UC-25, RF-07).
+    /// Importa masivamente órdenes de envío a partir de un archivo CSV con cálculo de tarifas e idempotencia.
     /// </summary>
     Task<ResultadoImportacionDto> ImportarEnviosPorArchivoAsync(
         byte[] contenidoArchivo,
@@ -72,14 +72,14 @@ public interface IEnviosApi
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido (UC-27).
+    /// Genera las etiquetas físicas e imprimibles para uno o más envíos seleccionados en estado Admitido.
     /// </summary>
     Task<ResultadoGeneracionEtiquetasDto> GenerarEtiquetasEnviosAsync(
         IReadOnlyList<Guid> envioIds,
         CancellationToken cancelacion = default);
 
     /// <summary>
-    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución (UC-32).
+    /// Confirma la recepción del bulto devuelto por parte del comercio, cerrando la devolución.
     /// El envío transiciona a estado Devuelto.
     /// </summary>
     Task<ConfirmarDevolucionResultDto> ConfirmarDevolucionAsync(

@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación HTTP de IDepositoApi para comunicación directa con los endpoints de depósito (UC-14, RF-10).
+/// Implementación HTTP de IDepositoApi para comunicación directa con los endpoints de depósito.
 /// </summary>
 public class HttpDepositoApi : IDepositoApi
 {

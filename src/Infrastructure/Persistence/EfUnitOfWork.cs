@@ -171,7 +171,7 @@ public class EfUnitOfWork : IUnitOfWork
     }
 
     /// <summary>
-    /// Agrega al outbox un mensaje por cada evento de retiro nuevo (RF 41): el cambio de estado y su evento se confirman en la misma
+    /// Agrega al outbox un mensaje por cada evento de retiro nuevo: el cambio de estado y su evento se confirman en la misma
     /// transacción, igual que con los envíos, de modo que no puede persistirse uno sin el otro. Devuelve los retiros afectados
     /// para invalidar su caché de seguimiento público una vez confirmada la transacción.
     /// </summary>
@@ -227,7 +227,7 @@ public class EfUnitOfWork : IUnitOfWork
     }
 
     /// <summary>
-    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado o entrega parcial (UC-39, RF-36)
+    /// Agrega al outbox un mensaje por cada evento de envío nuevo que implique un cambio real de estado o entrega parcial
     /// y recopila los envíos y cuadros tarifarios modificados para invalidar su caché tras confirmar la transacción.
     /// </summary>
     private async Task<(
@@ -269,7 +269,7 @@ public class EfUnitOfWork : IUnitOfWork
             .Where(e => e.EstadoAnterior != e.EstadoNuevo || e.TipoEvento == "EntregaParcial")
             .ToList();
 
-        // Toma el identificador de correlación fijado por el middleware (X-Correlation-Id) o la traza actual (UC-44)
+        // Toma el identificador de correlación fijado por el middleware (X-Correlation-Id) o la traza actual
         var correlationId = ContextoCorrelacion.ObtenerCorrelationIdActual();
 
         if (eventosCambioEstado.Count > 0)

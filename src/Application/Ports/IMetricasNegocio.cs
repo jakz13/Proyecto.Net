@@ -1,7 +1,7 @@
 namespace UltimaMilla.Application.Ports;
 
 /// <summary>
-/// Puerto de observabilidad para registrar métricas de negocio y operativas de la plataforma (UC-44, §6.12).
+/// Puerto de observabilidad para registrar métricas de negocio y operativas de la plataforma.
 /// Mantiene la capa de aplicación desacoplada de OpenTelemetry y System.Diagnostics.Metrics.
 /// </summary>
 public interface IMetricasNegocio

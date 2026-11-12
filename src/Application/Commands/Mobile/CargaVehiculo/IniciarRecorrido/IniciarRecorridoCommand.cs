@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 
 /// <summary>
-/// Comando para iniciar el recorrido de una hoja de ruta despachada (UC-18 / UC-19).
+/// Comando para iniciar el recorrido de una hoja de ruta despachada.
 /// Transiciona la hoja de ruta de 'Despachada' a 'EnTransito' y habilita la confirmación de entregas en calle.
 /// </summary>
 public record IniciarRecorridoCommand(

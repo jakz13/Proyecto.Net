@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Cliente HTTP para la configuración, monitoreo y reintento de avisos automáticos y webhooks (UC-29, UC-30).
+/// Cliente HTTP para la configuración, monitoreo y reintento de avisos automáticos y webhooks.
 /// </summary>
 public class HttpAvisosComercioApi : IAvisosComercioApi
 {

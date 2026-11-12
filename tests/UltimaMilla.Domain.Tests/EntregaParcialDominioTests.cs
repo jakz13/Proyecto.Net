@@ -6,7 +6,7 @@ using UltimaMilla.Domain.Exceptions;
 namespace UltimaMilla.Domain.Tests;
 
 /// <summary>
-/// Pruebas exhaustivas de dominio para Entrega Parcial de Bultos (Cambio de Requerimientos 2.1: RF-31, RF-32, RF-33, RF-34).
+/// Pruebas exhaustivas de dominio para Entrega Parcial de Bultos (cambio de requerimientos 2.1).
 /// </summary>
 public class EntregaParcialDominioTests
 {
@@ -121,7 +121,7 @@ public class EntregaParcialDominioTests
         Assert.Equal(MaquinaEstadosBulto.PendienteReenvio, b3.EstadoBulto);
         Assert.Equal("BUL_DANADO", b3.MotivoNoEntregaCodigo);
 
-        // La prueba de entrega queda asociada exclusivamente a los bultos efectivamente entregados (RF-32)
+        // La prueba de entrega queda asociada exclusivamente a los bultos efectivamente entregados
         Assert.Equal(resultado.Prueba.Id, b1.PruebaDeEntregaId);
         Assert.Equal(resultado.Prueba.Id, b2.PruebaDeEntregaId);
         Assert.Null(b3.PruebaDeEntregaId);
@@ -179,7 +179,7 @@ public class EntregaParcialDominioTests
         Assert.True(resultado.RecargoAplicado);
         Assert.True(envio.TarifaCalculada > tarifaOriginal);
 
-        // El bulto pendiente queda disponible para asignarse a una nueva hoja de ruta (RF-34)
+        // El bulto pendiente queda disponible para asignarse a una nueva hoja de ruta
         var b3 = envio.Bultos.Single(b => b.Identificacion == "BUL-003");
         Assert.True(b3.EstaDisponibleParaRuta);
         Assert.Null(envio.ObtenerMotivoNoAsignable());

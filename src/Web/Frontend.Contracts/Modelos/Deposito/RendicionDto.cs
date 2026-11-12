@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Deposito;
 
 /// <summary>
-/// Resumen de una hoja de ruta pendiente de rendición al regreso a depósito (UC-16).
+/// Resumen de una hoja de ruta pendiente de rendición al regreso a depósito.
 /// </summary>
 public record RutaPendienteRendicionDto(
     Guid HojaDeRutaId,
@@ -20,7 +20,7 @@ public record RutaPendienteRendicionDto(
     DateTime? FechaDespacho);
 
 /// <summary>
-/// Detalle completo de una hoja de ruta para contrastar bultos y procesar la rendición (UC-16).
+/// Detalle completo de una hoja de ruta para contrastar bultos y procesar la rendición.
 /// </summary>
 public record RutaParaRendicionDetalleDto(
     Guid HojaDeRutaId,

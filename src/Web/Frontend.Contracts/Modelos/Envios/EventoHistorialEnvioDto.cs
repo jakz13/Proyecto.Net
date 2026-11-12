@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Enums;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Evento de trazabilidad y auditoría histórica del ciclo de vida de un envío (RF-11, RF-12).
+/// Evento de trazabilidad y auditoría histórica del ciclo de vida de un envío.
 /// </summary>
 public record EventoHistorialEnvioDto
 {

@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 
 /// <summary>
-/// Comando para dar de alta un usuario en el operador o asociado a un comercio (UC-01, RF-01).
+/// Comando para dar de alta un usuario en el operador o asociado a un comercio.
 /// Soporta campos de nombre y apellido separados para mayor claridad y normalización de datos.
 /// </summary>
 public record CrearUsuarioCommand(

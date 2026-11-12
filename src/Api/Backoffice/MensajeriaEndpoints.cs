@@ -191,7 +191,7 @@ public static class MensajeriaEndpoints
         // El motivo es la primera línea de la excepción; el detalle conserva el texto completo
         var motivo = m.Excepcion.Split('\n', 2)[0].Trim();
 
-        // En entornos que no sean Development (Producción/Staging), el servidor NO expone la traza técnica (UC-42)
+        // En entornos que no sean Development (Producción/Staging), el servidor NO expone la traza técnica
         var detalleExcepcion = env.IsDevelopment() ? m.Excepcion : string.Empty;
 
         return new MensajeFallidoDto

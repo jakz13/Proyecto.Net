@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Modelo de datos para el alta individual de envíos desde el Portal del Comercio (UC-24).
+/// Modelo de datos para el alta individual de envíos desde el Portal del Comercio.
 /// Regla obligatoria: No incluye comercioId ni operadorId, los cuales son inferidos por la API mediante el JWT.
 /// </summary>
 public record CrearEnvioDto

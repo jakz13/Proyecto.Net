@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.ReglasOperativas;
 
 /// <summary>
-/// Modelo de transferencia de datos que representa una versión de las reglas operativas del operador logístico (UC-04, RF-04).
+/// Modelo de transferencia de datos que representa una versión de las reglas operativas del operador logístico.
 /// </summary>
 public record ReglaOperativaDto
 {
@@ -86,12 +86,12 @@ public record ReglaOperativaDto
     public string? Comentario { get; init; }
 
     /// <summary>
-    /// Indica si el operador admite la entrega parcial de bultos en una parada (RF-33).
+    /// Indica si el operador admite la entrega parcial de bultos en una parada.
     /// </summary>
     public bool AdmiteEntregaParcial { get; init; } = true;
 
     /// <summary>
-    /// Política aplicable a los bultos pendientes tras una entrega parcial (RF-33).
+    /// Política aplicable a los bultos pendientes tras una entrega parcial.
     /// </summary>
     public string PoliticaEntregaParcial { get; init; } = "NuevaVisitaSinRecargo";
 }

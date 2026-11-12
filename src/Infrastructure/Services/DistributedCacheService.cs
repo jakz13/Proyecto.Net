@@ -7,7 +7,7 @@ using UltimaMilla.Application.Ports;
 namespace UltimaMilla.Infrastructure.Services;
 
 /// <summary>
-/// Adaptador de caché distribuido sobre <see cref="IDistributedCache"/> (Redis en despliegue, RNF 6.7).
+/// Adaptador de caché distribuido sobre <see cref="IDistributedCache"/> (Redis en despliegue).
 /// Instrumenta aciertos, fallos e invalidaciones por caso de uso y degrada de forma segura hacia la base de datos
 /// cuando el almacén de caché no se encuentra disponible.
 /// </summary>

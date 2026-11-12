@@ -70,7 +70,7 @@ public class ControlCargaYEntregaEnPuertaTests
     }
 
     // =========================================================================
-    // UC-18 / UC-19: CONTROL DE CARGA E INICIO DE RECORRIDO
+    // CONTROL DE CARGA E INICIO DE RECORRIDO
     // =========================================================================
 
     [Fact]
@@ -155,7 +155,7 @@ public class ControlCargaYEntregaEnPuertaTests
     }
 
     // =========================================================================
-    // UC-20: RESTRICCIÓN DE ENTREGA EN PUERTA SEGÚN ESTADO DE HOJA DE RUTA
+    // RESTRICCIÓN DE ENTREGA EN PUERTA SEGÚN ESTADO DE HOJA DE RUTA
     // =========================================================================
 
     [Fact]

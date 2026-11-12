@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.Deposito;
 
 /// <summary>
-/// Modelo de página para la estación de clasificación operativa de bultos en depósito por zona, prioridad y tipo (UC-15).
+/// Modelo de página para la estación de clasificación operativa de bultos en depósito por zona, prioridad y tipo.
 /// </summary>
 [Authorize(Roles = "Operario")]
 public class ClasificacionModel : PageModel

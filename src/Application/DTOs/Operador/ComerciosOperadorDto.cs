@@ -1,7 +1,7 @@
 namespace UltimaMilla.Application.DTOs.Operador;
 
 /// <summary>
-/// DTO con la información detallada de un comercio cliente y su relación con el operador (UC-01).
+/// DTO con la información detallada de un comercio cliente y su relación con el operador.
 /// </summary>
 public record ComercioDetalleDto(
     Guid Id,

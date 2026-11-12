@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace UltimaMilla.Application.Messaging;
 
 /// <summary>
-/// Evento de negocio que la API deja en el outbox ante cada cambio de estado de un retiro en domicilio (RF 41) y que el worker
+/// Evento de negocio que la API deja en el outbox ante cada cambio de estado de un retiro en domicilio y que el worker
 /// consume para avisar al comercio. Se publica en la misma transacción que el cambio (patrón outbox) y viaja con su identificador de
 /// correlación. No contiene datos personales del comprador.
 /// </summary>

@@ -13,7 +13,7 @@ public record RiesgoEvaluado(NivelRiesgo Nivel, int MinutosRetraso, string Causa
 public readonly record struct PuntoRuta(double? Latitud, double? Longitud);
 
 /// <summary>
-/// Criterio con el que el tablero (RF-29) decide qué envíos están en riesgo de incumplir su ventana comprometida.
+/// Criterio con el que el tablero decide qué envíos están en riesgo de incumplir su ventana comprometida.
 /// Es una estimación, no una optimización: distancia en línea recta corregida por un factor urbano, a una velocidad
 /// media fija, más un tiempo de servicio por cada parada anterior. Los parámetros son constantes visibles para poder
 /// documentarlos y ajustarlos.

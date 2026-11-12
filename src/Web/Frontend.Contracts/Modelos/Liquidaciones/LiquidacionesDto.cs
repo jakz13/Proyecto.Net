@@ -1,6 +1,6 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Liquidaciones;
 
-/// <summary>Liquidación de los envíos entregados a un comercio en un período (RF-30, RF-34).</summary>
+/// <summary>Liquidación de los envíos entregados a un comercio en un período.</summary>
 public record LiquidacionDto
 {
     public Guid Id { get; init; }

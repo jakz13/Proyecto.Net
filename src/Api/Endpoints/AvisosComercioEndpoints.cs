@@ -14,10 +14,10 @@ public static class AvisosComercioEndpoints
     public static IEndpointRouteBuilder MapAvisosComercioEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/comercio/avisos")
-            .WithTags("Portal del comercio · Avisos automáticos y Webhooks (UC-29, UC-30)")
+            .WithTags("Portal del comercio · Avisos automáticos y Webhooks")
             .RequireAuthorization(PoliticasApi.Comercio);
 
-        // Consulta la configuración actual de suscripción a avisos (UC-29)
+        // Consulta la configuración actual de suscripción a avisos
         grupo.MapGet("/", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) =>
@@ -33,11 +33,11 @@ public static class AvisosComercioEndpoints
             }
         })
         .WithName("ObtenerConfiguracionAvisos")
-        .WithSummary("Consulta la configuración actual de webhooks del comercio (UC-29)")
+        .WithSummary("Consulta la configuración actual de webhooks del comercio")
         .Produces<DetalleConfiguracionAvisosDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // Consulta el historial de avisos enviados hacia los sistemas del comercio con filtros (UC-30)
+        // Consulta el historial de avisos enviados hacia los sistemas del comercio con filtros
         grupo.MapGet("/historial", async (
             [FromQuery] string? estado,
             [FromQuery] Guid? envioId,
@@ -57,11 +57,11 @@ public static class AvisosComercioEndpoints
             }
         })
         .WithName("ConsultarHistorialAvisos")
-        .WithSummary("Consulta el historial de entregas de avisos con soporte de filtros (UC-30)")
+        .WithSummary("Consulta el historial de entregas de avisos con soporte de filtros")
         .Produces<IReadOnlyList<AvisoHistorialDetalleDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // Solicita el reenvío manual de un aviso fallido o agotado (UC-30)
+        // Solicita el reenvío manual de un aviso fallido o agotado
         grupo.MapPost("/{id:guid}/reintentar", async (
             [FromRoute] Guid id,
             [FromServices] IMediator mediator,
@@ -87,13 +87,13 @@ public static class AvisosComercioEndpoints
             }
         })
         .WithName("ReintentarAviso")
-        .WithSummary("Solicita el reenvío manual de un aviso fallido o agotado (UC-30)")
+        .WithSummary("Solicita el reenvío manual de un aviso fallido o agotado")
         .Produces<ResultadoReintentoAvisoDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // Guarda o actualiza la suscripción a eventos (UC-29)
+        // Guarda o actualiza la suscripción a eventos
         grupo.MapPost("/", async (
             [FromBody] ConfigurarAvisosRequest request,
             [FromServices] IMediator mediator,
@@ -125,12 +125,12 @@ public static class AvisosComercioEndpoints
             }
         })
         .WithName("ConfigurarAvisos")
-        .WithSummary("Configura la URL de webhook y los eventos suscritos (UC-29)")
+        .WithSummary("Configura la URL de webhook y los eventos suscritos")
         .Produces<ConfiguracionAvisosResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // Prueba simulada de webhook (Ping diagnóstico) (UC-29)
+        // Prueba simulada de webhook (Ping diagnóstico)
         grupo.MapPost("/probar", async (
             [FromBody] ProbarWebhookRequest? request,
             [FromServices] IMediator mediator,
@@ -152,7 +152,7 @@ public static class AvisosComercioEndpoints
             }
         })
         .WithName("ProbarWebhookAvisos")
-        .WithSummary("Envía una prueba de webhook con firma HMAC al endpoint del comercio (UC-29)")
+        .WithSummary("Envía una prueba de webhook con firma HMAC al endpoint del comercio")
         .Produces<ProbarWebhookResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden);

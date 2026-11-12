@@ -14,7 +14,7 @@ public record UbicacionTransmisionDto(
 );
 
 /// <summary>
-/// Contrato del cliente de SignalR para la comunicación bidireccional y streaming en tiempo real (Hito 4).
+/// Contrato del cliente de SignalR para la comunicación bidireccional y streaming en tiempo real .
 /// </summary>
 public interface IRealtimeTrackingService : IAsyncDisposable
 {

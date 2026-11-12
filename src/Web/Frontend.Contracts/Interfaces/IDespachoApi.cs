@@ -4,7 +4,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de API para el control de salida y despacho físico de hojas de ruta por el operario de depósito (UC-09).
+/// Contrato de API para el control de salida y despacho físico de hojas de ruta por el operario de depósito.
 /// </summary>
 public interface IDespachoApi
 {

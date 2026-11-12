@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 
 /// <summary>
-/// Modelo para dar de alta un nuevo motivo de no entrega en el catálogo (UC-05).
+/// Modelo para dar de alta un nuevo motivo de no entrega en el catálogo.
 /// </summary>
 public class CrearMotivoNoEntregaDto
 {
@@ -17,7 +17,7 @@ public class CrearMotivoNoEntregaDto
     public string Descripcion { get; set; } = string.Empty;
 
     /// <summary>
-    /// Si inicia activo de inmediato para sincronización con la app móvil (RF-21).
+    /// Si inicia activo de inmediato para sincronización con la app móvil.
     /// </summary>
     public bool IniciarActivo { get; set; } = true;
 }

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Resultado del procesamiento de un archivo de importación masiva de envíos (UC-25, RF-07).
+/// Resultado del procesamiento de un archivo de importación masiva de envíos.
 /// </summary>
 public record ResultadoImportacionDto(
     Guid LoteId,

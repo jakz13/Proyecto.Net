@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación HTTP de IRutasApi (UC-08, UC-10) sobre /api/planificacion.
+/// Implementación HTTP de IRutasApi sobre /api/planificacion.
 /// La API planifica por hoja de ruta, repartidor, vehículo y envíos: el turno, el número de viaje y el criterio de
 /// ordenamiento son datos de presentación que no se guardan, y los nombres se completan consultando la flota y las zonas.
 /// </summary>

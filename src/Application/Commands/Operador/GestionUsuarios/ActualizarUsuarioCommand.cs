@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 
 /// <summary>
-/// Comando para modificar los datos y perfil de un usuario existente (UC-01, RF-01).
+/// Comando para modificar los datos y perfil de un usuario existente.
 /// Soporta campos de nombre y apellido separados para mayor claridad y normalización de datos.
 /// </summary>
 public record ActualizarUsuarioCommand(

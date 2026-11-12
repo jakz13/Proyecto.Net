@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Enums;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
 /// <summary>
-/// Resultado del proceso de declaración de extravío de un envío (UC-43).
+/// Resultado del proceso de declaración de extravío de un envío.
 /// </summary>
 public record ResultadoDeclaracionExtravioDto
 {

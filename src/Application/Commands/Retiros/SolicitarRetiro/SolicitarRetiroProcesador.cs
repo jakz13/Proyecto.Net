@@ -13,7 +13,7 @@ namespace UltimaMilla.Application.Commands.Retiros.SolicitarRetiro;
 /// </summary>
 public class SolicitarRetiroProcesador
 {
-    /// <summary>Modalidad con la que el cuadro tarifario identifica la tarifa propia del retiro (RF 41).</summary>
+    /// <summary>Modalidad con la que el cuadro tarifario identifica la tarifa propia del retiro.</summary>
     public const string ModalidadRetiro = "Retiro";
 
     private const int MaxIntentosCodigoSeguimiento = 5;

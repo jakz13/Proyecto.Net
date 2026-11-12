@@ -3,7 +3,7 @@ using System.Text;
 
 namespace UltimaMilla.Application.Messaging;
 
-/// <summary>Firma HMAC-SHA256 de los avisos a comercios (§6.9): permite al receptor verificar el origen del mensaje.</summary>
+/// <summary>Firma HMAC-SHA256 de los avisos a comercios: permite al receptor verificar el origen del mensaje.</summary>
 public static class FirmaWebhook
 {
     public const string Prefijo = "sha256=";

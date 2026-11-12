@@ -3,7 +3,7 @@ using UltimaMilla.Domain.Entities.Operador;
 namespace UltimaMilla.Application.Ports;
 
 /// <summary>
-/// Puerto de persistencia para zonas de cobertura y sus franjas horarias (UC-02).
+/// Puerto de persistencia para zonas de cobertura y sus franjas horarias.
 /// </summary>
 public interface IZonaCoberturaRepository
 {

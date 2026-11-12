@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Deposito.ListarEnviosEnDeposito;
 
 /// <summary>
-/// Consulta los envíos en estado 'EnDeposito' disponibles para clasificación de bultos o inclusión en rutas (UC-15).
+/// Consulta los envíos en estado 'EnDeposito' disponibles para clasificación de bultos o inclusión en rutas.
 /// </summary>
 public record ListarEnviosEnDepositoQuery() : IRequest<IReadOnlyList<EnvioEnDepositoDto>>;
 

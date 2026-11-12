@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Flota;
 
 /// <summary>
-/// Representa un vehículo de la flota del operador para planificación y ejecución de entregas (RF-06).
+/// Representa un vehículo de la flota del operador para planificación y ejecución de entregas.
 /// </summary>
 public record VehiculoDto
 {

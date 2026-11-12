@@ -1,6 +1,6 @@
 namespace UltimaMilla.Application.DTOs.Mobile;
 
-/// <summary>Detalle del bulto que no pudo entregarse en la parada junto con el motivo del catálogo del operador (RF-32).</summary>
+/// <summary>Detalle del bulto que no pudo entregarse en la parada junto con el motivo del catálogo del operador.</summary>
 public record BultoNoEntregadoRequestDto(
     string CodigoBulto,
     string? MotivoCodigo = null,
@@ -26,7 +26,7 @@ public record EntregaExitosaResultDto(
     bool ConflictoResuelto = false
 );
 
-/// <summary>Resultado detallado del registro de una entrega parcial o por bultos en una parada (RF-31 a RF-34).</summary>
+/// <summary>Resultado detallado del registro de una entrega parcial o por bultos en una parada.</summary>
 public record EntregaParcialResultDto(
     Guid EnvioId,
     Guid HojaDeRutaId,

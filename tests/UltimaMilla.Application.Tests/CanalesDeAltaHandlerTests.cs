@@ -60,9 +60,6 @@ public class CanalesDeAltaHandlerTests
             new List<BultoAltaDto> { new(peso, 10m, 10m, 10m) },
             null,
             referencia));
-
-    // UC-26
-
     [Fact]
     public async Task Api_ConClaveValida_AdmiteElEnvioParaElComercioDeLaClave()
     {
@@ -159,9 +156,6 @@ public class CanalesDeAltaHandlerTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new RegenerarClaveApiCommand(), default));
     }
-
-    // UC-25
-
     [Fact]
     public async Task Importar_MezclaDeFilasValidasEInvalidas_InformaExitosYErrores()
     {

@@ -6,7 +6,7 @@ using Xunit;
 namespace UltimaMilla.Frontend.Tests;
 
 /// <summary>
-/// Pruebas unitarias para MockAvisosComercioApi (UC-29 Configurar avisos y UC-30 Historial y Reintentos).
+/// Pruebas unitarias para MockAvisosComercioApi (configurar avisos, historial y reintentos).
 /// </summary>
 public class MockAvisosComercioApiTests
 {

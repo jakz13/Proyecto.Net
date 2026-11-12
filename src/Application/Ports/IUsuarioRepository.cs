@@ -28,7 +28,7 @@ public interface IUsuarioRepository
     Task<Dictionary<Guid, string>> ObtenerNombresComerciosAsync(IEnumerable<Guid> comercioIds, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sincroniza el padrón operativo de repartidores cuando un usuario tiene o deja de tener el rol Repartidor (UC-01 / UC-07).
+    /// Sincroniza el padrón operativo de repartidores cuando un usuario tiene o deja de tener el rol Repartidor.
     /// </summary>
     Task SincronizarRepartidorDeUsuarioAsync(
         Usuario usuario,

@@ -8,9 +8,9 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.IdentidadVisual;
 
 /// <summary>
-/// Modelo de página para el caso de uso UC-06: Gestionar identidad visual del operador.
+/// Modelo de página para el caso de uso Gestionar identidad visual del operador.
 /// Permite al Administrador configurar logotipo (URL o carga de archivo local), paleta cromática
-/// y canales de contacto oficial, reflejando la marca en todos los portales (RF-05).
+/// y canales de contacto oficial, reflejando la marca en todos los portales.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel
@@ -180,7 +180,7 @@ public class IndexModel : PageModel
             _identidadOperador.ActualizarEnCache(actualizada);
             _contextoOperador?.ActualizarIdentidad(actualizada);
 
-            MensajeExito = $"Identidad visual de '{actualizada.NombreComercial}' guardada exitosamente. Se aplicó en el panel lateral, portal del comercio, seguimiento público y comunicaciones (RF-05).";
+            MensajeExito = $"Identidad visual de '{actualizada.NombreComercial}' guardada exitosamente. Se aplicó en el panel lateral, portal del comercio, seguimiento público y comunicaciones.";
             return RedirectToPage();
         }
         catch (ApiExcepcion ex)

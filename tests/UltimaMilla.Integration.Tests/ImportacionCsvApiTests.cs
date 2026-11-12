@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Importación masiva de envíos por CSV (UC-25) con una sesión real de comercio: archivo con filas válidas y con errores,
+/// Importación masiva de envíos por CSV con una sesión real de comercio: archivo con filas válidas y con errores,
 /// reimportación idempotente y los rechazos de archivo vacío o con columnas faltantes.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]

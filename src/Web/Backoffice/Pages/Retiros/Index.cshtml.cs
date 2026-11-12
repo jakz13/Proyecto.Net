@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Backoffice.Pages.Retiros;
 
 /// <summary>
-/// Retiros en domicilio del operador (cambio de requerimientos 2.2, RF 38 y RF 41): seguimiento por estado y acciones del operador
+/// Retiros en domicilio del operador (cambio de requerimientos 2.2): seguimiento por estado y acciones del operador
 /// (recibir en depósito, entregar al comercio, reprogramar, sacar de la ruta y cancelar).
 /// </summary>
 [Authorize(Roles = "Despachador,Operario")]

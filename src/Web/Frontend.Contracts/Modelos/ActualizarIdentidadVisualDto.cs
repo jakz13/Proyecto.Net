@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos;
 
 /// <summary>
-/// Modelo de datos con validaciones para actualizar la identidad visual del operador logístico (UC-06, RF-05).
+/// Modelo de datos con validaciones para actualizar la identidad visual del operador logístico.
 /// </summary>
 public class ActualizarIdentidadVisualDto
 {

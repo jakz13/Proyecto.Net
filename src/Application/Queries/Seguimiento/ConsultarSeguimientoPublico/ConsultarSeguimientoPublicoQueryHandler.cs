@@ -18,7 +18,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
     private readonly IRetiroRepository? _retiroRepository;
     private readonly IFuncionalidadesService? _funcionalidades;
 
-    /// <summary>Prefijo de los códigos de retiro: el comprador usa el mismo enlace público que para los envíos (RF 41).</summary>
+    /// <summary>Prefijo de los códigos de retiro: el comprador usa el mismo enlace público que para los envíos.</summary>
     public const string PrefijoCodigoRetiro = "RET-";
 
     public ConsultarSeguimientoPublicoQueryHandler(
@@ -39,8 +39,8 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     /// <summary>
     /// Devuelve null cuando el código es inválido o no existe, sin distinguir ambos casos, para no permitir la enumeración de envíos.
-    /// Utiliza el caché distribuido con expiración corta (5 minutos) e invalidación ante eventos del envío (RNF 6.7).
-    /// Incorpora el avance de entrega de bultos sin exponer identificadores internos (RF-35).
+    /// Utiliza el caché distribuido con expiración corta (5 minutos) e invalidación ante eventos del envío.
+    /// Incorpora el avance de entrega de bultos sin exponer identificadores internos.
     /// </summary>
     public async Task<SeguimientoPublicoDto?> Handle(ConsultarSeguimientoPublicoQuery request, CancellationToken cancellationToken)
     {
@@ -133,7 +133,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
     }
 
     /// <summary>
-    /// Vista pública de un retiro (RF 41): estado, ventana, avance y línea de tiempo, sin nombres, domicilios, contactos ni identificadores internos.
+    /// Vista pública de un retiro: estado, ventana, avance y línea de tiempo, sin nombres, domicilios, contactos ni identificadores internos.
     /// </summary>
     private async Task<SeguimientoPublicoDto?> ConsultarRetiroAsync(string codigo, string claveCache, CancellationToken cancellationToken)
     {
@@ -230,7 +230,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         return franja is null ? null : $"{franja.HoraInicio:HH\\:mm}-{franja.HoraFin:HH\\:mm}";
     }
 
-    /// <summary>Texto apto para el destinatario: nunca se publica el payload interno ni identificadores internos de bultos (RF-35).</summary>
+    /// <summary>Texto apto para el destinatario: nunca se publica el payload interno ni identificadores internos de bultos.</summary>
     private static string DescribirHito(EventoEnvio evento, int bultosEntregados, int totalBultos) => evento.TipoEvento switch
     {
         "AltaEnvio" => "Envío registrado y admitido",

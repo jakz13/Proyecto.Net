@@ -8,7 +8,7 @@ using Xunit;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Pruebas exhaustivas y de resiliencia para el caso de uso UC-40 Iniciar sesión.
+/// Pruebas exhaustivas y de resiliencia para Iniciar sesión.
 /// Valida camino feliz para todos los perfiles, seguridad ante entradas nulas/vacías,
 /// mitigación de fuerza bruta con bloqueo temporal y aislamiento multitenant.
 /// </summary>

@@ -2,7 +2,7 @@ using MediatR;
 
 namespace UltimaMilla.Application.Commands.Mensajeria.PublicarOutboxPendiente;
 
-/// <summary>Publica en el broker los mensajes del outbox que aún no salieron (patrón outbox, §6.8).</summary>
+/// <summary>Publica en el broker los mensajes del outbox que aún no salieron (patrón outbox).</summary>
 public record PublicarOutboxPendienteCommand(int TamanoLote = 50) : IRequest<ResultadoPublicacionOutbox>;
 
 /// <param name="Publicados">Mensajes publicados y marcados como procesados.</param>

@@ -41,7 +41,7 @@ public class ConsultasEnvioQueryHandlerTests
         new(Guid.NewGuid(), operadorId, 1, DateTime.UtcNow.AddDays(-1), 3, TimeSpan.FromHours(24),
             "Firma", "Devolución", TimeSpan.FromHours(48), TimeSpan.FromHours(24));
 
-    // ---- UC-33: seguimiento público ----
+    // ---- seguimiento público ----
 
     [Fact]
     public async Task Seguimiento_EnvioExistente_DevuelveEstadoYLineaDeTiempo()

@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Flota;
 
 /// <summary>
-/// Representa a un repartidor registrado en el operador logístico (RF-06).
+/// Representa a un repartidor registrado en el operador logístico.
 /// </summary>
 public record RepartidorDto
 {

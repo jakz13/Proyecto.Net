@@ -3,12 +3,12 @@ using MediatR;
 namespace UltimaMilla.Application.Queries.Deposito;
 
 /// <summary>
-/// Consulta las hojas de ruta despachadas o finalizadas pendientes de rendición por el operario de depósito (UC-16, RF-22).
+/// Consulta las hojas de ruta despachadas o finalizadas pendientes de rendición por el operario de depósito.
 /// </summary>
 public record ListarRutasPendientesRendicionQuery() : IRequest<IReadOnlyList<RutaPendienteRendicionResumenDto>>;
 
 /// <summary>
-/// Consulta el detalle de una hoja de ruta para contrastar bultos entregados, devueltos y sin intento en su rendición (UC-16).
+/// Consulta el detalle de una hoja de ruta para contrastar bultos entregados, devueltos y sin intento en su rendición.
 /// </summary>
 public record ObtenerRutaParaRendicionQuery(Guid HojaDeRutaId) : IRequest<RutaParaRendicionDetalleDto>;
 

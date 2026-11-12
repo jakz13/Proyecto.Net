@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Seguimiento;
 namespace UltimaMilla.Backoffice.Pages.Seguimiento;
 
 /// <summary>
-/// Vista pública y sin autenticación de seguimiento para el destinatario final (UC-33 y UC-34).
+/// Vista pública y sin autenticación de seguimiento para el destinatario final.
 /// Permite abrir directamente los enlaces enviados por correo electrónico (/seguimiento/{codigo})
 /// mostrando el estado actual, historial de eventos, identidad visual del operador y reprogramación.
 /// </summary>

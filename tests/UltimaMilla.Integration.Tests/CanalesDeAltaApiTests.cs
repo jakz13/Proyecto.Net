@@ -9,7 +9,7 @@ using DatabaseSeeder = UltimaMilla.Infrastructure.Persistence.DatabaseSeeder;
 
 namespace UltimaMilla.Integration.Tests;
 
-/// <summary>Altas por portal, API (UC-26) y archivo (UC-25) contra Postgres real.</summary>
+/// <summary>Altas por portal, API y archivo contra Postgres real.</summary>
 [Collection(ColeccionApi.Nombre)]
 public class CanalesDeAltaApiTests
 {

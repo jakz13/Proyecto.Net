@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para el control de carga y despacho de hojas de ruta (UC-09).
+/// Implementación simulada en memoria para el control de carga y despacho de hojas de ruta.
 /// </summary>
 public class MockDespachoApi : IDespachoApi
 {

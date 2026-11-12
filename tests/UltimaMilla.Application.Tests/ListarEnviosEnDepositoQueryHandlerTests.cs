@@ -42,7 +42,7 @@ public class ListarEnviosEnDepositoQueryHandlerTests
             codigos.Add(codigo);
         }
 
-        // Recepcionar en depósito para cumplir precondición de UC-15
+        // Recepcionar en depósito para cumplir la precondición
         envio.RecepcionarEnDeposito(codigos, null, null, Guid.NewGuid());
 
         if (clasificarTodos)

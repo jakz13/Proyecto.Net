@@ -29,7 +29,7 @@ public interface IEnvioRepository
     Task RegistrarConflictoAsync(ConflictoSincronizacion conflicto, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Criterios de búsqueda de los envíos de un comercio (UC-28). El texto busca por destinatario o código de seguimiento.</summary>
+/// <summary>Criterios de búsqueda de los envíos de un comercio. El texto busca por destinatario o código de seguimiento.</summary>
 public record FiltroEnviosComercio(
     EstadoEnvio? Estado,
     DateTime? DesdeUtc,

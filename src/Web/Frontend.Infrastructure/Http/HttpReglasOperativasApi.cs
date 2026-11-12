@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación basada en cliente HTTP REST de IReglasOperativasApi (UC-04, RF-04).
+/// Implementación basada en cliente HTTP REST de IReglasOperativasApi.
 /// </summary>
 public class HttpReglasOperativasApi : IReglasOperativasApi
 {

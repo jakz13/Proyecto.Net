@@ -6,7 +6,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
-/// <summary>Implementación HTTP de ICuentaCorrienteApi (RF-34).</summary>
+/// <summary>Implementación HTTP de ICuentaCorrienteApi.</summary>
 public class HttpCuentaCorrienteApi : ICuentaCorrienteApi
 {
     private readonly HttpClient _http;

@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 namespace UltimaMilla.Backoffice.Pages.Despacho;
 
 /// <summary>
-/// Modelo de página para el listado de hojas de ruta pendientes de control de salida y despacho físico (UC-09).
+/// Modelo de página para el listado de hojas de ruta pendientes de control de salida y despacho físico.
 /// </summary>
 [Authorize(Roles = "Despachador,Operario")]
 public class IndexModel : PageModel

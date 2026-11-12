@@ -3,7 +3,7 @@ using UltimaMilla.Domain.Entities.Seguimiento;
 namespace UltimaMilla.Application.Ports;
 
 /// <summary>
-/// Acceso a suscripciones de avisos automáticos y webhooks de los comercios (UC-29, RF-33, RF-28).
+/// Acceso a suscripciones de avisos automáticos y webhooks de los comercios.
 /// </summary>
 public interface ISuscripcionAvisoRepository
 {
@@ -14,7 +14,7 @@ public interface ISuscripcionAvisoRepository
 }
 
 /// <summary>
-/// Registro, auditoría y reintento de avisos enviados a los webhooks de los comercios (UC-30, RF-28).
+/// Registro, auditoría y reintento de avisos enviados a los webhooks de los comercios.
 /// </summary>
 public interface IAvisoComercioConsultaRepository
 {

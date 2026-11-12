@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Incidencias;
 
 /// <summary>
-/// Parámetros para dar de alta una nueva incidencia operativa (UC-11).
+/// Parámetros para dar de alta una nueva incidencia operativa.
 /// </summary>
 public record RegistrarIncidenciaDto
 {

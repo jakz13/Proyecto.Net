@@ -183,7 +183,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
 
         var paradasDto = new List<ParadaNavegacionDto>();
 
-        // Las paradas de retiro de una hoja de ruta mixta (RF 39) se muestran junto a las de entrega
+        // Las paradas de retiro de una hoja de ruta mixta se muestran junto a las de entrega
         var retirosDict = _retiroRepository is null
             ? new Dictionary<Guid, Retiro>()
             : (await _retiroRepository.GetByIdsAsync(paradasVigentes.IdsDeRetiros(), cancellationToken))

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Comercios;
 
 /// <summary>
-/// Modelo de datos para registrar un nuevo comercio (UC-01).
+/// Modelo de datos para registrar un nuevo comercio.
 /// No incluye OperadorId ya que el operador se resuelve en backend mediante el JWT del usuario autenticado.
 /// </summary>
 public record CrearComercioDto

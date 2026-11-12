@@ -4,7 +4,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para la gestión de usuarios e identidades (UC-01, RF-31).
+/// Contrato de servicio para la gestión de usuarios e identidades.
 /// Consumido por el Backoffice del Operador.
 /// </summary>
 public interface IUsuariosApi

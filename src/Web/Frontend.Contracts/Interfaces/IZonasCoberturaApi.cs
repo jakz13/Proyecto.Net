@@ -3,7 +3,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 namespace UltimaMilla.Frontend.Contracts.Interfaces;
 
 /// <summary>
-/// Contrato de servicio para configurar zonas de cobertura geográfica y franjas horarias de entrega (UC-02, RF-02).
+/// Contrato de servicio para configurar zonas de cobertura geográfica y franjas horarias de entrega.
 /// Consumido por el Backoffice del Operador.
 /// </summary>
 public interface IZonasCoberturaApi

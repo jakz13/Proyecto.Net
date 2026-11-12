@@ -8,7 +8,7 @@ using Xunit;
 namespace UltimaMilla.Frontend.Tests;
 
 /// <summary>
-/// Pruebas unitarias exhaustivas para HttpSeguimientoApi (UC-33).
+/// Pruebas unitarias exhaustivas para HttpSeguimientoApi.
 /// Valida anti-enumeración, límite de tasa (429), resiliencia y serialización.
 /// </summary>
 public class HttpSeguimientoApiTests
@@ -99,7 +99,7 @@ public class HttpSeguimientoApiTests
     [Fact]
     public async Task ConsultarSeguimiento_CuandoApiRetorna404_RetornaNullPorReglaAntiEnumeracion()
     {
-        // Arrange (UC-33: no debe arrojar error ni distinguir código mal formado de código inexistente)
+        // Arrange (no debe arrojar error ni distinguir código mal formado de código inexistente)
         var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.NotFound, "{\"error\":\"No se encontró el envío\"}");
         var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
         var api = new HttpSeguimientoApi(clienteHttp);

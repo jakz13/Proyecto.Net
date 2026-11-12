@@ -15,7 +15,7 @@ public static class PlanificacionEndpoints
     public static IEndpointRouteBuilder MapPlanificacionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/planificacion/hojas-de-ruta")
-            .WithTags("Planificación (UC-08, UC-09, UC-10)")
+            .WithTags("Planificación")
             .RequireAuthorization(PoliticasApi.Despacho);
 
         group.MapPost("/", async (
@@ -170,7 +170,7 @@ public static class PlanificacionEndpoints
             }
         })
         .WithName("ObtenerVerificacionDespacho")
-        .WithSummary("Control de carga previo al despacho (UC-09)")
+        .WithSummary("Control de carga previo al despacho")
         .WithDescription("Indica qué bultos de la ruta fueron cargados según el escaneo del repartidor, si hay otra ruta sin rendir y si la ruta se puede despachar.")
         .Produces<VerificacionDespachoDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -182,7 +182,7 @@ public static class PlanificacionEndpoints
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarEnviosPendientesDeRutaQuery(), ct)))
         .RequireAuthorization(PoliticasApi.Operaciones)
-        .WithTags("Planificación (UC-08, UC-09, UC-10)")
+        .WithTags("Planificación")
         .WithName("ListarEnviosPendientesDeRuta")
         .WithSummary("Envíos en depósito, clasificados, listos para asignar a una hoja de ruta")
         .Produces<IReadOnlyList<EnvioPendienteDeRutaDto>>(StatusCodes.Status200OK)
@@ -222,7 +222,7 @@ public static class PlanificacionEndpoints
         })
         .WithName("ReasignarEnvio")
         .RequireAuthorization(PoliticasApi.Operaciones)
-        .WithSummary("Reasignar o reprogramar un envío en ruta (UC-10)")
+        .WithSummary("Reasignar o reprogramar un envío en ruta")
         .WithDescription("Retira el envío de su hoja de ruta. Si la ruta no salió vuelve a depósito y puede asignarse a otra ruta liberada o reprogramarse. Si ya está en la calle queda no entregado con un motivo interno y vuelve a depósito en la rendición.")
         .Produces<ReasignacionResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
@@ -266,7 +266,7 @@ public static class PlanificacionEndpoints
             }
         })
         .WithName("DespacharHojaDeRuta")
-        .WithSummary("Despachar una hoja de ruta (UC-09)")
+        .WithSummary("Despachar una hoja de ruta")
         .WithDescription("El operario confirma la salida del vehículo: los envíos con todos sus bultos cargados pasan a EnTransito y los demás vuelven a depósito. Es idempotente.")
         .Produces<DespachoResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)

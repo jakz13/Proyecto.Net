@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Flota;
 
 /// <summary>
-/// Datos requeridos para registrar un nuevo vehículo en la flota (RF-06).
+/// Datos requeridos para registrar un nuevo vehículo en la flota.
 /// </summary>
 public record CrearVehiculoDto
 {

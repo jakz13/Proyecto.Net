@@ -9,7 +9,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
-/// Implementación HTTP de IIncidenciasApi (UC-11) sobre /api/backoffice/incidencias.
+/// Implementación HTTP de IIncidenciasApi sobre /api/backoffice/incidencias.
 /// La API identifica envíos, rutas y usuarios solo por id: el cliente completa los nombres consultando sus listados.
 /// </summary>
 public class HttpIncidenciasApi : IIncidenciasApi

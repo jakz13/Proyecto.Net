@@ -10,7 +10,7 @@ namespace UltimaMilla.Frontend.Infrastructure.Http;
 
 /// <summary>
 /// Implementación basada en HTTP/REST de IUsuariosApi.
-/// Conecta el Backoffice con los endpoints de gestión de usuarios y roles del backend (UC-01, RF-31).
+/// Conecta el Backoffice con los endpoints de gestión de usuarios y roles del backend.
 /// </summary>
 public class HttpUsuariosApi : IUsuariosApi
 {

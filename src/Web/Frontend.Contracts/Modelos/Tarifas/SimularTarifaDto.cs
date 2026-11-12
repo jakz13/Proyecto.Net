@@ -1,7 +1,7 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 
 /// <summary>
-/// Parámetros de entrada para simular la cotización de un envío bajo la versión tarifaria vigente (UC-03).
+/// Parámetros de entrada para simular la cotización de un envío bajo la versión tarifaria vigente.
 /// </summary>
 public record SimularTarifaDto
 {

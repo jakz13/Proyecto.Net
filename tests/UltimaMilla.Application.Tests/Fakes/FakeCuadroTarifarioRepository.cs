@@ -4,7 +4,7 @@ using UltimaMilla.Domain.Entities.Operador;
 namespace UltimaMilla.Application.Tests.Fakes;
 
 /// <summary>
-/// Repositorio falso en memoria para pruebas unitarias de cuadros tarifarios y versionado (UC-03).
+/// Repositorio falso en memoria para pruebas unitarias de cuadros tarifarios y versionado.
 /// </summary>
 public class FakeCuadroTarifarioRepository : ICuadroTarifarioRepository
 {

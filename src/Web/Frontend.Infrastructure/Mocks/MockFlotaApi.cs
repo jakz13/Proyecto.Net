@@ -5,7 +5,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria para la gestión de flota de vehículos y padrón de repartidores (UC-07, RF-06).
+/// Implementación simulada en memoria para la gestión de flota de vehículos y padrón de repartidores.
 /// </summary>
 public class MockFlotaApi : IFlotaApi
 {

@@ -194,7 +194,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     /// <summary>Zona operativa con la que se clasificaron los bultos del envío (la menor, para que el orden sea determinístico).</summary>
     public Guid? ZonaClasificadaId => _bultos.Where(b => b.ZonaClasificadaId.HasValue).Select(b => b.ZonaClasificadaId!.Value).OrderBy(z => z).Cast<Guid?>().FirstOrDefault();
 
-    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable (RF-34).</summary>
+    /// <summary>Devuelve el motivo por el cual el envío no puede incluirse en una hoja de ruta, o null si es asignable.</summary>
     public string? ObtenerMotivoNoAsignable()
     {
         if (EstadoActual == EstadoEnvio.AsignadoARuta)
@@ -237,7 +237,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Retira el envío de la hoja de ruta cuando sus bultos no se cargaron (UC-09): vuelve a depósito, conserva su
+    /// Retira el envío de la hoja de ruta cuando sus bultos no se cargaron: vuelve a depósito, conserva su
     /// clasificación y queda disponible para otra hoja de ruta.
     /// </summary>
     public void DesasignarDeRutaPorFaltante(string motivo, Guid? responsableUsuarioId = null)
@@ -258,7 +258,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Registra que el envío volvió en el vehículo sin que se intentara entregarlo (UC-16): queda "no entregado"
+    /// Registra que el envío volvió en el vehículo sin que se intentara entregarlo: queda "no entregado"
     /// con un motivo interno del catálogo y vuelve a depósito, conservando su clasificación.
     /// </summary>
     public void RegistrarRetornoSinIntento(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
@@ -281,7 +281,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         VolverADeposito("RetornoADeposito", responsableUsuarioId, "Rendición del repartidor.");
     }
 
-    /// <summary>Devuelve a depósito un envío reprogramado o entregado parcialmente cuando el repartidor rinde la ruta (UC-16, RF-34).</summary>
+    /// <summary>Devuelve a depósito un envío reprogramado o entregado parcialmente cuando el repartidor rinde la ruta.</summary>
     public void ReintegrarADepositoPorRendicion(Guid responsableUsuarioId)
     {
         if (EstadoActual == EstadoEnvio.EntregadoParcialmente)
@@ -305,7 +305,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// El repartidor retira los bultos de un envío en devolución y los lleva de vuelta al depósito (UC-22).
+    /// El repartidor retira los bultos de un envío en devolución y los lleva de vuelta al depósito.
     /// No cambia el estado del envío. Devuelve false cuando ya estaba registrado (operación idempotente).
     /// </summary>
     public bool RegistrarRetiroParaDevolucion(Guid? responsableUsuarioId, double? latitud, double? longitud, DateTime fechaHoraDispositivoUtc, string? observaciones = null)
@@ -328,7 +328,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         return true;
     }
 
-    /// <summary>El comercio confirma que recibió el bulto devuelto: la devolución queda cerrada (UC-32).</summary>
+    /// <summary>El comercio confirma que recibió el bulto devuelto: la devolución queda cerrada.</summary>
     public void ConfirmarDevolucionRecibida(Guid? responsableUsuarioId)
     {
         if (EstadoActual != EstadoEnvio.EnDevolucion)
@@ -345,7 +345,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             payload: "El comercio confirmó la recepción del bulto devuelto.");
     }
 
-    /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
+    /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito.</summary>
     public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
     {
         if (EstadoActual != EstadoEnvio.AsignadoARuta)
@@ -356,8 +356,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Retira un envío que ya está en la calle (UC-10): queda "no entregado" con un motivo interno y vuelve a
-    /// depósito cuando el repartidor rinda la ruta (UC-16).
+    /// Retira un envío que ya está en la calle: queda "no entregado" con un motivo interno y vuelve a
+    /// depósito cuando el repartidor rinda la ruta.
     /// </summary>
     public void RegistrarRetiroEnCalle(MotivoNoEntrega motivoInterno, Guid responsableUsuarioId, string? observaciones = null)
     {
@@ -377,7 +377,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             payload: $"Motivo: {motivoInterno.Codigo} - {motivoInterno.Descripcion}. {observaciones?.Trim()}".Trim());
     }
 
-    /// <summary>Cambia la franja horaria comprometida de un envío que está en depósito (UC-10).</summary>
+    /// <summary>Cambia la franja horaria comprometida de un envío que está en depósito.</summary>
     public void ReprogramarFranja(Guid franjaHorariaId, Guid responsableUsuarioId)
     {
         if (franjaHorariaId == Guid.Empty)
@@ -420,7 +420,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Declara el envío como extraviado (RF-11): estado terminal que se admite desde cualquier estado no terminal.
+    /// Declara el envío como extraviado: estado terminal que se admite desde cualquier estado no terminal.
     /// Si estaba asignado a una ruta se desvincula; la parada de la ruta la cancela quien invoca (el agregado de la ruta).
     /// </summary>
     public void MarcarExtraviado(string motivo, Guid responsableUsuarioId)
@@ -451,7 +451,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         if (string.IsNullOrWhiteSpace(tipoEvento))
             throw new DomainValidationException("El tipo de evento no puede ser vacío.");
 
-        // UC-39: toda transición se valida contra la máquina de estados declarativa
+        // toda transición se valida contra la máquina de estados declarativa
         if (!forzarPorConflicto && !MaquinaEstadosEnvio.EsTransicionValida(EstadoActual, nuevoEstado))
             throw new DomainValidationException(
                 $"Transición de estado inválida para el envío {CodigoSeguimientoPublico}: '{EstadoActual}' -> '{nuevoEstado}'.");
@@ -474,7 +474,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Deriva declarativamente el estado del envío a partir de los estados de sus bultos (RF-31).
+    /// Deriva declarativamente el estado del envío a partir de los estados de sus bultos.
     /// </summary>
     public EstadoEnvio DerivarEstadoDesdeBultos() =>
         MaquinaEstadosBulto.DerivarEstadoEnvio(_bultos, EstadoActual);
@@ -777,7 +777,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>
-    /// Registra el resultado de entrega a nivel de cada bulto en la parada (RF-31, RF-32, RF-33, RF-34).
+    /// Registra el resultado de entrega a nivel de cada bulto en la parada.
     /// Asocia la prueba de entrega a los bultos efectivamente entregados, registra el motivo del catálogo para los no entregados,
     /// resuelve conflictos offline a nivel de bulto y deriva declarativamente el estado del envío.
     /// </summary>
@@ -864,7 +864,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             {
                 if (reportadoNoEntregado)
                 {
-                    // Resolución de conflicto a nivel de bulto (RF-32): una entrega con prueba previa prevalece sobre un reporte offline tardío de no entrega
+                    // Resolución de conflicto a nivel de bulto: una entrega con prueba previa prevalece sobre un reporte offline tardío de no entrega
                     conflictosResueltos.Add(
                         $"Conflicto resuelto en bulto '{bulto.Identificacion}': ya constaba como Entregado con prueba de entrega; se preserva su entrega frente al reporte de no entrega ({infoNoEntregado!.Motivo.Codigo}).");
                 }
@@ -1203,13 +1203,13 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 }
 
-/// <summary>Datos de un bulto no entregado en la parada junto con su motivo del catálogo del operador (RF-32).</summary>
+/// <summary>Datos de un bulto no entregado en la parada junto con su motivo del catálogo del operador.</summary>
 public record BultoNoEntregadoInput(
     string CodigoBulto,
     MotivoNoEntrega Motivo,
     string? Observaciones = null);
 
-/// <summary>Resultado de dominio tras procesar una entrega a nivel de bultos (RF-31 a RF-34).</summary>
+/// <summary>Resultado de dominio tras procesar una entrega a nivel de bultos.</summary>
 public record ResultadoEntregaParcialDominio(
     IntentoEntrega Intento,
     PruebaDeEntrega Prueba,

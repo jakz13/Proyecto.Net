@@ -3,7 +3,7 @@ using MediatR;
 namespace UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
 
 /// <summary>
-/// Retira un envío de su hoja de ruta (UC-10) y, según la acción, lo deja en depósito, lo asigna a otra
+/// Retira un envío de su hoja de ruta y, según la acción, lo deja en depósito, lo asigna a otra
 /// hoja de ruta liberada o lo reprograma para otra franja horaria.
 /// Acciones: Retirar, ReasignarARuta, Reprogramar.
 /// </summary>

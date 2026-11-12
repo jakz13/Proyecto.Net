@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 
 /// <summary>
-/// Modelo para modificar una zona de cobertura y actualizar sus franjas horarias (UC-02, RF-02).
+/// Modelo para modificar una zona de cobertura y actualizar sus franjas horarias.
 /// </summary>
 public record ActualizarZonaCoberturaDto
 {

@@ -4,7 +4,7 @@ using UltimaMilla.Application.DTOs.Operador;
 namespace UltimaMilla.Application.Commands.Operador.GestionComercios;
 
 /// <summary>
-/// Comando para modificar los datos de un comercio cliente y su estado (UC-01).
+/// Comando para modificar los datos de un comercio cliente y su estado.
 /// </summary>
 public record ActualizarComercioCommand(
     Guid Id,

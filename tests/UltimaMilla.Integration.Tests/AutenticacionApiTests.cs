@@ -7,7 +7,7 @@ using UltimaMilla.Application.Commands.Identidad.IniciarSesion;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Pruebas de integración sobre el endpoint de autenticación y emisión de tokens (UC-40)
+/// Pruebas de integración sobre el endpoint de autenticación y emisión de tokens
 /// verificando respuestas HTTP, emisión de token JWT y control de fuerza bruta.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]

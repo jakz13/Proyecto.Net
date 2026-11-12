@@ -10,8 +10,7 @@ using Xunit;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// Suite de pruebas unitarias exhaustivas para el caso de uso UC-03:
-/// Configurar el cuadro tarifario, versionado, reglas de cálculo, simulación y aislamiento Anti-IDOR.
+/// Suite de pruebas unitarias exhaustivas para el caso de uso /// Configurar el cuadro tarifario, versionado, reglas de cálculo, simulación y aislamiento Anti-IDOR.
 /// </summary>
 public class GestionTarifasHandlerTests
 {

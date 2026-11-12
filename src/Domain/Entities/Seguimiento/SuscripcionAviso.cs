@@ -15,7 +15,7 @@ public class SuscripcionAviso : Entity, IMustHaveComercioTenant
     public bool Activa { get; private set; }
 
     /// <summary>
-    /// Versión del contrato de avisos a comercios (RF 36). Se persiste por suscripción.
+    /// Versión del contrato de avisos a comercios. Se persiste por suscripción.
     /// 'v1' mantiene el formato original por compatibilidad hacia atrás; 'v2' incorpora el detalle y resumen de eventos a nivel de bulto
     /// y los eventos de retiro en domicilio.
     /// </summary>

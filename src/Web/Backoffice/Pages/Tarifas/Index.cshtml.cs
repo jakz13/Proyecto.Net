@@ -8,8 +8,8 @@ using UltimaMilla.Frontend.Contracts.Modelos.Zonas;
 namespace UltimaMilla.Backoffice.Pages.Tarifas;
 
 /// <summary>
-/// Vista principal del caso de uso UC-03: Configurar el cuadro tarifario.
-/// Permite gestionar la versión vigente, revisar el historial cerrado y simular cotizaciones (RF-03).
+/// Vista principal del caso de uso Configurar el cuadro tarifario.
+/// Permite gestionar la versión vigente, revisar el historial cerrado y simular cotizaciones.
 /// </summary>
 [Authorize(Roles = "Administrador")]
 public class IndexModel : PageModel

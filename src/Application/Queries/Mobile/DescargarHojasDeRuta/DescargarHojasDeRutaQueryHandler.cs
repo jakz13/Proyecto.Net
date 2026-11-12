@@ -79,7 +79,7 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
             .Where(e => e.OperadorId == _currentTenant.OperadorId)
             .ToDictionary(e => e.Id);
 
-        // Hoja de ruta mixta (RF 39): las paradas de retiro llegan al dispositivo con sus bultos, para operar sin conexión (RF 40)
+        // Hoja de ruta mixta: las paradas de retiro llegan al dispositivo con sus bultos, para operar sin conexión
         // Si el operador no tiene habilitado el retiro en domicilio, la app no recibe paradas de retiro
         var retiroHabilitado = _funcionalidades is null
             || await _funcionalidades.EstaHabilitadaAsync(_currentTenant.OperadorId, Domain.Entities.Operador.Funcionalidad.RetiroEnDomicilio, cancellationToken);

@@ -7,7 +7,7 @@ using UltimaMilla.Frontend.Contracts.Modelos.Despacho;
 namespace UltimaMilla.Backoffice.Pages.Despacho;
 
 /// <summary>
-/// Modelo de página para la verificación interactiva de carga y confirmación de salida de la hoja de ruta (UC-09).
+/// Modelo de página para la verificación interactiva de carga y confirmación de salida de la hoja de ruta.
 /// </summary>
 [Authorize(Roles = "Despachador,Operario")]
 public class VerificarModel : PageModel

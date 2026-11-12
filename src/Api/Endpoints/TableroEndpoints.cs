@@ -13,7 +13,7 @@ public static class TableroEndpoints
     public static IEndpointRouteBuilder MapTableroEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/operacion/tablero")
-            .WithTags("Tablero de operación en vivo (UC-12)")
+            .WithTags("Tablero de operación en vivo")
             .RequireAuthorization(PoliticasApi.Operaciones);
 
         group.MapGet("/", async (

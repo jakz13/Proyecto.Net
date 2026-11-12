@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Tarifas;
 
 /// <summary>
-/// Modelo para publicar una nueva versión del cuadro tarifario (UC-03, RF-03).
+/// Modelo para publicar una nueva versión del cuadro tarifario.
 /// Al publicarse, la versión anterior se cierra automáticamente con su rango de vigencia.
 /// </summary>
 public record CrearVersionCuadroTarifarioDto

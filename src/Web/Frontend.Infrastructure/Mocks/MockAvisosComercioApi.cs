@@ -8,7 +8,7 @@ using UltimaMilla.Frontend.Infrastructure.Excepciones;
 namespace UltimaMilla.Frontend.Infrastructure.Mocks;
 
 /// <summary>
-/// Implementación simulada en memoria del servicio de avisos automáticos y webhooks para comercios (UC-29, UC-30).
+/// Implementación simulada en memoria del servicio de avisos automáticos y webhooks para comercios.
 /// </summary>
 public class MockAvisosComercioApi : IAvisosComercioApi
 {
@@ -159,7 +159,7 @@ public class MockAvisosComercioApi : IAvisosComercioApi
         {
             evento = "ping_diagnostico",
             timestamp = ahora.ToString("o"),
-            plataforma = "Última Milla - Notificaciones a Comercios (UC-29)",
+            plataforma = "Última Milla - Notificaciones a Comercios",
             comercio = "MegaStore Uruguay",
             envio = new
             {
@@ -275,7 +275,7 @@ public class MockAvisosComercioApi : IAvisosComercioApi
     }
 
     /// <summary>
-    /// Registra en la bitácora de avisos del comercio el evento de extravío de un paquete (RF-11).
+    /// Registra en la bitácora de avisos del comercio el evento de extravío de un paquete.
     /// </summary>
     public static void RegistrarAvisoExtraviado(Guid envioId, string codigoSeguimiento, string motivo)
     {
