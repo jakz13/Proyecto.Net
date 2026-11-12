@@ -13,6 +13,11 @@ import { Counter, Trend } from 'k6/metrics';
 const BASE = __ENV.BASE_URL || 'http://localhost:5000';
 const N = parseInt(__ENV.REPARTIDORES || '10', 10);
 const CLAVE_API = __ENV.CLAVE_API || 'dev-api-key-megastore-2026';
+// En un ambiente real las cuentas de demostración usan la contraseña elegida al desplegar (SEED_PASSWORD_DEMO)
+const PASSWORD_ADMIN = __ENV.PASSWORD_DEMO || 'Admin.2026!';
+const PASSWORD_COMERCIO = __ENV.PASSWORD_DEMO || 'Comercio.2026!';
+// SIN_CUENTAS=true: solo escenarios anónimos (consulta pública) contra un ambiente cuyas credenciales no se tienen a mano
+const SIN_CUENTAS = __ENV.SIN_CUENTAS === 'true';
 const ESCENARIOS = (__ENV.ESCENARIOS || 'seguimiento,alta,sync').split(',');
 const JSON_H = { 'Content-Type': 'application/json' };
 
@@ -70,7 +75,8 @@ export function setup() {
   if (!ESCENARIOS.includes('sync') && !ESCENARIOS.includes('seguimiento') && !ESCENARIOS.includes('duracion')) return {};
 
   const datos = { reps: [], admin: null, codigoSeguimiento: null };
-  const admin = login('admin@gmail.com', 'Admin.2026!');
+  if (SIN_CUENTAS) return datos;
+  const admin = login('admin@gmail.com', PASSWORD_ADMIN);
   datos.admin = admin;
 
   // Un código de seguimiento real para la consulta pública
@@ -82,7 +88,7 @@ export function setup() {
 
   if (!ESCENARIOS.includes('sync')) return datos;
 
-  const comercio = login('comercio@gmail.com', 'Comercio.2026!');
+  const comercio = login('comercio@gmail.com', PASSWORD_COMERCIO);
   const fecha = new Date().toISOString().slice(0, 10);
   const sufijo = Date.now().toString(36);
 

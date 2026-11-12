@@ -27,9 +27,20 @@ El `setup()` crea los datos de cada repartidor por la propia API (flota, retiro,
 | Sincronización simultánea (20 repartidores) | ciclo completo p95 **139 ms**, 100 % de comprobaciones (descarga, retiro, reenvío idempotente, rendición) | p95 < 2 s | Cumple |
 | Duración (3 min) | sin degradación; 27 835 iteraciones sin errores | sin errores | Cumple |
 
+## Resultados sobre el ambiente remoto (12/11/2026, VM de Azure, 2 instancias de la API detrás de Caddy, desde una PC en Uruguay)
+| Escenario | Medido | Objetivo | |
+|---|---|---|---|
+| Consulta pública, rampa 0 → 100 usuarios en 2 min | 21 628 pedidos (179/s), **p95 44,7 ms, p99 48,3 ms**, **0 errores de servidor** (los 404/429 son la protección y códigos inexistentes) | p95 < 300 ms, p99 < 800 ms, 0 errores 5xx | Cumple |
+
+Incluye la latencia de red de ida y vuelta (~40 ms). Se ejecutó con `SIN_CUENTAS=true` (solo el escenario anónimo). **Pendiente:** el escenario de **sincronización simultánea** y el de alta por API sobre el ambiente remoto, que necesitan las cuentas de demostración (contraseña `SEED_PASSWORD_DEMO` del servidor, que no se guarda en el repositorio). Se ejecutan así, y dejan datos de prueba en la base:
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -i -v "$(pwd -W)/scripts/carga:/scripts" grafana/k6 run   -e BASE_URL=https://shippingbox.duckdns.org -e ESCENARIOS=seguimiento,sync -e REPARTIDORES=5   -e PASSWORD_DEMO='<SEED_PASSWORD_DEMO del servidor>' /scripts/carga.js
+```
+Hasta que se haga y se anote aquí, el opcional de carga cumple "ejecución sobre el ambiente remoto" solo en parte.
+
 **Qué dicen los números (con honestidad):**
 - Con un solo origen, la consulta pública queda dominada por el **límite de tasa por IP** (30/min): de 27 700 pedidos, **27 589 recibieron 429 en ~3 ms** y solo los permitidos se atendieron. Eso demuestra la protección, no la capacidad máxima. La capacidad real de la consulta se sostiene en el caché (ADR-003) y se mediría con orígenes distribuidos.
-- Es una máquina de desarrollo con la base en el mismo equipo. **No se ejecutó sobre el ambiente remoto**: la VM es una `E2.1.Micro` (1 GB) en producción y una rampa de 100 usuarios la afectaría mientras se la usa para la defensa. Se ejecuta apuntando `BASE_URL` a producción en una ventana acordada.
+- Es una máquina de desarrollo con la base en el mismo equipo. **La sincronización no se ejecutó todavía sobre el ambiente remoto** (ver arriba): la VM es una `E2.1.Micro` (1 GB) en producción y una rampa de 100 usuarios la afectaría mientras se la usa para la defensa. Se ejecuta apuntando `BASE_URL` a producción en una ventana acordada.
 
 ## Cómo ejecutarlo
 ```bash
