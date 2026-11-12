@@ -294,7 +294,7 @@
                 '    </td>',
                 '    <td class="text-end">',
                 '        <div class="d-inline-flex gap-1 justify-content-end align-items-center">',
-                '            <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" title="Contactar al chofer" onclick="abrirModalContacto(\'' + escaparAtributoJs(alerta.RepartidorNombre) + '\', \'' + escaparAtributoJs(alerta.RepartidorTelefono) + '\', \'' + escaparAtributoJs(alerta.VehiculoMatricula) + '\', \'' + escaparAtributoJs(alerta.CodigoSeguimiento) + '\', \'' + escaparAtributoJs(alerta.HojaDeRutaId) + '\')">',
+                '            <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" title="Contactar al chofer" onclick="abrirModalContacto(\'' + escaparAtributoJs(alerta.RepartidorNombre) + '\', \'' + escaparAtributoJs(alerta.RepartidorTelefono) + '\', \'' + escaparAtributoJs(alerta.VehiculoMatricula) + '\', \'' + escaparAtributoJs(alerta.CodigoSeguimiento) + '\', \'' + escaparAtributoJs(alerta.RepartidorId || alerta.HojaDeRutaId) + '\')">',
                 '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
                 '            </button>',
                 '            <a href="/Rutas/Detalle?id=' + encodeURIComponent(alerta.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Reasignar en la hoja de ruta">',
@@ -315,6 +315,18 @@
         }
         if (!tbody) return;
 
+        if (!Array.isArray(vehiculosFiltrados) || vehiculosFiltrados.length === 0) {
+            tbody.innerHTML = [
+                '<tr>',
+                '    <td colspan="7" class="text-center py-5 text-secondary">',
+                '        <div class="fw-semibold mb-1">No hay unidades que coincidan con el filtro seleccionado.</div>',
+                '        <div class="small">Las flotas activas aparecerán aquí automáticamente en tiempo real.</div>',
+                '    </td>',
+                '</tr>'
+            ].join('');
+            return;
+        }
+
         tbody.innerHTML = vehiculosFiltrados.map(function (veh) {
             var paradaHtml = veh.ParadaActualCodigo
                 ? '<span class="font-monospace fw-bold estado-intermedio small">' + escaparHtml(veh.ParadaActualCodigo) + '</span>'
@@ -331,6 +343,14 @@
 
             var pct = Number(veh.PorcentajeProgreso || 0);
             var barraClase = veh.TieneAlertasRiesgo ? 'bg-danger' : 'bg-dark';
+            var tieneRuta = veh.HojaDeRutaId && veh.HojaDeRutaId !== '00000000-0000-0000-0000-000000000000';
+            var botonDetalleRuta = tieneRuta
+                ? [
+                    '            <a href="/Rutas/Detalle?id=' + encodeURIComponent(veh.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Ver itinerario de ruta">',
+                    '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>',
+                    '            </a>'
+                ].join('')
+                : '';
 
             return [
                 '<tr>',
@@ -363,12 +383,13 @@
                 '    </td>',
                 '    <td class="text-end">',
                 '        <div class="d-inline-flex gap-1 justify-content-end align-items-center">',
+                '            <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" title="Ubicar camión y paradas en el mapa" onclick="irAVehiculoEnMapa(\'' + escaparAtributoJs(veh.VehiculoMatricula) + '\')">',
+                '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>',
+                '            </button>',
                 '            <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" title="Contactar al chofer" onclick="abrirModalContacto(\'' + escaparAtributoJs(veh.RepartidorNombre) + '\', \'' + escaparAtributoJs(veh.RepartidorTelefono) + '\', \'' + escaparAtributoJs(veh.VehiculoMatricula) + '\', null, \'' + escaparAtributoJs(veh.RepartidorId) + '\')">',
                 '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
                 '            </button>',
-                '            <a href="/Rutas/Detalle?id=' + encodeURIComponent(veh.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Ver itinerario de ruta">',
-                '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>',
-                '            </a>',
+                botonDetalleRuta,
                 '        </div>',
                 '    </td>',
                 '</tr>'
@@ -383,6 +404,8 @@
         var elRepartidores = document.getElementById('metricaRepartidoresEnCalle');
         var elTransito = document.getElementById('metricaEnviosEnTransito');
         var elRiesgo = document.getElementById('metricaEnviosEnRiesgo');
+        var elRetirosEnCurso = document.getElementById('metricaRetirosEnCurso');
+        var elRetirosPendientes = document.getElementById('metricaRetirosPendientes');
         var tarjetaRiesgo = document.getElementById('tarjetaEnviosEnRiesgo');
         var contenedorValorRiesgo = document.getElementById('contenedorValorEnviosEnRiesgo');
         var badgeAtencion = document.getElementById('badgeAtencionRiesgo');
@@ -391,11 +414,15 @@
         var totalRepartidores = Number(resumen.TotalRepartidoresEnCalle ?? resumen.totalRepartidoresEnCalle ?? 0);
         var totalTransito = Number(resumen.TotalEnviosEnTransito ?? resumen.totalEnviosEnTransito ?? 0);
         var totalRiesgo = Number(resumen.TotalEnviosEnRiesgo ?? resumen.totalEnviosEnRiesgo ?? 0);
+        var retirosEnCurso = Number(resumen.RetirosEnCurso ?? resumen.retirosEnCurso ?? 0);
+        var retirosPendientes = Number(resumen.RetirosPendientes ?? resumen.retirosPendientes ?? 0);
 
         if (elRutas) elRutas.textContent = String(totalRutas);
         if (elRepartidores) elRepartidores.textContent = String(totalRepartidores);
         if (elTransito) elTransito.textContent = String(totalTransito);
         if (elRiesgo) elRiesgo.textContent = String(totalRiesgo);
+        if (elRetirosEnCurso) elRetirosEnCurso.textContent = String(retirosEnCurso);
+        if (elRetirosPendientes) elRetirosPendientes.textContent = String(retirosPendientes);
 
         if (tarjetaRiesgo) {
             if (totalRiesgo > 0) {
@@ -415,10 +442,26 @@
         var vehiculos = resumen.Vehiculos || resumen.vehiculos || [];
         var alertas = resumen.AlertasRiesgo || resumen.alertasRiesgo || [];
 
+        var selectFiltro = document.querySelector('select[name="filtroEstado"]');
+        if (selectFiltro && selectFiltro.options && selectFiltro.options.length >= 2) {
+            var cantConRiesgo = vehiculos.filter(function (v) { return !!v.TieneAlertasRiesgo; }).length;
+            selectFiltro.options[0].textContent = 'Todas las unidades (' + vehiculos.length + ')';
+            selectFiltro.options[1].textContent = 'Solo unidades con riesgo SLA (' + cantConRiesgo + ')';
+        }
+
         window.datosVehiculos = vehiculos;
         var contadorMapa = document.getElementById('contadorUnidadesMapa');
         if (contadorMapa) {
-            contadorMapa.textContent = vehiculos.length + ' Unidades Rastreadas';
+            contadorMapa.textContent = '(' + vehiculos.length + ' unidades rastreadas)';
+        }
+
+        var contenedorBotonesMapa = document.getElementById('contenedorBotonesUnidadesMapa');
+        if (contenedorBotonesMapa) {
+            var botonesHtml = vehiculos.map(function (unidad) {
+                return '<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace" style="font-size: 0.72rem;" onclick="enfocarUnidadTablero(\'' + escaparAtributoJs(unidad.VehiculoMatricula) + '\')">' + escaparHtml(unidad.VehiculoMatricula) + '</button>';
+            }).join('');
+            botonesHtml += '<button type="button" class="btn btn-dark btn-sm py-0 px-2" style="font-size: 0.72rem;" onclick="if(window.MapasUltimaMilla) window.MapasUltimaMilla.ajustarVistaGeneralMapa(\'mapaTableroFlotaLeaflet\');">Vista general</button>';
+            contenedorBotonesMapa.innerHTML = botonesHtml;
         }
 
         renderizarTablaAlertas(alertas);
@@ -429,8 +472,12 @@
         }
 
         if (window.vehiculoSeleccionadoEnMapa && typeof window.seleccionarEnMapa === 'function') {
+            var matSeleccionada = window.vehiculoSeleccionadoEnMapa.VehiculoMatricula;
             var idSeleccionado = window.vehiculoSeleccionadoEnMapa.HojaDeRutaId;
-            var actualizado = vehiculos.find(function (v) { return v.HojaDeRutaId === idSeleccionado; }) || vehiculos[0];
+            var actualizado = vehiculos.find(function (v) {
+                return (matSeleccionada && v.VehiculoMatricula === matSeleccionada) ||
+                       (idSeleccionado && v.HojaDeRutaId === idSeleccionado);
+            }) || vehiculos[0];
             if (actualizado) {
                 window.seleccionarEnMapa(actualizado);
             }
@@ -516,10 +563,22 @@
         });
     }
 
+    var timerSondeoPeriodico = null;
+
     function iniciarConexionSignalR(urlHubConfigurada) {
+        if (timerSondeoPeriodico) clearInterval(timerSondeoPeriodico);
+        timerSondeoPeriodico = setInterval(function () {
+            if (document.visibilityState === 'hidden') return;
+            actualizarTableroEnVivo();
+        }, 6000);
+
         if (!window.signalR || !window.signalR.HubConnectionBuilder) return;
 
         var urlHub = urlHubConfigurada || 'http://localhost:5000/hubs/tablero';
+        if (urlHub.indexOf('//api:') >= 0) {
+            urlHub = urlHub.replace(/https?:\/\/api:\d+/i, window.location.protocol + '//' + window.location.hostname + ':5000');
+        }
+
         var conexion = new window.signalR.HubConnectionBuilder()
             .withUrl(urlHub, {
                 accessTokenFactory: obtenerTokenTiempoReal

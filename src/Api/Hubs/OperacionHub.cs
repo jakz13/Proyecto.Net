@@ -229,8 +229,8 @@ public class OperacionHub : Hub
             "SignalR",
             payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : null,
             payload.RepartidorId != Guid.Empty ? payload.RepartidorId : null,
-            velocidadKmh: null,
-            bateriaPct: null,
+            velocidadKmh: 28,
+            bateriaPct: 88,
             tomadaEn: tomadaEn);
 
         _db.PosicionesVehiculo.Add(posicion);

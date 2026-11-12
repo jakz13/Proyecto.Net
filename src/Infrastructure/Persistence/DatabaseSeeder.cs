@@ -339,10 +339,41 @@ public static class DatabaseSeeder
                 cancellationToken);
         }
 
-        if (nuevas.Count > 0 || !hayPosicion)
+        // Asegurar que las franjas horarias comprometidas de las paradas de la ruta demo existan en la base
+        var franjasDemo = new[]
+        {
+            (Id: Guid.Parse("ffffffff-0001-0000-0000-000000000001"), ZonaId: DatabaseSeederAdministracion.ZonaCentroId, Inicio: new TimeOnly(9, 0), Fin: new TimeOnly(11, 0)),
+            (Id: Guid.Parse("ffffffff-0002-0000-0000-000000000002"), ZonaId: DatabaseSeederAdministracion.ZonaCostaId, Inicio: new TimeOnly(9, 0), Fin: new TimeOnly(12, 0)),
+            (Id: Guid.Parse("ffffffff-0003-0000-0000-000000000003"), ZonaId: DatabaseSeederAdministracion.ZonaCostaId, Inicio: new TimeOnly(14, 0), Fin: new TimeOnly(18, 0))
+        };
+
+        var zonasExisten = await context.ZonasCobertura.IgnoreQueryFilters()
+            .Where(z => z.Id == DatabaseSeederAdministracion.ZonaCentroId || z.Id == DatabaseSeederAdministracion.ZonaCostaId)
+            .Select(z => z.Id)
+            .ToListAsync(cancellationToken);
+
+        var franjasNuevas = 0;
+        if (zonasExisten.Count > 0)
+        {
+            var idsFranjasExistentes = await context.FranjasHorarias.IgnoreQueryFilters()
+                .Where(f => franjasDemo.Select(fd => fd.Id).Contains(f.Id))
+                .Select(f => f.Id)
+                .ToListAsync(cancellationToken);
+
+            var diaHoy = DateOnly.FromDateTime(DateTime.UtcNow).DayOfWeek;
+            foreach (var fd in franjasDemo.Where(fd => !idsFranjasExistentes.Contains(fd.Id) && zonasExisten.Contains(fd.ZonaId)))
+            {
+                await context.FranjasHorarias.AddAsync(
+                    new FranjaHoraria(fd.Id, fd.ZonaId, diaHoy, fd.Inicio, fd.Fin, 30),
+                    cancellationToken);
+                franjasNuevas++;
+            }
+        }
+
+        if (nuevas.Count > 0 || !hayPosicion || franjasNuevas > 0)
         {
             await context.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("DatabaseSeeder: geolocalización de la ruta demo sembrada ({Direcciones} dirección(es), posición inicial: {Posicion}).", nuevas.Count, !hayPosicion);
+            logger.LogInformation("DatabaseSeeder: geolocalización de la ruta demo sembrada ({Direcciones} dirección(es), posición inicial: {Posicion}, franjas: {Franjas}).", nuevas.Count, !hayPosicion, franjasNuevas);
         }
     }
 

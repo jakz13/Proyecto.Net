@@ -1,8 +1,12 @@
 using UltimaMilla.Application.Commands.Deposito.MarcarEnvioExtraviado;
 using UltimaMilla.Application.Commands.Deposito.RendirHojaDeRuta;
+using UltimaMilla.Application.Commands.Incidencias.AbrirIncidencia;
+using UltimaMilla.Application.Commands.Incidencias.CerrarIncidencia;
+using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
+using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
 using UltimaMilla.Application.Ports;
@@ -393,6 +397,84 @@ public class TableroRealtimeNotificationHandlerTests
         Assert.Equal(ruta.Id, notif.HojaDeRutaId);
         Assert.Equal("Liberada", notif.Estado);
         Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    [Fact]
+    public async Task ArmarHojaDeRuta_NotificaCambioRutaLiberadaDespuesDeGuardar_YNoNotificaEnSoloValidar()
+    {
+        var envio = CrearEnvioClasificado();
+        var handler = new ArmarHojaDeRutaCommandHandler(
+            _rutas, _envios, _repartidores, _vehiculos, _franjas, _uow, _tenant, _clock, _outbox, null, null, _notifier);
+
+        // SoloValidar no debe emitir notificación SignalR
+        var simulacion = await handler.Handle(
+            new ArmarHojaDeRutaCommand(_repartidor.Id, _vehiculo.Id, FechaOperacion, new[] { envio.Id }, true),
+            CancellationToken.None);
+        Assert.Equal("Validada", simulacion.Estado);
+        Assert.Empty(_notifier.CambiosRuta);
+
+        // Armado real sí emite notificación tras SaveChangesAsync
+        var armada = await handler.Handle(
+            new ArmarHojaDeRutaCommand(_repartidor.Id, _vehiculo.Id, FechaOperacion, new[] { envio.Id }, false),
+            CancellationToken.None);
+        Assert.Equal("Liberada", armada.Estado);
+        var notif = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notif.OperadorId);
+        Assert.Equal(armada.HojaDeRutaId, notif.HojaDeRutaId);
+        Assert.Equal("Liberada", notif.Estado);
+        Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    [Fact]
+    public async Task ConfirmarCarga_NotificaCambioRutaEnCargaDespuesDeGuardar()
+    {
+        var envio = CrearEnvioClasificado();
+        var ruta = CrearRutaEnEstado("Liberada", envio);
+        var codigos = envio.Bultos.Select(b => b.Identificacion).ToList();
+        var handler = new ConfirmarCargaCommandHandler(_rutas, _envios, _uow, _tenant, _outbox, _notifier);
+
+        var resultado = await handler.Handle(
+            new ConfirmarCargaCommand(ruta.Id, codigos, "idem-carga-1"),
+            CancellationToken.None);
+
+        Assert.Equal("EnCarga", resultado.EstadoRuta);
+        var notif = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notif.OperadorId);
+        Assert.Equal(ruta.Id, notif.HojaDeRutaId);
+        Assert.Equal("EnCarga", notif.Estado);
+        Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    [Fact]
+    public async Task AbrirYCerrarIncidencia_NotificaCambioRutaDespuesDeGuardar()
+    {
+        var envio = CrearEnvioClasificado();
+        var ruta = CrearRutaEnEstado("Despachada", envio);
+        var repoIncidencias = new FakeIncidenciaRepository();
+        var abrirHandler = new AbrirIncidenciaCommandHandler(
+            repoIncidencias, _envios, _rutas, _tenant, _clock, _uow, _outbox, _notifier);
+        var cerrarHandler = new CerrarIncidenciaCommandHandler(
+            repoIncidencias, _tenant, _clock, _uow, _outbox, _notifier);
+
+        var abierta = await abrirHandler.Handle(
+            new AbrirIncidenciaCommand("DemoraTrafico", "Retención en avenida", "Alta", envio.Id, ruta.Id),
+            CancellationToken.None);
+
+        var notifAbierta = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notifAbierta.OperadorId);
+        Assert.Equal(ruta.Id, notifAbierta.HojaDeRutaId);
+        Assert.Equal("IncidenciaAbierta", notifAbierta.Estado);
+        Assert.Equal(1, notifAbierta.ConfirmacionesEnMomentoDeNotificar);
+
+        await cerrarHandler.Handle(
+            new CerrarIncidenciaCommand(abierta.Id, "Tránsito liberado"),
+            CancellationToken.None);
+
+        Assert.Equal(2, _notifier.CambiosRuta.Count);
+        var notifCerrada = _notifier.CambiosRuta[1];
+        Assert.Equal(ruta.Id, notifCerrada.HojaDeRutaId);
+        Assert.Equal("IncidenciaCerrada", notifCerrada.Estado);
+        Assert.Equal(2, notifCerrada.ConfirmacionesEnMomentoDeNotificar);
     }
 
     private sealed class FakeCacheService : IDistributedCacheService

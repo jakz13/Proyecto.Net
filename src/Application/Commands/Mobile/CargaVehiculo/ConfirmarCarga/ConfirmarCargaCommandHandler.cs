@@ -13,19 +13,22 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IOutboxStorage _outboxStorage;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public ConfirmarCargaCommandHandler(
         IRutaRepository rutaRepository,
         IEnvioRepository envioRepository,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IOutboxStorage outboxStorage)
+        IOutboxStorage outboxStorage,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _outboxStorage = outboxStorage;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<ConfirmarCargaResultDto> Handle(ConfirmarCargaCommand request, CancellationToken cancellationToken)
@@ -80,6 +83,9 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
             Sobrantes = sobrantes
         }), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+            await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
 
         var mensaje = faltantes > 0 || sobrantes > 0
             ? $"Carga registrada con discrepancias: {faltantes} bulto(s) faltante(s) y {sobrantes} sobrante(s)."

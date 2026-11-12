@@ -94,7 +94,7 @@
             <span class="text-secondary small fw-semibold mb-1">Retiros en domicilio</span>
             <div id="metricaRetirosEnCurso" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.RetirosEnCurso</div>
             <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
-                @Model.Resumen.RetirosPendientes pendientes de asignar a una ruta · <a asp-page="/Retiros/Index">ver retiros</a>
+                <span id="metricaRetirosPendientes">@Model.Resumen.RetirosPendientes</span> pendientes de asignar a una ruta · <a asp-page="/Retiros/Index">ver retiros</a>
             </div>
         </div>
     </div>
@@ -188,7 +188,7 @@
                             <th class="text-end" style="width: 10%;" class="text-dark">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tablaAlertasRiesgoBody">
                         @if (Model.Resumen.AlertasRiesgo.Count == 0)
                         {
                             <tr>
@@ -243,7 +243,7 @@
                                                     data-bs-toggle="tooltip"
                                                     data-bs-placement="top"
                                                     title="Contactar al chofer"
-                                                    onclick="abrirModalContacto('@alerta.RepartidorNombre', '@alerta.RepartidorTelefono', '@alerta.VehiculoMatricula', '@alerta.CodigoSeguimiento', '@alerta.HojaDeRutaId')">
+                                                    onclick="abrirModalContacto('@alerta.RepartidorNombre', '@alerta.RepartidorTelefono', '@alerta.VehiculoMatricula', '@alerta.CodigoSeguimiento', '@alerta.RepartidorId')">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                                                 </svg>
@@ -299,108 +299,123 @@
                             <th class="text-end" style="width: 10%;" class="text-dark">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @foreach (var veh in Model.VehiculosFiltrados)
+                    <tbody id="tablaFlotaBody">
+                        @if (Model.VehiculosFiltrados.Count == 0)
                         {
                             <tr>
-                                <td>
-                                    <div class="fw-bold text-dark font-monospace">@veh.VehiculoMatricula</div>
-                                    <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.NumeroRuta</div>
-                                    <div class="text-muted small" style="font-size: 0.7rem;">@veh.VehiculoModelo</div>
+                                <td colspan="7" class="text-center py-5 text-secondary">
+                                    <div class="fw-semibold mb-1">No hay unidades que coincidan con el filtro seleccionado.</div>
+                                    <div class="small">Las flotas activas aparecerán aquí automáticamente en tiempo real.</div>
                                 </td>
-                                <td>
-                                    <div class="fw-semibold text-dark small">@veh.RepartidorNombre</div>
-                                    <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.RepartidorTelefono</div>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold text-dark small">@veh.ZonaActual</div>
-                                    <div class="text-secondary small text-truncate" style="max-width: 220px;" title="@veh.DireccionAproximada">
-                                        @veh.DireccionAproximada
-                                    </div>
-                                </td>
-                                <td>
-                                    @if (!string.IsNullOrEmpty(veh.ParadaActualCodigo))
-                                    {
-                                        <span class="font-monospace fw-bold estado-intermedio small">
-                                            @veh.ParadaActualCodigo
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted small">Sin parada activa</span>
-                                    }
-                                </td>
-                                <td>
-                                    <div class="d-flex justify-content-between align-items-center small mb-1">
-                                        <span class="fw-semibold text-dark">@veh.ParadasCompletadas / @veh.TotalParadas</span>
-                                        <span class="text-secondary small">@veh.PorcentajeProgreso%</span>
-                                    </div>
-                                    <div class="progress" style="height: 6px;">
-                                        <div class="progress-bar @(veh.TieneAlertasRiesgo ? "bg-danger" : "bg-dark")" style="width: @veh.PorcentajeProgreso%;"></div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div>
-                                        @if (veh.TieneAlertasRiesgo)
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var veh in Model.VehiculosFiltrados)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark font-monospace">@veh.VehiculoMatricula</div>
+                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.NumeroRuta</div>
+                                        <div class="text-muted small" style="font-size: 0.7rem;">@veh.VehiculoModelo</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small">@veh.RepartidorNombre</div>
+                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.RepartidorTelefono</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small">@veh.ZonaActual</div>
+                                        <div class="text-secondary small text-truncate" style="max-width: 220px;" title="@veh.DireccionAproximada">
+                                            @veh.DireccionAproximada
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(veh.ParadaActualCodigo))
                                         {
-                                            <span class="estado-fallo fw-semibold small">
-                                                Alerta SLA (@veh.CantidadEnviosEnRiesgo)
-                                            </span>
-                                        }
-                                        else if (veh.EstadoOperativo == "EnMovimiento")
-                                        {
-                                            <span class="estado-entregado fw-semibold small">
-                                                En Movimiento (@veh.VelocidadKmh km/h)
+                                            <span class="font-monospace fw-bold estado-intermedio small">
+                                                @veh.ParadaActualCodigo
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="estado-intermedio fw-semibold small">
-                                                Detenido (0 km/h)
-                                            </span>
+                                            <span class="text-muted small">Sin parada activa</span>
                                         }
-                                    </div>
-                                    <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
-                                        Bat: <strong class="text-dark">@veh.NivelBateriaPct%</strong> · GPS sincronizado
-                                    </div>
-                                </td>
-                                <td class="text-end">
-                                    <div class="d-inline-flex gap-1 justify-content-end align-items-center">
-                                        <button type="button"
-                                                class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
-                                                data-bs-toggle="tooltip"
-                                                data-bs-placement="top"
-                                                title="Ubicar camión y paradas en el mapa"
-                                                onclick="irAVehiculoEnMapa('@veh.VehiculoMatricula')">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                                <circle cx="12" cy="10" r="3"></circle>
-                                            </svg>
-                                        </button>
-                                        <button type="button" 
-                                                class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
-                                                data-bs-toggle="tooltip"
-                                                data-bs-placement="top"
-                                                title="Contactar al chofer"
-                                                onclick="abrirModalContacto('@veh.RepartidorNombre', '@veh.RepartidorTelefono', '@veh.VehiculoMatricula', null, '@veh.RepartidorId')">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                            </svg>
-                                        </button>
-                                        <a asp-page="/Rutas/Detalle" asp-route-id="@veh.HojaDeRutaId" 
-                                           class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
-                                           data-bs-toggle="tooltip"
-                                           data-bs-placement="top"
-                                           title="Ver itinerario de ruta">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
-                                                <line x1="8" y1="2" x2="8" y2="18"></line>
-                                                <line x1="16" y1="6" x2="16" y2="22"></line>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex justify-content-between align-items-center small mb-1">
+                                            <span class="fw-semibold text-dark">@veh.ParadasCompletadas / @veh.TotalParadas</span>
+                                            <span class="text-secondary small">@veh.PorcentajeProgreso%</span>
+                                        </div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar @(veh.TieneAlertasRiesgo ? "bg-danger" : "bg-dark")" style="width: @veh.PorcentajeProgreso%;"></div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            @if (veh.TieneAlertasRiesgo)
+                                            {
+                                                <span class="estado-fallo fw-semibold small">
+                                                    Alerta SLA (@veh.CantidadEnviosEnRiesgo)
+                                                </span>
+                                            }
+                                            else if (veh.EstadoOperativo == "EnMovimiento")
+                                            {
+                                                <span class="estado-entregado fw-semibold small">
+                                                    En Movimiento (@veh.VelocidadKmh km/h)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="estado-intermedio fw-semibold small">
+                                                    Detenido (0 km/h)
+                                                </span>
+                                            }
+                                        </div>
+                                        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
+                                            Bat: <strong class="text-dark">@veh.NivelBateriaPct%</strong> · GPS sincronizado
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1 justify-content-end align-items-center">
+                                            <button type="button"
+                                                    class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="Ubicar camión y paradas en el mapa"
+                                                    onclick="irAVehiculoEnMapa('@veh.VehiculoMatricula')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                                    <circle cx="12" cy="10" r="3"></circle>
+                                                </svg>
+                                            </button>
+                                            <button type="button" 
+                                                    class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="Contactar al chofer"
+                                                    onclick="abrirModalContacto('@veh.RepartidorNombre', '@veh.RepartidorTelefono', '@veh.VehiculoMatricula', null, '@veh.RepartidorId')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                                </svg>
+                                            </button>
+                                            @if (veh.HojaDeRutaId != Guid.Empty)
+                                            {
+                                                <a asp-page="/Rutas/Detalle" asp-route-id="@veh.HojaDeRutaId" 
+                                                   class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                   data-bs-toggle="tooltip"
+                                                   data-bs-placement="top"
+                                                   title="Ver itinerario de ruta">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                                                        <line x1="8" y1="2" x2="8" y2="18"></line>
+                                                        <line x1="16" y1="6" x2="16" y2="22"></line>
+                                                    </svg>
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -421,7 +436,7 @@
                             <span class="fw-bold text-dark">Radar Metropolitano de Flota y Paradas</span>
                             <span id="contadorUnidadesMapa" class="text-secondary small ms-2">(@Model.Resumen.Vehiculos.Count unidades rastreadas)</span>
                         </div>
-                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <div id="contenedorBotonesUnidadesMapa" class="d-flex align-items-center gap-1 flex-wrap">
                             @foreach (var unidad in Model.Resumen.Vehiculos)
                             {
                                 <button type="button"
@@ -633,7 +648,6 @@
 
 @section Scripts {
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
     <script src="~/js/tablero-tiempo-real.js" asp-append-version="true"></script>
 
     <script>

@@ -23,6 +23,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
     private readonly IOutboxStorage _outboxStorage;
     private readonly IRetiroRepository? _retiroRepository;
     private readonly IFuncionalidadesService? _funcionalidades;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public ArmarHojaDeRutaCommandHandler(
         IRutaRepository rutaRepository,
@@ -35,9 +36,11 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         IClock clock,
         IOutboxStorage outboxStorage,
         IRetiroRepository? retiroRepository = null,
-        IFuncionalidadesService? funcionalidades = null)
+        IFuncionalidadesService? funcionalidades = null,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _funcionalidades = funcionalidades;
+        _tableroNotifier = tableroNotifier;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _repartidorRepository = repartidorRepository;
@@ -249,6 +252,9 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         await _outboxStorage.SaveRangeAsync(eventos, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_tableroNotifier is not null)
+            await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
 
         return new ArmarHojaDeRutaResultDto(
             ruta.Id,
