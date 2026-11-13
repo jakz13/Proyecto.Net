@@ -25,8 +25,10 @@ function Paso($t) { Write-Host "`n==> $t" -ForegroundColor Cyan }
 
 if (-not $env:TF_VAR_subscription_id) { $env:TF_VAR_subscription_id = (az account show --query id -o tsv) }
 if (-not $env:TF_VAR_claves_publicas_ssh) {
-    $claves = @(Get-Content "$HOME\.ssh\azure_ultimamilla.pub"); if (Test-Path "$HOME\.ssh\ci_deploy.pub") { $claves += Get-Content "$HOME\.ssh\ci_deploy.pub" }
-    $env:TF_VAR_claves_publicas_ssh = (ConvertTo-Json @($claves) -Compress)
+    [string[]]$claves = @((Get-Content "$HOME\.ssh\azure_ultimamilla.pub" -Raw).Trim())
+    if (Test-Path "$HOME\.ssh\ci_deploy.pub") { $claves += (Get-Content "$HOME\.ssh\ci_deploy.pub" -Raw).Trim() }
+    # -InputObject evita que Windows PowerShell 5 aplane la lista o serialice cada texto como objeto
+    $env:TF_VAR_claves_publicas_ssh = (ConvertTo-Json -InputObject $claves -Compress)
 }
 
 Push-Location $tf
@@ -44,11 +46,13 @@ Paso 'DNS: apuntar los dominios a la IP nueva'
 Paso 'Esperando a que la VM termine de prepararse (SSH + cloud-init)'
 $opc = @('-i', $Clave, '-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes')
 $listo = $false
+$previo = $ErrorActionPreference; $ErrorActionPreference = 'Continue'   # ssh avisa por stderr al registrar la huella de la VM nueva: no es un error
 for ($i = 1; $i -le 60; $i++) {
     $r = ssh @opc "azureuser@$ip" 'cloud-init status 2>/dev/null; test -f ~/shippingbox/.env.prod && docker --version' 2>$null
     if ($LASTEXITCODE -eq 0 -and ($r -join ' ') -match 'done' -and ($r -join ' ') -match 'Docker') { $listo = $true; break }
     Write-Host "  intento $i/60 (la VM todavía se prepara)..." -ForegroundColor DarkGray; Start-Sleep -Seconds 10
 }
+$ErrorActionPreference = $previo
 if (-not $listo) { throw 'La VM no terminó de prepararse a tiempo.' }
 
 # Secretos opcionales de la aplicación (no están en el repositorio ni en Terraform): se agregan a .env.prod de la VM si se definieron como variables de entorno

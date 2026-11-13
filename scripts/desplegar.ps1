@@ -23,7 +23,7 @@ param(
     [ValidateSet('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel')]
     [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel'),
 
-    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.65.113' }),
+    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.57.234' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
