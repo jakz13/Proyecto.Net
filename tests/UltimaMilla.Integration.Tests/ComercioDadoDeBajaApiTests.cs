@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using UltimaMilla.Application.DTOs.Retiros;
+using UltimaMilla.Application.Queries.Envios.ObtenerDetalleEnvio;
+using UltimaMilla.Domain.Enums;
 using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Integration.Tests;
@@ -105,11 +108,13 @@ public class ComercioDadoDeBajaApiTests
         Assert.False(opItem.GetProperty("activo").GetBoolean());
 
         // Cambios/consultas de lectura permitidos (200 OK) y el envío + retiro quedaron Cancelado
-        var detalleEnvio = await comercioReingreso.GetFromJsonAsync<JsonElement>($"/api/envios/{envioId}/detalle");
-        Assert.Equal("Cancelado", detalleEnvio.GetProperty("estado").GetString());
+        var detalleEnvio = await comercioReingreso.GetFromJsonAsync<DetalleEnvioDto>($"/api/envios/{envioId}/detalle");
+        Assert.NotNull(detalleEnvio);
+        Assert.Equal(EstadoEnvio.Cancelado, detalleEnvio.EstadoActual);
 
-        var detalleRetiro = await comercioReingreso.GetFromJsonAsync<JsonElement>($"/api/comercio/retiros/{retiroId}");
-        Assert.Equal("Cancelado", detalleRetiro.GetProperty("estado").GetString());
+        var detalleRetiro = await comercioReingreso.GetFromJsonAsync<RetiroDetalleDto>($"/api/comercio/retiros/{retiroId}");
+        Assert.NotNull(detalleRetiro);
+        Assert.Equal("Cancelado", detalleRetiro.Resumen.Estado);
 
         Assert.Equal(HttpStatusCode.OK, (await comercioReingreso.GetAsync("/api/comercio/envios")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await comercioReingreso.GetAsync("/api/comercio/retiros")).StatusCode);
