@@ -647,7 +647,7 @@
         if (cacheRutasOSRM[coordenadasUrl]) {
             var rutaCache = cacheRutasOSRM[coordenadasUrl];
             if (typeof alResolverGeometria === 'function') alResolverGeometria(rutaCache);
-            if (mapa && mapa._container) {
+            if (mapa && mapa._container && mapa._loaded) {
                 return L.polyline(rutaCache, opciones).addTo(mapa);
             }
             return null;
@@ -665,7 +665,7 @@
                     var puntosRuta = coordsGeojson.map(function (c) { return [c[1], c[0]]; });
                     cacheRutasOSRM[coordenadasUrl] = puntosRuta;
                     if (typeof alResolverGeometria === 'function') alResolverGeometria(puntosRuta);
-                    if (mapa && mapa._container) {
+                    if (mapa && mapa._container && mapa._loaded) {
                         return L.polyline(puntosRuta, opciones).addTo(mapa);
                     }
                     return null;
@@ -676,7 +676,7 @@
         }
 
         if (typeof alResolverGeometria === 'function') alResolverGeometria(puntos);
-        if (mapa && mapa._container) {
+        if (mapa && mapa._container && mapa._loaded) {
             return L.polyline(puntos, opciones).addTo(mapa);
         }
         return null;
@@ -756,7 +756,7 @@
 
         markerDestino.bindPopup(htmlPopupDestino);
 
-        mapa.fitBounds(puntosAjuste, { padding: [38, 38], maxZoom: 15 });
+        if (mapa._loaded) { mapa.invalidateSize(); mapa.fitBounds(puntosAjuste, { padding: [38, 38], maxZoom: 15 }); }
 
         // Si el envío no traía coordenadas explícitas y aún no estaba en caché de geocodificación, resolver dirección real en línea
         var claveCacheEnvio = normalizarTextoBusqueda(direccion);
