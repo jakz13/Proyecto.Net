@@ -78,18 +78,12 @@ public class RecepcionModel : PageModel
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
 
+        // El formulario siempre parte con todos los bultos marcados: una lista vacía significa que el operario los desmarcó todos
+        // (no llegó ninguno). No se vuelve a "dar por recibidos" en silencio: eso registraba como recibido un envío que no estaba.
         if (escaneados.Count == 0)
         {
-            if (string.IsNullOrWhiteSpace(Formulario.Observaciones) && danados.Count == 0)
-            {
-                escaneados = Envio.Bultos.Select(b => b.Identificacion).ToList();
-                Formulario.CodigosEscaneadosCsv = string.Join(",", escaneados);
-            }
-            else
-            {
-                ErroresValidacion.Add("Debe recepcionar al menos un bulto físico (marque o escanee los bultos arribados) antes de confirmar la recepción en depósito.");
-                return Page();
-            }
+            ErroresValidacion.Add("No hay ningún bulto marcado como recibido: marque o escanee los bultos arribados. Si el envío no llegó, no se puede recepcionar; declare el extravío desde Envíos.");
+            return Page();
         }
 
         var solicitud = new RecepcionarBultosRequestDto(

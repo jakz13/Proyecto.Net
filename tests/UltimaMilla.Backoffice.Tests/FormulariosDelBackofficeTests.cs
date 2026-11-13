@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -18,14 +18,16 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         _fabrica = fabrica;
     }
 
-    private async Task<HttpClient> SesionDeAdministradorAsync()
+    private Task<HttpClient> SesionDeAdministradorAsync() => SesionComoAsync("Administrador");
+
+    private async Task<HttpClient> SesionComoAsync(string perfil)
     {
         var cliente = _fabrica.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         var html = await (await cliente.GetAsync("/Login")).Content.ReadAsStringAsync();
         var respuesta = await cliente.PostAsync("/Login", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["RolSeleccionado"] = "Administrador",
-            ["NombreUsuario"] = "Prueba Administrador",
+            ["RolSeleccionado"] = perfil,
+            ["NombreUsuario"] = "Prueba " + perfil,
             ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
         }));
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
@@ -61,5 +63,31 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         var cuerpo = await respuesta.Content.ReadAsStringAsync();
         var aviso = Regex.Match(cuerpo, "(Por favor[^<]{0,400}|Error al[^<]{0,160})").Groups[1].Value + " / HTTP " + (int)respuesta.StatusCode;
         Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, "No redirigió: " + aviso);
+    }
+
+    [Fact]
+    public async Task Recepcion_SiElOperarioDesmarcaTodosLosBultos_NoSeDaElEnvioPorRecibido()
+    {
+        // Antes, una lista vacía se interpretaba como "llegaron todos" y el envío quedaba En Depósito sin discrepancias
+        var cliente = await SesionComoAsync("Operario");
+        var muelle = await (await cliente.GetAsync("/Deposito")).Content.ReadAsStringAsync();
+        var envioId = Regex.Match(muelle, @"Deposito/Recepcion\?id=([0-9a-f-]{36})").Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(envioId), "El muelle no lista ningún envío admitido.");
+        var pagina = await cliente.GetAsync($"/Deposito/Recepcion?id={envioId}");
+        var html = await pagina.Content.ReadAsStringAsync();
+        Assert.True(pagina.StatusCode == HttpStatusCode.OK, "GET recepción: " + (int)pagina.StatusCode + " " + pagina.Headers.Location);
+
+        var respuesta = await cliente.PostAsync($"/Deposito/Recepcion?id={envioId}", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Formulario.EnvioId"] = envioId,
+            ["Formulario.CodigosEscaneadosCsv"] = "",
+            ["Formulario.CodigosDanadosCsv"] = "",
+            ["Formulario.Observaciones"] = "",
+            ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
+        }));
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("No hay ningún bulto marcado", WebUtility.HtmlDecode(cuerpo));
     }
 }

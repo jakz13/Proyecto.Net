@@ -32,7 +32,7 @@ public class HttpIncidenciasApi : IIncidenciasApi
     public async Task<IReadOnlyList<IncidenciaDto>> ListarIncidenciasAsync(FiltroIncidenciasDto? filtro = null, CancellationToken cancelacion = default)
     {
         var parametros = new List<string>();
-        if (!string.IsNullOrWhiteSpace(filtro?.Estado) && filtro.Estado != "Todos")
+        if (!string.IsNullOrWhiteSpace(filtro?.Estado) && !string.Equals(filtro.Estado, "Todos", StringComparison.OrdinalIgnoreCase))
             parametros.Add($"estado={Uri.EscapeDataString(EstadoParaApi(filtro.Estado))}");
         if (!string.IsNullOrWhiteSpace(filtro?.Tipo))
             parametros.Add($"tipo={Uri.EscapeDataString(filtro.Tipo)}");

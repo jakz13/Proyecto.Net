@@ -32,7 +32,7 @@ public class HttpRutasApi : IRutasApi
             parametros.Add($"fecha={fecha:yyyy-MM-dd}");
         if (filtro?.RepartidorId is { } repartidorId && repartidorId != Guid.Empty)
             parametros.Add($"repartidorId={repartidorId}");
-        if (!string.IsNullOrWhiteSpace(filtro?.Estado) && filtro.Estado != "Todos")
+        if (!string.IsNullOrWhiteSpace(filtro?.Estado) && !string.Equals(filtro.Estado, "Todos", StringComparison.OrdinalIgnoreCase))
             parametros.Add($"estado={Uri.EscapeDataString(EstadoParaApi(filtro.Estado))}");
 
         var url = parametros.Count == 0 ? RutaPlanificacion : $"{RutaPlanificacion}?{string.Join("&", parametros)}";
