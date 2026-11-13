@@ -11,6 +11,9 @@ namespace UltimaMilla.Backoffice.Tests;
 /// tarjetas, redirecciones): ninguno puede terminar en "Acceso denegado". Además el menú lateral de cada perfil debe ser exactamente
 /// el conjunto de pantallas que ese perfil puede abrir.
 /// </summary>
+// Las dos clases levantan el Backoffice en el mismo proceso: en un equipo limpio (CI) compiten por crear las claves de protección de datos
+// y las sesiones y los tokens antiforgery de una dejan de valer para la otra. Se ejecutan una tras otra.
+[Collection("Backoffice")]
 public class AccesoPorPerfilTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Administrador = "Administrador";

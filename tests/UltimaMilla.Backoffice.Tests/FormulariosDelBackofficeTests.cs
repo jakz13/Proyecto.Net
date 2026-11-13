@@ -8,6 +8,9 @@ namespace UltimaMilla.Backoffice.Tests;
 /// <summary>
 /// Formularios del Backoffice que fallaban sin que ninguna prueba lo notara: se ejercitan como lo haría el navegador.
 /// </summary>
+// Las dos clases levantan el Backoffice en el mismo proceso: en un equipo limpio (CI) compiten por crear las claves de protección de datos
+// y las sesiones y los tokens antiforgery de una dejan de valer para la otra. Se ejecutan una tras otra.
+[Collection("Backoffice")]
 public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly Regex Token = new("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
