@@ -28,6 +28,10 @@ public interface ITableroRealtimeNotifier
     Task NotificarRetiroCambioEstadoAsync(Guid operadorId, Guid comercioOperadorId, Guid retiroId, string codigoSeguimiento, string estado, CancellationToken ct = default)
         => Task.CompletedTask;
 
+    /// <summary>Una incidencia se abrió o cambió de estado: solo el personal del operador la ve, así que el aviso va a su grupo.</summary>
+    Task NotificarIncidenciaCambioAsync(Guid operadorId, Guid incidenciaId, string tipo, string severidad, string estado, CancellationToken ct = default)
+        => Task.CompletedTask;
+
     /// <summary>
     /// Avisa a las sesiones de un comercio que cambió la lista de operadores con los que trabaja (alta de un vínculo nuevo, baja o suspensión).
     /// Se emite al comercio (por su identificador, común a todos sus operadores), nunca a otros.

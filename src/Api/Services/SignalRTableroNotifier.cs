@@ -16,6 +16,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     public const string EventoPosicionVehiculo = "PosicionVehiculo";
     public const string EventoEnvioCambioEstado = "EnvioCambioEstado";
     public const string EventoRetiroCambioEstado = "RetiroCambioEstado";
+    public const string EventoIncidenciaCambio = "IncidenciaCambio";
     public const string EventoOperadoresDelComercio = "OperadoresDelComercioCambiaron";
     public const string EventoIdentidadVisualActualizada = "IdentidadVisualActualizada";
     public const string EventoSeguimientoActualizado = "EnvioActualizado";
@@ -224,6 +225,23 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del retiro {RetiroId} (operador {OperadorId}).", EventoRetiroCambioEstado, retiroId, operadorId);
+        }
+    }
+
+    public async Task NotificarIncidenciaCambioAsync(Guid operadorId, Guid incidenciaId, string tipo, string severidad, string estado, CancellationToken ct = default)
+    {
+        if (operadorId == Guid.Empty || incidenciaId == Guid.Empty || string.IsNullOrWhiteSpace(estado))
+            return;
+
+        try
+        {
+            // Solo el backoffice del operador: los comercios no ven las incidencias internas
+            await _hubContext.Clients.Group(TableroHub.GrupoOperador(operadorId))
+                .SendAsync(EventoIncidenciaCambio, new { incidenciaId, tipo, severidad, estado = estado.Trim(), timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} de la incidencia {IncidenciaId} (operador {OperadorId}).", EventoIncidenciaCambio, incidenciaId, operadorId);
         }
     }
 

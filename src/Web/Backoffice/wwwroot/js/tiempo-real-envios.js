@@ -254,6 +254,26 @@
         programarActualizacion();
     }
 
+    // Una incidencia nueva o que cambia de estado: aviso visible y la lista se pone al día sola
+    function alRecibirCambioIncidencia(cambio) {
+        if (!paginaPideTiempoReal()) return;
+
+        if (window.SistemaNotificaciones && cambio) {
+            window.SistemaNotificaciones.mostrar({
+                tipo: cambio.estado === 'Abierta' ? 'alerta' : 'info',
+                titulo: cambio.estado === 'Abierta' ? 'Nueva incidencia' : 'Incidencia actualizada',
+                mensajeBreve: (cambio.tipo || 'Incidencia') + (cambio.severidad ? ' (' + cambio.severidad + ')' : '') + ': ' + textoEstado(cambio.estado),
+                duracionMs: 5000
+            });
+        }
+        programarActualizacion();
+    }
+
+    // Una hoja de ruta cambió de estado (liberada, en carga, en tránsito, rendida): las listas de rutas y de despacho se actualizan sin recargar
+    function alRecibirCambioRuta() {
+        if (paginaPideTiempoReal()) programarActualizacion();
+    }
+
     function conectar() {
         if (conexion || !window.signalR || !window.signalR.HubConnectionBuilder) return;
 
@@ -270,6 +290,8 @@
 
             conexion.on('EnvioCambioEstado', alRecibirCambio);
             conexion.on('RetiroCambioEstado', alRecibirCambioRetiro);
+            conexion.on('IncidenciaCambio', alRecibirCambioIncidencia);
+            conexion.on('CambioRuta', alRecibirCambioRuta);
             conexion.on('PosicionVehiculo', function (datos) {
                 escuchasPosicion.forEach(function (fn) {
                     try { fn(datos); } catch (e) { /* una escucha defectuosa no debe frenar a las demás */ }

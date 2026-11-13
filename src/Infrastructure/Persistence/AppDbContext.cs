@@ -756,13 +756,52 @@ public class AppDbContext : DbContext
         await ValidarAislamientoDeEscrituraAsync(cancellationToken);
         var cambiosDeEstado = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeEnvios();
         var cambiosDeRetiros = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeRetiros();
+        var cambiosDeIncidencias = _tiempoReal is null ? null : CapturarCambiosDeIncidencias();
         var guardados = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         if (_tiempoReal is not null && cambiosDeEstado is { Count: > 0 })
             await NotificarCambiosDeEstadoAsync(cambiosDeEstado);
         if (_tiempoReal is not null && cambiosDeRetiros is { Count: > 0 })
             await NotificarCambiosDeEstadoDeRetirosAsync(cambiosDeRetiros);
+        if (_tiempoReal is not null && cambiosDeIncidencias is { Count: > 0 })
+            await NotificarCambiosDeIncidenciasAsync(cambiosDeIncidencias);
 
         return guardados;
+    }
+
+    private sealed record CambioIncidencia(Guid OperadorId, Guid IncidenciaId, string Tipo, string Severidad, string Estado);
+
+    /// <summary>Una incidencia nueva o que cambia de estado (abierta, en seguimiento, cerrada) se avisa al backoffice sin importar quién la origine.</summary>
+    private List<CambioIncidencia> CapturarCambiosDeIncidencias()
+    {
+        var cambios = new List<CambioIncidencia>();
+        foreach (var entrada in ChangeTracker.Entries<Incidencia>())
+        {
+            var huboCambio = entrada.State == EntityState.Added
+                || (entrada.State == EntityState.Modified
+                    && !Equals(entrada.Property(i => i.Estado).OriginalValue, entrada.Property(i => i.Estado).CurrentValue));
+            if (!huboCambio)
+                continue;
+
+            var incidencia = entrada.Entity;
+            cambios.Add(new CambioIncidencia(incidencia.OperadorId, incidencia.Id, incidencia.Tipo, incidencia.Severidad, incidencia.Estado));
+        }
+
+        return cambios;
+    }
+
+    private async Task NotificarCambiosDeIncidenciasAsync(List<CambioIncidencia> cambios)
+    {
+        foreach (var cambio in cambios)
+        {
+            try
+            {
+                await _tiempoReal!.NotificarIncidenciaCambioAsync(cambio.OperadorId, cambio.IncidenciaId, cambio.Tipo, cambio.Severidad, cambio.Estado);
+            }
+            catch
+            {
+                // Best effort: la vista se pondrá al día en el próximo refresco
+            }
+        }
     }
 
     private sealed record CambioEstadoRetiro(Guid OperadorId, Guid ComercioOperadorId, Guid RetiroId, string Codigo, string Estado);

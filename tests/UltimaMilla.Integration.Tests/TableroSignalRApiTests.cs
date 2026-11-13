@@ -314,6 +314,40 @@ public class TableroSignalRApiTests
     }
 
     [FactPostgres]
+    public async Task IncidenciaCambio_UnaIncidenciaNuevaLlegaAlBackofficeDelOperador_YNoAOtrosNiAlComercio()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        using var operador1 = await ConectarTableroAsync("admin@gmail.com", "Admin.2026!", cts.Token);
+        using var operador2 = await ConectarTableroAsync("admin2@gmail.com", "Admin.2026!", cts.Token);
+        using var comercioDueno = await ConectarTableroAsync("comercio@gmail.com", "Comercio.2026!", cts.Token);
+
+        var incidenciaId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var alcance = db.HabilitarEscrituraAdministrativa();
+            await using var transaccion = await db.Database.BeginTransactionAsync(cts.Token);
+
+            // Se abre una incidencia y se descarta, para no alterar los datos de las demás pruebas
+            db.Incidencias.Add(new UltimaMilla.Domain.Entities.Incidencias.Incidencia(
+                incidenciaId, DatabaseSeeder.DefaultOperadorId, null, "AveriaVehiculo", "Prueba de tiempo real", "Alta"));
+            await db.SaveChangesAsync(cts.Token);
+
+            await transaccion.RollbackAsync(cts.Token);
+        }
+
+        var tramasOp1 = string.Concat(await LeerTramasHastaContenerAsync(operador1.Socket, "IncidenciaCambio", TimeSpan.FromSeconds(4)));
+        var tramasOp2 = string.Concat(await LeerTramasHastaContenerAsync(operador2.Socket, "IncidenciaCambio", TimeSpan.FromSeconds(2)));
+        var tramasComercio = string.Concat(await LeerTramasHastaContenerAsync(comercioDueno.Socket, "IncidenciaCambio", TimeSpan.FromSeconds(2)));
+
+        Assert.Contains("IncidenciaCambio", tramasOp1);
+        Assert.Contains(incidenciaId.ToString(), tramasOp1);
+        Assert.DoesNotContain("IncidenciaCambio", tramasOp2);
+        Assert.DoesNotContain("IncidenciaCambio", tramasComercio);
+    }
+
+    [FactPostgres]
     public async Task EnvioCambioEstado_UnComercioNoRecibeLosEnviosDeOtroComercio()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
