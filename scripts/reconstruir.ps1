@@ -71,6 +71,12 @@ if (-not $SinDespliegueDeAplicacion) {
     & (Join-Path $PSScriptRoot 'desplegar.ps1') -Vm $ip -Clave $Clave -DesdeRegistro
 }
 
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    Paso 'GitHub: actualizar el secreto VM_HOST para que el pipeline despliegue en la VM nueva'
+    $ip | gh secret set VM_HOST -R jakz13/Proyecto.Net
+    if ($LASTEXITCODE -ne 0) { Write-Host '  (aviso) No se pudo actualizar VM_HOST: hacerlo a mano en Settings > Secrets.' -ForegroundColor Yellow }
+}
+
 Paso "Verificación: https://$Dominio/ready"
 $ok = $false
 for ($i = 1; $i -le 30; $i++) {
