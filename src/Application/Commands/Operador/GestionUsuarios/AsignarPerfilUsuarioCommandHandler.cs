@@ -46,6 +46,9 @@ public class AsignarPerfilUsuarioCommandHandler : IRequestHandler<AsignarPerfilU
         if (perfil is null)
             throw new DomainValidationException("El perfil seleccionado no existe.");
 
+        if (perfil.EsDePlataforma)
+            throw new DomainValidationException("El perfil de plataforma no se asigna desde un operador.");
+
         usuario.AsignarPerfil(solicitud.PerfilId);
 
         await _usuarioRepositorio.ActualizarAsync(usuario, cancellationToken);

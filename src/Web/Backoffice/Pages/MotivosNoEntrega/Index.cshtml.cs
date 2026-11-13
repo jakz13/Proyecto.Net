@@ -51,6 +51,11 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostCrearAsync()
     {
+        // El formulario de alta no trae los campos del de edición (otro formulario de la misma página, que se enlaza con o sin prefijo):
+        // solo cuentan las validaciones de los campos del alta
+        foreach (var clave in ModelState.Keys.Where(k => !k.StartsWith(nameof(NuevoMotivo) + ".", StringComparison.Ordinal)).ToList())
+            ModelState.Remove(clave);
+
         if (!ModelState.IsValid)
         {
             MensajeError = "Por favor verifica los campos obligatorios del motivo.";

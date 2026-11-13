@@ -48,7 +48,7 @@ public class IdentidadVisual : Entity, IMustHaveTenant
         ColorSecundario = colorSecundario.Trim();
         EmailContacto = emailContacto.Trim().ToLowerInvariant();
         TelefonoContacto = telefonoContacto.Trim();
-        LogoUrl = logoUrl?.Trim();
+        LogoUrl = ValidarLogo(logoUrl);
     }
 
     public void ActualizarColores(string colorPrimario, string colorSecundario)
@@ -77,12 +77,36 @@ public class IdentidadVisual : Entity, IMustHaveTenant
 
     public void ActualizarComunicaciones(string? sitioWeb, string? mensajeComunicaciones)
     {
+        if (!string.IsNullOrWhiteSpace(sitioWeb)
+            && !(Uri.TryCreate(sitioWeb.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)))
+            throw new DomainValidationException("El sitio web debe ser una dirección http(s).");
+
         SitioWeb = string.IsNullOrWhiteSpace(sitioWeb) ? null : sitioWeb.Trim();
         MensajeComunicaciones = string.IsNullOrWhiteSpace(mensajeComunicaciones) ? null : mensajeComunicaciones.Trim();
     }
 
     public void ActualizarLogo(string? logoUrl)
     {
-        LogoUrl = logoUrl?.Trim();
+        LogoUrl = ValidarLogo(logoUrl);
+    }
+
+    /// <summary>
+    /// El logo se muestra en todas las pantallas y en los correos: solo se admiten una imagen subida (/uploads/logos/), una imagen
+    /// embebida (data:image/) o una URL http(s). Esquemas como javascript: se rechazan.
+    /// </summary>
+    private static string? ValidarLogo(string? logoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(logoUrl))
+            return null;
+
+        var url = logoUrl.Trim();
+        if (url.StartsWith("/uploads/logos/", StringComparison.OrdinalIgnoreCase)
+            || url.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            return url;
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            return url;
+
+        throw new DomainValidationException("La URL del logo debe ser una dirección http(s) o una imagen subida.");
     }
 }

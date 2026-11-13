@@ -19,7 +19,7 @@ public class ListarPerfilesQueryHandler : IRequestHandler<ListarPerfilesQuery, I
     public async Task<IReadOnlyList<PerfilDetalleDto>> Handle(ListarPerfilesQuery solicitud, CancellationToken cancellationToken)
     {
         var perfiles = await _usuarioRepositorio.ListarPerfilesAsync(cancellationToken);
-        return perfiles.Select(p => new PerfilDetalleDto(p.Id, p.Nombre, p.Descripcion)).ToList();
+        return perfiles.Where(p => !p.EsDePlataforma).Select(p => new PerfilDetalleDto(p.Id, p.Nombre, p.Descripcion)).ToList();
     }
 }
 

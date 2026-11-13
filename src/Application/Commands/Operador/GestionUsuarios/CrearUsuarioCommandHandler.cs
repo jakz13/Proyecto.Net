@@ -67,6 +67,9 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
         if (perfil is null)
             throw new DomainValidationException("El perfil seleccionado no existe.");
 
+        if (perfil.EsDePlataforma)
+            throw new DomainValidationException("El perfil de plataforma no se asigna desde un operador.");
+
         string? nombreComercio = null;
         if (solicitud.ComercioId.HasValue && solicitud.ComercioId.Value != Guid.Empty)
         {

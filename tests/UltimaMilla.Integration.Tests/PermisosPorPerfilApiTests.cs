@@ -121,4 +121,20 @@ public class PermisosPorPerfilApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/deposito/envios/{Guid.NewGuid()}/extravio", new { motivo = "x" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/deposito/hojas-de-ruta/{Guid.NewGuid()}/rendicion", new { codigosBultosDevueltos = Array.Empty<string>() })).StatusCode);
     }
+
+    [FactPostgres]
+    public async Task ElAdministradorDeUnOperadorNoPuedeCrearAdministradoresDePlataforma()
+    {
+        // El perfil de plataforma da acceso a las funcionalidades de todos los operadores: no se asigna desde un operador
+        var admin = await ComoAsync(Administrador);
+        var perfiles = await admin.GetFromJsonAsync<JsonElement>("/api/perfiles");
+        Assert.DoesNotContain(perfiles.EnumerateArray(), p => p.GetProperty("nombre").GetString() == "AdministradorPlataforma");
+
+        var respuesta = await admin.PostAsJsonAsync("/api/usuarios", new
+        {
+            nombre = "Intruso", apellido = "Plataforma", email = $"intruso.{Guid.NewGuid():N}@ultimamilla.com.uy",
+            password = "Clave.Prueba.2026!", perfilId = Guid.Parse("10000000-0000-0000-0000-000000000006")
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
 }
