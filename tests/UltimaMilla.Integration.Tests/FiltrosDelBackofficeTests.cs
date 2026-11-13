@@ -48,4 +48,25 @@ public class FiltrosDelBackofficeTests
 
         Assert.Contains(manejador.Direcciones, d => d.Contains("estado=Liberada"));
     }
+
+    [Theory]
+    [InlineData(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EnDeposito, "EnDeposito")]
+    [InlineData(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.Admitido, "Admitido")]
+    [InlineData(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto.EntregadoParcialmente, "EntregadoParcialmente")]
+    public async Task ListarEnviosDelComercio_EnviaElNombreDelEstadoYNoSuNumero(UltimaMilla.Frontend.Contracts.Enums.EstadoEnvioDto estado, string nombreEsperado)
+    {
+        var manejador = new ManejadorQueRegistra();
+        var api = new UltimaMilla.Frontend.Infrastructure.Http.HttpEnviosApi(new HttpClient(manejador) { BaseAddress = new Uri("http://api.local") });
+
+        try
+        {
+            await api.ListarEnviosAsync(new UltimaMilla.Frontend.Contracts.Modelos.Envios.FiltroEnviosDto { SoloEnviosPropiosComercio = true, Estado = estado });
+        }
+        catch (Exception)
+        {
+            // la respuesta de la maqueta no es el JSON paginado: solo interesa la dirección que se pidió
+        }
+
+        Assert.Contains(manejador.Direcciones, d => d.Contains($"estado={nombreEsperado}"));
+    }
 }

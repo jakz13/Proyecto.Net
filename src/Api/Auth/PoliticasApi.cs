@@ -35,6 +35,12 @@ public static class PoliticasApi
     public const string PersonalDelOperador = "PersonalDelOperador";
 
     /// <summary>Consulta de un envío y su evidencia: despachador, operario y el comercio dueño del envío (el handler lo acota).</summary>
+
+    /// <summary>
+    /// Listado general de envíos del operador (con destinatarios y direcciones): lo ven quienes lo administran u operan y cada comercio con los suyos.
+    /// El repartidor solo ve lo de su ruta y el administrador de la plataforma no accede a los datos de un operador.
+    /// </summary>
+    public const string ListadoDeEnvios = "ListadoDeEnvios";
     public const string ConsultaDeEnvios = "ConsultaDeEnvios";
 
     /// <summary>El repartidor en la calle (aplicación móvil).</summary>
@@ -57,6 +63,8 @@ public static class PoliticasApi
             .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolRepartidor));
         opciones.AddPolicy(ConsultaDeEnvios, p => p.RequireAuthenticatedUser()
             .RequireRole(RolDespachador, RolOperario, RolComercio));
+        opciones.AddPolicy(ListadoDeEnvios, p => p.RequireAuthenticatedUser()
+            .RequireRole(RolAdministrador, RolDespachador, RolOperario, RolComercio));
         opciones.AddPolicy(Repartidor, p => p.RequireAuthenticatedUser().RequireRole(RolRepartidor));
         opciones.AddPolicy(Comercio, p => p.RequireAuthenticatedUser().RequireRole(RolComercio));
         opciones.AddPolicy(Plataforma, p => p.RequireAuthenticatedUser().RequireRole(RolPlataforma));

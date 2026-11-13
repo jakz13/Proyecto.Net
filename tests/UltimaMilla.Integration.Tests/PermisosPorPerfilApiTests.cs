@@ -137,4 +137,22 @@ public class PermisosPorPerfilApiTests
         });
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
+
+    [FactPostgres]
+    public async Task ElListadoGeneralDeEnvios_NoLoVenElRepartidorNiLaPlataforma()
+    {
+        // El listado trae nombres y direcciones de todos los destinatarios del operador
+        foreach (var (email, password) in new[] { ("repartidor@gmail.com", "Repartidor.2026!"), ("plataforma@gmail.com", "Plataforma.2026!") })
+        {
+            var cliente = _factory.CreateClient();
+            var login = await cliente.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
+            Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+            cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString());
+
+            Assert.Equal(HttpStatusCode.Forbidden, (await cliente.GetAsync("/api/envios")).StatusCode);
+        }
+
+        foreach (var perfil in new[] { Administrador, Despachador, Operario })
+            Assert.Equal(HttpStatusCode.OK, (await (await ComoAsync(perfil)).GetAsync("/api/envios")).StatusCode);
+    }
 }

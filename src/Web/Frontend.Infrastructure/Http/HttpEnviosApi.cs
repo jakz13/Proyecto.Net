@@ -135,7 +135,8 @@ public class HttpEnviosApi : IEnviosApi
 
         if (filtro.Estado.HasValue)
         {
-            parametros.Add($"estado={(int)filtro.Estado.Value}");
+            // la API espera el nombre del estado (EnDeposito), no su número: con el número respondía 400 y el listado del portal se caía
+            parametros.Add($"estado={filtro.Estado.Value}");
         }
 
         if (filtro.FechaDesde.HasValue)

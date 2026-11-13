@@ -530,6 +530,7 @@ enviosApi.MapGet("/", async (IMediator mediator) =>
     var envios = await mediator.Send(new ListarEnviosQuery());
     return Results.Ok(envios);
 })
+.RequireAuthorization(PoliticasApi.ListadoDeEnvios)
 .WithName("ListarEnvios")
 .WithSummary("Listar todos los envíos")
 .WithDescription("Obtiene el listado completo de órdenes de envío registradas con su estado actual.")
