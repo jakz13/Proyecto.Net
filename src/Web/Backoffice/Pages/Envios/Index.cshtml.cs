@@ -103,40 +103,43 @@ public class IndexModel : PageModel
             return RedirectToPage(new { Busqueda, EstadoFiltro });
         }
 
-        var despachador = User.Identity?.Name ?? "Despachador Juan";
+        var despachador = User.Identity?.Name ?? "Despachador";
         var inputCompleto = DeclaracionInput with { DespachadorUsuario = despachador };
 
-        // Si solicitó crear una incidencia operativa, podemos registrarla en el subsistema de incidencias
-        string? numIncidencia = inputCompleto.NumeroIncidenciaExistente;
-        if (inputCompleto.CrearIncidenciaOperativa && string.IsNullOrEmpty(numIncidencia))
-        {
-            var nuevaInc = new RegistrarIncidenciaDto
-            {
-                Tipo = "PaqueteDanado", // Categoría anómala de paquete
-                Severidad = "Alta",
-                CodigoSeguimientoEnvio = inputCompleto.CodigoSeguimiento,
-                Descripcion = $"Envío declarado formalmente como extraviado. Motivo: {inputCompleto.MotivoExtravio}. {inputCompleto.ObservacionesDetalladas}",
-                AccionInmediata = "Se emitió aviso inmediato al comercio y se inició expediente de liquidación/indemnización."
-            };
-
-            var incCreada = await _incidenciasApi.RegistrarIncidenciaAsync(nuevaInc, despachador);
-            numIncidencia = incCreada.NumeroIncidencia;
-            inputCompleto = inputCompleto with { NumeroIncidenciaExistente = numIncidencia };
-        }
-
+        // Primero se declara el extravío: si la API lo rechaza no se deja una incidencia huérfana
         var resultado = await _enviosApi.DeclararEnvioExtraviadoAsync(inputCompleto);
 
-        if (resultado.Exito)
-        {
-            MensajeExito = $"El envío {resultado.CodigoSeguimiento} ha sido declarado como EXTRAVIADO. Evento de trazabilidad registrado y aviso emitido al comercio.";
-            if (!string.IsNullOrEmpty(resultado.NumeroIncidenciaGenerada))
-            {
-                MensajeExito += $" Incidencia operativa asociada: {resultado.NumeroIncidenciaGenerada}.";
-            }
-        }
-        else
+        if (!resultado.Exito)
         {
             MensajeError = resultado.Mensaje;
+            return RedirectToPage(new { Busqueda, EstadoFiltro });
+        }
+
+        MensajeExito = $"El envío {resultado.CodigoSeguimiento} ha sido declarado como EXTRAVIADO. El comercio recibe el aviso y el envío sale de su hoja de ruta.";
+
+        // Si solicitó crear una incidencia operativa, se registra en el subsistema de incidencias (la falla no revierte el extravío)
+        if (inputCompleto.CrearIncidenciaOperativa && string.IsNullOrEmpty(inputCompleto.NumeroIncidenciaExistente))
+        {
+            try
+            {
+                var incCreada = await _incidenciasApi.RegistrarIncidenciaAsync(new RegistrarIncidenciaDto
+                {
+                    Tipo = "Otro",
+                    Severidad = "Alta",
+                    CodigoSeguimientoEnvio = inputCompleto.CodigoSeguimiento,
+                    Descripcion = $"Envío declarado formalmente como extraviado. Motivo: {inputCompleto.MotivoExtravio}. {inputCompleto.ObservacionesDetalladas}",
+                    AccionInmediata = "Se emitió aviso inmediato al comercio y se inició expediente de liquidación/indemnización."
+                }, despachador);
+                MensajeExito += $" Incidencia operativa asociada: {incCreada.NumeroIncidencia}.";
+            }
+            catch (Exception)
+            {
+                MensajeExito += " No se pudo registrar la incidencia operativa asociada: regístrela desde Incidencias.";
+            }
+        }
+        else if (!string.IsNullOrEmpty(inputCompleto.NumeroIncidenciaExistente))
+        {
+            MensajeExito += $" Incidencia operativa asociada: {inputCompleto.NumeroIncidenciaExistente}.";
         }
 
         return RedirectToPage(new { Busqueda, EstadoFiltro });

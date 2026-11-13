@@ -22,7 +22,7 @@ else
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
-            @if (ruta.Estado == "Liberada")
+            @if (ruta.Estado is "Liberada" or "EnCarga")
             {
                 <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -32,12 +32,12 @@ else
                     <span>Despachar Ruta</span>
                 </a>
             }
-            <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="simularDescargaMovil()">
+            <button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1" onclick="consultarEstadoApp()" title="Consulta la última posición real que envió el dispositivo del repartidor">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
-                <span>Sincronizar App Repartidor</span>
+                <span>Estado de la app del repartidor</span>
             </button>
             <a asp-page="/Rutas/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 text-dark">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -99,10 +99,8 @@ else
                 <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
             <div>
-                <strong class="d-block text-dark">Sincronización Exitosa con la App del Repartidor</strong>
-                <span class="small text-secondary">
-                    El repartidor <strong>@ruta.RepartidorNombre</strong> descargó la hoja de ruta en su dispositivo móvil. Las @ruta.CantidadParadas paradas y sus códigos de bulto quedaron sincronizados.
-                </span>
+                <strong class="d-block text-dark" id="alertaDescargaTitulo">Estado de la app del repartidor</strong>
+                <span class="small text-secondary" id="alertaDescargaTexto"></span>
             </div>
         </div>
     </div>
@@ -686,12 +684,36 @@ else
         // Un envío de la ruta cambió de estado: las paradas del mapa se redibujan con los datos nuevos
         document.addEventListener('tiempo-real:actualizado', dibujarMapaDetalle);
 
-        function simularDescargaMovil() {
+        // Consulta real: la app del repartidor informa su posición a la API; si hay una reciente, el dispositivo está conectado
+        function consultarEstadoApp() {
             var alerta = document.getElementById('alertaDescargaMovil');
-            if (alerta) {
-                alerta.style.display = 'block';
-                alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            var titulo = document.getElementById('alertaDescargaTitulo');
+            var texto = document.getElementById('alertaDescargaTexto');
+            if (!alerta || !titulo || !texto) return;
+            alerta.style.display = 'block';
+            titulo.textContent = 'Consultando…';
+            texto.textContent = '';
+
+            fetch('?handler=Posicion&id=' + encodeURIComponent(rutaIdDetalle), { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (p) {
+                    if (!p || !p.disponible || !p.ultimaActualizacion) {
+                        titulo.textContent = 'Sin señal de la app del repartidor';
+                        texto.textContent = 'Todavía no llegó ninguna posición del dispositivo de este vehículo. La app informa su posición cuando el repartidor inicia el recorrido.';
+                        return;
+                    }
+                    var minutos = Math.max(0, Math.round((Date.now() - new Date(p.ultimaActualizacion).getTime()) / 60000));
+                    var reciente = minutos <= 5;
+                    titulo.textContent = reciente ? 'App del repartidor conectada' : 'App del repartidor sin señal reciente';
+                    texto.textContent = 'Última posición recibida hace ' + (minutos < 1 ? 'menos de un minuto' : minutos + ' min')
+                        + ' (' + Number(p.latitud).toFixed(5) + ', ' + Number(p.longitud).toFixed(5) + ')'
+                        + (p.velocidadKmh != null ? ' a ' + Math.round(p.velocidadKmh) + ' km/h.' : '.');
+                })
+                .catch(function () {
+                    titulo.textContent = 'No se pudo consultar';
+                    texto.textContent = 'No hay conexión con el servidor. Reintente en unos segundos.';
+                });
+            alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         // Delegación de eventos para abrir modal de reasignación

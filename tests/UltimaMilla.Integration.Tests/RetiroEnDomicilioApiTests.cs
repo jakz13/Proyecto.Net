@@ -336,12 +336,12 @@ public class RetiroEnDomicilioApiTests
         var rutaId = ruta.GetProperty("hojaDeRutaId").GetGuid();
         var paradaId = ruta.GetProperty("paradas").EnumerateArray().Single(p => p.GetProperty("tipo").GetString() == "Retiro").GetProperty("paradaId").GetGuid();
 
+        // El despachador saca el retiro mientras el repartidor ya lo tiene descargado en su teléfono (la ruta todavía no salió)
+        await Json(await despachador.PostAsJsonAsync($"/api/retiros/{retiroId}/sacar-de-ruta", new { }), HttpStatusCode.OK);
+
+        // Al confirmar la carga la ruta sale sola (la confirmación de carga despacha): ya no hay un despacho aparte
         await Json(await repartidor.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/carga/confirmar",
             new { codigosBultosCargados = new[] { envio.Bulto }, idempotencyKey = Guid.NewGuid().ToString() }), HttpStatusCode.OK);
-
-        // El despachador saca el retiro mientras el repartidor ya lo tiene descargado en su teléfono
-        await Json(await despachador.PostAsJsonAsync($"/api/retiros/{retiroId}/sacar-de-ruta", new { }), HttpStatusCode.OK);
-        await Json(await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
 
         // Al recuperar la conexión, la app envía el retiro que sí hizo: prevalece lo físico y el conflicto queda asentado
         var resultado = await Json(await repartidor.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/paradas/{paradaId}/retiro", new

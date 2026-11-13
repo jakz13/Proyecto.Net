@@ -436,6 +436,11 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         TransicionarEstado(EstadoEnvio.Extraviado, "EnvioExtraviado", responsableUsuarioId, "Backoffice", payload: motivo.Trim());
         HojaDeRutaId = null;
+
+        // Los bultos dejan de figurar "cargados en el vehículo": si no, la rendición no vería que ese paquete falta
+        foreach (var bulto in Bultos.Where(b => MaquinaEstadosBulto.EsTransicionValida(b.EstadoBulto, MaquinaEstadosBulto.FaltanteEnCarga)
+                                                && b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnCarga))
+            bulto.MarcarFaltanteEnCarga();
     }
 
     public void TransicionarEstado(

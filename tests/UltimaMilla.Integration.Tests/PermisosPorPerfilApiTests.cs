@@ -41,6 +41,7 @@ public class PermisosPorPerfilApiTests
         // Control del despacho: despachador y operario
         ("/api/planificacion/hojas-de-ruta", new[] { Despachador, Operario }),
         ("/api/retiros", new[] { Despachador, Operario }),
+        ("/api/deposito/hojas-de-ruta-pendientes-rendicion", new[] { Despachador, Operario }),
 
         // Depósito: solo el operario
         ("/api/deposito/envios-admitidos", new[] { Operario }),
@@ -102,5 +103,22 @@ public class PermisosPorPerfilApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{Guid.NewGuid()}/despacho", new { })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/deposito/envios/{Guid.NewGuid()}/recepcion", new { codigosBultosEscaneados = new[] { "X" } })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/backoffice/incidencias", new { tipo = "AveriaVehiculo", descripcion = "x" })).StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task ElExtravioYLaRendicionPreviaLosHacenDespachadorYOperario_ElAdministradorNo()
+    {
+        // Despacho/Verificar y la pantalla de Envíos las usan ambos perfiles: con un id inexistente la respuesta es 404 (pasó la autorización), nunca 403
+        foreach (var perfil in new[] { Despachador, Operario })
+        {
+            var cliente = await ComoAsync(perfil);
+            Assert.Equal(HttpStatusCode.NotFound, (await cliente.PostAsJsonAsync($"/api/deposito/envios/{Guid.NewGuid()}/extravio", new { motivo = "No apareció" })).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await cliente.PostAsJsonAsync($"/api/deposito/hojas-de-ruta/{Guid.NewGuid()}/rendicion", new { codigosBultosDevueltos = Array.Empty<string>() })).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await cliente.GetAsync($"/api/deposito/hojas-de-ruta/{Guid.NewGuid()}/rendicion")).StatusCode);
+        }
+
+        var admin = await ComoAsync(Administrador);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/deposito/envios/{Guid.NewGuid()}/extravio", new { motivo = "x" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/deposito/hojas-de-ruta/{Guid.NewGuid()}/rendicion", new { codigosBultosDevueltos = Array.Empty<string>() })).StatusCode);
     }
 }

@@ -24,6 +24,18 @@ public class EnvioExtraviadoTests
     }
 
     [Fact]
+    public void MarcarExtraviado_ConBultosCargadosEnElVehiculo_LosMarcaComoFaltantes()
+    {
+        var envio = NuevoEnvio();
+        envio.AgregarBulto("BUL-EXTRA-1", 1m);
+        envio.Bultos.Single().MarcarCargadoEnVehiculo();
+
+        envio.MarcarExtraviado("Se perdió en la calle", Guid.NewGuid());
+
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single().EstadoBulto);
+    }
+
+    [Fact]
     public void MarcarExtraviado_SinMotivo_LanzaDomainValidationYNoCambiaElEstado()
     {
         var envio = NuevoEnvio();

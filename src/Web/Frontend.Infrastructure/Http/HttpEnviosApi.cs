@@ -438,22 +438,74 @@ public class HttpEnviosApi : IEnviosApi
     }
 
     /// <summary>
-    /// Declara formalmente un envío como extraviado.
+    /// Declara formalmente un envío como extraviado en la API (estado terminal; lo retira de su hoja de ruta y avisa al comercio).
+    /// Un rechazo de la API (permiso, estado inválido, envío ajeno) vuelve como resultado fallido con el mensaje del servidor.
     /// </summary>
-    public Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default)
+    public async Task<ResultadoDeclaracionExtravioDto> DeclararEnvioExtraviadoAsync(DeclararExtraviadoDto dto, CancellationToken cancelacion = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
 
-        return Task.FromResult(new ResultadoDeclaracionExtravioDto
+        var motivo = string.IsNullOrWhiteSpace(dto.ObservacionesDetalladas)
+            ? dto.MotivoExtravio.Trim()
+            : $"{dto.MotivoExtravio.Trim()}. {dto.ObservacionesDetalladas.Trim()}";
+
+        HttpResponseMessage respuesta;
+        try
+        {
+            respuesta = await _clienteHttp.PostAsJsonAsync($"/api/deposito/envios/{dto.EnvioId}/extravio", new { motivo }, OpcionesJson, cancelacion);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiExcepcion(HttpStatusCode.ServiceUnavailable, $"Error de comunicación al declarar el extravío: {ex.Message}");
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            var mensaje = respuesta.StatusCode == HttpStatusCode.Forbidden
+                ? "Su perfil no tiene permiso para declarar el extravío de este envío."
+                : await LeerMensajeDeErrorAsync(respuesta, cancelacion);
+
+            return new ResultadoDeclaracionExtravioDto
+            {
+                Exito = false,
+                Mensaje = mensaje,
+                EnvioId = dto.EnvioId,
+                CodigoSeguimiento = dto.CodigoSeguimiento,
+                NotificacionComercioEnviada = false
+            };
+        }
+
+        return new ResultadoDeclaracionExtravioDto
         {
             Exito = true,
-            Mensaje = "Envío declarado formalmente como extraviado y notificado a los canales del comercio.",
+            Mensaje = "Envío declarado como extraviado; el comercio fue avisado.",
             EnvioId = dto.EnvioId,
             CodigoSeguimiento = dto.CodigoSeguimiento,
             NuevoEstado = EstadoEnvioDto.Extraviado,
             FechaEvento = DateTime.UtcNow,
-            NumeroIncidenciaGenerada = dto.NumeroIncidenciaExistente ?? "INC-2026-0043"
-        });
+            NumeroIncidenciaGenerada = dto.NumeroIncidenciaExistente
+        };
+    }
+
+    private static async Task<string> LeerMensajeDeErrorAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
+    {
+        var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+        try
+        {
+            using var documento = JsonDocument.Parse(cuerpo);
+            if (documento.RootElement.ValueKind == JsonValueKind.Object
+                && documento.RootElement.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.String)
+            {
+                return error.GetString() ?? $"Error HTTP {(int)respuesta.StatusCode}";
+            }
+        }
+        catch (JsonException)
+        {
+            // el cuerpo no es JSON: se devuelve el código HTTP
+        }
+
+        return $"La API rechazó la operación (HTTP {(int)respuesta.StatusCode}).";
     }
 
     /// <summary>

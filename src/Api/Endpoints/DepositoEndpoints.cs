@@ -60,7 +60,8 @@ public static class DepositoEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .WithOpenApi();
 
-        group.MapPost("/extravio", async (
+        // extravío: lo declaran el despachador y el operario (política Despacho), no solo el depósito
+        app.MapPost("/api/deposito/envios/{envioId:guid}/extravio", async (
             [FromRoute] Guid envioId,
             [FromBody] MarcarEnvioExtraviadoRequest request,
             [FromServices] IMediator mediator,
@@ -83,6 +84,8 @@ public static class DepositoEndpoints
                 return Results.Forbid();
             }
         })
+        .RequireAuthorization(PoliticasApi.Despacho)
+        .WithTags("Depósito")
         .WithName("MarcarEnvioExtraviado")
         .WithSummary("Declarar un envío como extraviado")
         .WithDescription("Estado terminal. Si el envío estaba en una hoja de ruta se retira de ella, y se publica el evento para avisar al comercio.")
@@ -163,7 +166,7 @@ public static class DepositoEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization(PoliticasApi.Deposito)
+        .RequireAuthorization(PoliticasApi.Despacho)
         .WithTags("Depósito")
         .WithName("RendirHojaDeRuta")
         .WithSummary("Registrar la rendición del repartidor")
@@ -179,7 +182,7 @@ public static class DepositoEndpoints
         app.MapGet("/api/deposito/hojas-de-ruta-pendientes-rendicion", async (
             [FromServices] IMediator mediator,
             CancellationToken ct) => Results.Ok(await mediator.Send(new ListarRutasPendientesRendicionQuery(), ct)))
-        .RequireAuthorization(PoliticasApi.Deposito)
+        .RequireAuthorization(PoliticasApi.Despacho)
         .WithTags("Depósito")
         .WithName("ListarRutasPendientesRendicion")
         .WithSummary("Listar hojas de ruta pendientes de rendición")
@@ -212,7 +215,7 @@ public static class DepositoEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization(PoliticasApi.Deposito)
+        .RequireAuthorization(PoliticasApi.Despacho)
         .WithTags("Depósito")
         .WithName("ObtenerRutaParaRendicion")
         .WithSummary("Obtener detalle de hoja de ruta para rendición")
