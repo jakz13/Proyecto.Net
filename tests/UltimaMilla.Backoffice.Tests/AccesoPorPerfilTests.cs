@@ -85,7 +85,8 @@ public class AccesoPorPerfilTests : IClassFixture<WebApplicationFactory<Program>
 
     public AccesoPorPerfilTests(WebApplicationFactory<Program> fabrica)
     {
-        _fabrica = fabrica;
+        // Pruebas herméticas: el Backoffice usa las maquetas en memoria y no una API real (appsettings.json apunta a localhost:5000, que en CI no existe)
+        _fabrica = fabrica.WithWebHostBuilder(constructor => constructor.UseSetting("UsarMocks", "true"));
     }
 
     public static IEnumerable<object[]> Perfiles() => new[] { Administrador, Despachador, Operario }.Select(p => new object[] { p });

@@ -18,7 +18,8 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
 
     public FormulariosDelBackofficeTests(WebApplicationFactory<Program> fabrica)
     {
-        _fabrica = fabrica;
+        // Pruebas herméticas: el Backoffice usa las maquetas en memoria y no una API real (appsettings.json apunta a localhost:5000, que en CI no existe)
+        _fabrica = fabrica.WithWebHostBuilder(constructor => constructor.UseSetting("UsarMocks", "true"));
     }
 
     private Task<HttpClient> SesionDeAdministradorAsync() => SesionComoAsync("Administrador");
