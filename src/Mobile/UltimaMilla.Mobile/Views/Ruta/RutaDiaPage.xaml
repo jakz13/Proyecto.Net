@@ -27,9 +27,9 @@
                 StrokeThickness="1"
                 StrokeShape="Rectangle"
                 BackgroundColor="#FFFFFF"
-                Padding="16,12">
+                Padding="14,8">
 
-            <VerticalStackLayout Spacing="10">
+            <VerticalStackLayout Spacing="8">
 
                 <!-- Banner Informativo: Ruta en precarga (Liberada) -->
                 <Border IsVisible="{Binding RecorridoNoIniciado}"
@@ -41,7 +41,7 @@
                     <Grid ColumnDefinitions="4, *" ColumnSpacing="8" VerticalOptions="Center">
                         <BoxView WidthRequest="4" CornerRadius="2" Color="#D97706" VerticalOptions="Fill" />
                         <Label Grid.Column="1"
-                               Text="Pendiente de Carga en Deposito: La hoja de ruta esta en estado Liberada. Escanee y confirme los bultos en la pestana Carga para pasar los envios a En Transito."
+                               Text="Pendiente de Carga en Depósito: La hoja de ruta está en estado Liberada. Escanee y confirme los bultos en la pestaña Carga para pasar los envíos a En Tránsito."
                                FontSize="11.5"
                                FontAttributes="Bold"
                                TextColor="#92400E"
@@ -99,7 +99,7 @@
 
                     <HorizontalStackLayout Spacing="8" VerticalOptions="Center" Margin="0,0,0,4">
                         <!-- Menú de Opciones y Telemetría Corporativo -->
-                        <Button Text="Herramientas y Telemetria ▾"
+                        <Button Text="Herramientas y Telemetría ▾"
                                 Command="{Binding AlternarMenuHerramientasCommand}"
                                 BackgroundColor="{DynamicResource SecondarySoftBackground}"
                                 TextColor="{DynamicResource SecondaryColor}"
@@ -204,68 +204,6 @@
                                  HeightRequest="8" />
                 </VerticalStackLayout>
 
-                <!-- Panel de Telemetría GPS en Vivo con Acento Lateral en SecondaryColor -->
-                <Border BackgroundColor="#F8FAFC"
-                        Stroke="{DynamicResource CardBorderColor}"
-                        StrokeThickness="1"
-                        StrokeShape="RoundRectangle 8"
-                        Padding="0">
-                    <Grid ColumnDefinitions="4, *, Auto" ColumnSpacing="8" Padding="0,7,8,7">
-                        <BoxView Grid.Column="0" WidthRequest="4" Color="{DynamicResource SecondaryColor}" VerticalOptions="Fill" />
-                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                            <Label Text="{Binding UltimaCoordenadaTexto}"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   TextColor="#0F172A" />
-                            <Label Text="{Binding UltimoEstadoServidorTexto}"
-                                   FontSize="10.5"
-                                   TextColor="#475569" />
-                        </VerticalStackLayout>
-                        <Button Grid.Column="2"
-                                Text="Forzar Envio GPS Ahora"
-                                Command="{Binding ForzarEnvioGpsAhoraCommand}"
-                                BackgroundColor="{DynamicResource SecondaryColor}"
-                                TextColor="#FFFFFF"
-                                FontSize="10.5"
-                                FontAttributes="Bold"
-                                CornerRadius="6"
-                                HeightRequest="32"
-                                MinimumHeightRequest="30"
-                                Padding="9,0"
-                                VerticalOptions="Center" />
-                    </Grid>
-                </Border>
-
-                <!-- Acción Operativa: Optimización del Orden de Paradas -->
-                <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
-                    <Button Grid.Column="0"
-                            Text="Optimizar Ruta"
-                            Command="{Binding OptimizarRutaCommand}"
-                            BackgroundColor="{DynamicResource PrimaryColor}"
-                            TextColor="#FFFFFF"
-                            FontSize="12"
-                            FontAttributes="Bold"
-                            CornerRadius="8"
-                            HeightRequest="36"
-                            MinimumHeightRequest="34"
-                            Padding="12,0" />
-
-                    <Button Grid.Column="1"
-                            IsVisible="{Binding MostrarResumenOptimizacion}"
-                            Text="Restaurar Orden Inicial"
-                            Command="{Binding RestaurarOrdenEstandarCommand}"
-                            BackgroundColor="{DynamicResource SecondarySoftBackground}"
-                            TextColor="{DynamicResource SecondaryColor}"
-                            BorderColor="{DynamicResource SecondaryColor}"
-                            BorderWidth="1.5"
-                            FontSize="11"
-                            FontAttributes="Bold"
-                            CornerRadius="8"
-                            HeightRequest="36"
-                            MinimumHeightRequest="34"
-                            Padding="10,0" />
-                </Grid>
-
                 <!-- Tarjeta de Resumen Comparativo de Optimización de Ruta -->
                 <Border IsVisible="{Binding MostrarResumenOptimizacion}"
                         BackgroundColor="#F8FAFC"
@@ -276,7 +214,7 @@
                     <VerticalStackLayout Spacing="6">
                         <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
                             <Label Grid.Column="0"
-                                   Text="Resumen de Optimizacion de Ruta"
+                                   Text="Resumen de Optimización de Ruta"
                                    FontSize="12.5"
                                    FontAttributes="Bold"
                                    TextColor="#0F172A"
@@ -298,7 +236,7 @@
 
                         <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto" RowSpacing="4">
                             <Label Grid.Row="0" Grid.Column="0"
-                                   Text="Criterio Estandar de Despacho:"
+                                   Text="Criterio Estándar de Despacho:"
                                    FontSize="11.5"
                                    TextColor="#475569" />
                             <Label Grid.Row="0" Grid.Column="1"
@@ -308,7 +246,7 @@
                                    TextColor="#334155" />
 
                             <Label Grid.Row="1" Grid.Column="0"
-                                   Text="Ruta Optimizada (Heuristica 2-Opt):"
+                                   Text="Ruta Optimizada (Heurística 2-Opt):"
                                    FontSize="11.5"
                                    TextColor="{DynamicResource PrimaryColor}"
                                    FontAttributes="Bold" />
@@ -376,7 +314,7 @@
                                    FontAttributes="Bold"
                                    TextColor="#0F172A"
                                    HorizontalTextAlignment="Center" />
-                            <Label Text="Las entregas y retornos de su ultima hoja de ruta han sido completados y rendidos en deposito. Si la central le asigna un nuevo viaje, toque el boton a continuacion para sincronizar."
+                            <Label Text="Las entregas y retornos de su última hoja de ruta han sido completados y rendidos en depósito. Si la central le asigna un nuevo viaje, toque el botón a continuación para sincronizar."
                                    FontSize="12"
                                    TextColor="#64748B"
                                    HorizontalTextAlignment="Center" />
@@ -589,8 +527,8 @@
 
                     <CollectionView.Footer>
                         <VerticalStackLayout Spacing="10" Padding="0,8,0,28">
-                            <!-- Botón Prominente de Finalizar / Rendir Hoja de Ruta -->
-                            <Button Text="Finalizar Hoja de Ruta (Retorno a Deposito)"
+                            <!-- Botón Prominente de Rendir Hoja de Ruta -->
+                            <Button Text="Rendir Hoja de Ruta"
                                     Command="{Binding FinalizarHojaDeRutaCommand}"
                                     BackgroundColor="#15803D"
                                     TextColor="#FFFFFF"
@@ -645,7 +583,7 @@
                             BackgroundColor="{DynamicResource PrimaryColor}"
                             Padding="16,12">
                         <Grid ColumnDefinitions="*, Auto">
-                            <Label Text="Herramientas y Telemetria"
+                            <Label Text="Herramientas y Telemetría"
                                    FontSize="15"
                                    FontAttributes="Bold"
                                    TextColor="#FFFFFF"
@@ -675,7 +613,7 @@
                             </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
                                 <VerticalStackLayout Spacing="2">
-                                    <Label Text="Analisis de Bateria"
+                                    <Label Text="Análisis de Batería"
                                            FontSize="13"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
@@ -702,7 +640,30 @@
                                            FontSize="13"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
-                                    <Label Text="Telemetria GPS e historial de eventos de parada"
+                                    <Label Text="Telemetría GPS e historial de eventos de parada"
+                                           FontSize="11"
+                                           TextColor="#64748B" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Opción 3: Forzar Envío GPS Ahora -->
+                        <Border StrokeShape="RoundRectangle 8"
+                                Stroke="#E2E8F0"
+                                StrokeThickness="1"
+                                BackgroundColor="#F8FAFC"
+                                Padding="12,10">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ForzarEnvioGpsDesdeMenuCommand}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Forzar Envío GPS Ahora"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="#0F172A" />
+                                    <Label Text="Transmitir coordenadas actuales de forma inmediata"
                                            FontSize="11"
                                            TextColor="#64748B" />
                                 </VerticalStackLayout>
@@ -725,7 +686,7 @@
                                            FontSize="13"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
-                                    <Label Text="Calculo heuristico de distancia y tiempo estimado"
+                                    <Label Text="Cálculo heurístico de distancia y tiempo estimado"
                                            FontSize="11"
                                            TextColor="#64748B" />
                                 </VerticalStackLayout>
@@ -733,30 +694,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- Opción 4: Alternar Conexión Simulada -->
-                        <Border StrokeShape="RoundRectangle 8"
-                                Stroke="#E2E8F0"
-                                StrokeThickness="1"
-                                BackgroundColor="#F8FAFC"
-                                Padding="12,10">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding AlternarModoOfflineDesdeMenuCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
-                                <VerticalStackLayout Spacing="2">
-                                    <Label Text="Modo Fuera de Linea"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           TextColor="#0F172A" />
-                                    <Label Text="Alternar conexion simulada para operar con base local"
-                                           FontSize="11"
-                                           TextColor="#64748B" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
-                            </Grid>
-                        </Border>
-
-                        <!-- Opción 5: Rendir Hoja de Ruta -->
+                        <!-- Opción 4: Rendir Hoja de Ruta -->
                         <Border StrokeShape="RoundRectangle 8"
                                 Stroke="#E2E8F0"
                                 StrokeThickness="1"
@@ -771,7 +709,30 @@
                                            FontSize="13"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
-                                    <Label Text="Informar retorno y llegada al deposito de origen"
+                                    <Label Text="Informar retorno y llegada al depósito de origen"
+                                           FontSize="11"
+                                           TextColor="#64748B" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Opción 5: Probar Notificación Operativa -->
+                        <Border StrokeShape="RoundRectangle 8"
+                                Stroke="#E2E8F0"
+                                StrokeThickness="1"
+                                BackgroundColor="#F8FAFC"
+                                Padding="12,10">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ProbarNotificacionOperativaCommand}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Probar Notificación Operativa"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="#0F172A" />
+                                    <Label Text="Emitir alerta local en barra del sistema y banner UI"
                                            FontSize="11"
                                            TextColor="#64748B" />
                                 </VerticalStackLayout>
@@ -813,7 +774,7 @@
                                 BackgroundColor="{DynamicResource PrimaryColor}"
                                 Padding="16,12">
                             <Grid ColumnDefinitions="*, Auto">
-                                <Label Text="Analisis de Bateria y Muestreo Adaptativo"
+                                <Label Text="Análisis de Batería y Muestreo Adaptativo"
                                        FontSize="14.5"
                                        FontAttributes="Bold"
                                        TextColor="#FFFFFF"
@@ -833,32 +794,43 @@
 
                         <VerticalStackLayout Spacing="12" Padding="16,14">
                             <!-- Nivel y Estado de Batería -->
-                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
-                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                                    <Label Text="{Binding NivelBateriaPct, StringFormat='{0}%'}"
-                                           FontSize="26"
-                                           FontAttributes="Bold"
-                                           TextColor="#0F172A"
-                                           VerticalOptions="Center" />
-                                    <Border BackgroundColor="{DynamicResource SecondarySoftBackground}"
-                                            Stroke="{DynamicResource SecondaryColor}"
-                                            StrokeThickness="1"
-                                            StrokeShape="RoundRectangle 6"
-                                            Padding="8,2"
-                                            VerticalOptions="Center">
-                                        <Label Text="{Binding EstadoBateriaTexto}"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               TextColor="{DynamicResource SecondaryColor}" />
-                                    </Border>
-                                </HorizontalStackLayout>
+                            <Grid ColumnDefinitions="*, Auto"
+                                  RowDefinitions="Auto, Auto"
+                                  RowSpacing="6"
+                                  ColumnSpacing="10"
+                                  VerticalOptions="Center">
+                                <Label Grid.Row="0"
+                                       Grid.Column="0"
+                                       Text="{Binding NivelBateriaPct, StringFormat='{0}%'}"
+                                       FontSize="28"
+                                       FontAttributes="Bold"
+                                       TextColor="#0F172A"
+                                       VerticalOptions="Center" />
 
-                                <Label Grid.Column="1"
+                                <Label Grid.Row="0"
+                                       Grid.Column="1"
                                        Text="{Binding ConsumoEstimadoMahTexto}"
                                        FontSize="12"
                                        FontAttributes="Bold"
                                        TextColor="#64748B"
+                                       HorizontalOptions="End"
                                        VerticalOptions="Center" />
+
+                                <Border Grid.Row="1"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="2"
+                                        HorizontalOptions="Start"
+                                        BackgroundColor="{DynamicResource SecondarySoftBackground}"
+                                        Stroke="{DynamicResource SecondaryColor}"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 6"
+                                        Padding="10,4">
+                                    <Label Text="{Binding EstadoBateriaTexto}"
+                                           FontSize="11"
+                                           FontAttributes="Bold"
+                                           TextColor="{DynamicResource SecondaryColor}"
+                                           LineBreakMode="WordWrap" />
+                                </Border>
                             </Grid>
 
                             <!-- Barra de Nivel de Batería -->
@@ -871,20 +843,20 @@
                                 <Border Grid.Row="0" Grid.Column="0" BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,8">
                                     <VerticalStackLayout Spacing="2">
                                         <Label Text="MODO DE MUESTREO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
-                                        <Label Text="{Binding ModoMuestreoActualTexto}" FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource PrimaryColor}" LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding ModoMuestreoActualTexto}" FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource PrimaryColor}" LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
                                 </Border>
 
                                 <Border Grid.Row="0" Grid.Column="1" BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,8">
                                     <VerticalStackLayout Spacing="2">
-                                        <Label Text="INTERVALO DINAMICO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="INTERVALO DINÁMICO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding IntervaloDinamicoSegundosTexto}" FontSize="12" FontAttributes="Bold" TextColor="#0F172A" />
                                     </VerticalStackLayout>
                                 </Border>
 
                                 <Border Grid.Row="1" Grid.Column="0" BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,8">
                                     <VerticalStackLayout Spacing="2">
-                                        <Label Text="AHORRO ENERGETICO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="AHORRO ENERGÉTICO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding AhorroEnergeticoEstimadoTexto}" FontSize="12" FontAttributes="Bold" TextColor="#16A34A" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -914,7 +886,7 @@
                                     <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
                                         <BoxView WidthRequest="4" HeightRequest="24" CornerRadius="2" Color="{DynamicResource SecondaryColor}" VerticalOptions="Center" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="Bateria superior al 50%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
+                                            <Label Text="Batería superior al 50%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
                                             <Label Text="Intervalo cada 15 s (Alta frecuencia)" FontSize="10.5" TextColor="#64748B" />
                                         </VerticalStackLayout>
                                         <Border Grid.Column="2"
@@ -937,7 +909,7 @@
                                     <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
                                         <BoxView WidthRequest="4" HeightRequest="24" CornerRadius="2" Color="{DynamicResource PrimaryColor}" VerticalOptions="Center" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="Bateria entre 20% y 50%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
+                                            <Label Text="Batería entre 20% y 50%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
                                             <Label Text="Intervalo cada 45 s (Frecuencia media)" FontSize="10.5" TextColor="#64748B" />
                                         </VerticalStackLayout>
                                         <Border Grid.Column="2"
@@ -960,8 +932,8 @@
                                     <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
                                         <BoxView WidthRequest="4" HeightRequest="24" CornerRadius="2" Color="#DC2626" VerticalOptions="Center" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="Bateria menor al 20%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
-                                            <Label Text="Intervalo cada 120 s (Modo ahorro critico)" FontSize="10.5" TextColor="#64748B" />
+                                            <Label Text="Batería menor al 20%" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" />
+                                            <Label Text="Intervalo cada 120 s (Modo ahorro crítico)" FontSize="10.5" TextColor="#64748B" />
                                         </VerticalStackLayout>
                                         <Border Grid.Column="2"
                                                 IsVisible="{Binding EsTramoBateriaBajo}"
@@ -976,7 +948,7 @@
                             </VerticalStackLayout>
 
                             <!-- Botón de Cierre -->
-                            <Button Text="Cerrar Analisis"
+                            <Button Text="Cerrar Análisis"
                                     Command="{Binding CerrarModalesCommand}"
                                     BackgroundColor="{DynamicResource PrimaryColor}"
                                     TextColor="#FFFFFF"
@@ -1042,7 +1014,7 @@
                         <VerticalStackLayout Spacing="12" Padding="16,14">
                             <!-- Badge de Estado de Transmisión -->
                             <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
-                                <Label Text="TRANSMISION EN TIEMPO REAL" FontSize="10" FontAttributes="Bold" TextColor="#64748B" VerticalOptions="Center" />
+                                <Label Text="TRANSMISIÓN EN TIEMPO REAL" FontSize="10" FontAttributes="Bold" TextColor="#64748B" VerticalOptions="Center" />
                                 <Border Grid.Column="1"
                                         BackgroundColor="{Binding EstadoGpsBadgeBgColor}"
                                         StrokeThickness="0"
@@ -1059,24 +1031,24 @@
                             <Border BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="12,10">
                                 <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="8" ColumnSpacing="8">
                                     <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
-                                        <Label Text="ULTIMA COORDENADA" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="ÚLTIMA COORDENADA" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding UltimaCoordenadaModalTexto}" FontSize="12" FontAttributes="Bold" TextColor="#0F172A" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="2">
-                                        <Label Text="PRECISION ESTIMADA" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="PRECISIÓN ESTIMADA" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding PrecisionGpsModalTexto}" FontSize="12" FontAttributes="Bold" TextColor="#0F172A" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="2">
-                                        <Label Text="HORA ULTIMO ENVIO AL SERVIDOR" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="HORA ÚLTIMO ENVÍO AL SERVIDOR" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding HoraUltimoEnvioTexto}" FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource PrimaryColor}" />
                                     </VerticalStackLayout>
                                 </Grid>
                             </Border>
 
                             <!-- Indicadores de Histéresis de Geocercas -->
-                            <Label Text="PARAMETROS DE HISTERESIS (DETECCION DE PARADA)"
+                            <Label Text="PARÁMETROS DE HISTÉRESIS (DETECCIÓN DE PARADA)"
                                    FontSize="10"
                                    FontAttributes="Bold"
                                    TextColor="#64748B"
@@ -1202,7 +1174,7 @@
                             BackgroundColor="{DynamicResource PrimaryColor}"
                             Padding="16,12">
                         <Grid ColumnDefinitions="*, Auto">
-                            <Label Text="Optimizacion del Orden de Paradas (2-Opt)"
+                            <Label Text="Optimización del Orden de Paradas (2-Opt)"
                                    FontSize="14"
                                    FontAttributes="Bold"
                                    TextColor="#FFFFFF"
@@ -1339,7 +1311,7 @@
                             BackgroundColor="{DynamicResource PrimaryColor}"
                             Padding="16,12">
                         <Grid ColumnDefinitions="*, Auto">
-                            <Label Text="Rendicion y Cierre de Hoja de Ruta"
+                            <Label Text="Rendición y Cierre de Hoja de Ruta"
                                    FontSize="14"
                                    FontAttributes="Bold"
                                    TextColor="#FFFFFF"
@@ -1358,7 +1330,7 @@
                     </Border>
 
                     <VerticalStackLayout Spacing="12" Padding="16,14">
-                        <Label Text="Resumen de jornada para cierre formal de operaciones y retorno a deposito."
+                        <Label Text="Resumen de jornada para cierre formal de operaciones y retorno a depósito."
                                FontSize="12"
                                TextColor="#475569" />
 
@@ -1401,7 +1373,7 @@
 
                         <!-- Botones de Acción -->
                         <VerticalStackLayout Spacing="8" Margin="0,6,0,0">
-                            <Button Text="Confirmar Cierre con Biometria"
+                            <Button Text="Confirmar Cierre con Biometría"
                                     Command="{Binding ConfirmarCierreConBiometriaCommand}"
                                     BackgroundColor="{DynamicResource PrimaryColor}"
                                     TextColor="#FFFFFF"

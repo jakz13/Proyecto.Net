@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Realtime;
 
 namespace UltimaMilla.Mobile.Services.Tracking;
@@ -22,11 +23,13 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<GeolocalizacionTrackingService> _logger;
+    private readonly INotificacionLocalService? _notificacionService;
 
     private CancellationTokenSource? _trackingCts;
     private Task? _trackingLoopTask;
     private Location? _ultimaUbicacion;
     private bool _isTrackingActive;
+    private bool _alertaBateriaCriticaEmitida;
     private readonly SemaphoreSlim _permisoLock = new(1, 1);
 
     private int _lecturasGpsRealizadas;
@@ -65,13 +68,34 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         IGeofenceService geofenceService,
         ILocalDatabaseService localDatabaseService,
         IHttpClientFactory httpClientFactory,
-        ILogger<GeolocalizacionTrackingService> logger)
+        ILogger<GeolocalizacionTrackingService> logger,
+        INotificacionLocalService? notificacionService = null)
     {
         _realtimeTrackingService = realtimeTrackingService;
         _geofenceService = geofenceService;
         _localDatabaseService = localDatabaseService;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _notificacionService = notificacionService;
+
+        SuscribirEventosBateria();
+    }
+
+    private void SuscribirEventosBateria()
+    {
+        try
+        {
+            Battery.Default.BatteryInfoChanged += OnBateriaInfoCambiada;
+        }
+        catch
+        {
+            // Entornos de prueba sin proveedor nativo de bateria
+        }
+    }
+
+    private void OnBateriaInfoCambiada(object? sender, BatteryInfoChangedEventArgs e)
+    {
+        ActualizarPerfilMuestreoAdaptativo(_distanciaProximaParadaMetros);
     }
 
     public async Task<bool> SolicitarPermisosUbicacionAsync()
@@ -251,6 +275,9 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     var ubicacion = await ObtenerUbicacionActualAsync(ct);
                     if (ubicacion is not null)
                     {
+                        double velocidadKmh = ubicacion.Speed is > 0 && !double.IsNaN(ubicacion.Speed.Value)
+                            ? Math.Round(ubicacion.Speed.Value * 3.6, 1)
+                            : 0.0;
                         await ProcesarUbicacionYAdaptarMuestreoAsync(
                             HojaDeRutaIdActiva,
                             RepartidorIdActivo,
@@ -258,7 +285,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                             ubicacion.Longitude,
                             ubicacion.Accuracy,
                             DateTime.UtcNow,
-                            ct);
+                            ct,
+                            velocidadKmh);
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -304,6 +332,10 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
         _ultimaCoordenadaTexto = $"GPS: Lat {ubicacion.Latitude:F4}, Lon {ubicacion.Longitude:F4} ({DateTime.Now:HH:mm:ss})";
 
+        double velocidadKmh = ubicacion.Speed is > 0 && !double.IsNaN(ubicacion.Speed.Value)
+            ? Math.Round(ubicacion.Speed.Value * 3.6, 1)
+            : 0.0;
+
         await ProcesarUbicacionYAdaptarMuestreoAsync(
             HojaDeRutaIdActiva,
             RepartidorIdActivo,
@@ -311,7 +343,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             ubicacion.Longitude,
             ubicacion.Accuracy,
             DateTime.UtcNow,
-            cancellationToken);
+            cancellationToken,
+            velocidadKmh);
 
         return (true, $"{_ultimaCoordenadaTexto} | {_ultimoEstadoServidorTexto}");
     }
@@ -323,7 +356,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         double longitud,
         double? precisionMetros,
         DateTime timestampUtc,
-        CancellationToken ct)
+        CancellationToken ct,
+        double? velocidadKmh = null)
     {
         Interlocked.Increment(ref _lecturasGpsRealizadas);
         _ultimaCoordenadaTexto = $"GPS: Lat {latitud:F4}, Lon {longitud:F4} ({timestampUtc.ToLocalTime():HH:mm:ss})";
@@ -336,6 +370,12 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         // 2. Ajustar dinámicamente el Muestreo Adaptativo según distancia y batería (Battery.Default)
         ActualizarPerfilMuestreoAdaptativo(_distanciaProximaParadaMetros);
 
+        var (bateriaPct, _, _) = LeerEstadoBateriaDispositivo();
+        double velocidadEfectivaKmh = velocidadKmh
+            ?? (_ultimaUbicacion?.Speed is > 0 && !double.IsNaN(_ultimaUbicacion.Speed.Value)
+                ? Math.Round(_ultimaUbicacion.Speed.Value * 3.6, 1)
+                : 0.0);
+
         // 3. Canal dual de transmisión: SignalR (streaming) + HTTP REST inmediato (POST /api/mobile/v1/posiciones)
         bool transmitidaSignalR = false;
         try
@@ -345,15 +385,15 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 repartidorId,
                 latitud,
                 longitud,
-                ct);
+                ct,
+                velocidadEfectivaKmh,
+                bateriaPct);
             transmitidaSignalR = _realtimeTrackingService.IsConnected;
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "SignalR no disponible al transmitir posición GPS.");
         }
-
-        var (bateriaPct, _, _) = LeerEstadoBateriaDispositivo();
 
         bool transmitidaHttp = false;
         string detalleServidor = "";
@@ -371,7 +411,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                         Latitud = latitud,
                         Longitud = longitud,
                         TomadaEn = (DateTime?)timestampUtc,
-                        BateriaPct = bateriaPct,
+                        VelocidadKmh = (double?)velocidadEfectivaKmh,
+                        BateriaPct = (int?)bateriaPct,
                         HojaDeRutaId = hojaDeRutaId != Guid.Empty ? (Guid?)hojaDeRutaId : null
                     }
                 }
@@ -421,6 +462,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                     Longitud = longitud,
                     PrecisionMetros = precisionMetros,
                     TimestampUtc = timestampUtc,
+                    VelocidadKmh = velocidadEfectivaKmh,
                     BateriaPct = bateriaPct,
                     IdempotencyKey = $"GPS-{(hojaDeRutaId != Guid.Empty ? hojaDeRutaId : repartidorId):N}-{timestampUtc.Ticks}"
                 };
@@ -459,13 +501,24 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     {
         var (porcentajeBateria, _, ahorroEnergiaActivo) = LeerEstadoBateriaDispositivo();
 
-        // Perfil 4: Modo Ahorro Crítico (Batería < 20% o Ahorro de Energía activo)
+        if (porcentajeBateria >= 25)
+        {
+            _alertaBateriaCriticaEmitida = false;
+        }
+
+        // Perfil 4: Modo Ahorro Critico (Bateria < 20% o Ahorro de Energia activo)
         if (porcentajeBateria < 20 || ahorroEnergiaActivo)
         {
             _perfilAdaptativoActual = "Modo Ahorro Crítico (Batería < 20% / Ahorro Activo)";
             IntervaloTracking = TimeSpan.FromSeconds(60);
             _precisionActual = GeolocationAccuracy.Low;
             _consumoEstimadoMahHora = 8.0;
+
+            if (porcentajeBateria < 20 && !_alertaBateriaCriticaEmitida)
+            {
+                _alertaBateriaCriticaEmitida = true;
+                EmitirNotificacionBateriaCritica();
+            }
             return;
         }
 
@@ -497,31 +550,113 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         }
     }
 
+    private void EmitirNotificacionBateriaCritica()
+    {
+        if (_notificacionService is null)
+        {
+            return;
+        }
+
+        _ = _notificacionService.MostrarNotificacionOperativaAsync(
+            "Modo de Ahorro Energético Activado",
+            "Batería inferior al 20%. La frecuencia de rastreo GPS se ajustó automáticamente a 60 segundos para preservar la autonomía de la jornada.",
+            "BATERIA");
+    }
+
     private static (int Porcentaje, string EstadoTexto, bool AhorroEnergiaActivo) LeerEstadoBateriaDispositivo()
     {
+#if ANDROID
         try
         {
+            var context = global::Android.App.Application.Context;
+            using var filter = new global::Android.Content.IntentFilter(global::Android.Content.Intent.ActionBatteryChanged);
+            using var batteryIntent = context.RegisterReceiver(null, filter);
+
+            if (batteryIntent is not null)
+            {
+                int level = batteryIntent.GetIntExtra(global::Android.OS.BatteryManager.ExtraLevel, -1);
+                int scale = batteryIntent.GetIntExtra(global::Android.OS.BatteryManager.ExtraScale, 100);
+                int porcentajeAndroid = (level >= 0 && scale > 0)
+                    ? Math.Clamp((int)Math.Round(level * 100.0 / scale), 0, 100)
+                    : 100;
+
+                int status = batteryIntent.GetIntExtra(global::Android.OS.BatteryManager.ExtraStatus, -1);
+                int plugged = batteryIntent.GetIntExtra(global::Android.OS.BatteryManager.ExtraPlugged, 0);
+
+                string estadoAndroid = status switch
+                {
+                    (int)global::Android.OS.BatteryStatus.Charging => plugged switch
+                    {
+                        (int)global::Android.OS.BatteryPlugged.Usb => "Cargando por USB",
+                        (int)global::Android.OS.BatteryPlugged.Ac => "Cargando por CA",
+                        (int)global::Android.OS.BatteryPlugged.Wireless => "Cargando (Inalámbrico)",
+                        _ => "Cargando"
+                    },
+                    (int)global::Android.OS.BatteryStatus.Full => "Carga completa",
+                    (int)global::Android.OS.BatteryStatus.Discharging => "Descargando (En uso con batería)",
+                    (int)global::Android.OS.BatteryStatus.NotCharging => "Conectado sin cargar",
+                    _ => "En uso con batería"
+                };
+
+                bool ahorroAndroid = false;
+                try
+                {
+                    if (context.GetSystemService(global::Android.Content.Context.PowerService) is global::Android.OS.PowerManager powerManager)
+                    {
+                        ahorroAndroid = powerManager.IsPowerSaveMode;
+                    }
+                }
+                catch
+                {
+                    ahorroAndroid = false;
+                }
+
+                return (porcentajeAndroid, estadoAndroid, ahorroAndroid);
+            }
+        }
+        catch
+        {
+            // Continuar con lectura MAUI estándar si el receiver no responde
+        }
+#endif
+
+        try
+        {
+            var state = Battery.Default.State;
+            if (state == BatteryState.NotPresent)
+            {
+                return (100, "Conectado a red eléctrica (100%)", false);
+            }
+
             double chargeLevel = Battery.Default.ChargeLevel;
             int porcentaje = (chargeLevel >= 0.0 && chargeLevel <= 1.0 && !double.IsNaN(chargeLevel))
-                ? (int)Math.Round(chargeLevel * 100.0)
-                : 86;
+                ? Math.Clamp((int)Math.Round(chargeLevel * 100.0), 0, 100)
+                : 100;
 
-            string estadoTexto = Battery.Default.State switch
+            string estadoTexto = state switch
             {
                 BatteryState.Charging => "Cargando",
-                BatteryState.Discharging => "En descarga",
+                BatteryState.Discharging => "Descargando (En uso con batería)",
                 BatteryState.Full => "Carga completa",
                 BatteryState.NotCharging => "Conectado sin cargar",
-                BatteryState.NotPresent => "Alimentación CA (PC)",
-                _ => "Normal"
+                _ => "Conectado a red eléctrica (100%)"
             };
 
-            bool ahorroActivo = Battery.Default.EnergySaverStatus == EnergySaverStatus.On;
+            bool ahorroActivo = false;
+            try
+            {
+                ahorroActivo = Battery.Default.EnergySaverStatus == EnergySaverStatus.On;
+            }
+            catch
+            {
+                ahorroActivo = false;
+            }
+
             return (porcentaje, estadoTexto, ahorroActivo);
         }
         catch
         {
-            return (86, "Alimentación de escritorio (Fallback)", false);
+            return (100, "Conectado a red eléctrica (100%)", false);
         }
     }
 
@@ -634,8 +769,6 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
             ForegroundServiceActivo = false;
             OnTrackingStateChanged?.Invoke(this, false);
         }
-
-        await _realtimeTrackingService.StopAsync();
     }
 
 #if ANDROID
@@ -682,7 +815,16 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
     public async ValueTask DisposeAsync()
     {
+        try
+        {
+            Battery.Default.BatteryInfoChanged -= OnBateriaInfoCambiada;
+        }
+        catch
+        {
+        }
+
         await DetenerTrackingAsync();
+        await _realtimeTrackingService.StopAsync();
         GC.SuppressFinalize(this);
     }
 }

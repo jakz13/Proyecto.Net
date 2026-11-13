@@ -381,6 +381,66 @@ public class ControlCargaYEntregaEnPuertaTests
         Assert.Equal("EnTransito", ruta.Estado);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1234567")] // 7 dígitos
+    [InlineData("123456789")] // 9 dígitos
+    [InlineData("ABCDEFGH")] // letras
+    [InlineData("1234-567")] // 7 dígitos con guión
+    public async Task ConfirmarEntrega_DocumentoInvalido_LanzaDomainValidationException(string? docInvalido)
+    {
+        // Arrange
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "EnTransito");
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-DOC-INVALIDO-001",
+            "Juan Pérez",
+            docInvalido!,
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: null,
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(command, CancellationToken.None));
+        Assert.True(ex.Message.Contains("requerido") || ex.Message.Contains("8 dígitos numéricos"));
+    }
+
+    [Fact]
+    public async Task ConfirmarEntrega_DocumentoValido8Digitos_ProcesaExitosamente()
+    {
+        // Arrange
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "EnTransito");
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-DOC-VALIDO-001",
+            "Juan Pérez",
+            "41234567",
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: null,
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Entregado", result.EstadoEnvio);
+    }
+
     private sealed class FakeCacheService : IDistributedCacheService
     {
         public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) =>

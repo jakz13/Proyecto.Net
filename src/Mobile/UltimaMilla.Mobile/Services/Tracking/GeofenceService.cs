@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Local;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Sync;
 
 namespace UltimaMilla.Mobile.Services.Tracking;
@@ -61,6 +62,7 @@ public class GeofenceService : IGeofenceService
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly ISyncService _syncService;
     private readonly ILogger<GeofenceService> _logger;
+    private readonly INotificacionLocalService? _notificacionService;
     private readonly SemaphoreSlim _evalLock = new(1, 1);
 
     private sealed class EstadoHisteresisParada
@@ -82,11 +84,13 @@ public class GeofenceService : IGeofenceService
     public GeofenceService(
         ILocalDatabaseService localDatabaseService,
         ISyncService syncService,
-        ILogger<GeofenceService> logger)
+        ILogger<GeofenceService> logger,
+        INotificacionLocalService? notificacionService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
         _logger = logger;
+        _notificacionService = notificacionService;
     }
 
     public bool EstaEnGeocerca(Guid paradaId)
@@ -203,6 +207,23 @@ public class GeofenceService : IGeofenceService
                         Evento = eventoEntrada,
                         DescripcionLegible = $"Llegada a geocerca de Parada #{parada.Orden} ({parada.CodigoSeguimiento}) a {distanciaMetros:F0} m (< 100 m)."
                     });
+
+                    if (esPendiente &&
+                        !string.Equals(parada.Estado, "Cancelado", StringComparison.OrdinalIgnoreCase) &&
+                        _notificacionService is not null)
+                    {
+                        var destinatario = string.IsNullOrWhiteSpace(parada.Destinatario)
+                            ? "Destinatario"
+                            : parada.Destinatario.Trim();
+                        var direccion = string.IsNullOrWhiteSpace(parada.Direccion)
+                            ? "Direccion confirmada"
+                            : parada.Direccion.Trim();
+
+                        await _notificacionService.MostrarNotificacionOperativaAsync(
+                            "Llegada a Zona de Entrega Detectada",
+                            $"Te encuentras a menos de 100m de la parada #{parada.Orden} ({destinatario} - {direccion}). Toca para registrar la entrega.",
+                            "GEOCERCA");
+                    }
                 }
                 // 2) Radio de Salida (> 150m): solo dispara si YA había registrado entrada en esa parada
                 else if (estadoMemoria.DentroDeGeocerca && distanciaMetros > UmbralSalidaMetros)

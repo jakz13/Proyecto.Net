@@ -46,7 +46,7 @@ public class ObtenerVerificacionDespachoQueryHandler : IRequestHandler<ObtenerVe
         var bultos = envios
             .OrderBy(e => ruta.Paradas.FirstOrDefault(p => p.EnvioId == e.Id)?.Orden ?? int.MaxValue)
             .SelectMany(e => e.Bultos
-                .Where(b => b.EstadoBulto is "Recibido" or "Danado" or "CargadoEnVehiculo")
+                .Where(b => b.EstadoBulto != "FaltanteEnRecepcion")
                 .OrderBy(b => b.Identificacion)
                 .Select(b =>
                 {

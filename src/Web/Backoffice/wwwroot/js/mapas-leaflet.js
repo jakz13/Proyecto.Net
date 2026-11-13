@@ -825,6 +825,7 @@
             var estadoOp = v.estadoOperativo || v.EstadoOperativo || 'EnMovimiento';
             var tieneRiesgo = Boolean(v.tieneAlertasRiesgo !== undefined ? v.tieneAlertasRiesgo : v.TieneAlertasRiesgo);
             var velocidad = v.velocidadKmh !== undefined ? v.velocidadKmh : (v.VelocidadKmh || 0);
+            var bateria = v.nivelBateriaPct !== undefined ? v.nivelBateriaPct : (v.NivelBateriaPct || 0);
             var paradas = v.paradas || v.Paradas || [];
 
             var latVeh = v.latitud !== undefined ? v.latitud : v.Latitud;
@@ -904,11 +905,12 @@
                 zIndexOffset: 600
             }).addTo(mapa);
 
+            var textoBateriaPopup = Number(bateria) > 0 ? (Number(bateria) + '%') : 'No reportado';
             var popupCamion = [
                 '<div class="um-popup">',
                 '  <div class="um-popup-titulo">' + escaparHtml(matricula) + ' · ' + escaparHtml(numeroRuta) + '</div>',
                 '  <div class="um-popup-sub">Chofer: ' + escaparHtml(repartidor) + ' (' + escaparHtml(modelo) + ')</div>',
-                '  <div class="um-popup-meta">' + escaparHtml(direccionAprox) + ' · ' + velocidad + ' km/h</div>',
+                '  <div class="um-popup-meta">' + escaparHtml(direccionAprox) + ' · ' + Number(velocidad || 0) + ' km/h · Bat: ' + escaparHtml(textoBateriaPopup) + '</div>',
                 '</div>'
             ].join('');
 

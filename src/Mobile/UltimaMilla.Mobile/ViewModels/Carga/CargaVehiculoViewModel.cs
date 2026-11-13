@@ -323,13 +323,13 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
     public List<string> MotivosDiscrepanciaOpciones { get; } = new()
     {
-        "Bulto Faltante en Anden",
-        "Empaque Danado",
+        "Bulto Faltante en Andén",
+        "Empaque Dañado",
         "Rechazado en Carga"
     };
 
     [ObservableProperty]
-    private string _motivoDiscrepanciaSeleccionado = "Bulto Faltante en Anden";
+    private string _motivoDiscrepanciaSeleccionado = "Bulto Faltante en Andén";
 
     [ObservableProperty]
     private string _detalleDocumentalDiscrepanciaInput = string.Empty;

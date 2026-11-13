@@ -10,7 +10,9 @@ public record UbicacionTransmisionDto(
     Guid RepartidorId,
     double Latitud,
     double Longitud,
-    DateTime TimestampUtc
+    DateTime TimestampUtc,
+    double? VelocidadKmh = null,
+    int? BateriaPct = null
 );
 
 /// <summary>
@@ -51,5 +53,7 @@ public interface IRealtimeTrackingService : IAsyncDisposable
         Guid repartidorId,
         double latitud,
         double longitud,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        double? velocidadKmh = null,
+        int? bateriaPct = null);
 }

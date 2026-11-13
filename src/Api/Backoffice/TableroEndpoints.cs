@@ -114,6 +114,17 @@ internal static class ConstructorTablero
             .Select(g => g.OrderByDescending(p => p.Timestamp).First())
             .ToListAsync(ct);
 
+        var ultimasBateriasRealesOperador = await db.PosicionesVehiculo.AsNoTracking()
+            .Where(p => p.OperadorId == operadorId
+                        && p.Timestamp > desde
+                        && p.Origen != "Semilla"
+                        && p.BateriaPct != null
+                        && p.BateriaPct > 0
+                        && !(p.Origen == "SignalR" && p.VelocidadKmh == 28 && p.BateriaPct == 88))
+            .GroupBy(p => p.VehiculoId)
+            .Select(g => new { VehiculoId = g.Key, BateriaPct = g.OrderByDescending(p => p.Timestamp).First().BateriaPct })
+            .ToDictionaryAsync(x => x.VehiculoId, x => x.BateriaPct ?? 0, ct);
+
         // Cargar también unidades de flota activas (repartidor activo con vehículo asignado) del operador cuando se pide el tablero general
         var repartidoresFlotaActiva = hojaDeRutaId == null
             ? await db.Repartidores.AsNoTracking()
@@ -300,8 +311,8 @@ internal static class ConstructorTablero
             if (string.IsNullOrWhiteSpace(zonaActual))
                 zonaActual = ResolverZonaPorDefecto(actualDireccion, actualEnvio);
 
-            var velocidadEfectiva = posicion?.VelocidadKmh ?? (ruta.Estado is "Despachada" or "EnTransito" ? 28.0 : 0.0);
-            var bateriaEfectiva = posicion?.BateriaPct is > 0 ? posicion.BateriaPct.Value : 88;
+            var velocidadEfectiva = ResolverVelocidadRealKmh(ahora, posicion);
+            var bateriaEfectiva = ResolverBateriaRealPct(posicion, ruta.VehiculoId, ultimasBateriasRealesOperador);
             var timestampEfectivo = posicion?.Timestamp ?? ahora;
 
             resultado.Add(new VehiculoEnVivoDto
@@ -347,6 +358,9 @@ internal static class ConstructorTablero
                 var nombreRep = repartidor != null ? (nombres.GetValueOrDefault(repartidor.UsuarioId) ?? string.Empty) : string.Empty;
                 vehiculosIncluidos.Add(pos.VehiculoId);
 
+                var velocidadUnidad = ResolverVelocidadRealKmh(ahora, pos);
+                var bateriaUnidad = ResolverBateriaRealPct(pos, pos.VehiculoId, ultimasBateriasRealesOperador);
+
                 resultado.Add(new VehiculoEnVivoDto
                 {
                     HojaDeRutaId = pos.HojaDeRutaId ?? Guid.Empty,
@@ -361,10 +375,10 @@ internal static class ConstructorTablero
                     Longitud = pos.Longitud,
                     DireccionAproximada = "En línea / Posición GPS reportada",
                     ZonaActual = "Sin zona",
-                    NivelBateriaPct = pos.BateriaPct is > 0 ? pos.BateriaPct.Value : 0,
-                    VelocidadKmh = (int)Math.Round(pos.VelocidadKmh ?? 24),
+                    NivelBateriaPct = bateriaUnidad,
+                    VelocidadKmh = (int)Math.Round(velocidadUnidad),
                     UltimaActualizacion = pos.Timestamp,
-                    EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh ?? 24, null, "EnTransito"),
+                    EstadoOperativo = EstadoOperativo(ahora, pos.Timestamp, velocidadUnidad, null, "EnTransito"),
                     ParadasCompletadas = 0,
                     TotalParadas = 0,
                     ParadaActualCodigo = null,
@@ -388,6 +402,8 @@ internal static class ConstructorTablero
                 vehiculosIncluidos.Add(vehiculo.Id);
                 var pos = ultimasPosiciones.GetValueOrDefault(vehiculo.Id);
                 var nombreRep = nombres.GetValueOrDefault(rep.UsuarioId) ?? "Repartidor Asignado";
+                var velocidadFlota = ResolverVelocidadRealKmh(ahora, pos);
+                var bateriaFlota = ResolverBateriaRealPct(pos, vehiculo.Id, ultimasBateriasRealesOperador);
 
                 resultado.Add(new VehiculoEnVivoDto
                 {
@@ -403,11 +419,11 @@ internal static class ConstructorTablero
                     Longitud = pos?.Longitud ?? -56.1645,
                     DireccionAproximada = pos is not null ? "En línea / Posición GPS reportada" : "Base operativa / Unidad lista para despacho",
                     ZonaActual = "Sin zona",
-                    NivelBateriaPct = pos?.BateriaPct is > 0 ? pos.BateriaPct.Value : 0,
-                    VelocidadKmh = (int)Math.Round(pos?.VelocidadKmh ?? 0),
+                    NivelBateriaPct = bateriaFlota,
+                    VelocidadKmh = (int)Math.Round(velocidadFlota),
                     UltimaActualizacion = pos?.Timestamp ?? ahora,
                     EstadoOperativo = pos is not null
-                        ? EstadoOperativo(ahora, pos.Timestamp, pos.VelocidadKmh, null, null)
+                        ? EstadoOperativo(ahora, pos.Timestamp, velocidadFlota, null, null)
                         : "EnParada",
                     ParadasCompletadas = 0,
                     TotalParadas = 0,
@@ -486,22 +502,51 @@ internal static class ConstructorTablero
         _ => "Pendiente"
     };
 
+    private static bool EsTelemetriaSimulada(PosicionVehiculo? pos) =>
+        pos is null
+        || string.Equals(pos.Origen, "Semilla", StringComparison.OrdinalIgnoreCase)
+        || (string.Equals(pos.Origen, "SignalR", StringComparison.OrdinalIgnoreCase)
+            && pos.VelocidadKmh == 28 && pos.BateriaPct == 88);
+
+    private static double ResolverVelocidadRealKmh(DateTime ahora, PosicionVehiculo? pos)
+    {
+        if (pos is null || EsTelemetriaSimulada(pos))
+            return 0.0;
+
+        if (ahora - pos.Timestamp > SinSenal)
+            return 0.0;
+
+        return pos.VelocidadKmh is >= 0 and <= 300 ? pos.VelocidadKmh.Value : 0.0;
+    }
+
+    private static int ResolverBateriaRealPct(
+        PosicionVehiculo? pos,
+        Guid? vehiculoId,
+        IReadOnlyDictionary<Guid, int> ultimasBateriasRealesOperador)
+    {
+        if (pos is not null && !EsTelemetriaSimulada(pos) && pos.BateriaPct is > 0 and <= 100)
+            return pos.BateriaPct.Value;
+
+        if (vehiculoId.HasValue && ultimasBateriasRealesOperador.TryGetValue(vehiculoId.Value, out var bateriaReciente) && bateriaReciente is > 0 and <= 100)
+            return bateriaReciente;
+
+        return 0;
+    }
+
     private static string EstadoOperativo(DateTime ahora, DateTime? ultimaPosicion, double? velocidad, string? estadoParadaActual, string? estadoRuta = null)
     {
         if (ultimaPosicion is null)
         {
-            return estadoRuta is "Despachada" or "EnTransito"
-                ? (estadoParadaActual == "EnSitio" ? "EnParada" : "EnMovimiento")
-                : "EnParada";
+            return "EnParada";
         }
 
         if (ahora - ultimaPosicion.Value > SinSenal)
         {
             return estadoRuta is "Despachada" or "EnTransito"
-                ? (estadoParadaActual == "EnSitio" ? "EnParada" : "EnMovimiento")
+                ? "EnParada"
                 : "DetenidoAlerta";
         }
 
-        return estadoParadaActual == "EnSitio" || velocidad is < VelocidadDetenidoKmh ? "EnParada" : "EnMovimiento";
+        return estadoParadaActual == "EnSitio" || velocidad is null || velocidad < VelocidadDetenidoKmh ? "EnParada" : "EnMovimiento";
     }
 }

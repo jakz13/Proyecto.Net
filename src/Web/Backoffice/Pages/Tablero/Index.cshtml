@@ -372,7 +372,7 @@
                                             }
                                         </div>
                                         <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
-                                            Bat: <strong class="text-dark">@(veh.NivelBateriaPct > 0 ? veh.NivelBateriaPct + "%" : "s/d")</strong>
+                                            Bat: <strong class="text-dark">@(veh.NivelBateriaPct > 0 ? veh.NivelBateriaPct + "%" : "No reportado")</strong>
                                         </div>
                                     </td>
                                     <td class="text-end">
@@ -695,7 +695,7 @@
             document.getElementById('mapaModelo').innerText = v.VehiculoModelo;
             document.getElementById('mapaRepartidor').innerText = 'Chofer: ' + v.RepartidorNombre;
             document.getElementById('mapaRuta').innerText = v.NumeroRuta;
-            document.getElementById('mapaBateria').innerText = (v.NivelBateriaPct > 0 ? v.NivelBateriaPct + '%' : 's/d');
+            document.getElementById('mapaBateria').innerText = (v.NivelBateriaPct > 0 ? v.NivelBateriaPct + '%' : 'No reportado');
             document.getElementById('mapaDireccion').innerText = v.DireccionAproximada;
             document.getElementById('mapaParadaActual').innerText = v.ParadaActualCodigo ? ('En curso: ' + v.ParadaActualCodigo) : 'Sin parada';
 
@@ -704,10 +704,10 @@
                 bEstado.innerText = 'Riesgo SLA (' + v.CantidadEnviosEnRiesgo + ')';
                 bEstado.className = 'estado-fallo small fw-semibold';
             } else if (v.EstadoOperativo === 'EnMovimiento') {
-                bEstado.innerText = 'En Tránsito';
+                bEstado.innerText = 'En Tránsito (' + (v.VelocidadKmh || 0) + ' km/h)';
                 bEstado.className = 'estado-entregado small fw-semibold';
             } else {
-                bEstado.innerText = 'Detenido';
+                bEstado.innerText = 'Detenido (0 km/h)';
                 bEstado.className = 'estado-intermedio small fw-semibold';
             }
 

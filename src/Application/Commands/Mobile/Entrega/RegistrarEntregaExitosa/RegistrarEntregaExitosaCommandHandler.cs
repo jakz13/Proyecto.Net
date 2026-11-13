@@ -67,6 +67,10 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
         if (string.IsNullOrWhiteSpace(request.DocumentoReceptor))
             throw new DomainValidationException("El documento del receptor es requerido.");
 
+        var docDigitos = new string(request.DocumentoReceptor.Where(char.IsDigit).ToArray());
+        if (docDigitos.Length != 8)
+            throw new DomainValidationException("El documento del receptor debe contener exactamente 8 dígitos numéricos.");
+
         var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(request.HojaDeRutaId, cancellationToken)
             ?? throw new NotFoundException($"Hoja de ruta '{request.HojaDeRutaId}' no encontrada.");
 

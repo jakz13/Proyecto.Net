@@ -11,7 +11,7 @@
     <div>
         <h1 class="h4 fw-bold mb-1">Listado y Seguimiento de Envíos</h1>
         <p class="text-muted small mb-0">
-            Consulte el estado y la trazabilidad de los envíos propios de su comercio, filtre por estado, fecha o destinatario y descargue etiquetas de bultos admitidos.
+            Consulte el estado y la trazabilidad de los envíos propios de su comercio, filtre por estado, fecha o destinatario y visualice o descargue etiquetas de bultos.
         </p>
     </div>
     <div class="d-flex align-items-center flex-wrap gap-2">
@@ -20,7 +20,7 @@
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
                     @onclick="AlternarSeleccionTodosAdmitidos">
-                @(TodosAdmitidosSeleccionados ? "Quitar selección" : $"Seleccionar admitidos ({CantidadAdmitidosEnPagina})")
+                @(TodosAdmitidosSeleccionados ? "Quitar selección" : $"Seleccionar página ({CantidadAdmitidosEnPagina})")
             </button>
         }
 
@@ -78,16 +78,20 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if (envioEnSeguimiento.Estado == EstadoEnvioDto.Admitido)
-                {
-                    <button type="button"
-                            class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
-                            disabled="@estaGenerandoEtiquetas"
-                            @onclick="() => GenerarEtiquetaIndividualAsync(envioEnSeguimiento.Id, descargarDirecto: true)">
-                        <Icono Nombre="descargar" Tamano="14" />
-                        <span>Descargar etiqueta</span>
-                    </button>
-                }
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                        disabled="@estaGenerandoEtiquetas"
+                        @onclick="() => GenerarEtiquetaIndividualAsync(envioEnSeguimiento.Id, descargarDirecto: false)">
+                    <Icono Nombre="imprimir" Tamano="14" />
+                    <span>Ver etiqueta</span>
+                </button>
+                <button type="button"
+                        class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                        disabled="@estaGenerandoEtiquetas"
+                        @onclick="() => GenerarEtiquetaIndividualAsync(envioEnSeguimiento.Id, descargarDirecto: true)">
+                    <Icono Nombre="descargar" Tamano="14" />
+                    <span>Descargar etiqueta</span>
+                </button>
                 @if (envioEnSeguimiento.Estado == EstadoEnvioDto.EnDevolucion)
                 {
                     <button type="button"
@@ -206,6 +210,40 @@
                                         <div class="text-muted">@envioEnSeguimiento.Observaciones</div>
                                     </div>
                                 }
+                                <div class="col-12 border-top pt-2">
+                                    @{
+                                        var bultosSeguimiento = (envioEnSeguimiento.BultosIdentificaciones != null && envioEnSeguimiento.BultosIdentificaciones.Count > 0)
+                                            ? envioEnSeguimiento.BultosIdentificaciones
+                                            : (IReadOnlyList<string>)new[] { $"{envioEnSeguimiento.CodigoSeguimiento}-B01" };
+                                    }
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-secondary fw-semibold">Bultos y Códigos de Barras (@bultosSeguimiento.Count)</span>
+                                        <button type="button"
+                                                class="btn btn-link btn-sm p-0 text-decoration-none small fw-semibold"
+                                                @onclick="() => GenerarEtiquetaIndividualAsync(envioEnSeguimiento.Id, descargarDirecto: false)">
+                                            Abrir etiquetas
+                                        </button>
+                                    </div>
+                                    <div class="d-flex flex-column gap-2">
+                                        @for (var idxBulto = 0; idxBulto < bultosSeguimiento.Count; idxBulto++)
+                                        {
+                                            var codBulto = bultosSeguimiento[idxBulto];
+                                            var patronBarrasSeg = GeneradorDocumentoEtiquetas.CalcularPatronBarras(codBulto);
+                                            <div class="border rounded-2 p-2 bg-white text-center">
+                                                <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                                    <span class="badge bg-light text-dark border">Bulto @(idxBulto + 1) de @bultosSeguimiento.Count</span>
+                                                    <span class="font-monospace fw-bold text-dark">@codBulto</span>
+                                                </div>
+                                                <svg viewBox="0 0 260 36" width="100%" height="36" role="img" aria-label="Código de barras @codBulto" class="border rounded bg-white p-1">
+                                                    @foreach (var barra in patronBarrasSeg)
+                                                    {
+                                                        <rect x="@barra.PosicionX" y="2" width="@barra.Ancho" height="32" fill="#0f172a" />
+                                                    }
+                                                </svg>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -603,7 +641,7 @@
                     <th style="width: 42px;" class="text-center">
                         <input type="checkbox"
                                class="form-check-input"
-                               title="Seleccionar todos los envíos admitidos de la página"
+                               title="Seleccionar todos los envíos de la página"
                                disabled="@(CantidadAdmitidosEnPagina == 0)"
                                checked="@TodosAdmitidosSeleccionados"
                                @onchange="AlternarSeleccionTodosAdmitidos" />
@@ -639,7 +677,6 @@
                 {
                     @foreach (var envio in resultadoPaginado.Elementos)
                     {
-                        var esAdmitido = envio.Estado == EstadoEnvioDto.Admitido;
                         var estaSeleccionado = idsSeleccionados.Contains(envio.Id);
                         var estaEnSeguimiento = envioEnSeguimiento?.Id == envio.Id;
 
@@ -647,9 +684,8 @@
                             <td class="text-center">
                                 <input type="checkbox"
                                        class="form-check-input"
-                                       disabled="@(!esAdmitido)"
                                        checked="@estaSeleccionado"
-                                       title="@(esAdmitido ? "Seleccionar envío para imprimir etiqueta" : "Solo los envíos en estado Admitido permiten generar etiqueta")"
+                                       title="Seleccionar envío para ver o imprimir etiqueta"
                                        @onchange="() => AlternarSeleccionEnvio(envio)" />
                             </td>
                             <td>
@@ -695,24 +731,21 @@
                                             <span>Confirmar devolución</span>
                                         </button>
                                     }
-                                    @if (esAdmitido)
-                                    {
-                                        <button type="button"
-                                                class="btn btn-outline-dark btn-sm py-0 px-2 small"
-                                                title="Ver etiqueta en pantalla"
-                                                disabled="@estaGenerandoEtiquetas"
-                                                @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: false)">
-                                            Etiqueta
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm py-0 px-2 small d-inline-flex align-items-center gap-1"
-                                                title="Descargar etiqueta lista para imprimir"
-                                                disabled="@estaGenerandoEtiquetas"
-                                                @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: true)">
-                                            <Icono Nombre="descargar" Tamano="12" />
-                                            <span>Descargar</span>
-                                        </button>
-                                    }
+                                    <button type="button"
+                                            class="btn btn-outline-dark btn-sm py-0 px-2 small"
+                                            title="Ver etiqueta y código de barras en pantalla"
+                                            disabled="@estaGenerandoEtiquetas"
+                                            @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: false)">
+                                        Etiqueta
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm py-0 px-2 small d-inline-flex align-items-center gap-1"
+                                            title="Descargar etiqueta lista para imprimir"
+                                            disabled="@estaGenerandoEtiquetas"
+                                            @onclick="() => GenerarEtiquetaIndividualAsync(envio.Id, descargarDirecto: true)">
+                                        <Icono Nombre="descargar" Tamano="12" />
+                                        <span>Descargar</span>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -784,7 +817,7 @@
         fechaHasta.HasValue;
 
     private List<EnvioDto> EnviosAdmitidosEnPagina =>
-        resultadoPaginado.Elementos.Where(e => e.Estado == EstadoEnvioDto.Admitido).ToList();
+        resultadoPaginado.Elementos.ToList();
 
     private int CantidadAdmitidosEnPagina => EnviosAdmitidosEnPagina.Count;
 
@@ -982,11 +1015,6 @@
 
     private void AlternarSeleccionEnvio(EnvioDto envio)
     {
-        if (envio.Estado != EstadoEnvioDto.Admitido)
-        {
-            return;
-        }
-
         if (!idsSeleccionados.Add(envio.Id))
         {
             idsSeleccionados.Remove(envio.Id);

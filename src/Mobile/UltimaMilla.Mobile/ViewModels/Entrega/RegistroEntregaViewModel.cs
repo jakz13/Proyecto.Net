@@ -38,6 +38,34 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
     [ObservableProperty]
     private string _documentoReceptor = string.Empty;
 
+    partial void OnDocumentoReceptorChanged(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        var soloDigitos = new string(value.Where(char.IsDigit).Take(8).ToArray());
+        if (soloDigitos != value)
+        {
+            DocumentoReceptor = soloDigitos;
+        }
+    }
+
+    [ObservableProperty]
+    private bool _requiereFirma = true;
+
+    [ObservableProperty]
+    private bool _requiereFoto;
+
+    [ObservableProperty]
+    private bool _requiereDocumento = true;
+
+    [ObservableProperty]
+    private string _textoEtiquetaFirma = "Firma Digital en Pantalla (Obligatorio según regla del operador) *";
+
+    [ObservableProperty]
+    private string _textoEtiquetaFoto = "Evidencia Fotográfica (Opcional)";
+
+    [ObservableProperty]
+    private string _textoEtiquetaDocumento = "DOCUMENTO / C.I. (Obligatorio según regla del operador) *";
+
     [ObservableProperty]
     private string _motivoSeleccionado = string.Empty;
 
@@ -75,12 +103,34 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
+        CargarReglasOperativas();
+    }
+
+    public void CargarReglasOperativas()
+    {
+        var regla = (Preferences.Default.Get("ReglaOperativa_TipoPruebaEntrega", "Firma digital y documento del receptor") ?? "").ToUpperInvariant();
+
+        RequiereFirma = regla.Contains("FIRMA") || (!regla.Contains("FOTO") && !regla.Contains("PIN"));
+        RequiereFoto = regla.Contains("FOTO");
+        RequiereDocumento = true;
+
+        TextoEtiquetaFirma = RequiereFirma
+            ? "Firma Digital en Pantalla (Obligatorio según regla del operador) *"
+            : "Firma Digital en Pantalla (Opcional)";
+
+        TextoEtiquetaFoto = RequiereFoto
+            ? "Evidencia Fotográfica (Obligatorio según regla del operador) *"
+            : "Evidencia Fotográfica (Opcional)";
+
+        TextoEtiquetaDocumento = "DOCUMENTO / C.I. (Obligatorio según regla del operador) *";
     }
 
     partial void OnParadaSeleccionadaChanged(ParadaItemViewModel? value)
     {
         if (value is null)
             return;
+
+        CargarReglasOperativas();
 
         if (!string.IsNullOrWhiteSpace(value.Destinatario))
             NombreReceptor = value.Destinatario.Trim();
@@ -222,9 +272,21 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
             return;
         }
 
-        if (!TieneFirma)
+        if (!System.Text.RegularExpressions.Regex.IsMatch(DocumentoReceptor.Trim(), @"^\d{8}$"))
         {
-            await AvisarAsync("Firma requerida", "Debe registrar la firma del receptor antes de confirmar la entrega.");
+            await AvisarAsync("Documento inválido", "El documento del receptor debe contener exactamente 8 dígitos numéricos.");
+            return;
+        }
+
+        if (RequiereFirma && !TieneFirma)
+        {
+            await AvisarAsync("Firma requerida", "La regla operativa del operador exige la firma digital del receptor.");
+            return;
+        }
+
+        if (RequiereFoto && !TieneFoto)
+        {
+            await AvisarAsync("Fotografía requerida", "La regla operativa del operador exige capturar una fotografía como evidencia de entrega.");
             return;
         }
 
@@ -255,14 +317,28 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
             // Auditoría exacta al confirmar: posición real y hora del dispositivo
             await ActualizarUbicacionYFechaAsync();
 
-            var firmaBase64 = await ObtenerFirmaBase64Async();
-            if (firmaBase64 is null)
+            string? firmaBase64 = null;
+            if (TieneFirma)
             {
-                await AvisarAsync("Firma no disponible", "No se pudo capturar la firma dibujada. Límpiela y vuelva a firmar.");
+                firmaBase64 = await ObtenerFirmaBase64Async();
+                if (RequiereFirma && firmaBase64 is null)
+                {
+                    await AvisarAsync("Firma no disponible", "No se pudo capturar la firma dibujada. Límpiela y vuelva a firmar.");
+                    return;
+                }
+            }
+            else if (RequiereFirma)
+            {
+                await AvisarAsync("Firma requerida", "La regla operativa del operador exige la firma digital del receptor.");
                 return;
             }
 
             var fotoBase64 = TieneFoto ? FotoEvidenciaBase64 : null;
+            if (RequiereFoto && string.IsNullOrWhiteSpace(fotoBase64))
+            {
+                await AvisarAsync("Fotografía requerida", "La regla operativa del operador exige capturar una fotografía como evidencia de entrega.");
+                return;
+            }
             var idempotencyKey = $"ENTREGA-{parada.Id:N}";
 
             string tipoOperacion;

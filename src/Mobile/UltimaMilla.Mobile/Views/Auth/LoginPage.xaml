@@ -118,7 +118,7 @@
 
                         <!-- Campo Usuario / Email -->
                         <VerticalStackLayout Spacing="6">
-                            <Label Text="CORREO ELECTRONICO / USUARIO"
+                            <Label Text="CORREO ELECTRÓNICO / USUARIO"
                                    FontSize="11"
                                    FontAttributes="Bold"
                                    TextColor="#475569" />
@@ -141,7 +141,7 @@
 
                         <!-- Campo Contraseña -->
                         <VerticalStackLayout Spacing="6">
-                            <Label Text="CONTRASENA"
+                            <Label Text="CONTRASEÑA"
                                    FontSize="11"
                                    FontAttributes="Bold"
                                    TextColor="#475569" />
@@ -198,7 +198,7 @@
 
                         <!-- Botón Principal Ingresar -->
                         <Button
-                            Text="Iniciar Sesion"
+                            Text="Iniciar Sesión"
                             Command="{Binding LoginCommand}"
                             IsEnabled="{Binding IsNotBusy}"
                             BackgroundColor="{DynamicResource PrimaryColor}"
@@ -211,7 +211,7 @@
 
                         <!-- Botón Ingreso con Biometría -->
                         <Button
-                            Text="Ingresar con Biometria"
+                            Text="Ingresar con Biometría"
                             Command="{Binding LoginConBiometriaCommand}"
                             IsVisible="{Binding PuedeUsarBiometria}"
                             IsEnabled="{Binding IsNotBusy}"
@@ -223,56 +223,6 @@
                             FontSize="13"
                             CornerRadius="8"
                             HeightRequest="44" />
-
-                        <!-- Selector discreto de servidor (Nube / Local) -->
-                        <Border
-                            StrokeShape="RoundRectangle 8"
-                            StrokeThickness="1"
-                            Stroke="#E2E8F0"
-                            BackgroundColor="#F8FAFC"
-                            Padding="12,8"
-                            Margin="0,4,0,0">
-                            <Grid ColumnDefinitions="4, *, Auto" ColumnSpacing="8" VerticalOptions="Center">
-                                <BoxView Grid.Column="0"
-                                         WidthRequest="4"
-                                         CornerRadius="2"
-                                         Color="{DynamicResource SecondaryColor}"
-                                         VerticalOptions="Fill" />
-
-                                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                                    <HorizontalStackLayout Spacing="4">
-                                        <Label Text="ENTORNO:"
-                                               FontSize="10"
-                                               FontAttributes="Bold"
-                                               TextColor="#64748B" />
-                                        <Label Text="{Binding TipoServidorTexto}"
-                                               FontSize="10"
-                                               FontAttributes="Bold"
-                                               TextColor="{DynamicResource PrimaryColor}" />
-                                    </HorizontalStackLayout>
-                                    <Label Text="{Binding ServidorActivo}"
-                                           FontSize="11"
-                                           TextColor="#334155"
-                                           LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-
-                                <Button Grid.Column="2"
-                                        Text="Cambiar"
-                                        Command="{Binding AlternarServidorCommand}"
-                                        IsEnabled="{Binding IsNotBusy}"
-                                        BackgroundColor="{DynamicResource SecondarySoftBackground}"
-                                        TextColor="{DynamicResource SecondaryColor}"
-                                        BorderColor="{DynamicResource SecondaryColor}"
-                                        BorderWidth="1"
-                                        FontSize="11"
-                                        FontAttributes="Bold"
-                                        HeightRequest="30"
-                                        MinimumHeightRequest="30"
-                                        CornerRadius="6"
-                                        Padding="10,0"
-                                        VerticalOptions="Center" />
-                            </Grid>
-                        </Border>
 
                     </VerticalStackLayout>
                 </VerticalStackLayout>

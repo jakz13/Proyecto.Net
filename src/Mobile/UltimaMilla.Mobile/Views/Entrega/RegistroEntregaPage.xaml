@@ -35,12 +35,12 @@
                         <BoxView HeightRequest="1" Color="{DynamicResource CardBorderColor}" />
 
                         <VerticalStackLayout Spacing="4" Padding="14,12">
-                            <Label Text="{Binding ParadaSeleccionada.Direccion, FallbackValue='Direccion de destino'}"
+                            <Label Text="{Binding ParadaSeleccionada.Direccion, FallbackValue='Dirección de destino'}"
                                    FontSize="15.5"
                                    FontAttributes="Bold"
                                    TextColor="#0F172A" />
 
-                            <Label Text="{Binding ParadaSeleccionada.Destinatario, FallbackValue='Destinatario del envio'}"
+                            <Label Text="{Binding ParadaSeleccionada.Destinatario, FallbackValue='Destinatario del envío'}"
                                    FontSize="12.5"
                                    FontAttributes="Bold"
                                    TextColor="#475569" />
@@ -166,7 +166,7 @@
 
                             <!-- Documento del Receptor -->
                             <VerticalStackLayout Spacing="5">
-                                <Label Text="DOCUMENTO / C.I. *"
+                                <Label Text="{Binding TextoEtiquetaDocumento}"
                                        FontSize="11"
                                        FontAttributes="Bold"
                                        TextColor="#475569" />
@@ -178,8 +178,9 @@
                                         Padding="12,0"
                                         HeightRequest="44">
                                     <Entry Text="{Binding DocumentoReceptor}"
-                                           Placeholder="Documento de identidad"
+                                           Placeholder="Ej: 41234567 (8 dígitos sin puntos ni guiones)"
                                            Keyboard="Numeric"
+                                           MaxLength="8"
                                            ClearButtonVisibility="WhileEditing" />
                                 </Border>
                             </VerticalStackLayout>
@@ -202,8 +203,8 @@
                                         AlignItems="Center">
                                 <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                     <BoxView WidthRequest="4" HeightRequest="18" CornerRadius="2" Color="{DynamicResource SecondaryColor}" VerticalOptions="Center" />
-                                    <Label Text="Firma Digital en Pantalla *"
-                                           FontSize="14.5"
+                                    <Label Text="{Binding TextoEtiquetaFirma}"
+                                           FontSize="13.5"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
                                 </HorizontalStackLayout>
@@ -266,8 +267,8 @@
                                 Padding="14,10">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView WidthRequest="4" HeightRequest="18" CornerRadius="2" Color="{DynamicResource SecondaryColor}" VerticalOptions="Center" />
-                                <Label Text="Evidencia Fotografica"
-                                       FontSize="14.5"
+                                <Label Text="{Binding TextoEtiquetaFoto}"
+                                       FontSize="13.5"
                                        FontAttributes="Bold"
                                        TextColor="#0F172A" />
                             </HorizontalStackLayout>
@@ -276,11 +277,11 @@
                         <BoxView HeightRequest="1" Color="{DynamicResource CardBorderColor}" />
 
                         <VerticalStackLayout Spacing="10" Padding="14,12">
-                            <Label Text="Capture o adjunte una fotografia del bulto entregado o del remito conformado:"
+                            <Label Text="Capture o adjunte una fotografía del bulto entregado o del remito conformado:"
                                    FontSize="12"
                                    TextColor="#475569" />
 
-                            <Button Text="Capturar o Adjuntar Fotografia"
+                            <Button Text="Capturar o Adjuntar Fotografía"
                                     Style="{StaticResource SecondaryButton}"
                                     CornerRadius="8"
                                     HeightRequest="44"
@@ -357,7 +358,7 @@
                                 Padding="14,10">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView WidthRequest="4" HeightRequest="18" CornerRadius="2" Color="{DynamicResource PrimaryColor}" VerticalOptions="Center" />
-                                <Label Text="Auditoria de Captura en Terreno"
+                                <Label Text="Auditoría de Captura en Terreno"
                                        FontSize="14"
                                        FontAttributes="Bold"
                                        TextColor="#0F172A" />
@@ -368,7 +369,7 @@
 
                         <Grid ColumnDefinitions="*, *" RowDefinitions="Auto" ColumnSpacing="10" Padding="14,12">
                             <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label Text="POSICION GPS" FontSize="10" FontAttributes="Bold" TextColor="#64748B" />
+                                <Label Text="POSICIÓN GPS" FontSize="10" FontAttributes="Bold" TextColor="#64748B" />
                                 <Label Text="{Binding PosicionGpsTexto, FallbackValue='Consultando GPS...'}"
                                        FontAttributes="Bold"
                                        FontSize="12"

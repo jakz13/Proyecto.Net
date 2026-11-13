@@ -200,11 +200,11 @@ public static class ConsultasEnvioEndpoints
                 return Results.Forbid();
             }
         })
-        .RequireAuthorization(PoliticasApi.Comercio)
+        .RequireAuthorization(PoliticasApi.ListadoDeEnvios)
         .WithTags("Portal del comercio")
         .WithName("GenerarEtiquetasEnvios")
-        .WithSummary("Generar etiquetas para uno o más envíos admitidos")
-        .WithDescription("Valida que los envíos seleccionados estén en estado Admitido y devuelve las etiquetas individuales por cada bulto listas para imprimir o descargar.")
+        .WithSummary("Generar etiquetas y códigos de barras para uno o más envíos")
+        .WithDescription("Devuelve las etiquetas individuales y códigos de barras por cada bulto de los envíos seleccionados en cualquier etapa de su ciclo de vida.")
         .Produces<EtiquetasGeneradasResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status403Forbidden)

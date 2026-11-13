@@ -16,7 +16,9 @@ public record TransmisionUbicacionRequest(
     Guid RepartidorId,
     double Latitud,
     double Longitud,
-    DateTime TimestampUtc
+    DateTime TimestampUtc,
+    double? VelocidadKmh = null,
+    int? BateriaPct = null
 );
 
 /// <summary>
@@ -80,7 +82,9 @@ public class OperacionHub : Hub
                     resolucion.VehiculoId.Value,
                     payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : null,
                     payload.Latitud,
-                    payload.Longitud);
+                    payload.Longitud,
+                    payload.VelocidadKmh,
+                    payload.BateriaPct);
             }
 
             if (_tableroHubContext != null)
@@ -94,6 +98,8 @@ public class OperacionHub : Hub
                         vehiculoId = resolucion.VehiculoId.Value,
                         latitud = payload.Latitud,
                         longitud = payload.Longitud,
+                        velocidadKmh = payload.VelocidadKmh is >= 0 ? (int?)Math.Round(payload.VelocidadKmh.Value) : null,
+                        nivelBateriaPct = payload.BateriaPct is > 0 and <= 100 ? payload.BateriaPct : null,
                         timestamp = payload.TimestampUtc
                     });
             }
@@ -103,24 +109,31 @@ public class OperacionHub : Hub
     /// <summary>
     /// Metodo con parametros escalares para clientes que transmitan campos primitivos directos.
     /// </summary>
-    public async Task TransmitirCoordenadas(Guid hojaDeRutaId, Guid repartidorId, double latitud, double longitud)
+    public async Task TransmitirCoordenadas(Guid hojaDeRutaId, Guid repartidorId, double latitud, double longitud, double? velocidadKmh = null, int? bateriaPct = null)
     {
         var request = new TransmisionUbicacionRequest(
             hojaDeRutaId,
             repartidorId,
             latitud,
             longitud,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            velocidadKmh,
+            bateriaPct);
 
         await TransmitirUbicacion(request);
     }
+
+    public static string GrupoRepartidor(Guid repartidorId) => $"repartidor_{repartidorId}";
 
     /// <summary>
     /// Registra la conexion del repartidor en su grupo individual para notificaciones directas desde el Backoffice.
     /// </summary>
     public async Task RegistrarRepartidor(Guid repartidorId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"repartidor_{repartidorId}");
+        if (repartidorId == Guid.Empty)
+            return;
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, GrupoRepartidor(repartidorId));
         _logger.LogInformation("SignalR Hub: Repartidor {RepartidorId} suscrito a su canal personal.", repartidorId);
     }
 
@@ -133,10 +146,47 @@ public class OperacionHub : Hub
         _logger.LogInformation("SignalR Hub: Conexion {ConnectionId} unida al grupo operador {OperadorId}", Context.ConnectionId, operadorId);
     }
 
-    public override Task OnConnectedAsync()
+    public override async Task OnConnectedAsync()
     {
         _logger.LogInformation("SignalR Hub: Cliente conectado. ConnectionId: {ConnectionId}", Context.ConnectionId);
-        return base.OnConnectedAsync();
+
+        if (TableroHub.IntentarExtraerOperadorId(Context.User, out var opId))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"operador-{opId}");
+        }
+
+        try
+        {
+            var claimRep = Context.User?.FindFirst("repartidor_id")?.Value;
+            if (Guid.TryParse(claimRep, out var repId) && repId != Guid.Empty)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, GrupoRepartidor(repId));
+            }
+            else
+            {
+                var claimSub = Context.User?.FindFirst("sub")?.Value
+                    ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+                if (Guid.TryParse(claimSub, out var userId) && userId != Guid.Empty)
+                {
+                    var rep = await _db.Repartidores.IgnoreQueryFilters().AsNoTracking()
+                        .Where(r => r.Id == userId || r.UsuarioId == userId)
+                        .Select(r => (Guid?)r.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (rep.HasValue && rep.Value != Guid.Empty)
+                    {
+                        await Groups.AddToGroupAsync(Context.ConnectionId, GrupoRepartidor(rep.Value));
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "No se pudo auto-suscribir al repartidor al conectar OperacionHub.");
+        }
+
+        await base.OnConnectedAsync();
     }
 
     public override Task OnDisconnectedAsync(Exception? exception)
@@ -220,6 +270,21 @@ public class OperacionHub : Hub
         var ahora = DateTime.UtcNow;
         var tomadaEn = payload.TimestampUtc <= ahora ? payload.TimestampUtc : ahora;
 
+        int? bateriaReal = payload.BateriaPct is > 0 and <= 100 ? payload.BateriaPct : null;
+        double? velocidadReal = payload.VelocidadKmh is >= 0 and <= 300 ? payload.VelocidadKmh : null;
+
+        if (!bateriaReal.HasValue)
+        {
+            bateriaReal = await _db.PosicionesVehiculo.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.VehiculoId == vehiculoId.Value
+                            && p.Origen == "Movil"
+                            && p.BateriaPct != null
+                            && p.Timestamp > ahora.AddHours(-6))
+                .OrderByDescending(p => p.Timestamp)
+                .Select(p => p.BateriaPct)
+                .FirstOrDefaultAsync();
+        }
+
         var posicion = new PosicionVehiculo(
             Guid.NewGuid(),
             operadorId,
@@ -229,8 +294,8 @@ public class OperacionHub : Hub
             "SignalR",
             payload.HojaDeRutaId != Guid.Empty ? payload.HojaDeRutaId : null,
             payload.RepartidorId != Guid.Empty ? payload.RepartidorId : null,
-            velocidadKmh: 28,
-            bateriaPct: 88,
+            velocidadKmh: velocidadReal,
+            bateriaPct: bateriaReal,
             tomadaEn: tomadaEn);
 
         _db.PosicionesVehiculo.Add(posicion);

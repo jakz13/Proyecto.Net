@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Api.Hubs;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Api.Services;
 
 /// <summary>
 /// Adaptador SignalR para <see cref="ITableroRealtimeNotifier"/>.
 /// Publica eventos en tiempo real únicamente al grupo <c>operador_{operadorId}</c> del inquilino propietario
-/// y captura cualquier fallo de transporte para no presentar como fallida una operación ya persistida.
+/// y difunde novedades operativas al canal personal del repartidor en <see cref="OperacionHub"/>.
+/// Captura cualquier fallo de transporte para no presentar como fallida una operación ya persistida.
 /// </summary>
 public class SignalRTableroNotifier : ITableroRealtimeNotifier
 {
@@ -24,14 +27,23 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     private readonly IHubContext<TableroHub> _hubContext;
     private readonly IHubContext<SeguimientoHub> _seguimientoHub;
     private readonly ILogger<SignalRTableroNotifier> _logger;
+    private readonly IHubContext<OperacionHub>? _operacionHub;
+    private readonly AppDbContext? _db;
 
-    public SignalRTableroNotifier(IHubContext<TableroHub> hubContext, IHubContext<SeguimientoHub> seguimientoHub, ILogger<SignalRTableroNotifier> logger)
+    public SignalRTableroNotifier(
+        IHubContext<TableroHub> hubContext,
+        IHubContext<SeguimientoHub> seguimientoHub,
+        ILogger<SignalRTableroNotifier> logger,
+        IHubContext<OperacionHub>? operacionHub = null,
+        AppDbContext? db = null)
     {
         ArgumentNullException.ThrowIfNull(hubContext);
         ArgumentNullException.ThrowIfNull(logger);
         _hubContext = hubContext;
         _seguimientoHub = seguimientoHub;
         _logger = logger;
+        _operacionHub = operacionHub;
+        _db = db;
     }
 
     public async Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default)
@@ -45,6 +57,8 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
             return;
         }
 
+        var estadoNormalizado = estado.Trim();
+
         try
         {
             var grupo = TableroHub.GrupoOperador(operadorId);
@@ -53,7 +67,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                 new
                 {
                     hojaDeRutaId,
-                    estado = estado.Trim(),
+                    estado = estadoNormalizado,
                     timestamp = DateTime.UtcNow
                 },
                 ct);
@@ -66,6 +80,68 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                 EventoCambioRuta,
                 hojaDeRutaId,
                 operadorId);
+        }
+
+        await NotificarRepartidorEnOperacionHubAsync(hojaDeRutaId, estadoNormalizado, ct);
+    }
+
+    private async Task NotificarRepartidorEnOperacionHubAsync(Guid hojaDeRutaId, string estado, CancellationToken ct)
+    {
+        if (_operacionHub is null || _db is null || string.Equals(estado, "FlotaActualizada", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            var info = await _db.HojasDeRuta.IgnoreQueryFilters().AsNoTracking()
+                .Where(r => r.Id == hojaDeRutaId)
+                .Select(r => new
+                {
+                    r.RepartidorId,
+                    r.Fecha,
+                    TotalParadas = r.Paradas.Count(p => p.Estado == "Pendiente" || p.Estado == "EnCamino" || p.Estado == "EnSitio")
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (info is null || !info.RepartidorId.HasValue || info.RepartidorId.Value == Guid.Empty)
+                return;
+
+            var grupoRepartidor = OperacionHub.GrupoRepartidor(info.RepartidorId.Value);
+            var codigoRuta = $"HR-{info.Fecha:yyyyMMdd}-01";
+            var payload = new
+            {
+                hojaDeRutaId,
+                codigoRuta,
+                estado,
+                totalParadas = info.TotalParadas,
+                detalleCambio = estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase)
+                    ? "reprogramacion de horario en una parada"
+                    : "actualizacion desde central operativa",
+                timestamp = DateTime.UtcNow
+            };
+
+            var clientes = _operacionHub.Clients.Group(grupoRepartidor);
+            await clientes.SendAsync("CambioEstadoRuta", payload, ct);
+
+            if (estado is "Liberada" or "EnCarga" or "Asignada")
+            {
+                await clientes.SendAsync("RutaAsignada", payload, ct);
+                await clientes.SendAsync("RutaLiberada", payload, ct);
+            }
+            else if (estado.Equals("Despachada", StringComparison.OrdinalIgnoreCase))
+            {
+                await clientes.SendAsync("RutaDespachada", payload, ct);
+            }
+            else if (estado.Equals("EnTransito", StringComparison.OrdinalIgnoreCase) || estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase))
+            {
+                await clientes.SendAsync("RutaActualizada", payload, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(
+                ex,
+                "SignalRTableroNotifier: fallo no bloqueante al difundir cambio de ruta {HojaDeRutaId} en OperacionHub.",
+                hojaDeRutaId);
         }
     }
 
@@ -107,7 +183,10 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         }
     }
 
-    public async Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
+    public Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
+        => NotificarPosicionVehiculoAsync(operadorId, vehiculoId, hojaDeRutaId, latitud, longitud, null, null, ct);
+
+    public async Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, double? velocidadKmh, int? bateriaPct, CancellationToken ct = default)
     {
         if (operadorId == Guid.Empty || vehiculoId == Guid.Empty || double.IsNaN(latitud) || double.IsNaN(longitud))
             return;
@@ -122,6 +201,8 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                     hojaDeRutaId,
                     latitud,
                     longitud,
+                    velocidadKmh = velocidadKmh is >= 0 ? (int?)Math.Round(velocidadKmh.Value) : null,
+                    nivelBateriaPct = bateriaPct is > 0 and <= 100 ? bateriaPct : null,
                     timestamp = DateTime.UtcNow
                 },
                 ct);

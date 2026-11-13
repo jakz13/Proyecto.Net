@@ -1,4 +1,5 @@
 @page "{id:guid}"
+@using UltimaMilla.Frontend.Contracts.Modelos.Envios
 @model UltimaMilla.Backoffice.Pages.Despacho.VerificarModel
 @{
     ViewData["Title"] = "Control de Carga y Despacho";
@@ -172,8 +173,22 @@ else
                                             </span>
                                         </td>
                                         <td>
+                                            @{
+                                                var codigoBultoVisible = string.IsNullOrWhiteSpace(bulto.CodigoBulto)
+                                                    ? $"{bulto.CodigoSeguimiento}-B01"
+                                                    : bulto.CodigoBulto;
+                                                var patronBarrasBulto = GeneradorDocumentoEtiquetas.CalcularPatronBarras(codigoBultoVisible);
+                                            }
                                             <div class="fw-bold text-dark font-monospace small">@bulto.CodigoSeguimiento</div>
-                                            <div class="text-muted font-monospace" style="font-size: 0.68rem;">@bulto.CodigoBulto</div>
+                                            <div class="text-dark font-monospace fw-semibold" style="font-size: 0.72rem;">@codigoBultoVisible</div>
+                                            <div class="mt-1" style="max-width: 190px;">
+                                                <svg viewBox="0 0 260 36" width="100%" height="34" role="img" aria-label="Código de barras @codigoBultoVisible" class="border rounded bg-white p-1">
+                                                    @foreach (var barra in patronBarrasBulto)
+                                                    {
+                                                        <rect x="@barra.PosicionX" y="2" width="@barra.Ancho" height="32" fill="#0f172a" />
+                                                    }
+                                                </svg>
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="fw-semibold text-dark small">@bulto.Destinatario</div>
@@ -252,7 +267,7 @@ else
 
                         <!-- Panel de Alerta para Despachador si hay discrepancias -->
                         <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3" id="alertaDiscrepanciaDespachador" style="display: none;">
-                            <div class="fw-bold mb-1">⚠️ Aviso Automático al Despachador</div>
+                            <div class="fw-bold mb-1">Aviso Automático al Despachador</div>
                             <div id="txtDetalleDiscrepancia" style="font-size: 0.75rem;">
                                 Los bultos no cargados volverán a "En Depósito" y quedarán inmediatamente disponibles para otra hoja de ruta del mismo día.
                             </div>

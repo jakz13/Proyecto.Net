@@ -93,7 +93,7 @@
                                              CornerRadius="2"
                                              Color="{DynamicResource SecondaryColor}"
                                              VerticalOptions="Center" />
-                                    <Label Text="Control de Carga en Vehiculo"
+                                    <Label Text="Control de Carga en Vehículo"
                                            FontSize="15"
                                            FontAttributes="Bold"
                                            TextColor="#0F172A"
@@ -106,7 +106,7 @@
                             <VerticalStackLayout Spacing="10" Padding="14,12">
                                 <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="8" ColumnSpacing="10">
                                     <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="1">
-                                        <Label Text="VEHICULO ASIGNADO" FontSize="10" FontAttributes="Bold" TextColor="#64748B" />
+                                        <Label Text="VEHÍCULO ASIGNADO" FontSize="10" FontAttributes="Bold" TextColor="#64748B" />
                                         <Label Text="{Binding Patente}" FontSize="13.5" FontAttributes="Bold" TextColor="{DynamicResource PrimaryColor}" />
                                     </VerticalStackLayout>
 
@@ -183,7 +183,7 @@
                                                  CornerRadius="2"
                                                  Color="{DynamicResource PrimaryColor}"
                                                  VerticalOptions="Center" />
-                                        <Label Text="Verificacion y Escaneo de Bultos"
+                                        <Label Text="Verificación y Escaneo de Bultos"
                                                FontSize="14.5"
                                                FontAttributes="Bold"
                                                TextColor="#0F172A"
@@ -227,7 +227,7 @@
                                 </Border>
 
                                 <!-- Botón Principal de Escaneo con Cámara -->
-                                <Button Text="Escanear Bulto con Camara"
+                                <Button Text="Escanear Bulto con Cámara"
                                         BackgroundColor="{DynamicResource PrimaryColor}"
                                         TextColor="#FFFFFF"
                                         Command="{Binding EscanearConCamaraCommand}"
@@ -238,7 +238,7 @@
                                         Margin="0,2,0,0" />
 
                                 <!-- Lector / Buscador Directo de Código de Bulto -->
-                                <Label Text="INGRESO MANUAL O LECTOR LASER"
+                                <Label Text="INGRESO MANUAL O LECTOR LÁSER"
                                        FontSize="10.5"
                                        FontAttributes="Bold"
                                        TextColor="#64748B"
@@ -251,7 +251,7 @@
                                             HeightRequest="44"
                                             BackgroundColor="#FFFFFF">
                                         <Entry Text="{Binding CodigoEscaneoInput, Mode=TwoWay}"
-                                               Placeholder="Codigo del bulto o envio"
+                                               Placeholder="Código del bulto o envío"
                                                PlaceholderColor="#94A3B8"
                                                TextColor="#0F172A"
                                                ReturnCommand="{Binding EscanearCodigoManualCommand}"
@@ -259,7 +259,7 @@
                                                VerticalOptions="Center" />
                                     </Border>
                                     <Button Grid.Column="1"
-                                            Text="Validar Codigo"
+                                            Text="Validar Código"
                                             BackgroundColor="{DynamicResource SecondaryColor}"
                                             TextColor="#FFFFFF"
                                             FontAttributes="Bold"
@@ -326,7 +326,7 @@
                                    FontAttributes="Bold"
                                    FontSize="13"
                                    TextColor="#15803D" />
-                            <Label Text="Todos los bultos asignados han sido verificados en el vehiculo o la ruta ya fue despachada."
+                            <Label Text="Todos los bultos asignados han sido verificados en el vehículo o la ruta ya fue despachada."
                                    FontSize="11.5"
                                    TextColor="#166534" />
                         </VerticalStackLayout>
@@ -416,7 +416,7 @@
                                     Margin="2,0,2,0">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView WidthRequest="4" HeightRequest="18" CornerRadius="2" Color="#16A34A" VerticalOptions="Center" />
-                                <Label Text="Bultos Cargados en el Vehiculo"
+                                <Label Text="Bultos Cargados en el Vehículo"
                                        FontSize="14.5"
                                        FontAttributes="Bold"
                                        TextColor="#0F172A" />
@@ -564,7 +564,7 @@
                                    TextColor="{DynamicResource PrimaryColor}" />
                         </Border>
 
-                        <Button Text="Confirmar Carga en Vehiculo"
+                        <Button Text="Confirmar Carga en Vehículo"
                                 Style="{StaticResource SuccessButton}"
                                 Command="{Binding ConfirmarCargaCommand}"
                                 IsEnabled="{Binding PuedeConfirmarCarga}"
@@ -663,7 +663,7 @@
 
                     <VerticalStackLayout Spacing="12" Padding="16,14">
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="CODIGO ESCANEADO"
+                            <Label Text="CÓDIGO ESCANEADO"
                                    FontSize="9.5"
                                    FontAttributes="Bold"
                                    TextColor="#64748B" />
@@ -692,7 +692,7 @@
                         </Border>
 
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="OBSERVACION DOCUMENTAL (OPCIONAL)"
+                            <Label Text="OBSERVACIÓN DOCUMENTAL (OPCIONAL)"
                                    FontSize="9.5"
                                    FontAttributes="Bold"
                                    TextColor="#64748B" />
@@ -769,7 +769,7 @@
                                 BackgroundColor="{DynamicResource PrimaryColor}"
                                 Padding="16,12">
                             <Grid ColumnDefinitions="*, Auto">
-                                <Label Text="Confirmacion de Carga del Vehiculo"
+                                <Label Text="Confirmación de Carga del Vehículo"
                                        FontSize="14.5"
                                        FontAttributes="Bold"
                                        TextColor="#FFFFFF"
@@ -809,7 +809,7 @@
                                 <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto" RowSpacing="8" ColumnSpacing="8">
                                     <Border Grid.Row="0" Grid.Column="0" BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,8">
                                         <VerticalStackLayout Spacing="2">
-                                            <Label Text="TOTAL ENVIOS" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                            <Label Text="TOTAL ENVÍOS" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                             <Label Text="{Binding TotalEnviosCustodiaCount}" FontSize="18" FontAttributes="Bold" TextColor="{DynamicResource PrimaryColor}" />
                                         </VerticalStackLayout>
                                     </Border>
@@ -823,7 +823,7 @@
 
                                     <Border Grid.Row="1" Grid.Column="0" BackgroundColor="#F8FAFC" Stroke="#E2E8F0" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,8">
                                         <VerticalStackLayout Spacing="2">
-                                            <Label Text="VEHICULO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
+                                            <Label Text="VEHÍCULO" FontSize="9.5" FontAttributes="Bold" TextColor="#64748B" />
                                             <Label Text="{Binding VehiculoCustodiaTexto}" FontSize="11.5" FontAttributes="Bold" TextColor="#0F172A" LineBreakMode="TailTruncation" />
                                         </VerticalStackLayout>
                                     </Border>
@@ -855,18 +855,18 @@
                                         StrokeShape="RoundRectangle 8"
                                         Padding="12,10">
                                     <VerticalStackLayout Spacing="2">
-                                        <Label Text="Atencion: Existen bultos pendientes de escaneo"
+                                        <Label Text="Atención: Existen bultos pendientes de escaneo"
                                                FontSize="12"
                                                FontAttributes="Bold"
                                                TextColor="#991B1B" />
-                                        <Label Text="Los envios que no tengan la totalidad de sus bultos cargados quedaran excluidos de la ruta y permaneceran en deposito."
+                                        <Label Text="Los envíos que no tengan la totalidad de sus bultos cargados quedarán excluidos de la ruta y permanecerán en depósito."
                                                FontSize="11"
                                                TextColor="#7F1D1D" />
                                     </VerticalStackLayout>
                                 </Border>
 
                                 <VerticalStackLayout Spacing="3">
-                                    <Label Text="ENVIOS EXCLUIDOS POR INCOMPLETOS:"
+                                    <Label Text="ENVÍOS EXCLUIDOS POR INCOMPLETOS:"
                                            FontSize="9.5"
                                            FontAttributes="Bold"
                                            TextColor="#64748B" />

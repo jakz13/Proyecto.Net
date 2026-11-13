@@ -938,14 +938,6 @@ public class MockEnviosApi : IEnviosApi
                     throw new ApiExcepcion(HttpStatusCode.NotFound, $"No se encontró el envío con identificador '{envioId}'.");
                 }
 
-                // Precondición de el envío debe estar en estado Admitido
-                if (envio.Estado != EstadoEnvioDto.Admitido)
-                {
-                    throw new ApiExcepcion(
-                        HttpStatusCode.BadRequest,
-                        $"El envío '{envio.CodigoSeguimiento}' se encuentra en estado '{envio.Estado}'. Solo se pueden generar etiquetas para envíos en estado Admitido.");
-                }
-
                 var identificacionesBultos = (envio.BultosIdentificaciones != null && envio.BultosIdentificaciones.Count > 0)
                     ? envio.BultosIdentificaciones
                     : new[] { $"{envio.CodigoSeguimiento}-B01" };

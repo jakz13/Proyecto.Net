@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Optimization;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
@@ -183,6 +185,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly IRutaOptimizationService _optimizationService;
     private readonly IBiometricAuthService? _biometricAuthService;
     private readonly IOperadorThemeService? _themeService;
+    private readonly INotificacionLocalService? _notificacionService;
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
 
     [ObservableProperty]
     private int _totalParadasCount;
@@ -491,7 +495,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null, null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null, null, null, null, null)
     {
     }
 
@@ -503,7 +507,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         IAuthService? authService = null,
         IRutaOptimizationService? optimizationService = null,
         IBiometricAuthService? biometricAuthService = null,
-        IOperadorThemeService? themeService = null)
+        IOperadorThemeService? themeService = null,
+        INotificacionLocalService? notificacionService = null,
+        IRealtimeTrackingService? realtimeTrackingService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -513,6 +519,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         _optimizationService = optimizationService ?? new RutaOptimizationService();
         _biometricAuthService = biometricAuthService;
         _themeService = themeService;
+        _notificacionService = notificacionService;
+        _realtimeTrackingService = realtimeTrackingService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -999,6 +1007,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             await _trackingService.DetenerTrackingAsync();
         }
 
+        if (_realtimeTrackingService is not null)
+        {
+            await _realtimeTrackingService.StopAsync();
+        }
+
         if (_authService is not null)
         {
             await _authService.CerrarSesionAsync();
@@ -1366,6 +1379,23 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task ProbarNotificacionOperativaAsync()
+    {
+        MostrarMenuHerramientas = false;
+        if (_notificacionService is null)
+        {
+            return;
+        }
+
+        await _notificacionService.SolicitarPermisosNotificacionAsync();
+        var pendientes = Math.Max(1, ParadasPendientesCount);
+        await _notificacionService.MostrarNotificacionOperativaAsync(
+            "Nueva Hoja de Ruta Asignada",
+            $"Se habilito la ruta HR-{DateTime.Today:yyyyMMdd}-01 con {pendientes} paradas pendientes. Ingresa a la seccion Carga para verificar los bultos.",
+            "RUTA");
+    }
+
+    [RelayCommand]
     private async Task SincronizarTodoDesdeMenuAsync()
     {
         MostrarMenuHerramientas = false;
@@ -1377,6 +1407,14 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     {
         MostrarMenuHerramientas = false;
         await OptimizarRutaAsync();
+    }
+
+    [RelayCommand]
+    private async Task ForzarEnvioGpsDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        await ForzarEnvioGpsAhoraAsync();
+        MostrarAvisoRapido("Coordenadas GPS transmitidas a la central.");
     }
 
     [RelayCommand]
@@ -1419,7 +1457,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             OptimizacionMinutosReducidosTexto = "0 min";
             OptimizacionPorcentajeTexto = "-0%";
             PuedeAplicarOptimizacion = false;
-            MensajeAvisoOptimizacion = "Se requieren al menos 2 paradas en estado Pendiente para ejecutar la optimizacion del recorrido.";
+            MensajeAvisoOptimizacion = "Se requieren al menos 2 paradas en estado Pendiente para ejecutar la optimización del recorrido.";
             MostrarModalOptimizacion = true;
             return;
         }

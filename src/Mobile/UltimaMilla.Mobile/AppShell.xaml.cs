@@ -1,5 +1,7 @@
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Notifications;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
@@ -16,6 +18,8 @@ public partial class AppShell : Shell
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
+    private readonly INotificacionLocalService? _notificacionService;
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
     private bool _sesionInicialVerificada;
 
     private string _nombreOperador = "Última Milla";
@@ -55,7 +59,7 @@ public partial class AppShell : Shell
         set { if (_rolActivoTexto != value) { _rolActivoTexto = value; OnPropertyChanged(); } }
     }
 
-    private string _estadoConexionTexto = "En Linea";
+    private string _estadoConexionTexto = "En Línea";
     public string EstadoConexionTexto
     {
         get => _estadoConexionTexto;
@@ -90,7 +94,7 @@ public partial class AppShell : Shell
         set { _conexionBadgeText = value; OnPropertyChanged(); }
     }
 
-    public AppShell() : this(null, null, null, null, null)
+    public AppShell() : this(null, null, null, null, null, null, null)
     {
     }
 
@@ -99,7 +103,9 @@ public partial class AppShell : Shell
         IOperadorThemeService? themeService = null,
         IGeolocalizacionTrackingService? trackingService = null,
         ILocalDatabaseService? localDatabaseService = null,
-        ISyncService? syncService = null)
+        ISyncService? syncService = null,
+        INotificacionLocalService? notificacionService = null,
+        IRealtimeTrackingService? realtimeTrackingService = null)
     {
         InitializeComponent();
         BindingContext = this;
@@ -109,6 +115,8 @@ public partial class AppShell : Shell
         _trackingService = trackingService;
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
+        _notificacionService = notificacionService;
+        _realtimeTrackingService = realtimeTrackingService;
 
         if (_themeService != null)
         {
@@ -151,7 +159,7 @@ public partial class AppShell : Shell
         {
             if (enLinea)
             {
-                EstadoConexionTexto = "En Linea";
+                EstadoConexionTexto = "En Línea";
                 ConexionDotColor = Color.FromArgb("#34D399");
                 ConexionBadgeBg = Color.FromArgb("#064E3B");
                 ConexionBadgeBorder = Color.FromArgb("#059669");
@@ -180,7 +188,7 @@ public partial class AppShell : Shell
             if (_syncService != null && _syncService.IsOnline)
             {
                 await _syncService.SincronizarOperacionesPendientesAsync();
-                if (RolActivoTexto == "OPERARIO DE DEPOSITO")
+                if (RolActivoTexto == "OPERARIO DE DEPÓSITO")
                 {
                     await _syncService.ObtenerEnviosAdmitidosDepositoAsync();
                 }
@@ -208,6 +216,11 @@ public partial class AppShell : Shell
             if (_trackingService is { IsTrackingActive: true })
             {
                 await _trackingService.DetenerTrackingAsync();
+            }
+
+            if (_realtimeTrackingService != null)
+            {
+                await _realtimeTrackingService.StopAsync();
             }
 
             if (_authService != null)
@@ -242,7 +255,7 @@ public partial class AppShell : Shell
         {
             try
             {
-                RolActivoTexto = esOperario ? "OPERARIO DE DEPOSITO" : "REPARTIDOR";
+                RolActivoTexto = esOperario ? "OPERARIO DE DEPÓSITO" : "REPARTIDOR";
 
                 // Habilitar primero la pestaña destino antes de ocultar las restantes para evitar un TabBar vacío en Android.
                 if (esOperario)
@@ -318,6 +331,16 @@ public partial class AppShell : Shell
                 if (_themeService != null)
                 {
                     _ = _themeService.SincronizarIdentidadVisualAsync();
+                }
+
+                if (_notificacionService != null)
+                {
+                    _ = _notificacionService.SolicitarPermisosNotificacionAsync();
+                }
+
+                if (_realtimeTrackingService != null)
+                {
+                    _ = _realtimeTrackingService.StartAsync();
                 }
 
                 var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||

@@ -136,11 +136,15 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (enLaCalle && _tableroNotifier is not null)
+        if ((enLaCalle || destinoId.HasValue) && _tableroNotifier is not null)
         {
             try
             {
                 await _tableroNotifier.NotificarCambioRutaAsync(origen.OperadorId, origen.Id, origen.Estado, cancellationToken);
+                if (destinoId.HasValue && destinoId.Value != Guid.Empty)
+                {
+                    await _tableroNotifier.NotificarCambioRutaAsync(origen.OperadorId, destinoId.Value, "EnTransito", cancellationToken);
+                }
             }
             catch
             {

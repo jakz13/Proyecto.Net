@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -7,6 +8,7 @@ using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
@@ -53,6 +55,11 @@ public interface ISyncService
     /// al servidor. Mientras no se haya podido consultar, se considera habilitada: no se oculta nada por falta de datos.
     /// </summary>
     bool FuncionalidadHabilitada(string clave);
+
+    /// <summary>
+    /// Registra que ya se emitio una notificacion operativa reciente para una hoja de ruta (evita duplicados entre SignalR y polling).
+    /// </summary>
+    void RegistrarNotificacionRutaEmitida(Guid hojaDeRutaId, string tipoEvento) { }
 }
 
 public class SyncService : ISyncService, IDisposable
@@ -62,7 +69,9 @@ public class SyncService : ISyncService, IDisposable
     private readonly IAuthService _authService;
     private readonly ILogger<SyncService> _logger;
     private readonly IOperadorThemeService? _themeService;
+    private readonly INotificacionLocalService? _notificacionService;
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _alertasRutaEmitidas = new();
 
     private bool _isOfflineSimulado = false;
     private bool _isSyncing = false;
@@ -99,15 +108,34 @@ public class SyncService : ISyncService, IDisposable
         IHttpClientFactory httpClientFactory,
         IAuthService authService,
         ILogger<SyncService> logger,
-        IOperadorThemeService? themeService = null)
+        IOperadorThemeService? themeService = null,
+        INotificacionLocalService? notificacionService = null)
     {
         _localDatabaseService = localDatabaseService;
         _httpClientFactory = httpClientFactory;
         _authService = authService;
         _logger = logger;
         _themeService = themeService;
+        _notificacionService = notificacionService;
 
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+    }
+
+    public void RegistrarNotificacionRutaEmitida(Guid hojaDeRutaId, string tipoEvento)
+    {
+        if (hojaDeRutaId == Guid.Empty || string.IsNullOrWhiteSpace(tipoEvento))
+        {
+            return;
+        }
+
+        _alertasRutaEmitidas[$"{hojaDeRutaId}:{tipoEvento.Trim().ToUpperInvariant()}"] = DateTimeOffset.UtcNow;
+    }
+
+    private bool FueNotificadaRecientemente(Guid hojaDeRutaId, string tipoEvento)
+    {
+        var clave = $"{hojaDeRutaId}:{tipoEvento.Trim().ToUpperInvariant()}";
+        return _alertasRutaEmitidas.TryGetValue(clave, out var previo)
+            && (DateTimeOffset.UtcNow - previo) < TimeSpan.FromSeconds(30);
     }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
@@ -128,7 +156,16 @@ public class SyncService : ISyncService, IDisposable
                 try
                 {
                     _logger.LogInformation("Conexión restablecida. Iniciando sincronización automática de operaciones pendientes...");
-                    await SincronizarOperacionesPendientesAsync();
+                    var resultado = await SincronizarOperacionesPendientesAsync();
+                    if (resultado.Exitosas > 0 && _notificacionService is not null)
+                    {
+                        await _notificacionService.MostrarNotificacionOperativaAsync(
+                            "Sincronización Offline Completada",
+                            $"Se transmitieron {resultado.Exitosas} operaciones pendientes a la central correctamente.",
+                            "SINCRONIZACION");
+                    }
+
+                    await DescargarYActualizarRutasDelServidorAsync();
                 }
                 catch (Exception ex)
                 {
@@ -230,12 +267,31 @@ public class SyncService : ISyncService, IDisposable
                     }
                 }
 
-                // Guardar cada ruta descargada en SQLite local
+                var rutasPrevias = (await _localDatabaseService.ListarHojasDeRutaLocalesAsync())
+                    .ToDictionary(h => h.Id);
+
+                // Guardar cada ruta descargada en SQLite local y detectar novedades operativas
                 foreach (var r in rutasDescargadas)
                 {
                     if (r.HojaDeRutaId == Guid.Empty) continue;
 
+                    rutasPrevias.TryGetValue(r.HojaDeRutaId, out var rutaPrevia);
+                    List<ParadaItemViewModel>? paradasPrevias = null;
+                    if (rutaPrevia is not null && !EsEstadoTerminalRuta(rutaPrevia.Estado) && !EsEstadoTerminalRuta(r.Estado))
+                    {
+                        var rutaLocalActual = await _localDatabaseService.ObtenerRutaActivaLocalAsync(r.HojaDeRutaId);
+                        paradasPrevias = rutaLocalActual?.Paradas;
+                    }
+
                     UltimaRutaDescargada = r;
+                    if (!string.IsNullOrWhiteSpace(r.TipoPruebaEntregaExigida))
+                    {
+                        Preferences.Default.Set("ReglaOperativa_TipoPruebaEntrega", r.TipoPruebaEntregaExigida);
+                    }
+                    if (r.MaxIntentosEntrega.HasValue)
+                    {
+                        Preferences.Default.Set("ReglaOperativa_MaxIntentos", r.MaxIntentosEntrega.Value);
+                    }
                     if (r.RepartidorId != Guid.Empty)
                     {
                         await _authService.ActualizarRepartidorIdAsync(r.RepartidorId);
@@ -263,9 +319,13 @@ public class SyncService : ISyncService, IDisposable
                         numeroRuta: r.NumeroRuta,
                         fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue));
 
-                    if (r.Estado is "Rendida" or "Cerrada")
+                    if (EsEstadoTerminalRuta(r.Estado))
                     {
                         await _localDatabaseService.PurgarOperacionesPorRutaAsync(r.HojaDeRutaId);
+                    }
+                    else
+                    {
+                        await DetectarYNotificarCambiosDeRutaAsync(r, rutaPrevia, paradasPrevias);
                     }
                 }
 
@@ -294,6 +354,104 @@ public class SyncService : ISyncService, IDisposable
         }
 
         return rutasDescargadas;
+    }
+
+    private static bool EsEstadoTerminalRuta(string? estado) =>
+        estado is not null && (
+            estado.Equals("Rendida", StringComparison.OrdinalIgnoreCase) ||
+            estado.Equals("Finalizada", StringComparison.OrdinalIgnoreCase) ||
+            estado.Equals("Cerrada", StringComparison.OrdinalIgnoreCase));
+
+    private async Task DetectarYNotificarCambiosDeRutaAsync(
+        RutaActivaRepartidorDto rutaActual,
+        HojaDeRutaLocal? rutaPrevia,
+        List<ParadaItemViewModel>? paradasPrevias)
+    {
+        if (_notificacionService is null)
+        {
+            return;
+        }
+
+        if (rutaPrevia is null)
+        {
+            if (FueNotificadaRecientemente(rutaActual.HojaDeRutaId, "NUEVA_RUTA"))
+            {
+                return;
+            }
+
+            RegistrarNotificacionRutaEmitida(rutaActual.HojaDeRutaId, "NUEVA_RUTA");
+            var codigoRuta = string.IsNullOrWhiteSpace(rutaActual.NumeroRuta)
+                ? $"HR-{rutaActual.Fecha:yyyyMMdd}-01"
+                : rutaActual.NumeroRuta.Trim();
+            var totalPendientes = rutaActual.Paradas.Count(p =>
+                !string.Equals(p.EstadoParada, "Entregado", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(p.EstadoParada, "Cancelado", StringComparison.OrdinalIgnoreCase));
+
+            await _notificacionService.MostrarNotificacionOperativaAsync(
+                "Nueva Hoja de Ruta Asignada",
+                $"Se habilito la ruta {codigoRuta} con {totalPendientes} paradas pendientes. Ingresa a la seccion Carga para verificar los bultos.",
+                "RUTA");
+            return;
+        }
+
+        if (paradasPrevias is null)
+        {
+            return;
+        }
+
+        var detalleCambio = DescribirCambioDeParadas(paradasPrevias, rutaActual.Paradas);
+        if (detalleCambio is null || FueNotificadaRecientemente(rutaActual.HojaDeRutaId, "RUTA_ACTUALIZADA"))
+        {
+            return;
+        }
+
+        RegistrarNotificacionRutaEmitida(rutaActual.HojaDeRutaId, "RUTA_ACTUALIZADA");
+        await _notificacionService.MostrarNotificacionOperativaAsync(
+            "Actualizacion en Hoja de Ruta Activa",
+            $"Se actualizaron las paradas de tu ruta en curso ({detalleCambio}). Revisa el listado actualizado.",
+            "RUTA");
+    }
+
+    internal static string? DescribirCambioDeParadas(
+        IReadOnlyList<ParadaItemViewModel> previas,
+        IReadOnlyList<ParadaNavegacionDto> actuales)
+    {
+        var mapaPrevias = previas.ToDictionary(p => p.Id);
+        var mapaActuales = actuales.ToDictionary(p => p.ParadaId);
+
+        int agregadas = actuales.Count(a => !mapaPrevias.ContainsKey(a.ParadaId));
+        int removidas = previas.Count(p => !mapaActuales.ContainsKey(p.Id));
+        int canceladas = 0;
+        int reprogramadas = 0;
+
+        foreach (var actual in actuales)
+        {
+            if (!mapaPrevias.TryGetValue(actual.ParadaId, out var previa))
+            {
+                continue;
+            }
+
+            if (!string.Equals(previa.Estado, "Cancelado", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(actual.EstadoParada, "Cancelado", StringComparison.OrdinalIgnoreCase))
+            {
+                canceladas++;
+            }
+
+            var ventanaPrevia = previa.VentanaHoraria?.Trim() ?? string.Empty;
+            var ventanaActual = actual.VentanaHoraria?.Trim() ?? string.Empty;
+            if (!string.Equals(ventanaPrevia, ventanaActual, StringComparison.OrdinalIgnoreCase))
+            {
+                reprogramadas++;
+            }
+        }
+
+        var partes = new List<string>();
+        if (agregadas > 0) partes.Add($"{agregadas} parada(s) agregada(s)");
+        if (removidas > 0) partes.Add($"{removidas} parada(s) desasignada(s)");
+        if (canceladas > 0) partes.Add($"{canceladas} parada(s) cancelada(s)");
+        if (reprogramadas > 0) partes.Add($"{reprogramadas} parada(s) reprogramada(s)");
+
+        return partes.Count > 0 ? string.Join(", ", partes) : null;
     }
 
     /// <summary>
@@ -979,6 +1137,7 @@ public class SyncService : ISyncService, IDisposable
                                             Latitud = payload.Latitud,
                                             Longitud = payload.Longitud,
                                             TomadaEn = (DateTime?)payload.TimestampUtc,
+                                            VelocidadKmh = payload.VelocidadKmh,
                                             BateriaPct = payload.BateriaPct,
                                             HojaDeRutaId = targetRutaId != Guid.Empty ? (Guid?)targetRutaId : null
                                         }

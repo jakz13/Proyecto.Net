@@ -98,7 +98,7 @@
             <!-- ========================================================= -->
             <Border Style="{StaticResource CardView}">
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="Evidencia Fotográfica"
+                    <Label Text="{Binding TextoEtiquetaFoto}"
                            Style="{StaticResource H3Label}" />
 
                     <Label Text="Fotografíe la fachada o numeración para respaldar su presencia física en el punto de entrega."

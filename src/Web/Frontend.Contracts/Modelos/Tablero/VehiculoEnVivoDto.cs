@@ -17,10 +17,10 @@ public record VehiculoEnVivoDto
     public double Longitud { get; init; }
     public string DireccionAproximada { get; init; } = string.Empty;
     public string ZonaActual { get; init; } = string.Empty;
-    public int NivelBateriaPct { get; init; } = 90;
+    public int NivelBateriaPct { get; init; } = 0;
     public int VelocidadKmh { get; init; }
     public DateTime UltimaActualizacion { get; init; } = DateTime.UtcNow;
-    public string EstadoOperativo { get; init; } = "EnMovimiento"; // "EnMovimiento", "EnParada", "DetenidoAlerta", "Finalizado"
+    public string EstadoOperativo { get; init; } = "EnParada"; // "EnMovimiento", "EnParada", "DetenidoAlerta", "Finalizado"
     public int ParadasCompletadas { get; init; }
     public int TotalParadas { get; init; }
     public string? ParadaActualCodigo { get; init; }
