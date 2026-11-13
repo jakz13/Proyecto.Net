@@ -28,7 +28,12 @@ param(
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
     [string]$DominioPanel = 'panel.shippingbox.duckdns.org',
-    [string]$DominioSeguimiento = 'seguimiento.shippingbox.duckdns.org'
+    [string]$DominioSeguimiento = 'seguimiento.shippingbox.duckdns.org',
+
+    # Las imágenes ya están en la VM (por ejemplo, copiadas desde otra VM de la misma región): no se vuelven a enviar
+    [switch]$SinImagenes,
+    # No verifica por dominio (útil mientras los dominios todavía apuntan a otra VM)
+    [switch]$SinVerificacion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -124,7 +129,7 @@ foreach ($carpeta in 'prometheus', 'grafana', 'rabbitmq') {
     scp -r @opcionesSsh "docker/$carpeta" "${destino}:shippingbox/docker/"; Verificar "scp docker/$carpeta"
 }
 
-if ($imagenes.Count -gt 0) {
+if ($imagenes.Count -gt 0 -and -not $SinImagenes) {
     Paso 'Enviando imágenes a la VM (comprimidas; la primera vez son unos 350 MB)'
     # El pipe se hace con cmd.exe: el de PowerShell 5 corrompe los datos binarios
     $claveCmd = '"' + $Clave + '"'
@@ -152,6 +157,7 @@ function Esperar200($url) {
     }
     return $codigo
 }
+if ($SinVerificacion) { Write-Host "`nDespliegue terminado (sin verificación por dominio)." -ForegroundColor Green; return }
 $sitios = @("https://$Dominio/ready")
 if ($Servicios -contains 'portal') { $sitios += "https://$DominioComercio/" }
 if ($Servicios -contains 'seguimiento') { $sitios += "https://$DominioSeguimiento/" }

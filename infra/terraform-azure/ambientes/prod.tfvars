@@ -10,3 +10,4 @@ disco_gb  = 64
 dominio          = "shippingbox.duckdns.org"
 dominio_comercio = "shippingbox-comercio.duckdns.org"
 dominio_panel    = "panel.shippingbox.duckdns.org"
+dominio_seguimiento = "seguimiento.shippingbox.duckdns.org"

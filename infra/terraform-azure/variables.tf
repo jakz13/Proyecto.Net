@@ -62,6 +62,12 @@ variable "dominio_comercio" {
   default     = "shippingbox-comercio.duckdns.org"
 }
 
+variable "dominio_seguimiento" {
+  description = "Dominio del seguimiento público de envíos."
+  type        = string
+  default     = "seguimiento.shippingbox.duckdns.org"
+}
+
 variable "dominio_panel" {
   description = "Dominio del panel (Grafana y seguimiento público)."
   type        = string

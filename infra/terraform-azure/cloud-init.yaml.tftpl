@@ -37,6 +37,7 @@ write_files:
           echo "DOMINIO=${dominio}"
           echo "DOMINIO_COMERCIO=${dominio_comercio}"
           echo "DOMINIO_PANEL=${dominio_panel}"
+          echo "DOMINIO_SEGUIMIENTO=${dominio_seguimiento}"
           echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
           echo "RABBITMQ_PASSWORD=$(openssl rand -hex 16)"
           echo "JWT_SECRET=$(openssl rand -hex 32)"

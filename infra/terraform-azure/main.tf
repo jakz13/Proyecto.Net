@@ -148,10 +148,11 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   # Docker, swap y la carpeta de la aplicación con los secretos generados AL AZAR en la propia VM (ver cloud-init)
   custom_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    usuario          = var.usuario_admin
-    tamano_swap_gb   = var.tamano_swap_gb
-    dominio          = var.dominio
-    dominio_comercio = var.dominio_comercio
-    dominio_panel    = var.dominio_panel
+    usuario             = var.usuario_admin
+    tamano_swap_gb      = var.tamano_swap_gb
+    dominio             = var.dominio
+    dominio_comercio    = var.dominio_comercio
+    dominio_panel       = var.dominio_panel
+    dominio_seguimiento = var.dominio_seguimiento
   }))
 }
