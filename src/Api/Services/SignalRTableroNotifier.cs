@@ -28,14 +28,16 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
     private readonly IHubContext<SeguimientoHub> _seguimientoHub;
     private readonly ILogger<SignalRTableroNotifier> _logger;
     private readonly IHubContext<OperacionHub>? _operacionHub;
-    private readonly AppDbContext? _db;
+    // Se usa un alcance propio para consultar la base: el AppDbContext que dispara este aviso depende de este notificador y, si se lo
+    // inyectara directamente, la dependencia sería circular y la API no arrancaría.
+    private readonly IServiceScopeFactory? _scopeFactory;
 
     public SignalRTableroNotifier(
         IHubContext<TableroHub> hubContext,
         IHubContext<SeguimientoHub> seguimientoHub,
         ILogger<SignalRTableroNotifier> logger,
         IHubContext<OperacionHub>? operacionHub = null,
-        AppDbContext? db = null)
+        IServiceScopeFactory? scopeFactory = null)
     {
         ArgumentNullException.ThrowIfNull(hubContext);
         ArgumentNullException.ThrowIfNull(logger);
@@ -43,7 +45,7 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         _seguimientoHub = seguimientoHub;
         _logger = logger;
         _operacionHub = operacionHub;
-        _db = db;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default)
@@ -87,12 +89,14 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
 
     private async Task NotificarRepartidorEnOperacionHubAsync(Guid hojaDeRutaId, string estado, CancellationToken ct)
     {
-        if (_operacionHub is null || _db is null || string.Equals(estado, "FlotaActualizada", StringComparison.OrdinalIgnoreCase))
+        if (_operacionHub is null || _scopeFactory is null || string.Equals(estado, "FlotaActualizada", StringComparison.OrdinalIgnoreCase))
             return;
 
         try
         {
-            var info = await _db.HojasDeRuta.IgnoreQueryFilters().AsNoTracking()
+            using var alcance = _scopeFactory.CreateScope();
+            var db = alcance.ServiceProvider.GetRequiredService<AppDbContext>();
+            var info = await db.HojasDeRuta.IgnoreQueryFilters().AsNoTracking()
                 .Where(r => r.Id == hojaDeRutaId)
                 .Select(r => new
                 {
