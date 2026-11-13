@@ -92,12 +92,15 @@ public class HttpIncidenciasApi : IIncidenciasApi
         if (!dto.HojaDeRutaId.HasValue && (!string.IsNullOrWhiteSpace(dto.RepartidorNombre) || !string.IsNullOrWhiteSpace(dto.VehiculoMatricula)))
             descripcion += $"\nRepartidor: {dto.RepartidorNombre ?? "—"} · Vehículo: {dto.VehiculoMatricula ?? "—"}";
 
+        // Si la pantalla solo conoce el código de seguimiento, se resuelve el envío para que la incidencia quede vinculada a él
+        var envioId = dto.EnvioAfectadoId ?? await BuscarEnvioPorCodigoAsync(dto.CodigoSeguimientoEnvio, cancelacion);
+
         var respuesta = await _http.PostAsJsonAsync(RutaIncidencias, new
         {
             tipo = dto.Tipo,
             descripcion,
             severidad = dto.Severidad,
-            envioId = dto.EnvioAfectadoId,
+            envioId,
             hojaDeRutaId = dto.HojaDeRutaId
         }, cancelacion);
         await AsegurarExitoAsync(respuesta, cancelacion);
@@ -107,6 +110,30 @@ public class HttpIncidenciasApi : IIncidenciasApi
 
         return await ObtenerIncidenciaPorIdAsync(creada.Id, cancelacion)
             ?? throw new ApiExcepcion(HttpStatusCode.InternalServerError, "La incidencia registrada no se pudo consultar.");
+    }
+
+    private async Task<Guid?> BuscarEnvioPorCodigoAsync(string? codigoSeguimiento, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(codigoSeguimiento))
+            return null;
+
+        var respuesta = await _http.GetAsync("/api/envios", cancelacion);
+        if (!respuesta.IsSuccessStatusCode)
+            return null;
+
+        using var documento = System.Text.Json.JsonDocument.Parse(await respuesta.Content.ReadAsStringAsync(cancelacion));
+        if (documento.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
+            return null;
+
+        foreach (var envio in documento.RootElement.EnumerateArray())
+        {
+            if (envio.TryGetProperty("codigoSeguimiento", out var codigo)
+                && string.Equals(codigo.GetString(), codigoSeguimiento.Trim(), StringComparison.OrdinalIgnoreCase)
+                && envio.TryGetProperty("id", out var id) && id.TryGetGuid(out var guid))
+                return guid;
+        }
+
+        return null;
     }
 
     public async Task<bool> AgregarSeguimientoAsync(AgregarSeguimientoIncidenciaDto dto, string despachadorUsuario, CancellationToken cancelacion = default)

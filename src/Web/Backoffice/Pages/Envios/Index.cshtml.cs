@@ -126,6 +126,7 @@ public class IndexModel : PageModel
                 {
                     Tipo = "Otro",
                     Severidad = "Alta",
+                    EnvioAfectadoId = inputCompleto.EnvioId,
                     CodigoSeguimientoEnvio = inputCompleto.CodigoSeguimiento,
                     Descripcion = $"Envío declarado formalmente como extraviado. Motivo: {inputCompleto.MotivoExtravio}. {inputCompleto.ObservacionesDetalladas}",
                     AccionInmediata = "Se emitió aviso inmediato al comercio y se inició expediente de liquidación/indemnización."
