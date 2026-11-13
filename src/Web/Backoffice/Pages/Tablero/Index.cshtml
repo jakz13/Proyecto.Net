@@ -731,7 +731,7 @@
             btnCont.disabled = false;
 
             var btnReas = document.getElementById('mapaBtnReasignar');
-            btnReas.href = '/Rutas/Detalle?id=' + v.HojaDeRutaId;
+            btnReas.href = '/Rutas/Detalle/' + encodeURIComponent(v.HojaDeRutaId);
             btnReas.classList.remove('disabled');
         }
 

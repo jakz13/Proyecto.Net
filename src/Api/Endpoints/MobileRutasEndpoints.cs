@@ -135,6 +135,29 @@ public static class MobileRutasEndpoints
         var group = app.MapGroup("/api/mobile/v1/rutas/{hojaDeRutaId:guid}")
             .WithTags("Mobile - Operación en Calle")
             .RequireAuthorization(PoliticasApi.Repartidor)
+            // Una hoja de ruta solo la opera el repartidor al que está asignada: sin esto cualquier repartidor del operador podía
+            // iniciar, entregar o rendir la ruta de otro (y ver sus destinatarios y direcciones)
+            .AddEndpointFilter(async (contexto, siguiente) =>
+            {
+                var http = contexto.HttpContext;
+                if (Guid.TryParse(http.Request.RouteValues["hojaDeRutaId"]?.ToString(), out var rutaId))
+                {
+                    var rutaAsignada = await http.RequestServices.GetRequiredService<IRutaRepository>().GetByIdAsync(rutaId, http.RequestAborted);
+                    if (rutaAsignada is not null)
+                    {
+                        var repartidores = http.RequestServices.GetRequiredService<IRepartidorRepository>();
+                        var usuarioId = http.RequestServices.GetRequiredService<ICurrentTenant>().UsuarioId;
+                        var repartidor = usuarioId is { } id && id != Guid.Empty
+                            ? await repartidores.GetByUsuarioIdAsync(id, http.RequestAborted) ?? await repartidores.GetByIdAsync(id, http.RequestAborted)
+                            : null;
+
+                        if (repartidor is null || rutaAsignada.RepartidorId != repartidor.Id)
+                            return Results.Forbid();
+                    }
+                }
+
+                return await siguiente(contexto);
+            })
             .AddEndpointFilter(async (contexto, siguiente) =>
             {
                 if (HttpMethods.IsPost(contexto.HttpContext.Request.Method))

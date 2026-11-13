@@ -297,7 +297,7 @@
                 '            <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark" title="Contactar al chofer" onclick="abrirModalContacto(\'' + escaparAtributoJs(alerta.RepartidorNombre) + '\', \'' + escaparAtributoJs(alerta.RepartidorTelefono) + '\', \'' + escaparAtributoJs(alerta.VehiculoMatricula) + '\', \'' + escaparAtributoJs(alerta.CodigoSeguimiento) + '\', \'' + escaparAtributoJs(alerta.RepartidorId || alerta.HojaDeRutaId) + '\')">',
                 '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
                 '            </button>',
-                '            <a href="/Rutas/Detalle?id=' + encodeURIComponent(alerta.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Reasignar en la hoja de ruta">',
+                '            <a href="/Rutas/Detalle/' + encodeURIComponent(alerta.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Reasignar en la hoja de ruta">',
                 '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>',
                 '            </a>',
                 '        </div>',
@@ -346,7 +346,7 @@
             var tieneRuta = veh.HojaDeRutaId && veh.HojaDeRutaId !== '00000000-0000-0000-0000-000000000000';
             var botonDetalleRuta = tieneRuta
                 ? [
-                    '            <a href="/Rutas/Detalle?id=' + encodeURIComponent(veh.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Ver itinerario de ruta">',
+                    '            <a href="/Rutas/Detalle/' + encodeURIComponent(veh.HojaDeRutaId || '') + '" class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" title="Ver itinerario de ruta">',
                     '                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>',
                     '            </a>'
                 ].join('')
