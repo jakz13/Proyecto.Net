@@ -188,4 +188,56 @@ public class IndexModel : PageModel
         Response.Headers.CacheControl = "private, no-store";
         return File(imagen.Contenido, imagen.TipoContenido);
     }
+
+    /// <summary>
+    /// Obtiene todos los bultos, códigos de barras y documento de etiquetas imprimibles de un envío sin importar su estado actual.
+    /// </summary>
+    public async Task<IActionResult> OnGetEtiquetasAsync(Guid id)
+    {
+        if (id == Guid.Empty)
+        {
+            return BadRequest();
+        }
+
+        try
+        {
+            var respuesta = await _enviosApi.GenerarEtiquetasEnviosAsync(new[] { id });
+            return new JsonResult(respuesta);
+        }
+        catch
+        {
+            var envio = await _enviosApi.ObtenerPorIdAsync(id);
+            if (envio is null)
+            {
+                return NotFound();
+            }
+
+            var bultosIds = (envio.BultosIdentificaciones != null && envio.BultosIdentificaciones.Count > 0)
+                ? envio.BultosIdentificaciones
+                : new[] { $"{envio.CodigoSeguimiento}-B01" };
+
+            var totalBultos = bultosIds.Count;
+            var pesoTotal = envio.PesoKg.HasValue && envio.PesoKg.Value > 0 ? envio.PesoKg.Value : 1.0m;
+            var pesoPorBulto = Math.Round(pesoTotal / totalBultos, 2);
+
+            var etiquetas = bultosIds.Select((bultoId, idx) => new EtiquetaBultoDto(
+                EnvioId: envio.Id,
+                CodigoSeguimiento: envio.CodigoSeguimiento,
+                IdentificacionBulto: bultoId,
+                NumeroBulto: idx + 1,
+                TotalBultos: totalBultos,
+                ComercioRemitente: string.IsNullOrWhiteSpace(envio.ComercioNombre) ? "Comercio Adherido" : envio.ComercioNombre,
+                OperadorLogistico: "Última Milla Express",
+                NombreDestinatario: envio.NombreDestinatario,
+                DireccionDestino: envio.DireccionDestino,
+                TelefonoDestinatario: envio.TelefonoDestinatario,
+                ModalidadServicio: string.IsNullOrWhiteSpace(envio.ModalidadServicio) ? "Estándar" : envio.ModalidadServicio,
+                PesoKg: pesoPorBulto,
+                Observaciones: envio.Observaciones,
+                FechaAdmision: envio.FechaCreacion)).ToList();
+
+            var html = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(etiquetas);
+            return new JsonResult(new ResultadoGeneracionEtiquetasDto(etiquetas, 1, etiquetas.Count, $"etiquetas-{envio.CodigoSeguimiento}.html", html));
+        }
+    }
 }

@@ -1,4 +1,5 @@
 @page
+@using UltimaMilla.Frontend.Contracts.Modelos.Envios
 @model UltimaMilla.Backoffice.Pages.Deposito.ClasificacionModel
 @{
     ViewData["Title"] = "Clasificación de Bultos - Depósito";
@@ -315,6 +316,17 @@
                                                 </div>
                                                 <div class="text-muted small" style="font-size: 0.72rem;">
                                                     @bulto.Peso.ToString("N1") kg · @bulto.EstadoBulto
+                                                </div>
+                                                @{
+                                                    var patronBarrasClasif = GeneradorDocumentoEtiquetas.CalcularPatronBarras(bulto.CodigoBulto);
+                                                }
+                                                <div class="mt-1" style="max-width: 175px;">
+                                                    <svg viewBox="0 0 260 36" width="100%" height="30" role="img" aria-label="Código de barras @bulto.CodigoBulto" class="border rounded bg-white p-1">
+                                                        @foreach (var barra in patronBarrasClasif)
+                                                        {
+                                                            <rect x="@barra.PosicionX" y="2" width="@barra.Ancho" height="32" fill="#0f172a" />
+                                                        }
+                                                    </svg>
                                                 </div>
                                             </td>
                                             <td>

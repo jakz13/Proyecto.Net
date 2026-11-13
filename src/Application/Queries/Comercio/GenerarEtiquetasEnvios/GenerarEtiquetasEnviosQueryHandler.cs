@@ -73,11 +73,6 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
             if (comercioActualId.HasValue && comercioActualId.Value != Guid.Empty && envio.ComercioId != comercioActualId.Value)
                 throw new UnauthorizedAccessException("Acceso denegado: el envío no pertenece al comercio autenticado.");
 
-            // Precondición de el envío debe estar en estado Admitido
-            if (envio.EstadoActual != EstadoEnvio.Admitido)
-                throw new DomainValidationException(
-                    $"El envío '{envio.CodigoSeguimientoPublico}' se encuentra en estado '{envio.EstadoActual}'. Solo se pueden generar etiquetas para envíos en estado Admitido.");
-
             var nombreOperador = operadoresMap.TryGetValue(envio.OperadorId, out var nom) && !string.IsNullOrWhiteSpace(nom)
                 ? nom
                 : "TransLogística Express";

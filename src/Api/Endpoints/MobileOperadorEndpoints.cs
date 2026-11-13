@@ -50,6 +50,13 @@ public static class MobileOperadorEndpoints
             var emailContacto = identidad?.EmailContacto;
             var sitioWeb = identidad?.SitioWeb;
 
+            var reglaOperativa = await db.ReglasOperativas
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.OperadorId == operadorId)
+                .OrderByDescending(r => r.Version)
+                .FirstOrDefaultAsync(ct);
+
             var resultado = new MobileIdentidadVisualDto(
                 OperadorId: operadorId,
                 NombreComercial: nombreComercial,
@@ -60,7 +67,9 @@ public static class MobileOperadorEndpoints
                 LogoUrl: logoUrl,
                 TelefonoContacto: telefonoContacto,
                 EmailContacto: emailContacto,
-                SitioWeb: sitioWeb
+                SitioWeb: sitioWeb,
+                TipoPruebaEntregaExigida: reglaOperativa?.TipoPruebaEntregaExigida ?? "Firma digital del receptor",
+                MaxIntentosEntrega: reglaOperativa?.MaxIntentosEntrega ?? 3
             );
 
             return Results.Ok(resultado);
@@ -85,5 +94,7 @@ public record MobileIdentidadVisualDto(
     string? LogoUrl,
     string? TelefonoContacto,
     string? EmailContacto,
-    string? SitioWeb = null);
+    string? SitioWeb = null,
+    string? TipoPruebaEntregaExigida = null,
+    int? MaxIntentosEntrega = null);
 

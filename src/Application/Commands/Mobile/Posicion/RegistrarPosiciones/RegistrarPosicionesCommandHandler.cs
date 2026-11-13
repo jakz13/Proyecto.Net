@@ -122,7 +122,7 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
             foreach (var ultima in posiciones.GroupBy(x => x.VehiculoId).Select(g => g.OrderByDescending(x => x.Timestamp).First()))
             {
                 await _tableroNotifier.NotificarPosicionVehiculoAsync(
-                    _currentTenant.OperadorId, ultima.VehiculoId, ultima.HojaDeRutaId, ultima.Latitud, ultima.Longitud, cancellationToken);
+                    _currentTenant.OperadorId, ultima.VehiculoId, ultima.HojaDeRutaId, ultima.Latitud, ultima.Longitud, ultima.VelocidadKmh, ultima.BateriaPct, cancellationToken);
             }
         }
 

@@ -332,10 +332,10 @@ public static class DatabaseSeeder
             .AnyAsync(p => p.VehiculoId == DefaultVehiculoId, cancellationToken);
         if (!hayPosicion)
         {
-            // Primera posición del camión: saliendo del depósito hacia la primera parada
+            // Primera posición del camión: saliendo del depósito hacia la primera parada (sin inventar velocidad ni batería)
             await context.PosicionesVehiculo.AddAsync(
                 new PosicionVehiculo(Guid.NewGuid(), DefaultOperadorId, DefaultVehiculoId, -34.9011, -56.1645, "Semilla",
-                    DefaultHojaDeRutaId, DefaultRepartidorId, velocidadKmh: 28, bateriaPct: 87),
+                    DefaultHojaDeRutaId, DefaultRepartidorId, velocidadKmh: null, bateriaPct: null),
                 cancellationToken);
         }
 

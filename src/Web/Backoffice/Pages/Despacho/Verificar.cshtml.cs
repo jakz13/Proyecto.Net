@@ -35,12 +35,6 @@ public class VerificarModel : PageModel
             return RedirectToPage("/Despacho/Index");
         }
 
-        if (Control.EstadoRuta == "Despachada" || Control.EstadoRuta == "EnTransito")
-        {
-            TempData["MensajeError"] = $"La hoja de ruta '{Control.NumeroRuta}' ya fue despachada previamente.";
-            return RedirectToPage("/Despacho/Index");
-        }
-
         Formulario = new ConfirmarDespachoDto
         {
             HojaDeRutaId = id

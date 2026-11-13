@@ -9,6 +9,8 @@ using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual
 using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
+using UltimaMilla.Application.Commands.Seguimiento.SolicitarReprogramacion;
+using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Envios;
@@ -475,6 +477,126 @@ public class TableroRealtimeNotificationHandlerTests
         Assert.Equal(ruta.Id, notifCerrada.HojaDeRutaId);
         Assert.Equal("IncidenciaCerrada", notifCerrada.Estado);
         Assert.Equal(2, notifCerrada.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    // ---- ReasignarEnvioCommandHandler (origen y destino) ----
+
+    [Fact]
+    public async Task ReasignarEnvio_ConOrigenYDestinoLiberadas_NotificaAmbasRutasDespuesDeGuardar()
+    {
+        var envio = CrearEnvioClasificado();
+        var origen = CrearRutaEnEstado("Liberada", envio);
+        var otroEnvio = CrearEnvioClasificado();
+        var destino = CrearRutaEnEstado("Liberada", otroEnvio);
+
+        var handler = new ReasignarEnvioCommandHandler(
+            _rutas, _envios, _vehiculos, _franjas, _outbox, _uow, _tenant, _clock, _notifier);
+
+        var resultado = await handler.Handle(
+            new ReasignarEnvioCommand(origen.Id, envio.Id, "ReasignarARuta", destino.Id, null, null, "Cambio operativo"),
+            CancellationToken.None);
+
+        Assert.Equal(destino.Id, resultado.HojaDeRutaDestinoId);
+        Assert.Equal(2, _notifier.CambiosRuta.Count);
+        Assert.Contains(_notifier.CambiosRuta, c => c.HojaDeRutaId == origen.Id && c.ConfirmacionesEnMomentoDeNotificar == 1);
+        Assert.Contains(_notifier.CambiosRuta, c => c.HojaDeRutaId == destino.Id && c.ConfirmacionesEnMomentoDeNotificar == 1);
+    }
+
+    [Fact]
+    public async Task ReasignarEnvio_CuandoSignalRFalla_NoRevierteLaOperacionPersistida()
+    {
+        var envio = CrearEnvioClasificado();
+        var origen = CrearRutaEnEstado("Liberada", envio);
+        var envioBase = CrearEnvioClasificado();
+        var destino = CrearRutaEnEstado("Liberada", envioBase);
+        _notifier.LanzarExcepcion = true;
+
+        var handler = new ReasignarEnvioCommandHandler(
+            _rutas, _envios, _vehiculos, _franjas, _outbox, _uow, _tenant, _clock, _notifier);
+
+        var resultado = await handler.Handle(
+            new ReasignarEnvioCommand(origen.Id, envio.Id, "ReasignarARuta", destino.Id, null, null, "Prueba resiliencia"),
+            CancellationToken.None);
+
+        Assert.Equal(destino.Id, resultado.HojaDeRutaDestinoId);
+        Assert.Equal(1, _uow.Confirmaciones);
+        Assert.Equal(destino.Id, envio.HojaDeRutaId);
+    }
+
+    // ---- SolicitarReprogramacionCommandHandler ----
+
+    [Fact]
+    public async Task SolicitarReprogramacion_EnvioEnHojaDeRuta_NotificaCambioRutaDespuesDeGuardar()
+    {
+        var zonaId = Guid.NewGuid();
+        var dirRepo = new FakeDireccionRepository();
+        var solRepo = new FakeSolicitudReprogramacionRepository();
+        var manana = new FranjaHoraria(Guid.NewGuid(), zonaId, DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(12, 0));
+        var tarde = new FranjaHoraria(Guid.NewGuid(), zonaId, DayOfWeek.Monday, new TimeOnly(14, 0), new TimeOnly(18, 0));
+        _franjas.Franjas.AddRange(new[] { manana, tarde });
+
+        var dir = new Direccion(Guid.NewGuid(), "18 de Julio", "1234", "Montevideo", zonaId);
+        dirRepo.Direcciones.Add(dir);
+
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-NOTIF-REPROG", dir.Id, manana.Id, operadorId: _tenant.OperadorId);
+        envio.AgregarBulto("TRK-NOTIF-REPROG-B1", 2m, 10m, 10m, 10m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-NOTIF-REPROG-B1" }, null, null, Guid.NewGuid());
+        envio.ClasificarBultos(new[] { new ClasificacionBulto("TRK-NOTIF-REPROG-B1", PrioridadBulto.Normal) }, Guid.NewGuid());
+        _envios.Envios.Add(envio);
+        var ruta = CrearRutaEnEstado("EnTransito", envio);
+        envio.RegistrarIntentoFallido(
+            ruta.Paradas.Single().Id,
+            _motivoCalle,
+            _envios.ReglaOperativa!,
+            "Ausente en primera visita",
+            null,
+            -34.9,
+            -56.2,
+            _clock.UtcNow);
+
+        var handler = new SolicitarReprogramacionCommandHandler(
+            _envios, dirRepo, _franjas, solRepo, _outbox, _clock, _uow, _tenant, _cache, null, _notifier);
+
+        var resultado = await handler.Handle(
+            new SolicitarReprogramacionCommand(envio.CodigoSeguimientoPublico, tarde.Id, "127.0.0.1"),
+            CancellationToken.None);
+
+        Assert.True(resultado.Aceptada);
+        var notif = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notif.OperadorId);
+        Assert.Equal(ruta.Id, notif.HojaDeRutaId);
+        Assert.Equal("Actualizacion de parada por reprogramacion", notif.Estado);
+        Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    [Fact]
+    public async Task SolicitarReprogramacion_SinRutaOInvalida_NoEmiteNotificacion()
+    {
+        var dirRepo = new FakeDireccionRepository();
+        var solRepo = new FakeSolicitudReprogramacionRepository();
+        var zonaId = Guid.NewGuid();
+        var franjaInvalida = new FranjaHoraria(Guid.NewGuid(), Guid.NewGuid(), DayOfWeek.Tuesday, new TimeOnly(9, 0), new TimeOnly(12, 0));
+        _franjas.Franjas.Add(franjaInvalida);
+
+        var dir = new Direccion(Guid.NewGuid(), "Sarandi", "500", "Montevideo", zonaId);
+        dirRepo.Direcciones.Add(dir);
+
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-NOTIF-SINRUTA", dir.Id, null, operadorId: _tenant.OperadorId);
+        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "Recepcion");
+        _envios.Envios.Add(envio);
+
+        var handler = new SolicitarReprogramacionCommandHandler(
+            _envios, dirRepo, _franjas, solRepo, _outbox, _clock, _uow, _tenant, _cache, null, _notifier);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => handler.Handle(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(new SolicitarReprogramacionCommand("   ", Guid.NewGuid()), CancellationToken.None));
+
+        var rechazo = await handler.Handle(
+            new SolicitarReprogramacionCommand(envio.CodigoSeguimientoPublico, franjaInvalida.Id),
+            CancellationToken.None);
+
+        Assert.False(rechazo.Aceptada);
+        Assert.Empty(_notifier.CambiosRuta);
     }
 
     private sealed class FakeCacheService : IDistributedCacheService

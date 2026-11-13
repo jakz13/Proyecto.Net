@@ -29,6 +29,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private readonly ICurrentTenant? _currentTenant;
     private readonly IDistributedCacheService? _cacheService;
     private readonly IFuncionalidadesService? _funcionalidades;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public SolicitarReprogramacionCommandHandler(
         IEnvioRepository envioRepository,
@@ -40,7 +41,8 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         IUnitOfWork unitOfWork,
         ICurrentTenant? currentTenant = null,
         IDistributedCacheService? cacheService = null,
-        IFuncionalidadesService? funcionalidades = null)
+        IFuncionalidadesService? funcionalidades = null,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
         _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
@@ -52,6 +54,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _cacheService = cacheService;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<ResultadoReprogramacionDto> Handle(SolicitarReprogramacionCommand request, CancellationToken cancellationToken)
@@ -81,6 +84,8 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
 
         var evaluacion = await EvaluarAsync(envio, request.FranjaHorariaId, cancellationToken);
 
+        var hojaDeRutaPreviaId = envio.HojaDeRutaId;
+
         if (evaluacion.Motivo is not null)
         {
             solicitud.Rechazar(evaluacion.Motivo);
@@ -106,11 +111,24 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (evaluacion.Motivo is null && _cacheService is not null)
+        if (evaluacion.Motivo is null)
         {
-            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
-            await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
-            await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
+            if (_cacheService is not null)
+            {
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorCodigo(envio.CodigoSeguimientoPublico), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico), cancellationToken);
+                await _cacheService.RemoveAsync(ClavesCache.EnvioPorId(envio.Id), cancellationToken);
+            }
+
+            var hojaANotificarId = envio.HojaDeRutaId ?? hojaDeRutaPreviaId;
+            if (_tableroNotifier is not null && hojaANotificarId.HasValue)
+            {
+                await _tableroNotifier.NotificarCambioRutaAsync(
+                    envio.OperadorId,
+                    hojaANotificarId.Value,
+                    "Actualizacion de parada por reprogramacion",
+                    cancellationToken);
+            }
         }
 
         return evaluacion.Motivo is null

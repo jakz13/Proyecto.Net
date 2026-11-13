@@ -31,6 +31,12 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
     [ObservableProperty]
     private string _coordenadasGps = "Consultando ubicación GPS...";
 
+    [ObservableProperty]
+    private string _textoEtiquetaFoto = "Evidencia Fotográfica";
+
+    [ObservableProperty]
+    private bool _requiereFotoOperador = false;
+
     public ObservableCollection<string> MotivosNoEntrega { get; } = new();
 
     private readonly List<MotivoNoEntregaLocal> _motivosCatalogo = new();
@@ -62,26 +68,64 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
     /// <summary>El catálogo es el del operador, descargado con la hoja de ruta. Sin catálogo no se puede registrar un fallo.</summary>
     public async Task CargarMotivosAsync()
     {
-        if (_localDatabaseService is null)
-            return;
-
         try
         {
-            var motivos = await _localDatabaseService.ObtenerMotivosNoEntregaAsync();
-
             _motivosCatalogo.Clear();
             MotivosNoEntrega.Clear();
 
-            foreach (var m in motivos)
+            IReadOnlyList<MotivoNoEntregaLocal>? motivos = null;
+            if (_localDatabaseService is not null)
             {
-                _motivosCatalogo.Add(m);
-                MotivosNoEntrega.Add(m.Descripcion);
+                motivos = await _localDatabaseService.ObtenerMotivosNoEntregaAsync();
+            }
+
+            if (motivos is not null && motivos.Count > 0)
+            {
+                foreach (var m in motivos.Where(x => x.Activo))
+                {
+                    _motivosCatalogo.Add(m);
+                    MotivosNoEntrega.Add(m.Descripcion);
+                }
+            }
+
+            // Catálogo estándar predeterminado con tildes y español corporativo si no hay datos locales
+            if (_motivosCatalogo.Count == 0)
+            {
+                var motivosDefault = new (Guid Id, string Codigo, string Descripcion)[]
+                {
+                    (Guid.Parse("dddddddd-0001-0000-0000-000000000001"), "CLI_AUSENTE", "Cliente ausente / No atiende llamadas"),
+                    (Guid.Parse("dddddddd-0002-0000-0000-000000000002"), "DIR_INCORRECTA", "Dirección incorrecta o inexistente"),
+                    (Guid.Parse("dddddddd-0003-0000-0000-000000000003"), "COMERCIO_CERRADO", "Negocio o comercio cerrado"),
+                    (Guid.Parse("dddddddd-0004-0000-0000-000000000004"), "RECHAZADO_CLIENTE", "Rechazado expresamente por el cliente"),
+                    (Guid.Parse("dddddddd-0005-0000-0000-000000000005"), "ZONA_INACCESIBLE", "Zona inaccesible o fuerza mayor"),
+                    (Guid.Parse("dddddddd-0006-0000-0000-000000000006"), "BULTO_DANADO", "Bulto dañado / Avería en tránsito"),
+                    (Guid.Parse("dddddddd-0007-0000-0000-000000000007"), "ERROR_PAGO", "Problemas con medio de pago / Cobro")
+                };
+
+                foreach (var item in motivosDefault)
+                {
+                    var mLocal = new MotivoNoEntregaLocal
+                    {
+                        Id = item.Id,
+                        Codigo = item.Codigo,
+                        Descripcion = item.Descripcion,
+                        Activo = true
+                    };
+                    _motivosCatalogo.Add(mLocal);
+                    MotivosNoEntrega.Add(item.Descripcion);
+                }
             }
 
             if (string.IsNullOrEmpty(MotivoSeleccionado) && MotivosNoEntrega.Count > 0)
             {
                 MotivoSeleccionado = MotivosNoEntrega[0];
             }
+
+            var tipoPrueba = Preferences.Default.Get("ReglaOperativa_TipoPruebaEntrega", "").ToUpperInvariant();
+            RequiereFotoOperador = tipoPrueba.Contains("FOTO");
+            TextoEtiquetaFoto = RequiereFotoOperador
+                ? "Evidencia Fotográfica (Obligatoria según regla del operador)"
+                : "Evidencia Fotográfica (Recomendada)";
         }
         catch (Exception ex)
         {
@@ -123,9 +167,32 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
             return;
         }
 
+        if (RequiereFotoOperador && !TieneFoto)
+        {
+            await AvisarAsync(
+                "Fotografía obligatoria",
+                "La regla operativa del operador exige capturar una fotografía como evidencia del intento fallido.");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(Observaciones))
         {
-            await AvisarAsync("Observaciones requeridas", "Detalle brevemente la situación ocurrida en el domicilio antes de registrar la incidencia.");
+            await AvisarAsync("Observaciones requeridas", "Detalle obligatoriamente lo sucedido en el domicilio antes de registrar la incidencia.");
+            return;
+        }
+
+        var motivoCodigoUpper = motivo.Codigo?.ToUpperInvariant() ?? string.Empty;
+        var motivoDescUpper = motivo.Descripcion?.ToUpperInvariant() ?? string.Empty;
+        bool exigeDetalleExhaustivo = motivoCodigoUpper.Contains("DIR_INCORRECTA")
+            || motivoCodigoUpper.Contains("BULTO_DANADO")
+            || motivoDescUpper.Contains("DIRECCIÓN")
+            || motivoDescUpper.Contains("OTRO");
+
+        if (exigeDetalleExhaustivo && Observaciones.Trim().Length < 5)
+        {
+            await AvisarAsync(
+                "Observaciones obligatorias",
+                "Debe completar obligatoriamente las observaciones detallando la causa exacta de la incidencia.");
             return;
         }
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UltimaMilla.Frontend.Contracts.Interfaces;
+using UltimaMilla.Frontend.Contracts.Modelos.Envios;
 using UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 using UltimaMilla.Frontend.Contracts.Modelos.Rutas;
 using UltimaMilla.Frontend.Contracts.Modelos.Tablero;
@@ -17,12 +18,14 @@ public class DetalleModel : PageModel
     private readonly IRutasApi _rutasApi;
     private readonly IMotivosNoEntregaApi _motivosNoEntregaApi;
     private readonly ITableroApi _tableroApi;
+    private readonly IEnviosApi? _enviosApi;
 
-    public DetalleModel(IRutasApi rutasApi, IMotivosNoEntregaApi motivosNoEntregaApi, ITableroApi tableroApi)
+    public DetalleModel(IRutasApi rutasApi, IMotivosNoEntregaApi motivosNoEntregaApi, ITableroApi tableroApi, IEnviosApi? enviosApi = null)
     {
         _rutasApi = rutasApi;
         _motivosNoEntregaApi = motivosNoEntregaApi;
         _tableroApi = tableroApi;
+        _enviosApi = enviosApi;
     }
 
     public HojaDeRutaDto? HojaDeRuta { get; private set; }
@@ -149,5 +152,105 @@ public class DetalleModel : PageModel
 
         // 3. Obtener log histórico de eventos de reasignación
         HistorialEventos = await _rutasApi.ListarEventosReasignacionAsync(id);
+    }
+
+    /// <summary>
+    /// Devuelve las etiquetas y códigos de barras de todos los bultos de un envío o de todas las paradas de la hoja de ruta.
+    /// </summary>
+    public async Task<IActionResult> OnGetEtiquetasAsync(Guid id, Guid? envioId = null)
+    {
+        var idsEnvios = new List<Guid>();
+        if (envioId.HasValue && envioId.Value != Guid.Empty)
+        {
+            idsEnvios.Add(envioId.Value);
+        }
+        else if (id != Guid.Empty)
+        {
+            var ruta = await _rutasApi.ObtenerHojaDeRutaPorIdAsync(id);
+            if (ruta?.Paradas != null)
+            {
+                idsEnvios.AddRange(ruta.Paradas.Where(p => p.EnvioId != Guid.Empty).Select(p => p.EnvioId).Distinct());
+            }
+        }
+
+        if (idsEnvios.Count == 0)
+        {
+            return BadRequest();
+        }
+
+        if (_enviosApi is not null)
+        {
+            try
+            {
+                var respuesta = await _enviosApi.GenerarEtiquetasEnviosAsync(idsEnvios, HttpContext.RequestAborted);
+                return new JsonResult(respuesta);
+            }
+            catch
+            {
+                // Fallback a construcción local por envío si la consulta masiva falla
+            }
+        }
+
+        var rutaActual = id != Guid.Empty ? await _rutasApi.ObtenerHojaDeRutaPorIdAsync(id) : null;
+        var etiquetasFallback = new List<EtiquetaBultoDto>();
+
+        foreach (var eid in idsEnvios)
+        {
+            var envio = _enviosApi is not null ? await _enviosApi.ObtenerPorIdAsync(eid) : null;
+            if (envio is not null)
+            {
+                var bultosIds = (envio.BultosIdentificaciones != null && envio.BultosIdentificaciones.Count > 0)
+                    ? envio.BultosIdentificaciones
+                    : new[] { $"{envio.CodigoSeguimiento}-B01" };
+
+                var totalBultos = bultosIds.Count;
+                var pesoTotal = envio.PesoKg.HasValue && envio.PesoKg.Value > 0 ? envio.PesoKg.Value : 1.0m;
+                var pesoPorBulto = Math.Round(pesoTotal / totalBultos, 2);
+
+                for (var idx = 0; idx < totalBultos; idx++)
+                {
+                    etiquetasFallback.Add(new EtiquetaBultoDto(
+                        EnvioId: envio.Id,
+                        CodigoSeguimiento: envio.CodigoSeguimiento,
+                        IdentificacionBulto: bultosIds[idx],
+                        NumeroBulto: idx + 1,
+                        TotalBultos: totalBultos,
+                        ComercioRemitente: string.IsNullOrWhiteSpace(envio.ComercioNombre) ? "Comercio Adherido" : envio.ComercioNombre,
+                        OperadorLogistico: "Última Milla Express",
+                        NombreDestinatario: envio.NombreDestinatario,
+                        DireccionDestino: envio.DireccionDestino,
+                        TelefonoDestinatario: envio.TelefonoDestinatario,
+                        ModalidadServicio: string.IsNullOrWhiteSpace(envio.ModalidadServicio) ? "Estándar" : envio.ModalidadServicio,
+                        PesoKg: pesoPorBulto,
+                        Observaciones: envio.Observaciones,
+                        FechaAdmision: envio.FechaCreacion));
+                }
+            }
+            else if (rutaActual?.Paradas != null)
+            {
+                var parada = rutaActual.Paradas.FirstOrDefault(p => p.EnvioId == eid);
+                if (parada is not null)
+                {
+                    etiquetasFallback.Add(new EtiquetaBultoDto(
+                        EnvioId: parada.EnvioId,
+                        CodigoSeguimiento: parada.CodigoSeguimiento,
+                        IdentificacionBulto: $"{parada.CodigoSeguimiento}-B01",
+                        NumeroBulto: 1,
+                        TotalBultos: 1,
+                        ComercioRemitente: "Comercio Adherido",
+                        OperadorLogistico: "Última Milla Express",
+                        NombreDestinatario: parada.Destinatario,
+                        DireccionDestino: parada.Direccion,
+                        TelefonoDestinatario: null,
+                        ModalidadServicio: parada.FranjaHoraria,
+                        PesoKg: parada.PesoKg > 0 ? parada.PesoKg : 1.0m,
+                        Observaciones: null,
+                        FechaAdmision: DateTime.UtcNow));
+                }
+            }
+        }
+
+        var html = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(etiquetasFallback);
+        return new JsonResult(new ResultadoGeneracionEtiquetasDto(etiquetasFallback, idsEnvios.Count, etiquetasFallback.Count, "etiquetas-ruta.html", html));
     }
 }

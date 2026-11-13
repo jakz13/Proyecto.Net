@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Notifications;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
@@ -18,6 +20,8 @@ public partial class LoginViewModel : ObservableObject
     private readonly IOperadorThemeService? _themeService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly ILocalDatabaseService? _localDatabaseService;
+    private readonly INotificacionLocalService? _notificacionService;
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -55,12 +59,6 @@ public partial class LoginViewModel : ObservableObject
     private string _inicialesOperador = "UM";
 
     [ObservableProperty]
-    private string _servidorActivo = ApiEndpoints.BaseUrl;
-
-    [ObservableProperty]
-    private string _tipoServidorTexto = ApiEndpoints.EsServidorNube ? "Nube" : "Local";
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _errorMessage;
 
@@ -72,7 +70,7 @@ public partial class LoginViewModel : ObservableObject
 
     public bool HasStatus => !string.IsNullOrWhiteSpace(StatusMessage);
 
-    public LoginViewModel() : this(null, null, null, null, null, null)
+    public LoginViewModel() : this(null, null, null, null, null, null, null, null)
     {
     }
 
@@ -82,7 +80,9 @@ public partial class LoginViewModel : ObservableObject
         IBiometricAuthService? biometricAuthService = null,
         IOperadorThemeService? themeService = null,
         IGeolocalizacionTrackingService? trackingService = null,
-        ILocalDatabaseService? localDatabaseService = null)
+        ILocalDatabaseService? localDatabaseService = null,
+        INotificacionLocalService? notificacionService = null,
+        IRealtimeTrackingService? realtimeTrackingService = null)
     {
         _authService = authService;
         _syncService = syncService;
@@ -90,6 +90,8 @@ public partial class LoginViewModel : ObservableObject
         _themeService = themeService;
         _trackingService = trackingService;
         _localDatabaseService = localDatabaseService;
+        _notificacionService = notificacionService;
+        _realtimeTrackingService = realtimeTrackingService;
 
         if (_themeService != null)
         {
@@ -112,6 +114,25 @@ public partial class LoginViewModel : ObservableObject
 
     public async Task InicializarAsync()
     {
+        try
+        {
+            var rutaCrash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ultimo_crash.log");
+            if (File.Exists(rutaCrash))
+            {
+                var contenido = await File.ReadAllTextAsync(rutaCrash);
+                File.Delete(rutaCrash);
+                if (!string.IsNullOrWhiteSpace(contenido))
+                {
+                    var lineas = contenido.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(6);
+                    ErrorMessage = $"Diagnóstico de cierre previo:\n{string.Join('\n', lineas)}";
+                }
+            }
+        }
+        catch
+        {
+            // Ignorar fallos al leer el diagnóstico local
+        }
+
         _themeService?.CargarDesdePreferencias();
         if (_themeService != null)
         {
@@ -128,23 +149,6 @@ public partial class LoginViewModel : ObservableObject
         {
             PuedeUsarBiometria = false;
         }
-    }
-
-    [RelayCommand]
-    private void AlternarServidor()
-    {
-        if (ApiEndpoints.EsServidorNube)
-        {
-            ApiEndpoints.UsarServidorLocal();
-        }
-        else
-        {
-            ApiEndpoints.UsarServidorNube();
-        }
-
-        ServidorActivo = ApiEndpoints.BaseUrl;
-        TipoServidorTexto = ApiEndpoints.EsServidorNube ? "Nube" : "Local";
-        StatusMessage = $"Servidor configurado: {TipoServidorTexto} ({ServidorActivo})";
     }
 
     [RelayCommand]
@@ -202,6 +206,16 @@ public partial class LoginViewModel : ObservableObject
             if (_syncService is not null)
             {
                 await _syncService.DescargarRutaDelDiaAsync();
+            }
+
+            if (_notificacionService is not null)
+            {
+                await _notificacionService.SolicitarPermisosNotificacionAsync();
+            }
+
+            if (_realtimeTrackingService is not null)
+            {
+                _ = _realtimeTrackingService.StartAsync();
             }
 
             StatusMessage = "Sesión iniciada correctamente.";
@@ -283,6 +297,16 @@ public partial class LoginViewModel : ObservableObject
                 if (_syncService is not null)
                 {
                     await _syncService.DescargarRutaDelDiaAsync();
+                }
+
+                if (_notificacionService is not null)
+                {
+                    await _notificacionService.SolicitarPermisosNotificacionAsync();
+                }
+
+                if (_realtimeTrackingService is not null)
+                {
+                    _ = _realtimeTrackingService.StartAsync();
                 }
 
                 var rol = _authService.Perfil ?? Preferences.Default.Get("RolUsuario", string.Empty);

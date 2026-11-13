@@ -47,5 +47,8 @@ public interface ITableroRealtimeNotifier
 
     Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, CancellationToken ct = default)
         => Task.CompletedTask;
+
+    Task NotificarPosicionVehiculoAsync(Guid operadorId, Guid vehiculoId, Guid? hojaDeRutaId, double latitud, double longitud, double? velocidadKmh, int? bateriaPct, CancellationToken ct = default)
+        => NotificarPosicionVehiculoAsync(operadorId, vehiculoId, hojaDeRutaId, latitud, longitud, ct);
 }
 

@@ -190,10 +190,25 @@ else
 
     <!-- Secuencia Ordenada de Paradas -->
     <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-white py-3 border-bottom">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h2 class="h6 fw-bold mb-0 text-dark">
                 Secuencia Ordenada de Paradas (@ruta.CantidadParadas Entregas)
             </h2>
+            @if (ruta.Paradas != null && ruta.Paradas.Count > 0)
+            {
+                <button type="button"
+                        class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                        onclick="abrirModalEtiquetasRuta('@ruta.Id', '', 'Todos los bultos de @ruta.NumeroRuta')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 5v14"></path>
+                        <path d="M8 5v14"></path>
+                        <path d="M12 5v14"></path>
+                        <path d="M17 5v14"></path>
+                        <path d="M21 5v14"></path>
+                    </svg>
+                    <span>Ver e Imprimir Códigos de Barras de la Ruta</span>
+                </button>
+            }
         </div>
 
         <div class="table-responsive">
@@ -237,7 +252,7 @@ else
                                     @if (!string.IsNullOrEmpty(p.HistorialReasignacion))
                                     {
                                         <div class="text-muted small mt-1" style="font-size: 0.68rem;" title="@p.HistorialReasignacion">
-                                            ℹ @p.HistorialReasignacion
+                                            @p.HistorialReasignacion
                                         </div>
                                     }
                                 </td>
@@ -282,6 +297,19 @@ else
                                 </td>
                                 <td class="text-center">
                                     <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                title="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
+                                                aria-label="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
+                                                onclick="abrirModalEtiquetasRuta('@ruta.Id', '@p.EnvioId', '@p.CodigoSeguimiento')">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M3 5v14"></path>
+                                                <path d="M8 5v14"></path>
+                                                <path d="M12 5v14"></path>
+                                                <path d="M17 5v14"></path>
+                                                <path d="M21 5v14"></path>
+                                            </svg>
+                                        </button>
                                         <button type="button"
                                                 class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
                                                 title="Ubicar parada #@p.Orden en el mapa"
@@ -634,6 +662,37 @@ else
             </div>
         </div>
     </div>
+
+    <!-- Modal: Visualización e Impresión de Etiquetas y Códigos de Barras de Bultos en Hoja de Ruta -->
+    <div class="modal fade" id="modalEtiquetasRuta" tabindex="-1" aria-labelledby="tituloModalEtiquetasRuta" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-dark text-white py-3">
+                    <div>
+                        <h5 class="modal-title fs-6 fw-bold mb-0" id="tituloModalEtiquetasRuta">Etiquetas y Códigos de Barras de Bultos</h5>
+                        <div class="text-white-50 small font-monospace" id="lblSubtituloEtiquetasRuta"></div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="cargandoEtiquetasRuta" class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                        <div class="text-secondary small mt-2">Generando códigos de barras de los bultos...</div>
+                    </div>
+                    <div id="contenedorEtiquetasRuta" class="row g-3" style="display: none;"></div>
+                    <div id="errorEtiquetasRuta" class="alert alert-warning small mb-0" style="display: none;">
+                        No fue posible cargar las etiquetas solicitadas.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-3 border-top d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold" onclick="imprimirEtiquetasRutaActuales()">
+                        Imprimir Etiquetas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @section Scripts {
@@ -792,6 +851,105 @@ else
                     cardDeposito.classList.toggle('bg-white', optDeposito.checked);
                     cardDeposito.classList.toggle('shadow-sm', optDeposito.checked);
                 }
+            }
+        }
+
+        var ultimoHtmlImprimibleRuta = '';
+
+        function escaparHtmlRuta(texto) {
+            if (!texto) return '';
+            var div = document.createElement('div');
+            div.innerText = texto;
+            return div.innerHTML;
+        }
+
+        function calcularSvgBarrasRuta(codigo) {
+            var texto = (codigo || 'SIN-CODIGO').trim().toUpperCase();
+            var rects = '<rect x="6" y="4" width="2" height="46" fill="#0f172a"/><rect x="10" y="4" width="1" height="46" fill="#0f172a"/><rect x="13" y="4" width="3" height="46" fill="#0f172a"/>';
+            var x = 18;
+            for (var i = 0; i < texto.length && x < 240; i++) {
+                var valor = texto.charCodeAt(i);
+                var a1 = (valor % 3) + 1;
+                var e1 = ((valor >> 2) % 2) + 1;
+                var a2 = ((valor >> 3) % 3) + 1;
+                var e2 = ((valor >> 5) % 2) + 1;
+                rects += '<rect x="' + x + '" y="4" width="' + a1 + '" height="46" fill="#0f172a"/>';
+                x += a1 + e1;
+                if (x < 244) {
+                    rects += '<rect x="' + x + '" y="4" width="' + a2 + '" height="46" fill="#0f172a"/>';
+                    x += a2 + e2;
+                }
+            }
+            rects += '<rect x="246" y="4" width="2" height="46" fill="#0f172a"/><rect x="250" y="4" width="3" height="46" fill="#0f172a"/>';
+            return '<svg viewBox="0 0 260 54" width="100%" height="54" role="img" aria-label="Código de barras ' + escaparHtmlRuta(texto) + '" class="border rounded bg-white p-1">' + rects + '</svg>';
+        }
+
+        function abrirModalEtiquetasRuta(idRuta, idEnvio, tituloSub) {
+            document.getElementById('lblSubtituloEtiquetasRuta').innerText = tituloSub || '';
+            var cargando = document.getElementById('cargandoEtiquetasRuta');
+            var contenedor = document.getElementById('contenedorEtiquetasRuta');
+            var error = document.getElementById('errorEtiquetasRuta');
+            cargando.style.display = 'block';
+            contenedor.style.display = 'none';
+            error.style.display = 'none';
+            contenedor.innerHTML = '';
+
+            var modalEl = document.getElementById('modalEtiquetasRuta');
+            if (window.bootstrap && window.bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+
+            var url = '?handler=Etiquetas&id=' + encodeURIComponent(idRuta);
+            if (idEnvio) {
+                url += '&envioId=' + encodeURIComponent(idEnvio);
+            }
+
+            fetch(url)
+                .then(function (r) { if (!r.ok) throw new Error('Error'); return r.json(); })
+                .then(function (resp) {
+                    cargando.style.display = 'none';
+                    var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    ultimoHtmlImprimibleRuta = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
+                    if (!etiquetas || etiquetas.length === 0) {
+                        contenedor.innerHTML = '<div class="col-12 text-secondary small">No se registraron bultos.</div>';
+                    } else {
+                        var html = '';
+                        etiquetas.forEach(function (et) {
+                            var codBulto = et.identificacionBulto || et.IdentificacionBulto || '';
+                            var numBulto = et.numeroBulto || et.NumeroBulto || 1;
+                            var totBultos = et.totalBultos || et.TotalBultos || 1;
+                            var destinatario = et.nombreDestinatario || et.NombreDestinatario || '';
+                            var direccion = et.direccionDestino || et.DireccionDestino || '';
+                            html += '<div class="col-12 col-md-6">';
+                            html += '  <div class="border rounded-3 p-3 bg-white shadow-xs h-100">';
+                            html += '    <div class="d-flex justify-content-between align-items-center mb-2">';
+                            html += '      <span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>';
+                            html += '      <span class="small text-secondary font-monospace">' + escaparHtmlRuta(et.codigoSeguimiento || et.CodigoSeguimiento || '') + '</span>';
+                            html += '    </div>';
+                            html += '    <div class="mb-2">' + calcularSvgBarrasRuta(codBulto) + '</div>';
+                            html += '    <div class="text-center font-monospace fw-bold text-dark mb-2" style="letter-spacing: 1px;">' + escaparHtmlRuta(codBulto) + '</div>';
+                            html += '    <div class="small text-secondary border-top pt-2"><strong>Destinatario:</strong> ' + escaparHtmlRuta(destinatario) + '<br/><strong>Destino:</strong> ' + escaparHtmlRuta(direccion) + '</div>';
+                            html += '  </div>';
+                            html += '</div>';
+                        });
+                        contenedor.innerHTML = html;
+                    }
+                    contenedor.style.display = 'flex';
+                })
+                .catch(function () {
+                    cargando.style.display = 'none';
+                    error.style.display = 'block';
+                });
+        }
+
+        function imprimirEtiquetasRutaActuales() {
+            if (!ultimoHtmlImprimibleRuta) return;
+            var ventana = window.open('', '_blank', 'width=960,height=780');
+            if (ventana) {
+                ventana.document.open();
+                ventana.document.write(ultimoHtmlImprimibleRuta);
+                ventana.document.close();
+                ventana.focus();
             }
         }
     </script>

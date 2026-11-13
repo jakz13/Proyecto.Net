@@ -242,6 +242,14 @@ public class OperadorThemeService : IOperadorThemeService
                     };
 
                     AplicarIdentidad(modelo);
+                    if (!string.IsNullOrWhiteSpace(dto.TipoPruebaEntregaExigida))
+                    {
+                        Preferences.Default.Set("ReglaOperativa_TipoPruebaEntrega", dto.TipoPruebaEntregaExigida);
+                    }
+                    if (dto.MaxIntentosEntrega.HasValue)
+                    {
+                        Preferences.Default.Set("ReglaOperativa_MaxIntentos", dto.MaxIntentosEntrega.Value);
+                    }
                     _logger.LogInformation("Identidad visual del operador actualizada: {Nombre} ({Primario}, {Secundario}).", modelo.NombreComercial, modelo.ColorPrimarioHex, modelo.ColorSecundarioHex);
                     return modelo;
                 }
@@ -387,6 +395,8 @@ public class OperadorThemeService : IOperadorThemeService
         public string? LogoUrl { get; set; }
         public string? TelefonoContacto { get; set; }
         public string? EmailContacto { get; set; }
+        public string? TipoPruebaEntregaExigida { get; set; }
+        public int? MaxIntentosEntrega { get; set; }
     }
 
     private sealed class GuidOrStringConverter : System.Text.Json.Serialization.JsonConverter<string?>

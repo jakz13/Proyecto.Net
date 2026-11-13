@@ -33,7 +33,9 @@ public record RutaActivaRepartidorDto(
     string? PatenteVehiculo,
     string? TipoVehiculo,
     List<ParadaNavegacionDto> Paradas,
-    List<MotivoNoEntregaDescargaDto>? MotivosNoEntrega
+    List<MotivoNoEntregaDescargaDto>? MotivosNoEntrega,
+    string? TipoPruebaEntregaExigida = null,
+    int? MaxIntentosEntrega = null
 );
 
 public record DestinatarioContactoDto(

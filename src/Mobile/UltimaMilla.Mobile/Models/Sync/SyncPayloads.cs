@@ -189,6 +189,7 @@ public class TelemetriaGpsOfflinePayload
     public double Longitud { get; set; }
     public double? PrecisionMetros { get; set; }
     public DateTime TimestampUtc { get; set; }
+    public double? VelocidadKmh { get; set; }
     public int? BateriaPct { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
 }

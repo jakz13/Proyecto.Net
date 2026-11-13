@@ -388,18 +388,22 @@ public class MockEnviosApiTests
     }
 
     [Fact]
-    public async Task GenerarEtiquetasEnviosAsync_ConEnvioNoAdmitido_RechazaPorPrecondicionViolada()
+    public async Task GenerarEtiquetasEnviosAsync_ConEnviosEnTransitoOEntregado_GeneraEtiquetasYCodigosDeBarras()
     {
         // Arrange: envío en estado Entregado (aaaaaaaa-...) y otro en estado EnTransito (bbbbbbbb-...)
         var api = new MockEnviosApi();
         var idEntregado = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var idEnTransito = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<ApiExcepcion>(() =>
-            api.GenerarEtiquetasEnviosAsync(new[] { idEntregado }));
+        // Act
+        var resultado = await api.GenerarEtiquetasEnviosAsync(new[] { idEntregado, idEnTransito });
 
-        Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.CodigoEstado);
-        Assert.Contains("Admitido", ex.Message);
+        // Assert
+        Assert.NotNull(resultado);
+        Assert.Equal(2, resultado.TotalEnviosSeleccionados);
+        Assert.True(resultado.TotalEtiquetasGeneradas >= 2);
+        Assert.Contains("TRK-2026-0001", resultado.ContenidoHtmlDescargable);
+        Assert.Contains("TRK-2026-0002", resultado.ContenidoHtmlDescargable);
     }
 
     [Fact]

@@ -2,6 +2,10 @@
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Microsoft.Extensions.DependencyInjection;
+using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Realtime;
+using UltimaMilla.Mobile.Services.Sync;
 
 namespace UltimaMilla.Mobile.Platforms.Android;
 
@@ -16,6 +20,8 @@ public class LocationForegroundService : Service
     private const string ChannelName = "Telemetria de Ruta Activa";
 
     private PowerManager.WakeLock? _wakeLock;
+    private CancellationTokenSource? _supervisionCts;
+    private Task? _supervisionTask;
 
     public override IBinder? OnBind(Intent? intent) => null;
 
@@ -69,6 +75,7 @@ public class LocationForegroundService : Service
             }
 
             AdquirirWakeLock();
+            IniciarSupervisionSegundoPlano();
 
             return StartCommandResult.Sticky;
         }
@@ -124,8 +131,73 @@ public class LocationForegroundService : Service
         }
     }
 
+    private void IniciarSupervisionSegundoPlano()
+    {
+        if (_supervisionTask is { IsCompleted: false })
+        {
+            return;
+        }
+
+        _supervisionCts?.Cancel();
+        _supervisionCts?.Dispose();
+        _supervisionCts = new CancellationTokenSource();
+        var ct = _supervisionCts.Token;
+
+        _supervisionTask = Task.Run(async () =>
+        {
+            // Primer pulso inmediato tras estabilizar el servicio
+            await Task.Delay(TimeSpan.FromSeconds(2), ct);
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var services = IPlatformApplication.Current?.Services;
+                    if (services is not null && Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+                    {
+                        var authService = services.GetService<IAuthService>();
+                        if (authService is not null && await authService.EstaAutenticadoAsync())
+                        {
+                            var realtime = services.GetService<IRealtimeTrackingService>();
+                            if (realtime is not null && !realtime.IsConnected)
+                            {
+                                await realtime.StartAsync(ct);
+                            }
+
+                            var syncService = services.GetService<ISyncService>();
+                            if (syncService is not null)
+                            {
+                                await syncService.DescargarYActualizarRutasDelServidorAsync(ct);
+                            }
+                        }
+                    }
+                }
+                catch (System.OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LocationForegroundService] Supervision en segundo plano: {ex.Message}");
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+            }
+        }, ct);
+    }
+
     public override void OnDestroy()
     {
+        try
+        {
+            _supervisionCts?.Cancel();
+            _supervisionCts?.Dispose();
+            _supervisionCts = null;
+        }
+        catch
+        {
+        }
+
         try
         {
             if (_wakeLock is { IsHeld: true })

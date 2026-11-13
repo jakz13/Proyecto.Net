@@ -223,6 +223,21 @@
                                             </button>
                                         }
                                         <button type="button" 
+                                                class="btn btn-sm btn-outline-primary p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                title="Ver e Imprimir Etiquetas / Códigos de Barras"
+                                                aria-label="Ver e Imprimir Etiquetas / Códigos de Barras"
+                                                onclick="abrirModalEtiquetasBultos(@System.Text.Json.JsonSerializer.Serialize(envio.Id), @System.Text.Json.JsonSerializer.Serialize(envio.CodigoSeguimiento))">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M3 5v14"></path>
+                                                <path d="M8 5v14"></path>
+                                                <path d="M12 5v14"></path>
+                                                <path d="M17 5v14"></path>
+                                                <path d="M21 5v14"></path>
+                                            </svg>
+                                        </button>
+                                        <button type="button" 
                                                 class="btn btn-sm btn-outline-secondary p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
                                                 data-bs-toggle="tooltip"
                                                 data-bs-placement="top"
@@ -430,11 +445,59 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Fila inferior: Bultos y Códigos de Barras del Envío (siempre visible en cualquier estado) -->
+                    <div class="col-12">
+                        <div class="card border shadow-none rounded-3">
+                            <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span class="small fw-bold text-uppercase text-secondary">Bultos y Códigos de Barras del Envío</span>
+                                <button type="button" id="btnImprimirEtiquetasDesdeHistorial" class="btn btn-sm btn-outline-dark py-0 px-2 small" onclick="imprimirEtiquetasActuales()">
+                                    Imprimir Etiquetas
+                                </button>
+                            </div>
+                            <div class="card-body p-3">
+                                <div id="listaBultosEnHistorial" class="row g-2">
+                                    <div class="col-12 text-secondary small">Cargando códigos de barras de los bultos...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="modal-footer bg-light py-2 px-3 border-top">
                 <button type="button" class="btn btn-sm btn-secondary px-3" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 3: Visualización e Impresión de Etiquetas y Códigos de Barras de Bultos -->
+<div class="modal fade" id="modalEtiquetasBultos" tabindex="-1" aria-labelledby="tituloModalEtiquetasBultos" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-3">
+                <div>
+                    <h5 class="modal-title fs-6 fw-bold mb-0" id="tituloModalEtiquetasBultos">Etiquetas y Códigos de Barras de Bultos</h5>
+                    <div class="text-white-50 small font-monospace" id="lblEtiquetasCodigoEnvio"></div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="cargandoEtiquetasBultos" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                    <div class="text-secondary small mt-2">Generando códigos de barras de los bultos...</div>
+                </div>
+                <div id="contenedorEtiquetasBultos" class="row g-3" style="display: none;"></div>
+                <div id="errorEtiquetasBultos" class="alert alert-warning small mb-0" style="display: none;">
+                    No fue posible cargar las etiquetas del envío seleccionado.
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3 border-top d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold" onclick="imprimirEtiquetasActuales()">
+                    Imprimir Etiquetas
+                </button>
             </div>
         </div>
     </div>
@@ -509,6 +572,7 @@
             }, 240);
 
             cargarEvidencias(envioId);
+            cargarBultosEnContenedor(envioId, 'listaBultosEnHistorial');
 
             fetch('?handler=Historial&id=' + encodeURIComponent(envioId))
                 .then(function(response) {
@@ -596,6 +660,111 @@
                     seccion.style.display = 'block';
                 })
                 .catch(function () { /* La evidencia es complementaria: si falla, el historial sigue funcionando. */ });
+        }
+
+        var ultimoHtmlImprimibleEtiquetas = '';
+
+        function calcularSvgBarras(codigo) {
+            var texto = (codigo || 'SIN-CODIGO').trim().toUpperCase();
+            var x = 6;
+            var rects = '<rect x="6" y="4" width="2" height="46" fill="#0f172a"/><rect x="10" y="4" width="1" height="46" fill="#0f172a"/><rect x="13" y="4" width="3" height="46" fill="#0f172a"/>';
+            x = 18;
+            for (var i = 0; i < texto.length && x < 240; i++) {
+                var valor = texto.charCodeAt(i);
+                var a1 = (valor % 3) + 1;
+                var e1 = ((valor >> 2) % 2) + 1;
+                var a2 = ((valor >> 3) % 3) + 1;
+                var e2 = ((valor >> 5) % 2) + 1;
+                rects += '<rect x="' + x + '" y="4" width="' + a1 + '" height="46" fill="#0f172a"/>';
+                x += a1 + e1;
+                if (x < 244) {
+                    rects += '<rect x="' + x + '" y="4" width="' + a2 + '" height="46" fill="#0f172a"/>';
+                    x += a2 + e2;
+                }
+            }
+            rects += '<rect x="246" y="4" width="2" height="46" fill="#0f172a"/><rect x="250" y="4" width="3" height="46" fill="#0f172a"/>';
+            return '<svg viewBox="0 0 260 54" width="100%" height="54" role="img" aria-label="Código de barras ' + escapeHtml(texto) + '" class="border rounded bg-white p-1">' + rects + '</svg>';
+        }
+
+        function renderizarTarjetasEtiquetas(etiquetas) {
+            if (!etiquetas || etiquetas.length === 0) {
+                return '<div class="col-12 text-secondary small">No se registraron bultos para este envío.</div>';
+            }
+            var html = '';
+            etiquetas.forEach(function (et) {
+                var codBulto = et.identificacionBulto || et.IdentificacionBulto || '';
+                var numBulto = et.numeroBulto || et.NumeroBulto || 1;
+                var totBultos = et.totalBultos || et.TotalBultos || 1;
+                var destinatario = et.nombreDestinatario || et.NombreDestinatario || '';
+                var direccion = et.direccionDestino || et.DireccionDestino || '';
+                html += '<div class="col-12 col-md-6">';
+                html += '  <div class="border rounded-3 p-3 bg-white shadow-xs h-100">';
+                html += '    <div class="d-flex justify-content-between align-items-center mb-2">';
+                html += '      <span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>';
+                html += '      <span class="small text-secondary font-monospace">' + escapeHtml(et.codigoSeguimiento || et.CodigoSeguimiento || '') + '</span>';
+                html += '    </div>';
+                html += '    <div class="mb-2">' + calcularSvgBarras(codBulto) + '</div>';
+                html += '    <div class="text-center font-monospace fw-bold text-dark mb-2" style="letter-spacing: 1px;">' + escapeHtml(codBulto) + '</div>';
+                html += '    <div class="small text-secondary border-top pt-2"><strong>Destinatario:</strong> ' + escapeHtml(destinatario) + '<br/><strong>Destino:</strong> ' + escapeHtml(direccion) + '</div>';
+                html += '  </div>';
+                html += '</div>';
+            });
+            return html;
+        }
+
+        function cargarBultosEnContenedor(envioId, contenedorId) {
+            var contenedor = document.getElementById(contenedorId);
+            if (!contenedor) return;
+            contenedor.innerHTML = '<div class="col-12 text-secondary small">Cargando códigos de barras de los bultos...</div>';
+            fetch('?handler=Etiquetas&id=' + encodeURIComponent(envioId))
+                .then(function (r) { if (!r.ok) throw new Error('Error'); return r.json(); })
+                .then(function (resp) {
+                    var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
+                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                })
+                .catch(function () {
+                    contenedor.innerHTML = '<div class="col-12 text-danger small">No se pudieron cargar los códigos de barras de los bultos.</div>';
+                });
+        }
+
+        function abrirModalEtiquetasBultos(envioId, codigoSeguimiento) {
+            document.getElementById('lblEtiquetasCodigoEnvio').innerText = codigoSeguimiento || '';
+            var cargando = document.getElementById('cargandoEtiquetasBultos');
+            var contenedor = document.getElementById('contenedorEtiquetasBultos');
+            var error = document.getElementById('errorEtiquetasBultos');
+            cargando.style.display = 'block';
+            contenedor.style.display = 'none';
+            error.style.display = 'none';
+            contenedor.innerHTML = '';
+
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEtiquetasBultos'));
+            modal.show();
+
+            fetch('?handler=Etiquetas&id=' + encodeURIComponent(envioId))
+                .then(function (r) { if (!r.ok) throw new Error('Error'); return r.json(); })
+                .then(function (resp) {
+                    cargando.style.display = 'none';
+                    var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
+                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                    contenedor.style.display = 'flex';
+                })
+                .catch(function () {
+                    cargando.style.display = 'none';
+                    error.style.display = 'block';
+                });
+        }
+
+        function imprimirEtiquetasActuales() {
+            if (!ultimoHtmlImprimibleEtiquetas) return;
+            var ventana = window.open('', '_blank', 'width=960,height=780');
+            if (ventana) {
+                ventana.document.open();
+                ventana.document.write(ultimoHtmlImprimibleEtiquetas);
+                ventana.document.close();
+                ventana.focus();
+            }
         }
 
         function escapeHtml(texto) {

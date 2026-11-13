@@ -379,7 +379,7 @@
                 '    </td>',
                 '    <td>',
                 '        <div>' + telemetriaHtml + '</div>',
-                '        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">Bat: <strong class="text-dark">' + (Number(veh.NivelBateriaPct || 0) > 0 ? Number(veh.NivelBateriaPct) + '%' : 's/d') + '</strong></div>',
+                '        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">Bat: <strong class="text-dark">' + (Number(veh.NivelBateriaPct || 0) > 0 ? Number(veh.NivelBateriaPct) + '%' : 'No reportado') + '</strong></div>',
                 '    </td>',
                 '    <td class="text-end">',
                 '        <div class="d-inline-flex gap-1 justify-content-end align-items-center">',
@@ -501,6 +501,8 @@
             var rId = datos.repartidorId || datos.RepartidorId;
             var lat = datos.latitud !== undefined ? datos.latitud : datos.Latitud;
             var lng = datos.longitud !== undefined ? datos.longitud : datos.Longitud;
+            var vel = datos.velocidadKmh !== undefined ? datos.velocidadKmh : datos.VelocidadKmh;
+            var bat = datos.nivelBateriaPct !== undefined ? datos.nivelBateriaPct : (datos.bateriaPct !== undefined ? datos.bateriaPct : datos.NivelBateriaPct);
 
             if (lat && lng) {
                 var veh = window.datosVehiculos.find(function (v) {
@@ -512,7 +514,20 @@
                     veh.latitud = lat;
                     veh.Longitud = lng;
                     veh.longitud = lng;
+                    if (vel !== undefined && vel !== null && !isNaN(Number(vel))) {
+                        var velEntera = Math.max(0, Math.round(Number(vel)));
+                        veh.VelocidadKmh = velEntera;
+                        veh.velocidadKmh = velEntera;
+                        veh.EstadoOperativo = velEntera >= 3 ? 'EnMovimiento' : 'EnParada';
+                        veh.estadoOperativo = veh.EstadoOperativo;
+                    }
+                    if (bat !== undefined && bat !== null && Number(bat) > 0) {
+                        var batEntera = Math.min(100, Math.max(0, Math.round(Number(bat))));
+                        veh.NivelBateriaPct = batEntera;
+                        veh.nivelBateriaPct = batEntera;
+                    }
                     veh.UltimaActualizacion = new Date().toISOString();
+                    renderizarVehiculos(window.datosVehiculos);
                     if (typeof window.dibujarMapa === 'function') {
                         window.dibujarMapa();
                     }

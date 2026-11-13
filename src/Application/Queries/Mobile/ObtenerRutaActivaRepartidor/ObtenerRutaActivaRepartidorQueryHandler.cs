@@ -69,6 +69,10 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
             .Select(m => new MotivoNoEntregaDescargaDto(m.Id, m.Codigo, m.Descripcion))
             .ToList();
 
+        var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(_currentTenant.OperadorId, cancellationToken);
+        var tipoPrueba = reglaOperativa?.TipoPruebaEntregaExigida ?? "Firma digital del receptor";
+        var maxIntentos = reglaOperativa?.MaxIntentosEntrega ?? 3;
+
         var resultado = new List<RutaActivaRepartidorDto>();
         var rutasOrdenadas = rutasActivas
             .OrderBy(r => r.Estado switch
@@ -83,7 +87,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
 
         foreach (var rutaResumen in rutasOrdenadas)
         {
-            var dto = await ConstruirRutaDtoAsync(rutaResumen.Id, repartidor, motivosDto, cancellationToken);
+            var dto = await ConstruirRutaDtoAsync(rutaResumen.Id, repartidor, motivosDto, tipoPrueba, maxIntentos, cancellationToken);
             if (dto != null)
             {
                 resultado.Add(dto);
@@ -123,6 +127,8 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
         Guid rutaId,
         Domain.Entities.Operador.Repartidor repartidor,
         List<MotivoNoEntregaDescargaDto> motivosDto,
+        string tipoPruebaExigida,
+        int maxIntentos,
         CancellationToken cancellationToken)
     {
         var ruta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(rutaId, cancellationToken);
@@ -285,7 +291,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
             PatenteVehiculo: vehiculo?.Patente,
             TipoVehiculo: vehiculo is not null ? $"{vehiculo.Tipo} ({vehiculo.CapacidadPeso:F0} kg)" : null,
             Paradas: paradasDto,
-            MotivosNoEntrega: motivosDto
+            MotivosNoEntrega: motivosDto,
+            TipoPruebaEntregaExigida: tipoPruebaExigida,
+            MaxIntentosEntrega: maxIntentos
         );
     }
 }

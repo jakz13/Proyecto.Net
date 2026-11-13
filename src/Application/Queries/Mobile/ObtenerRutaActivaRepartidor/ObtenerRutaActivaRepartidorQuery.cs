@@ -27,6 +27,8 @@ public record RutaActivaRepartidorDto(
     string? PatenteVehiculo,
     string? TipoVehiculo,
     IReadOnlyList<ParadaNavegacionDto> Paradas,
-    IReadOnlyList<MotivoNoEntregaDescargaDto> MotivosNoEntrega
+    IReadOnlyList<MotivoNoEntregaDescargaDto> MotivosNoEntrega,
+    string? TipoPruebaEntregaExigida = null,
+    int? MaxIntentosEntrega = null
 );
 
