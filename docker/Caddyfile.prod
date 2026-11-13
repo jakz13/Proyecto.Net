@@ -17,10 +17,10 @@
 :8081 {
 	reverse_proxy api1:8080 api2:8080 {
 		lb_policy round_robin
-		health_uri /ready
+		health_uri /live
 		health_interval 10s
 		health_timeout 8s
-		health_fails 3
+		health_fails 4
 		lb_try_duration 5s
 	}
 }
@@ -35,10 +35,10 @@
 	handle @api {
 		reverse_proxy api1:8080 api2:8080 {
 			lb_policy cookie
-			health_uri /ready
+			health_uri /live
 			health_interval 10s
 			health_timeout 8s
-			health_fails 3
+			health_fails 4
 			lb_try_duration 5s
 		}
 	}
@@ -58,10 +58,10 @@
 	handle @api {
 		reverse_proxy api1:8080 api2:8080 {
 			lb_policy cookie
-			health_uri /ready
+			health_uri /live
 			health_interval 10s
 			health_timeout 8s
-			health_fails 3
+			health_fails 4
 			lb_try_duration 5s
 		}
 	}
@@ -80,10 +80,10 @@
 	handle @api {
 		reverse_proxy api1:8080 api2:8080 {
 			lb_policy cookie
-			health_uri /ready
+			health_uri /live
 			health_interval 10s
 			health_timeout 8s
-			health_fails 3
+			health_fails 4
 			lb_try_duration 5s
 		}
 	}
