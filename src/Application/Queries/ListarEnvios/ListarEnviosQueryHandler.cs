@@ -17,19 +17,25 @@ public class ListarEnviosQueryHandler : IRequestHandler<ListarEnviosQuery, List<
     private readonly IRutaRepository? _rutaRepository;
     private readonly IRepartidorRepository? _repartidorRepository;
     private readonly IUsuarioRepository? _usuarioRepository;
+    private readonly IComercioRepository? _comercioRepository;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ListarEnviosQueryHandler(
         IEnvioRepository envioRepository,
         ICurrentTenant currentTenant,
         IRutaRepository? rutaRepository = null,
         IRepartidorRepository? repartidorRepository = null,
-        IUsuarioRepository? usuarioRepository = null)
+        IUsuarioRepository? usuarioRepository = null,
+        IComercioRepository? comercioRepository = null,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _envioRepository = envioRepository;
         _currentTenant = currentTenant;
         _rutaRepository = rutaRepository;
         _repartidorRepository = repartidorRepository;
         _usuarioRepository = usuarioRepository;
+        _comercioRepository = comercioRepository;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<List<EnvioDto>> Handle(ListarEnviosQuery request, CancellationToken cancellationToken)
@@ -86,6 +92,20 @@ public class ListarEnviosQueryHandler : IRequestHandler<ListarEnviosQuery, List<
             }
         }
 
+        // Nombre del comercio remitente (la pantalla de envíos lo muestra; sin él todos figuraban como "Comercio General").
+        // El envío guarda la relación comercio-operador: de ella se llega al comercio.
+        var nombresDeComercio = new Dictionary<Guid, string>();
+        if (_comercioRepository != null && _comercioOperadorRepository != null)
+        {
+            foreach (var relacionId in enviosFiltrados.Select(e => e.ComercioOperadorId).Distinct())
+            {
+                var relacion = await _comercioOperadorRepository.GetByIdAsync(relacionId, cancellationToken);
+                var comercio = relacion is null ? null : await _comercioRepository.ObtenerPorIdAsync(relacion.ComercioId, cancellationToken);
+                if (comercio is not null)
+                    nombresDeComercio[relacionId] = string.IsNullOrWhiteSpace(comercio.NombreFantasia) ? comercio.RazonSocial : comercio.NombreFantasia;
+            }
+        }
+
         return enviosFiltrados
             .Select(e =>
             {
@@ -119,7 +139,7 @@ public class ListarEnviosQueryHandler : IRequestHandler<ListarEnviosQuery, List<
                     e.CodigoSeguimientoPublico,
                     hojaDeRutaNumero,
                     repartidorNombre,
-                    null,
+                    nombresDeComercio.GetValueOrDefault(e.ComercioOperadorId),
                     e.PesoTotal > 0 ? e.PesoTotal : null);
             })
             .ToList();

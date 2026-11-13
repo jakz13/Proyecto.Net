@@ -720,102 +720,22 @@
             '</div>'
         );
 
-        var tieneCamionActivo = (estadoNorm === 'EnTransito' || estadoNorm === 'AsignadoARuta');
+        // El mapa del envío solo dibuja lo que se sabe: el depósito y el destino. La posición real del vehículo se sigue en el Tablero en Vivo
+        // (antes se inventaban paradas intermedias, un camión y un repartidor ficticios).
+        var tieneCamionActivo = false;
+        var colorLinea = estadoNorm === 'Entregado'
+            ? '#15803D'
+            : (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado' ? '#B91C1C' : '#64748B');
 
-        // 2. Si el envío está en ruta / tránsito, dibujamos paradas previas de la hoja de ruta y el camión de reparto
-        if (tieneCamionActivo) {
-            var paradaIntermedia1 = {
-                lat: DEPOSITO_CENTRAL.lat + (coordDestino.lat - DEPOSITO_CENTRAL.lat) * 0.35 + 0.0032,
-                lng: DEPOSITO_CENTRAL.lng + (coordDestino.lng - DEPOSITO_CENTRAL.lng) * 0.35 - 0.0025
-            };
-            var paradaIntermedia2 = {
-                lat: DEPOSITO_CENTRAL.lat + (coordDestino.lat - DEPOSITO_CENTRAL.lat) * 0.62 - 0.0020,
-                lng: DEPOSITO_CENTRAL.lng + (coordDestino.lng - DEPOSITO_CENTRAL.lng) * 0.62 + 0.0028
-            };
-
-            var coordCamion = estadoNorm === 'EnTransito'
-                ? {
-                    lat: paradaIntermedia2.lat + (coordDestino.lat - paradaIntermedia2.lat) * 0.45,
-                    lng: paradaIntermedia2.lng + (coordDestino.lng - paradaIntermedia2.lng) * 0.45
-                }
-                : {
-                    lat: DEPOSITO_CENTRAL.lat + (paradaIntermedia1.lat - DEPOSITO_CENTRAL.lat) * 0.25,
-                    lng: DEPOSITO_CENTRAL.lng + (paradaIntermedia1.lng - DEPOSITO_CENTRAL.lng) * 0.25
-                };
-
-            var markerP1 = L.marker([paradaIntermedia1.lat, paradaIntermedia1.lng], {
-                icon: crearIconoParada('1', 'entregado', false)
-            }).addTo(mapa);
-            markerP1.bindPopup(
-                '<div class="um-popup">' +
-                '  <div class="um-popup-titulo">Parada #1 · Hoja ' + escaparHtml(numeroRuta || 'HDR-2026-0081') + '</div>' +
-                '  <div class="um-popup-meta">Estado: Entregado previamente en el recorrido</div>' +
-                '</div>'
-            );
-
-            var markerP2 = L.marker([paradaIntermedia2.lat, paradaIntermedia2.lng], {
-                icon: crearIconoParada('2', estadoNorm === 'EnTransito' ? 'entregado' : 'pendiente', false)
-            }).addTo(mapa);
-            markerP2.bindPopup(
-                '<div class="um-popup">' +
-                '  <div class="um-popup-titulo">Parada #2 · Hoja ' + escaparHtml(numeroRuta || 'HDR-2026-0081') + '</div>' +
-                '  <div class="um-popup-meta">Estado: ' + (estadoNorm === 'EnTransito' ? 'Completada' : 'Programada en ruta') + '</div>' +
-                '</div>'
-            );
-
-            trazarRutaOSRM(mapa, [
-                [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],
-                [paradaIntermedia1.lat, paradaIntermedia1.lng],
-                [paradaIntermedia2.lat, paradaIntermedia2.lng],
-                [coordCamion.lat, coordCamion.lng]
-            ], {
-                color: '#1D4ED8',
-                weight: 3.5,
-                opacity: 0.85
-            });
-
-            trazarRutaOSRM(mapa, [
-                [coordCamion.lat, coordCamion.lng],
-                [coordDestino.lat, coordDestino.lng]
-            ], {
-                color: '#1D4ED8',
-                weight: 3,
-                dashArray: '6, 6',
-                opacity: 0.75
-            });
-
-            var etiquetaCamion = numeroRuta || 'En Reparto';
-            var markerCamion = L.marker([coordCamion.lat, coordCamion.lng], {
-                icon: crearIconoCamion(etiquetaCamion, estadoNorm === 'EnTransito' ? 'movimiento' : 'ruta', true),
-                zIndexOffset: 500
-            }).addTo(mapa);
-
-            markerCamion.bindPopup(
-                '<div class="um-popup">' +
-                '  <div class="um-popup-titulo">Unidad de Reparto · ' + escaparHtml(etiquetaCamion) + '</div>' +
-                '  <div class="um-popup-sub">Repartidor: ' + escaparHtml(repartidor || 'Juan Pérez') + '</div>' +
-                '  <div class="um-popup-meta">Rumbo a parada de entrega (' + escaparHtml(codigo) + ')</div>' +
-                '</div>'
-            );
-
-            puntosAjuste.push([paradaIntermedia1.lat, paradaIntermedia1.lng]);
-            puntosAjuste.push([paradaIntermedia2.lat, paradaIntermedia2.lng]);
-            puntosAjuste.push([coordCamion.lat, coordCamion.lng]);
-        } else {
-            var colorLinea = estadoNorm === 'Entregado'
-                ? '#15803D'
-                : (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado' ? '#B91C1C' : '#64748B');
-
-            trazarRutaOSRM(mapa, [
-                [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],
-                [coordDestino.lat, coordDestino.lng]
-            ], {
-                color: colorLinea,
-                weight: 2.8,
-                dashArray: estadoNorm === 'Entregado' ? null : '6, 6',
-                opacity: 0.75
-            });
-        }
+        trazarRutaOSRM(mapa, [
+            [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],
+            [coordDestino.lat, coordDestino.lng]
+        ], {
+            color: colorLinea,
+            weight: 2.8,
+            dashArray: estadoNorm === 'Entregado' ? null : '6, 6',
+            opacity: 0.75
+        });
 
         // 3. Marcador de la Parada de Destino del Envío
         var varianteDestino = obtenerVarianteColorPorEstado(estadoNorm, false);
