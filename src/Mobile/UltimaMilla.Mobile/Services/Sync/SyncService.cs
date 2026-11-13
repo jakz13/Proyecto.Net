@@ -194,17 +194,22 @@ public class SyncService : ISyncService, IDisposable
                 await ActualizarFuncionalidadesAsync(client, cancellationToken);
 
                 // 1. Intentar consultar endpoint que devuelve todas las rutas activas/vigentes del repartidor: GET /api/mobile/v1/rutas/activas
+                bool servidorRespondioLista = false;
                 var responseActivas = await client.GetAsync("/api/mobile/v1/rutas/activas", cancellationToken);
                 if (responseActivas.IsSuccessStatusCode)
                 {
                     var lista = await responseActivas.Content.ReadFromJsonAsync<List<RutaActivaRepartidorDto>>(JsonOptions, cancellationToken);
-                    if (lista != null && lista.Count > 0)
+                    if (lista != null)
                     {
-                        rutasDescargadas.AddRange(lista);
-                    }
-                    else if (lista is { Count: 0 } && await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
-                    {
-                        await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                        servidorRespondioLista = true;
+                        if (lista.Count > 0)
+                        {
+                            rutasDescargadas.AddRange(lista);
+                        }
+                        else if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                        {
+                            await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                        }
                     }
                 }
                 else if (responseActivas.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -257,6 +262,17 @@ public class SyncService : ISyncService, IDisposable
                         estadoRuta: r.Estado,
                         numeroRuta: r.NumeroRuta,
                         fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue));
+
+                    if (r.Estado is "Rendida" or "Cerrada")
+                    {
+                        await _localDatabaseService.PurgarOperacionesPorRutaAsync(r.HojaDeRutaId);
+                    }
+                }
+
+                if (servidorRespondioLista)
+                {
+                    await _localDatabaseService.MarcarRutasAusentesComoRendidasAsync(
+                        rutasDescargadas.Select(r => r.HojaDeRutaId));
                 }
 
                 if (rutasDescargadas.Count > 0)
@@ -507,8 +523,17 @@ public class SyncService : ISyncService, IDisposable
             }
 
             // 2. Procesar el resto de operaciones de negocio en orden FIFO
+            var rutasRendidasEnLote = new HashSet<Guid>();
             foreach (var op in otrasOperaciones)
             {
+                if (rutasRendidasEnLote.Any(id =>
+                    !string.IsNullOrWhiteSpace(op.PayloadJson) &&
+                    (op.PayloadJson.Contains(id.ToString("D"), StringComparison.OrdinalIgnoreCase) ||
+                     op.PayloadJson.Contains(id.ToString("N"), StringComparison.OrdinalIgnoreCase))))
+                {
+                    await _localDatabaseService.PurgarOperacionOfflineAsync(op.Id);
+                    continue;
+                }
                 if (!IsOnline)
                 {
                     detenidoPorCorteDeRed = true;
@@ -612,12 +637,25 @@ public class SyncService : ISyncService, IDisposable
                                 }
                                 else
                                 {
-                                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                                    var detalle = $"Entrega Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): HTTP {(int)response.StatusCode} - {error}";
-                                    _logger.LogWarning("Error sincronizando EntregaExitosa: {Detalle}", detalle);
-                                    await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
-                                    detallesErrores.Add(detalle);
-                                    erroresNegocio++;
+                                    var (ok, _, yaEntregado) = await ManejarErrorHttpOperacionAsync(
+                                        op,
+                                        response,
+                                        $"Entrega Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N})",
+                                        payload.HojaDeRutaId,
+                                        detallesErrores,
+                                        rutasRendidasEnLote,
+                                        cancellationToken);
+
+                                    if (ok)
+                                    {
+                                        if (yaEntregado)
+                                            await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Entregado");
+                                        exitosas++;
+                                    }
+                                    else
+                                    {
+                                        erroresNegocio++;
+                                    }
                                 }
                             }
                             break;
@@ -685,12 +723,15 @@ public class SyncService : ISyncService, IDisposable
                                 }
                                 else
                                 {
-                                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                                    var detalle = $"Incidencia Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): HTTP {(int)response.StatusCode} - {error}";
-                                    _logger.LogWarning("Error sincronizando IntentoFallido: {Detalle}", detalle);
-                                    await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
-                                    detallesErrores.Add(detalle);
-                                    erroresNegocio++;
+                                    var (ok, _, _) = await ManejarErrorHttpOperacionAsync(
+                                        op,
+                                        response,
+                                        $"Incidencia Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N})",
+                                        payload.HojaDeRutaId,
+                                        detallesErrores,
+                                        rutasRendidasEnLote,
+                                        cancellationToken);
+                                    if (ok) exitosas++; else erroresNegocio++;
                                 }
                             }
                             break;
@@ -825,12 +866,15 @@ public class SyncService : ISyncService, IDisposable
                                 }
                                 else
                                 {
-                                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                                    var detalle = $"Retiro Devolución Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N}): HTTP {(int)response.StatusCode} - {error}";
-                                    _logger.LogWarning("Error sincronizando RetiroDevolucion: {Detalle}", detalle);
-                                    await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
-                                    detallesErrores.Add(detalle);
-                                    erroresNegocio++;
+                                    var (ok, _, _) = await ManejarErrorHttpOperacionAsync(
+                                        op,
+                                        response,
+                                        $"Retiro Devolución Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N})",
+                                        payload.HojaDeRutaId,
+                                        detallesErrores,
+                                        rutasRendidasEnLote,
+                                        cancellationToken);
+                                    if (ok) exitosas++; else erroresNegocio++;
                                 }
                             }
                             break;
@@ -889,15 +933,32 @@ public class SyncService : ISyncService, IDisposable
 
                                 var url = $"/api/mobile/v1/rutas/{targetRutaId}/iniciar-recorrido";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
-                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "IniciarRecorrido", detallesErrores, cancellationToken);
-                                if (ok)
+                                if (response.IsSuccessStatusCode)
                                 {
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
                                     await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnTransito");
                                     exitosas++;
                                 }
                                 else
                                 {
-                                    erroresNegocio++;
+                                    var (ok, rutaTerminada, _) = await ManejarErrorHttpOperacionAsync(
+                                        op,
+                                        response,
+                                        "IniciarRecorrido",
+                                        targetRutaId,
+                                        detallesErrores,
+                                        rutasRendidasEnLote,
+                                        cancellationToken);
+                                    if (ok)
+                                    {
+                                        if (!rutaTerminada)
+                                            await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnTransito");
+                                        exitosas++;
+                                    }
+                                    else
+                                    {
+                                        erroresNegocio++;
+                                    }
                                 }
                             }
                             break;
@@ -1071,7 +1132,12 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
-    private async Task<bool> ProcesarRespuestaHttpAsync(OperacionOfflineLocal op, HttpResponseMessage response, string nombreOp, List<string> detallesErrores, CancellationToken ct)
+    private async Task<bool> ProcesarRespuestaHttpAsync(
+        OperacionOfflineLocal op,
+        HttpResponseMessage response,
+        string nombreOp,
+        List<string> detallesErrores,
+        CancellationToken ct)
     {
         if (response.IsSuccessStatusCode)
         {
@@ -1079,12 +1145,127 @@ public class SyncService : ISyncService, IDisposable
             return true;
         }
 
+        var (tratadoComoExito, _, _) = await ManejarErrorHttpOperacionAsync(
+            op,
+            response,
+            nombreOp,
+            ExtraerHojaDeRutaId(op.PayloadJson),
+            detallesErrores,
+            rutasRendidasEnLote: null,
+            ct);
+
+        return tratadoComoExito;
+    }
+
+    private async Task<(bool TratadoComoExito, bool RutaTerminada, bool YaEntregado)> ManejarErrorHttpOperacionAsync(
+        OperacionOfflineLocal op,
+        HttpResponseMessage response,
+        string nombreOp,
+        Guid? hojaDeRutaId,
+        List<string> detallesErrores,
+        HashSet<Guid>? rutasRendidasEnLote,
+        CancellationToken ct)
+    {
         var error = await response.Content.ReadAsStringAsync(ct);
-        var detalle = $"{nombreOp} (Op #{op.Id}): HTTP {(int)response.StatusCode} - {error}";
-        _logger.LogWarning("Respuesta no exitosa en {Nombre}: {Detalle}", nombreOp, detalle);
+        var status = (int)response.StatusCode;
+        var detalle = $"{nombreOp} (Op #{op.Id}): HTTP {status} - {error}";
+
+        bool esDefinitivo = status is 400 or 404 or 409;
+        bool mencionaRendidaOCerrada =
+            error.Contains("Rendida", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Cerrada", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Finalizada", StringComparison.OrdinalIgnoreCase);
+
+        bool mencionaYaEntregado =
+            error.Contains("Entregado", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Entregada", StringComparison.OrdinalIgnoreCase);
+
+        bool mencionaEnTransito =
+            error.Contains("EnTransito", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("en tránsito", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya se encontraba", StringComparison.OrdinalIgnoreCase);
+
+        if (mencionaRendidaOCerrada)
+        {
+            var estadoTerminal = error.Contains("Cerrada", StringComparison.OrdinalIgnoreCase) ? "Cerrada" : "Rendida";
+            if (hojaDeRutaId.HasValue && hojaDeRutaId.Value != Guid.Empty)
+            {
+                rutasRendidasEnLote?.Add(hojaDeRutaId.Value);
+                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(hojaDeRutaId.Value, estadoTerminal);
+                await _localDatabaseService.PurgarOperacionesPorRutaAsync(hojaDeRutaId.Value);
+            }
+            else
+            {
+                await _localDatabaseService.PurgarOperacionOfflineAsync(op.Id);
+            }
+
+            bool silencioso = op.TipoOperacion is TiposOperacionOffline.IniciarRecorrido
+                or TiposOperacionOffline.SeleccionarParada
+                or TiposOperacionOffline.EventoGeocerca
+                or TiposOperacionOffline.TelemetriaGps
+                or TiposOperacionOffline.FinalizarHojaDeRuta;
+
+            _logger.LogInformation("Operación {Nombre} (Op #{Id}) purgada por ruta en estado terminal '{Estado}'.", nombreOp, op.Id, estadoTerminal);
+
+            if (!silencioso)
+            {
+                detallesErrores.Add($"La hoja de ruta ya fue {estadoTerminal.ToLowerInvariant()} en el servidor.");
+            }
+
+            return (silencioso, true, false);
+        }
+
+        if (esDefinitivo)
+        {
+            await _localDatabaseService.PurgarOperacionOfflineAsync(op.Id);
+
+            bool esIdempotenteSilencioso =
+                (op.TipoOperacion == TiposOperacionOffline.IniciarRecorrido && (mencionaEnTransito || status is 400 or 404 or 409)) ||
+                (mencionaYaEntregado && op.TipoOperacion is TiposOperacionOffline.EntregaExitosa or TiposOperacionOffline.EntregaParcial) ||
+                op.TipoOperacion is TiposOperacionOffline.TelemetriaGps
+                    or TiposOperacionOffline.EventoGeocerca
+                    or TiposOperacionOffline.SeleccionarParada
+                    or TiposOperacionOffline.FinalizarHojaDeRuta;
+
+            if (esIdempotenteSilencioso)
+            {
+                _logger.LogInformation("Operación definitiva/idempotente {Nombre} (Op #{Id}) purgada silenciosamente: HTTP {Status}", nombreOp, op.Id, status);
+                return (true, false, mencionaYaEntregado);
+            }
+
+            _logger.LogWarning("Operación definitiva rechazada y purgada en {Nombre}: {Detalle}", nombreOp, detalle);
+            detallesErrores.Add(detalle);
+            return (false, false, false);
+        }
+
+        _logger.LogWarning("Respuesta no exitosa transitoria en {Nombre}: {Detalle}", nombreOp, detalle);
         await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
         detallesErrores.Add(detalle);
-        return false;
+        return (false, false, false);
+    }
+
+    private static Guid? ExtraerHojaDeRutaId(string payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payloadJson);
+            if (doc.RootElement.TryGetProperty("HojaDeRutaId", out var prop) &&
+                prop.ValueKind == JsonValueKind.String &&
+                Guid.TryParse(prop.GetString(), out var guid) &&
+                guid != Guid.Empty)
+            {
+                return guid;
+            }
+        }
+        catch
+        {
+            // JSON malformado ignorado
+        }
+
+        return null;
     }
 
     public async Task<List<EnvioAdmitidoMobileDto>> ObtenerEnviosAdmitidosDepositoAsync(CancellationToken cancellationToken = default)

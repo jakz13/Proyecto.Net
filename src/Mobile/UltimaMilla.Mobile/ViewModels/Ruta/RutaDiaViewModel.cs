@@ -288,14 +288,23 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private HojaDeRutaSelectorItem? _hojaDeRutaSeleccionada;
+    private bool _actualizandoSelector;
+    private readonly SemaphoreSlim _uiRefreshLock = new(1, 1);
 
     public ObservableCollection<HojaDeRutaSelectorItem> HojasDeRutaDisponibles { get; } = new();
 
     async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
     {
-        if (value != null && !IsBusy)
+        if (_actualizandoSelector || value == null || IsBusy)
+            return;
+
+        try
         {
             await CargarRutaEspecificaAsync(value.Id);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error cambiando hoja de ruta: {ex.Message}");
         }
     }
 
@@ -532,8 +541,15 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            ActualizarEstadoVisualConectividad(e.IsOnline, e.OperacionesPendientes);
-            await RefrescarParadasDesdeSQLiteAsync();
+            try
+            {
+                ActualizarEstadoVisualConectividad(e.IsOnline, e.OperacionesPendientes);
+                await RefrescarParadasDesdeSQLiteAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error en OnSyncStateChangedHandler: {ex.Message}");
+            }
         });
     }
 
@@ -751,6 +767,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 "EnCarga" => "En Carga",
                 "Liberada" => "Liberada",
                 "Finalizada" => "Todas las paradas completadas",
+                "Rendida" => "Rendida en depósito",
                 "Cerrada" => "Cerrada",
                 _ => r.Estado
             };
@@ -768,33 +785,43 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         var rutaActiva = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada" or "Finalizada");
 
-        if (rutaActiva != null)
+        _actualizandoSelector = true;
+        try
         {
-            SinRutaAsignada = false;
-            HojaDeRutaSeleccionada = rutaActiva;
-            await CargarRutaEspecificaAsync(rutaActiva.Id);
-        }
-        else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Cerrada" or "Rendida"))
-        {
-            SinRutaAsignada = true;
-            Paradas.Clear();
-            HojaDeRutaSeleccionada = HojasDeRutaDisponibles.First();
-            RecalcularProgreso();
-            if (_trackingService is { IsTrackingActive: true })
+            if (rutaActiva != null)
             {
-                await _trackingService.DetenerTrackingAsync();
+                SinRutaAsignada = false;
+                HojaDeRutaSeleccionada = rutaActiva;
+                await CargarRutaEspecificaAsync(rutaActiva.Id);
+            }
+            else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Cerrada" or "Rendida"))
+            {
+                SinRutaAsignada = true;
+                Paradas.Clear();
+                EstadoHojaDeRuta = HojasDeRutaDisponibles.First().Estado;
+                HojaDeRutaSeleccionada = HojasDeRutaDisponibles.First();
+                RecalcularProgreso();
+                if (_trackingService is { IsTrackingActive: true })
+                {
+                    await _trackingService.DetenerTrackingAsync();
+                }
+            }
+            else
+            {
+                SinRutaAsignada = true;
+                Paradas.Clear();
+                EstadoHojaDeRuta = "SinRuta";
+                HojaDeRutaSeleccionada = null;
+                RecalcularProgreso();
+                if (_trackingService is { IsTrackingActive: true })
+                {
+                    await _trackingService.DetenerTrackingAsync();
+                }
             }
         }
-        else
+        finally
         {
-            SinRutaAsignada = true;
-            Paradas.Clear();
-            HojaDeRutaSeleccionada = null;
-            RecalcularProgreso();
-            if (_trackingService is { IsTrackingActive: true })
-            {
-                await _trackingService.DetenerTrackingAsync();
-            }
+            _actualizandoSelector = false;
         }
     }
 
@@ -832,11 +859,20 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (_localDatabaseService is null)
             return;
 
+        if (!await _uiRefreshLock.WaitAsync(0))
+            return;
+
         try
         {
             var rutaId = HojaDeRutaSeleccionada?.Id;
             var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
-            if (local != null && local.Paradas.Count > 0)
+            if (local == null || local.Ruta == null || local.Ruta.Estado is "Cerrada" or "Rendida")
+            {
+                await CargarRutasDesdeSQLiteAsync();
+                return;
+            }
+
+            if (local.Paradas.Count > 0)
             {
                 Paradas.Clear();
                 foreach (var p in local.Paradas)
@@ -845,17 +881,19 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 }
                 AplicarEstadosGeocercaEnParadas();
             }
-            if (local?.Ruta != null)
-            {
-                EstadoHojaDeRuta = local.Ruta.Estado;
-                FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
-            }
+            EstadoHojaDeRuta = local.Ruta.Estado;
+            FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
+            SinRutaAsignada = false;
             RecalcularProgreso();
             await EvaluarYActualizarTrackingAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback
+            System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error en RefrescarParadasDesdeSQLiteAsync: {ex.Message}");
+        }
+        finally
+        {
+            _uiRefreshLock.Release();
         }
     }
 
@@ -864,10 +902,19 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (_trackingService == null)
             return;
 
+        var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
+        if (rutaLocal?.Ruta == null || EstadoHojaDeRuta is "Cerrada" or "Rendida" || rutaLocal.Ruta.Estado is "Cerrada" or "Rendida")
+        {
+            if (_trackingService.IsTrackingActive)
+            {
+                await _trackingService.DetenerTrackingAsync();
+            }
+            return;
+        }
+
         if (_authService?.RepartidorId is { } repartidorId && repartidorId != Guid.Empty)
         {
-            var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-            var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
+            var rutaId = rutaLocal.Ruta.Id;
 
             if (!_trackingService.IsTrackingActive)
             {
@@ -877,13 +924,6 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             {
                 _trackingService.HojaDeRutaIdActiva = rutaId;
                 _trackingService.RepartidorIdActivo = repartidorId;
-            }
-        }
-        else if (EstadoHojaDeRuta is "Cerrada" or "Rendida")
-        {
-            if (_trackingService.IsTrackingActive)
-            {
-                await _trackingService.DetenerTrackingAsync();
             }
         }
     }

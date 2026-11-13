@@ -92,7 +92,15 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.DisplayAlertAsync("Reasignacion Urgente", mensaje, "Aceptar");
+                    try
+                    {
+                        if (Shell.Current != null)
+                            await Shell.Current.DisplayAlertAsync("Reasignacion Urgente", mensaje, "Aceptar");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "SignalR: No se pudo mostrar alerta en pantalla.");
+                    }
                 });
             }
         });
@@ -105,7 +113,15 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.DisplayAlertAsync(titulo, mensaje, "Aceptar");
+                    try
+                    {
+                        if (Shell.Current != null)
+                            await Shell.Current.DisplayAlertAsync(titulo, mensaje, "Aceptar");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "SignalR: No se pudo mostrar notificación operativa en pantalla.");
+                    }
                 });
             }
         });

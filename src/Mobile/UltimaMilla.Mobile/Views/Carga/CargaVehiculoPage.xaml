@@ -3,11 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Carga"
              xmlns:controls="clr-namespace:UltimaMilla.Mobile.Controls"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Carga.CargaVehiculoPage"
              x:DataType="vm:CargaVehiculoViewModel"
              Title="Control de Carga"
              Shell.NavBarIsVisible="True"
              BackgroundColor="{StaticResource PageBackground}">
+
+    <Shell.TitleView>
+        <components:CorporateTitleView />
+    </Shell.TitleView>
 
     <Grid RowDefinitions="2, *">
         <!-- Línea de acento inferior de la cabecera estilo Backoffice -->

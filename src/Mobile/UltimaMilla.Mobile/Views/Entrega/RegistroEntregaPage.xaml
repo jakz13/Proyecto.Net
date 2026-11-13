@@ -400,6 +400,56 @@
 
             </VerticalStackLayout>
         </ScrollView>
+
+        <!-- ========================================================= -->
+        <!-- MODAL CORPORATIVO DE RESULTADO DE ENTREGA                 -->
+        <!-- ========================================================= -->
+        <Grid Grid.Row="0"
+              Grid.RowSpan="2"
+              IsVisible="{Binding MostrarModalResultado}"
+              BackgroundColor="#800F172A"
+              ZIndex="999">
+            <Border BackgroundColor="#FFFFFF"
+                    Stroke="{DynamicResource CardBorderColor}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 12"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center"
+                    Margin="20"
+                    MaximumWidthRequest="440"
+                    Padding="0">
+                <VerticalStackLayout Spacing="0">
+                    <Border BackgroundColor="{Binding HeaderModalResultadoColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12,12,0,0"
+                            Padding="18,14">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding TituloModalResultado}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF" />
+                            <Label Text="{Binding SubtituloModalResultado}"
+                                   FontSize="12"
+                                   TextColor="#E2E8F0" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <VerticalStackLayout Spacing="16" Padding="18,16">
+                        <Label Text="{Binding MensajeModalResultado}"
+                               FontSize="13.5"
+                               TextColor="#1E293B"
+                               LineHeight="1.35" />
+
+                        <Button Text="{Binding BotonModalResultadoTexto}"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmarSalidaModalResultadoCommand}"
+                                CornerRadius="8"
+                                HeightRequest="44"
+                                FontAttributes="Bold" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 
 </ContentPage>

@@ -172,6 +172,37 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
         }
     }
 
+    // =========================================================================
+    // MODAL CORPORATIVO DE RESULTADO / RECHAZO DE CENTRAL (REEMPLAZA POPUPS NATIVOS)
+    // =========================================================================
+    [ObservableProperty]
+    private bool _mostrarModalResultado;
+
+    [ObservableProperty]
+    private string _tituloModalResultado = string.Empty;
+
+    [ObservableProperty]
+    private string _subtituloModalResultado = string.Empty;
+
+    [ObservableProperty]
+    private string _mensajeModalResultado = string.Empty;
+
+    [ObservableProperty]
+    private string _botonModalResultadoTexto = "Finalizar";
+
+    [ObservableProperty]
+    private Color _headerModalResultadoColor = Color.FromArgb("#16A34A");
+
+    [RelayCommand]
+    private async Task ConfirmarSalidaModalResultadoAsync()
+    {
+        MostrarModalResultado = false;
+        if (Shell.Current is not null)
+        {
+            await Shell.Current.GoToAsync("//RutaDiaPage");
+        }
+    }
+
     [RelayCommand]
     private async Task GuardarEntregaAsync()
     {
@@ -300,43 +331,64 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
             parada.Estado = "Entregado";
 
-            // Si hay conexión, se envía enseguida; si no, queda en la cola y se reenvía al recuperar la señal
+            bool? syncExitoso = null;
+            string? motivoRechazoServidor = null;
+
+            // Si hay conexión, se intenta sincronizar dentro de una ventana acotada para reflejar
+            // de forma limpia y corporativa si el servidor aceptó o rechazó la operación.
             if (_syncService?.IsOnline == true)
             {
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
+                    var syncTask = _syncService.SincronizarOperacionesPendientesAsync();
+                    var completada = await Task.WhenAny(syncTask, Task.Delay(TimeSpan.FromSeconds(6)));
+                    if (completada == syncTask)
                     {
-                        var resultado = await _syncService.SincronizarOperacionesPendientesAsync();
-                        // Si el servidor rechazó la entrega, la operación queda en la cola y se le muestra el motivo al repartidor
-                        if (resultado.ErroresNegocio > 0 && resultado.DetallesErrores is { Count: > 0 } && Shell.Current is not null)
+                        var resultado = await syncTask;
+                        if (resultado.ErroresNegocio > 0 && resultado.DetallesErrores is { Count: > 0 })
                         {
-                            var motivo = string.Join("\n", resultado.DetallesErrores.Take(3));
-                            await MainThread.InvokeOnMainThreadAsync(() => Shell.Current.DisplayAlertAsync(
-                                "El servidor rechazó la entrega",
-                                $"La entrega quedó guardada en el dispositivo pero la central no la aceptó:\n\n{motivo}",
-                                "Entendido"));
+                            syncExitoso = false;
+                            motivoRechazoServidor = string.Join("\n", resultado.DetallesErrores.Take(3));
+                        }
+                        else
+                        {
+                            syncExitoso = true;
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Sincronización en segundo plano: {ex.Message}");
-                    }
-                });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Sincronización inmediata: {ex.Message}");
+                }
             }
 
-            if (Shell.Current is not null)
+            if (syncExitoso == false && !string.IsNullOrWhiteSpace(motivoRechazoServidor))
             {
-                var infoRed = _syncService?.IsOnline == true
-                    ? "Se está enviando a la central."
-                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
-                var titulo = parcial ? "Entrega parcial registrada" : "Entrega registrada";
+                HeaderModalResultadoColor = Color.FromArgb("#DC2626");
+                TituloModalResultado = "Observación del Servidor";
+                SubtituloModalResultado = "La central no aceptó la operación";
+                MensajeModalResultado = motivoRechazoServidor;
+                BotonModalResultadoTexto = "Entendido";
+                MostrarModalResultado = true;
+            }
+            else
+            {
+                var infoRed = syncExitoso == true
+                    ? "Sincronizada correctamente con la central."
+                    : (_syncService?.IsOnline == true
+                        ? "Se está enviando a la central en segundo plano."
+                        : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.");
+                var titulo = parcial ? "Entrega Parcial Registrada" : "Entrega Registrada";
                 var detalle = parcial
                     ? $"Se entregaron {BultosMarcados} de {Bultos.Count} bulto(s) a {NombreReceptor.Trim()}. El resto queda pendiente según la política del operador."
                     : $"Entrega registrada para {NombreReceptor.Trim()}.";
 
-                await Shell.Current.DisplayAlertAsync(titulo, $"{detalle}\n\n{infoRed}", "Finalizar");
-                await Shell.Current.GoToAsync("//RutaDiaPage");
+                HeaderModalResultadoColor = Color.FromArgb("#16A34A");
+                TituloModalResultado = titulo;
+                SubtituloModalResultado = syncExitoso == true ? "Confirmada en central" : "Respaldo local cifrado";
+                MensajeModalResultado = $"{detalle}\n\n{infoRed}";
+                BotonModalResultadoTexto = "Volver a la Ruta";
+                MostrarModalResultado = true;
             }
         }
         finally

@@ -216,13 +216,6 @@ public partial class LoginViewModel : ObservableObject
             var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
                              rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
 
-            if (!esOperario && _trackingService != null && _authService?.RepartidorId is { } repId && repId != Guid.Empty)
-            {
-                var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-                var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
-                _ = _trackingService.IniciarTrackingAsync(rId, repId);
-            }
-
             if (Shell.Current is not null)
             {
                 if (esOperario)
@@ -301,13 +294,6 @@ public partial class LoginViewModel : ObservableObject
 
                 var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
                                  rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
-
-                if (!esOperario && _trackingService != null && _authService.RepartidorId is { } repId && repId != Guid.Empty)
-                {
-                    var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-                    var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
-                    _ = _trackingService.IniciarTrackingAsync(rId, repId);
-                }
 
                 if (Shell.Current is not null)
                 {

@@ -2,7 +2,6 @@
 <Shell
     x:Class="UltimaMilla.Mobile.AppShell"
     x:Name="RootShell"
-    x:DataType="local:AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:UltimaMilla.Mobile"
@@ -12,96 +11,13 @@
     xmlns:deposito="clr-namespace:UltimaMilla.Mobile.Views.Deposito"
     Title="Última Milla"
     Shell.FlyoutBehavior="Disabled"
-    Shell.BackgroundColor="{DynamicResource HeaderBackgroundColor}"
-    Shell.ForegroundColor="{DynamicResource HeaderTextColor}"
-    Shell.TitleColor="{DynamicResource HeaderTextColor}"
+    Shell.BackgroundColor="#0F172A"
+    Shell.ForegroundColor="#FFFFFF"
+    Shell.TitleColor="#FFFFFF"
     Shell.TabBarBackgroundColor="#0F172A"
-    Shell.TabBarForegroundColor="{DynamicResource SecondaryColor}"
-    Shell.TabBarTitleColor="{DynamicResource SecondaryColor}"
+    Shell.TabBarForegroundColor="#F97316"
+    Shell.TabBarTitleColor="#F97316"
     Shell.TabBarUnselectedColor="#94A3B8">
-
-    <!-- ========================================================= -->
-    <!-- CABECERA CORPORATIVA GLOBAL ESTILO TOPBAR BACKOFFICE      -->
-    <!-- ========================================================= -->
-    <Shell.TitleView>
-        <Grid ColumnDefinitions="Auto, *, Auto"
-              ColumnSpacing="10"
-              Padding="0,4,12,4"
-              VerticalOptions="Center">
-
-            <!-- Izquierda: Logo del Operador o Iniciales con Borde Secundario -->
-            <Grid Grid.Column="0" HeightRequest="36" WidthRequest="36" VerticalOptions="Center">
-                <Border IsVisible="{Binding TieneLogoOperador}"
-                        StrokeShape="RoundRectangle 8"
-                        Stroke="{DynamicResource SecondaryColor}"
-                        StrokeThickness="1.5"
-                        BackgroundColor="#FFFFFF"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        Padding="2">
-                    <Image Source="{Binding LogoSource}"
-                           Aspect="AspectFit"
-                           HeightRequest="30"
-                           WidthRequest="30"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
-                </Border>
-
-                <Border IsVisible="{Binding MostrarInicialesOperador}"
-                        StrokeShape="RoundRectangle 8"
-                        Stroke="{DynamicResource SecondaryColor}"
-                        StrokeThickness="1.5"
-                        BackgroundColor="{DynamicResource PrimaryColor}"
-                        HeightRequest="36"
-                        WidthRequest="36">
-                    <Label Text="{Binding InicialesOperador}"
-                           TextColor="#FFFFFF"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
-                </Border>
-            </Grid>
-
-            <!-- Centro: Nombre Comercial del Operador y Badge de Rol en SecondaryColor -->
-            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                <Label Text="{Binding NombreOperador}"
-                       TextColor="#FFFFFF"
-                       FontSize="13.5"
-                       FontAttributes="Bold"
-                       LineBreakMode="TailTruncation"
-                       MaxLines="1" />
-                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                    <Border BackgroundColor="{DynamicResource SecondaryColor}"
-                            StrokeThickness="0"
-                            StrokeShape="RoundRectangle 4"
-                            Padding="6,1"
-                            VerticalOptions="Center">
-                        <Label Text="{Binding RolActivoTexto}"
-                               TextColor="#FFFFFF"
-                               FontSize="9"
-                               FontAttributes="Bold" />
-                    </Border>
-                </HorizontalStackLayout>
-            </VerticalStackLayout>
-
-            <!-- Derecha: Botón Cerrar Sesión Corporativo -->
-            <Button Grid.Column="2"
-                    Text="Salir"
-                    Clicked="OnCerrarSesionClicked"
-                    BackgroundColor="#1E293B"
-                    TextColor="#E2E8F0"
-                    BorderColor="#334155"
-                    BorderWidth="1"
-                    FontSize="10.5"
-                    FontAttributes="Bold"
-                    HeightRequest="28"
-                    MinimumHeightRequest="28"
-                    Padding="10,0"
-                    CornerRadius="6"
-                    VerticalOptions="Center" />
-        </Grid>
-    </Shell.TitleView>
 
     <!-- ========================================================= -->
     <!-- PANTALLA DE INICIO DE SESIÓN (SIN TABBAR NI NAVBAR)       -->

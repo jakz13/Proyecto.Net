@@ -101,8 +101,8 @@ public class OperadorThemeService : IOperadorThemeService
             }
         }
 
-        // Actualizar recursos de Application en el hilo de UI
-        MainThread.BeginInvokeOnMainThread(() =>
+        // Actualizar recursos de Application en el hilo de UI (síncrono si ya estamos en MainThread)
+        Action aplicarRecursos = () =>
         {
             try
             {
@@ -145,11 +145,19 @@ public class OperadorThemeService : IOperadorThemeService
                     resources["HeaderTextColor"] = headerText;
                     resources["CardBorderColor"] = cardBorder;
                     resources["CardBorder"] = cardBorder;
+                    resources["CardBorderBrush"] = new SolidColorBrush(cardBorder);
 
                     resources["NombreOperadorActual"] = identidad.NombreComercial;
                     resources["InicialesOperadorActual"] = identidad.Iniciales;
                     resources["LogoOperadorUrl"] = identidad.LogoUrl ?? string.Empty;
-                    resources["LogoSource"] = logoSource;
+                    if (logoSource is not null)
+                    {
+                        resources["LogoSource"] = logoSource;
+                    }
+                    else
+                    {
+                        resources.Remove("LogoSource");
+                    }
                     resources["TieneLogoOperador"] = logoSource is not null;
                     resources["MostrarInicialesOperador"] = logoSource is null;
                 }
@@ -159,10 +167,10 @@ public class OperadorThemeService : IOperadorThemeService
                     Shell.SetBackgroundColor(Shell.Current, headerBg);
                     Shell.SetForegroundColor(Shell.Current, headerText);
                     Shell.SetTitleColor(Shell.Current, headerText);
-                    Shell.SetTabBarBackgroundColor(Shell.Current, Color.FromArgb("#FFFFFF"));
-                    Shell.SetTabBarTitleColor(Shell.Current, primario);
-                    Shell.SetTabBarForegroundColor(Shell.Current, primario);
-                    Shell.SetTabBarUnselectedColor(Shell.Current, secundario);
+                    Shell.SetTabBarBackgroundColor(Shell.Current, Color.FromArgb("#0F172A"));
+                    Shell.SetTabBarTitleColor(Shell.Current, secundario);
+                    Shell.SetTabBarForegroundColor(Shell.Current, secundario);
+                    Shell.SetTabBarUnselectedColor(Shell.Current, Color.FromArgb("#94A3B8"));
                 }
             }
             catch (Exception ex)
@@ -171,7 +179,16 @@ public class OperadorThemeService : IOperadorThemeService
             }
 
             IdentidadVisualCambiada?.Invoke(this, identidad);
-        });
+        };
+
+        if (MainThread.IsMainThread)
+        {
+            aplicarRecursos();
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(aplicarRecursos);
+        }
     }
 
     public Task<OperadorIdentidadVisualModel?> SincronizarIdentidadVisualAsync(CancellationToken ct = default)

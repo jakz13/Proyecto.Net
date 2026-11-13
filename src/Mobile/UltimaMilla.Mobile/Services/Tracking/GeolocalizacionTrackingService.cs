@@ -27,6 +27,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
     private Task? _trackingLoopTask;
     private Location? _ultimaUbicacion;
     private bool _isTrackingActive;
+    private readonly SemaphoreSlim _permisoLock = new(1, 1);
 
     private int _lecturasGpsRealizadas;
     private string _perfilAdaptativoActual = "Modo Aproximación (500 m a 2000 m)";
@@ -75,6 +76,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
 
     public async Task<bool> SolicitarPermisosUbicacionAsync()
     {
+        await _permisoLock.WaitAsync();
         try
         {
             var status = await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -123,6 +125,10 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
         {
             _logger.LogWarning(ex, "No fue posible verificar permisos nativos de ubicación; se utilizará fallback de geolocalización.");
             return false;
+        }
+        finally
+        {
+            _permisoLock.Release();
         }
     }
 

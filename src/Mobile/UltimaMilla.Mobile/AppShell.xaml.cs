@@ -198,6 +198,11 @@ public partial class AppShell : Shell
 
     private async void OnCerrarSesionClicked(object? sender, EventArgs e)
     {
+        await EjecutarCerrarSesionAsync();
+    }
+
+    public async Task EjecutarCerrarSesionAsync()
+    {
         try
         {
             if (_trackingService is { IsTrackingActive: true })
@@ -233,26 +238,25 @@ public partial class AppShell : Shell
             rolEfectivo.Contains("Repartidor", StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(rolEfectivo));
 
-        MainThread.BeginInvokeOnMainThread(() =>
+        EjecutarEnMainThread(() =>
         {
             try
             {
                 RolActivoTexto = esOperario ? "OPERARIO DE DEPOSITO" : "REPARTIDOR";
 
-                if (TabMiRuta != null)
-                    TabMiRuta.IsVisible = esRepartidor;
-                if (ShellContentMiRuta != null)
-                    ShellContentMiRuta.IsVisible = esRepartidor;
-
-                if (TabCarga != null)
-                    TabCarga.IsVisible = esRepartidor;
-                if (ShellContentCarga != null)
-                    ShellContentCarga.IsVisible = esRepartidor;
-
-                if (TabRecepcionDeposito != null)
-                    TabRecepcionDeposito.IsVisible = esOperario;
-                if (ShellContentRecepcionDeposito != null)
-                    ShellContentRecepcionDeposito.IsVisible = esOperario;
+                // Habilitar primero la pestaña destino antes de ocultar las restantes para evitar un TabBar vacío en Android.
+                if (esOperario)
+                {
+                    if (TabRecepcionDeposito != null) TabRecepcionDeposito.IsVisible = true;
+                    if (TabMiRuta != null) TabMiRuta.IsVisible = false;
+                    if (TabCarga != null) TabCarga.IsVisible = false;
+                }
+                else
+                {
+                    if (TabMiRuta != null) TabMiRuta.IsVisible = esRepartidor;
+                    if (TabCarga != null) TabCarga.IsVisible = esRepartidor;
+                    if (TabRecepcionDeposito != null) TabRecepcionDeposito.IsVisible = false;
+                }
             }
             catch (Exception ex)
             {
@@ -263,25 +267,32 @@ public partial class AppShell : Shell
 
     public void RestablecerPestanas()
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        EjecutarEnMainThread(() =>
         {
             try
             {
                 RolActivoTexto = "REPARTIDOR";
                 if (TabMiRuta != null) TabMiRuta.IsVisible = true;
-                if (ShellContentMiRuta != null) ShellContentMiRuta.IsVisible = true;
-
                 if (TabCarga != null) TabCarga.IsVisible = true;
-                if (ShellContentCarga != null) ShellContentCarga.IsVisible = true;
-
                 if (TabRecepcionDeposito != null) TabRecepcionDeposito.IsVisible = false;
-                if (ShellContentRecepcionDeposito != null) ShellContentRecepcionDeposito.IsVisible = false;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[AppShell] Error al restablecer pestañas: {ex.Message}");
             }
         });
+    }
+
+    private static void EjecutarEnMainThread(Action action)
+    {
+        if (MainThread.IsMainThread)
+        {
+            action();
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(action);
+        }
     }
 
     public void ActualizarPestanasPorPerfil()
@@ -312,19 +323,14 @@ public partial class AppShell : Shell
                 var esOperario = rol.Contains("Operario", StringComparison.OrdinalIgnoreCase) ||
                                  rol.Contains("Deposito", StringComparison.OrdinalIgnoreCase);
 
-                if (!esOperario && _trackingService != null && _authService.RepartidorId is { } repId && repId != Guid.Empty)
-                {
-                    var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-                    var rId = rutaLocal?.Ruta?.Id ?? Guid.Empty;
-                    _ = _trackingService.IniciarTrackingAsync(rId, repId);
-                }
-
                 if (esOperario)
                 {
                     await GoToAsync("//RecepcionDepositoPage");
                 }
                 else
                 {
+                    // El rastreo y los permisos nativos se inicializan en RutaDiaViewModel.InicializarAsync()
+                    // una vez que la vista principal ya completó la navegación en Android.
                     await GoToAsync("//RutaDiaPage");
                 }
             }

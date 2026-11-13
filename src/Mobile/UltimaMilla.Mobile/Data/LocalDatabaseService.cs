@@ -26,6 +26,9 @@ public interface ILocalDatabaseService
     Task MarcarComoSincronizadoAsync(int id);
     Task MarcarComoSincronizadosAsync(IEnumerable<int> ids);
     Task RegistrarErrorAsync(int id, string error);
+    Task PurgarOperacionOfflineAsync(int id);
+    Task<int> PurgarOperacionesPorRutaAsync(Guid hojaDeRutaId);
+    Task MarcarRutasAusentesComoRendidasAsync(IEnumerable<Guid> idsRutasActivasServidor);
     Task<int> ObtenerCantidadPendientesAsync();
 
     // Persistencia y consulta de hoja de ruta local
@@ -377,6 +380,93 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
+    public async Task PurgarOperacionOfflineAsync(int id)
+    {
+        await InitAsync();
+        var op = await Db.FindAsync<OperacionOfflineLocal>(id);
+        if (op != null)
+        {
+            await Db.DeleteAsync(op);
+        }
+    }
+
+    public async Task<int> PurgarOperacionesPorRutaAsync(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return 0;
+
+        await InitAsync();
+        var idConGuiones = hojaDeRutaId.ToString("D");
+        var idSinGuiones = hojaDeRutaId.ToString("N");
+        var pendientes = await Db.Table<OperacionOfflineLocal>()
+            .Where(o => !o.Sincronizado)
+            .ToListAsync();
+
+        var aEliminar = pendientes
+            .Where(o => !string.IsNullOrWhiteSpace(o.PayloadJson) &&
+                        (o.PayloadJson.Contains(idConGuiones, StringComparison.OrdinalIgnoreCase) ||
+                         o.PayloadJson.Contains(idSinGuiones, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        foreach (var op in aEliminar)
+        {
+            await Db.DeleteAsync(op);
+        }
+
+        return aEliminar.Count;
+    }
+
+    public async Task MarcarRutasAusentesComoRendidasAsync(IEnumerable<Guid> idsRutasActivasServidor)
+    {
+        await InitAsync();
+        var activas = idsRutasActivasServidor.Where(id => id != Guid.Empty).ToHashSet();
+        var rutasLocales = await Db.Table<HojaDeRutaLocal>().ToListAsync();
+        var ausentes = rutasLocales
+            .Where(r => !activas.Contains(r.Id) && r.Estado is not ("Rendida" or "Cerrada"))
+            .ToList();
+
+        if (ausentes.Count == 0)
+            return;
+
+        var pendientes = await Db.Table<OperacionOfflineLocal>()
+            .Where(o => !o.Sincronizado)
+            .ToListAsync();
+
+        foreach (var ruta in ausentes)
+        {
+            var idConGuiones = ruta.Id.ToString("D");
+            var idSinGuiones = ruta.Id.ToString("N");
+            var opsDeRuta = pendientes
+                .Where(o => !string.IsNullOrWhiteSpace(o.PayloadJson) &&
+                            (o.PayloadJson.Contains(idConGuiones, StringComparison.OrdinalIgnoreCase) ||
+                             o.PayloadJson.Contains(idSinGuiones, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            // Si quedan entregas/incidencias/retiros pendientes de sincronizar, no cerrar localmente
+            // hasta que la cola termine de procesarse contra el backend.
+            bool tieneOperacionesCriticasPendientes = opsDeRuta.Any(o =>
+                o.TipoOperacion is TiposOperacionOffline.EntregaExitosa
+                    or TiposOperacionOffline.EntregaParcial
+                    or TiposOperacionOffline.FalloEntrega
+                    or TiposOperacionOffline.RetiroRealizado
+                    or TiposOperacionOffline.RetiroNoRealizado
+                    or TiposOperacionOffline.RetiroDevolucion
+                    or TiposOperacionOffline.ConfirmarCarga
+                    or TiposOperacionOffline.FinalizarHojaDeRuta);
+
+            if (tieneOperacionesCriticasPendientes)
+                continue;
+
+            ruta.Estado = "Rendida";
+            await Db.UpdateAsync(ruta);
+
+            foreach (var opResidual in opsDeRuta)
+            {
+                await Db.DeleteAsync(opResidual);
+            }
+        }
+    }
+
     public async Task<int> ObtenerCantidadPendientesAsync()
     {
         await InitAsync();
@@ -431,7 +521,24 @@ public class LocalDatabaseService : ILocalDatabaseService
                 conn.Update(ruta);
             }
 
-            bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada";
+            if (ruta.Estado is "Rendida" or "Cerrada")
+            {
+                var idConGuiones = hojaDeRutaId.ToString("D");
+                var idSinGuiones = hojaDeRutaId.ToString("N");
+                var obsoletasOps = conn.Table<OperacionOfflineLocal>()
+                    .Where(o => !o.Sincronizado)
+                    .ToList()
+                    .Where(o => !string.IsNullOrWhiteSpace(o.PayloadJson) &&
+                                (o.PayloadJson.Contains(idConGuiones, StringComparison.OrdinalIgnoreCase) ||
+                                 o.PayloadJson.Contains(idSinGuiones, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                foreach (var op in obsoletasOps)
+                {
+                    conn.Delete(op);
+                }
+            }
+
+            bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada" or "Rendida";
 
             // 2. Paradas que el servidor ya no incluye (reasignadas o retiradas de la ruta) y que no tienen nada pendiente de enviar
             var idsServidor = paradas.Where(p => p.ParadaId != Guid.Empty).Select(p => p.ParadaId).ToHashSet();
@@ -631,6 +738,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             "EnCarga" => 3,
             "Liberada" => 4,
             "Borrador" => 5,
+            "Cerrada" or "Rendida" => 10,
             _ => 10
         };
 
@@ -668,6 +776,10 @@ public class LocalDatabaseService : ILocalDatabaseService
         if (hojaDeRutaId.HasValue && hojaDeRutaId.Value != Guid.Empty)
         {
             ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId.Value);
+            if (ruta != null && ruta.Estado is "Rendida" or "Cerrada")
+            {
+                ruta = null;
+            }
         }
         else
         {
