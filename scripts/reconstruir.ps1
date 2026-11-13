@@ -64,7 +64,7 @@ if ($extra.Count) {
 
 if (-not $SinDespliegueDeAplicacion) {
     Paso 'Aplicación: construir, enviar y levantar con Docker Compose'
-    & (Join-Path $PSScriptRoot 'desplegar.ps1') -Vm $ip -Clave $Clave
+    & (Join-Path $PSScriptRoot 'desplegar.ps1') -Vm $ip -Clave $Clave -DesdeRegistro
 }
 
 Paso "Verificación: https://$Dominio/ready"

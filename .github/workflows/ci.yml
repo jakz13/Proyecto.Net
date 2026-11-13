@@ -70,13 +70,46 @@ jobs:
           name: cobertura
           path: cobertura
 
-  # Entrega continua: solo se despliega al fusionar en main y únicamente si compiló y las pruebas pasaron.
-  # Requiere los secretos del repositorio VM_HOST (IP de la VM) y VM_SSH_KEY (clave privada SSH autorizada en la VM).
-  desplegar:
+  # Publica las imágenes de la aplicación en GitHub Container Registry (ghcr.io). Así ni el pipeline ni una VM nueva dependen de la
+  # conexión de ninguna PC: la VM las descarga del registro. Solo en main y únicamente si compiló y las pruebas pasaron.
+  publicar-imagenes:
     needs: build-and-test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Iniciar sesión en ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y publicar las imágenes
+        run: |
+          OWNER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          export REGISTRO="ghcr.io/$OWNER/ultimamilla"
+          export POSTGRES_PASSWORD=x RABBITMQ_PASSWORD=x JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx                  DOMINIO=x DOMINIO_COMERCIO=x DOMINIO_PANEL=x DOMINIO_SEGUIMIENTO=x GRAFANA_PASSWORD=x
+          SERVICIOS="api1 worker backoffice portal-comercio seguimiento-publico"
+          docker compose -f docker-compose.prod.yml build $SERVICIOS
+          docker compose -f docker-compose.prod.yml push $SERVICIOS
+          echo "Imágenes publicadas en $REGISTRO"
+
+  # Entrega continua: solo se despliega al fusionar en main y únicamente si compiló y las pruebas pasaron.
+  # Requiere los secretos del repositorio VM_HOST (IP de la VM) y VM_SSH_KEY (clave privada SSH autorizada en la VM).
+  desplegar:
+    needs: [build-and-test, publicar-imagenes]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     environment: produccion
+    permissions:
+      contents: read
+      packages: read
     # Un solo despliegue a la vez: si llegan dos pushes seguidos, el segundo espera al primero
     concurrency:
       group: despliegue-produccion
@@ -98,6 +131,11 @@ jobs:
       - name: Desplegar en Azure
         env:
           VM_HOST: ${{ secrets.VM_HOST }}
+          GHCR_USUARIO: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export VM_CLAVE_SSH="$HOME/.ssh/clave_vm"
+          # La VM descarga las imágenes que acaba de publicar el job anterior
+          export DESDE_REGISTRO=1
+          export REGISTRO="ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/ultimamilla"
           bash scripts/desplegar.sh

@@ -154,5 +154,6 @@ resource "azurerm_linux_virtual_machine" "vm" {
     dominio_comercio    = var.dominio_comercio
     dominio_panel       = var.dominio_panel
     dominio_seguimiento = var.dominio_seguimiento
+    registro_imagenes   = var.registro_imagenes
   }))
 }

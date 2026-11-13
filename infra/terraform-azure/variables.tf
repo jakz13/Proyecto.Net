@@ -62,6 +62,12 @@ variable "dominio_comercio" {
   default     = "shippingbox-comercio.duckdns.org"
 }
 
+variable "registro_imagenes" {
+  description = "Prefijo de las imágenes de la aplicación en el registro (las publica el pipeline de CI). La VM las descarga de ahí."
+  type        = string
+  default     = "ghcr.io/jakz13/ultimamilla"
+}
+
 variable "dominio_seguimiento" {
   description = "Dominio del seguimiento público de envíos."
   type        = string

@@ -32,6 +32,10 @@ param(
 
     # Las imágenes ya están en la VM (por ejemplo, copiadas desde otra VM de la misma región): no se vuelven a enviar
     [switch]$SinImagenes,
+    # Prefijo de las imágenes (se guarda en .env.prod de la VM: debe ser el mismo con el que publica el pipeline)
+    [string]$Registro = 'ghcr.io/jakz13/ultimamilla',
+    # La VM descarga las imágenes del registro (las publicó el pipeline): no se construye ni se envía nada desde esta PC
+    [switch]$DesdeRegistro,
     # No verifica por dominio (útil mientras los dominios todavía apuntan a otra VM)
     [switch]$SinVerificacion
 )
@@ -44,6 +48,7 @@ function Paso($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Verificar($descripcion) { if ($LASTEXITCODE -ne 0) { throw "Falló: $descripcion (código $LASTEXITCODE)" } }
 
 $destino = "azureuser@$Vm"
+$env:REGISTRO = $Registro
 
 # ---------------------------------------------------------------- Clave SSH
 # Cada persona usa su propia clave. Si no tiene, se crea aquí; para que la VM la acepte, quien administra
@@ -99,7 +104,7 @@ $mapaServicio = @{ api = @('api1'); worker = @('worker'); backoffice = @('backof
 $serviciosCompose = @($Servicios | ForEach-Object { $mapaServicio[$_] })
 # Prometheus y Grafana usan imágenes públicas: no se construyen ni se envían desde esta PC
 $construibles = @($serviciosCompose | Where-Object { $_ -notin 'prometheus', 'grafana' })
-$imagenes = @($construibles | ForEach-Object { if ($_ -eq 'api1') { 'ultimamilla/api:latest' } else { "ultimamilla/${_}:latest" } })
+$imagenes = @($construibles | ForEach-Object { if ($_ -eq 'api1') { "$Registro/api:latest" } else { "$Registro/${_}:latest" } })
 
 Paso "Construyendo imágenes: $($construibles -join ', ')"
 # El compose exige estas variables al interpolarse; para construir sus valores no importan
@@ -107,7 +112,7 @@ $respaldo = @{}
 foreach ($v in 'POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'JWT_SECRET', 'DOMINIO', 'DOMINIO_COMERCIO', 'DOMINIO_PANEL', 'DOMINIO_SEGUIMIENTO', 'GRAFANA_PASSWORD') { $respaldo[$v] = [Environment]::GetEnvironmentVariable($v) }
 $env:POSTGRES_PASSWORD = 'x'; $env:RABBITMQ_PASSWORD = 'x'; $env:JWT_SECRET = 'x' * 40; $env:DOMINIO = 'x'; $env:DOMINIO_COMERCIO = 'x'; $env:DOMINIO_PANEL = 'x'; $env:DOMINIO_SEGUIMIENTO = 'x'; $env:GRAFANA_PASSWORD = 'x'
 try {
-    if ($construibles.Count -gt 0) {
+    if ($construibles.Count -gt 0 -and -not $DesdeRegistro) {
         foreach ($svc in $construibles) {
             Paso "Construyendo imagen para: $svc"
             docker compose -f docker-compose.prod.yml build $svc
@@ -129,7 +134,14 @@ foreach ($carpeta in 'prometheus', 'grafana', 'rabbitmq') {
     scp -r @opcionesSsh "docker/$carpeta" "${destino}:shippingbox/docker/"; Verificar "scp docker/$carpeta"
 }
 
-if ($imagenes.Count -gt 0 -and -not $SinImagenes) {
+# La VM resuelve los nombres de las imágenes con REGISTRO (.env.prod)
+ssh @opcionesSsh $destino "touch ~/shippingbox/.env.prod; grep -v '^REGISTRO=' ~/shippingbox/.env.prod > ~/shippingbox/.env.tmp; echo 'REGISTRO=$Registro' >> ~/shippingbox/.env.tmp; mv ~/shippingbox/.env.tmp ~/shippingbox/.env.prod; chmod 600 ~/shippingbox/.env.prod"; Verificar 'ssh REGISTRO'
+
+if ($DesdeRegistro) {
+    Paso "La VM descarga las imágenes del registro ($Registro)"
+    ssh @opcionesSsh $destino "cd ~/shippingbox && docker compose -f docker-compose.prod.yml --env-file .env.prod pull $($serviciosCompose -join ' ')"; Verificar 'docker compose pull en la VM'
+}
+elseif ($imagenes.Count -gt 0 -and -not $SinImagenes) {
     Paso 'Enviando imágenes a la VM (comprimidas; la primera vez son unos 350 MB)'
     # El pipe se hace con cmd.exe: el de PowerShell 5 corrompe los datos binarios
     $claveCmd = '"' + $Clave + '"'

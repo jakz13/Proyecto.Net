@@ -7,13 +7,16 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
 # Variables requeridas en .env.prod: DOMINIO, POSTGRES_PASSWORD, RABBITMQ_PASSWORD, JWT_SECRET
+# REGISTRO: prefijo de las imágenes (por ejemplo ghcr.io/jakz13/ultimamilla). Sin definir se usan imágenes locales "ultimamilla/<servicio>".
 # Opcionales: SEED_PASSWORD_DEMO (cuentas de demostración), SEED_API_KEY_DEMO, RECEPTOR_PRUEBA_AVISOS=true (solo durante una demostración)
 # Solo Caddy publica puertos (80/443). Todo lo demás queda en la red interna.
 x-api: &api
-  image: ultimamilla/api:latest
+  image: ${REGISTRO:-ultimamilla}/api:latest
   build:
     context: .
     dockerfile: src/Api/Dockerfile
+    labels:
+      org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
   restart: unless-stopped
   stop_grace_period: 40s
   environment: &api-env
@@ -119,10 +122,12 @@ services:
     healthcheck: *api-health
 
   worker:
-    image: ultimamilla/worker:latest
+    image: ${REGISTRO:-ultimamilla}/worker:latest
     build:
       context: .
       dockerfile: src/Worker/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
     environment:
       DOTNET_ENVIRONMENT: Production
@@ -151,10 +156,12 @@ services:
     networks: [interna]
 
   backoffice:
-    image: ultimamilla/backoffice:latest
+    image: ${REGISTRO:-ultimamilla}/backoffice:latest
     build:
       context: .
       dockerfile: src/Web/Backoffice/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -181,10 +188,12 @@ services:
   # El navegador llama a la API por el mismo dominio del portal (Caddy reparte /api y /hubs entre api1 y api2),
   # así no hay llamadas entre dominios ni problemas con la cookie de afinidad de SignalR.
   portal-comercio:
-    image: ultimamilla/portal-comercio:latest
+    image: ${REGISTRO:-ultimamilla}/portal-comercio:latest
     build:
       context: .
       dockerfile: src/Web/PortalComercio/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -201,10 +210,12 @@ services:
   # Seguimiento público (Blazor WebAssembly, sin login): nginx sirve los archivos estáticos.
   # Igual que el portal, el navegador llama a la API por su propio dominio (Caddy reparte /api y /hubs).
   seguimiento-publico:
-    image: ultimamilla/seguimiento-publico:latest
+    image: ${REGISTRO:-ultimamilla}/seguimiento-publico:latest
     build:
       context: .
       dockerfile: src/Web/SeguimientoPublico/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
     environment:
       API_BASE_URL: https://${DOMINIO_SEGUIMIENTO:?definir DOMINIO_SEGUIMIENTO}
