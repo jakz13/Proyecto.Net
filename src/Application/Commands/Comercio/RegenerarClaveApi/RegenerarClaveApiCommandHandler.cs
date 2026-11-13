@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Comercio;
@@ -31,6 +32,8 @@ public class RegenerarClaveApiCommandHandler : IRequestHandler<RegenerarClaveApi
             ?? throw new NotFoundException("No se encontró la relación del comercio con el operador.");
         if (comercioOperador.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: el comercio no corresponde al operador actual.");
+        if (!comercioOperador.EstaActivo)
+            throw new UnauthorizedAccessException(ComercioOperadorActivoGuard.MensajeComercioDadoDeBaja);
 
         var clave = "um_" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace('+', '-').Replace('/', '_').TrimEnd('=');

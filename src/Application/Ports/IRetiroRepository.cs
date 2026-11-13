@@ -37,5 +37,8 @@ public interface IRetiroRepository
     /// <summary>Cantidad de retiros del operador por estado, para el tablero de operación y los reportes (RF 41).</summary>
     Task<IReadOnlyDictionary<EstadoRetiro, int>> ContarPorEstadoAsync(Guid operadorId, CancellationToken cancellationToken = default);
 
+    /// <summary>Retiros en estado Solicitado o AsignadoARuta del comercio para cancelar al darlo de baja.</summary>
+    Task<List<Retiro>> ListarParaBajaComercioAsync(Guid operadorId, Guid comercioOperadorId, CancellationToken cancellationToken = default);
+
     Task UpdateAsync(Retiro retiro, CancellationToken cancellationToken = default);
 }

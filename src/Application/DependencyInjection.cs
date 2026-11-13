@@ -12,6 +12,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<Commands.AltaEnvio.AltaEnvioProcesador>();
+        services.AddScoped<Commands.Operador.GestionComercios.BajaComercioProcesador>();
         services.AddScoped<Commands.Retiros.SolicitarRetiro.SolicitarRetiroProcesador>();
         services.AddScoped<Commands.Mensajeria.AvisoComercioEntregador>();
 

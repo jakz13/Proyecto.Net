@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Comercio;
 using UltimaMilla.Domain.Entities.Retiros;
@@ -11,12 +12,18 @@ public class SolicitarRetiroCommandHandler : IRequestHandler<SolicitarRetiroComm
     private readonly SolicitarRetiroProcesador _procesador;
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
-    public SolicitarRetiroCommandHandler(SolicitarRetiroProcesador procesador, ICurrentTenant currentTenant, IUnitOfWork unitOfWork)
+    public SolicitarRetiroCommandHandler(
+        SolicitarRetiroProcesador procesador,
+        ICurrentTenant currentTenant,
+        IUnitOfWork unitOfWork,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _procesador = procesador;
         _currentTenant = currentTenant;
         _unitOfWork = unitOfWork;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<SolicitarRetiroResultDto> Handle(SolicitarRetiroCommand request, CancellationToken cancellationToken)
@@ -26,6 +33,11 @@ public class SolicitarRetiroCommandHandler : IRequestHandler<SolicitarRetiroComm
         // Un usuario de comercio solo puede solicitar retiros de su propio comercio, sin importar lo que traiga el pedido
         if (_currentTenant.ComercioOperadorId.HasValue)
             request = request with { ComercioId = _currentTenant.ComercioOperadorId.Value };
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(
+            _comercioOperadorRepository,
+            _currentTenant.ComercioOperadorId ?? request.ComercioId,
+            cancellationToken);
 
         var resultado = await _procesador.ProcesarAsync(_currentTenant.OperadorId, request, cancellationToken);
         if (!resultado.Duplicado)

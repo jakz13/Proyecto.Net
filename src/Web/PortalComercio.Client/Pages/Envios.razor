@@ -14,32 +14,35 @@
             Consulte el estado y la trazabilidad de los envíos propios de su comercio, filtre por estado, fecha o destinatario y descargue etiquetas de bultos admitidos.
         </p>
     </div>
-    <div class="d-flex align-items-center flex-wrap gap-2">
-        @if (CantidadAdmitidosEnPagina > 0)
-        {
+    @if (!OperadorSoloLectura)
+    {
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            @if (CantidadAdmitidosEnPagina > 0)
+            {
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        @onclick="AlternarSeleccionTodosAdmitidos">
+                    @(TodosAdmitidosSeleccionados ? "Quitar selección" : $"Seleccionar admitidos ({CantidadAdmitidosEnPagina})")
+                </button>
+            }
+
             <button type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    @onclick="AlternarSeleccionTodosAdmitidos">
-                @(TodosAdmitidosSeleccionados ? "Quitar selección" : $"Seleccionar admitidos ({CantidadAdmitidosEnPagina})")
+                    class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
+                    disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
+                    @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: false)">
+                <Icono Nombre="imprimir" Tamano="14" />
+                <span>Ver etiquetas (@idsSeleccionados.Count)</span>
             </button>
-        }
 
-        <button type="button"
-                class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
-                disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
-                @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: false)">
-            <Icono Nombre="imprimir" Tamano="14" />
-            <span>Ver etiquetas (@idsSeleccionados.Count)</span>
-        </button>
-
-        <button type="button"
-                class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
-                disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
-                @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: true)">
-            <Icono Nombre="descargar" Tamano="14" />
-            <span>Descargar etiquetas (@idsSeleccionados.Count)</span>
-        </button>
-    </div>
+            <button type="button"
+                    class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
+                    disabled="@(idsSeleccionados.Count == 0 || estaGenerandoEtiquetas)"
+                    @onclick="() => GenerarEtiquetasSeleccionadasAsync(descargarDirecto: true)">
+                <Icono Nombre="descargar" Tamano="14" />
+                <span>Descargar etiquetas (@idsSeleccionados.Count)</span>
+            </button>
+        </div>
+    }
 </div>
 
 @if (!string.IsNullOrEmpty(mensajeErrorEtiquetas))
@@ -78,7 +81,7 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if (envioEnSeguimiento.Estado == EstadoEnvioDto.Admitido)
+                @if (!OperadorSoloLectura && envioEnSeguimiento.Estado == EstadoEnvioDto.Admitido)
                 {
                     <button type="button"
                             class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"
@@ -88,7 +91,7 @@
                         <span>Descargar etiqueta</span>
                     </button>
                 }
-                @if (envioEnSeguimiento.Estado == EstadoEnvioDto.EnDevolucion)
+                @if (!OperadorSoloLectura && envioEnSeguimiento.Estado == EstadoEnvioDto.EnDevolucion)
                 {
                     <button type="button"
                             class="btn btn-warning btn-sm d-inline-flex align-items-center gap-1 text-dark fw-bold shadow-sm"
@@ -123,21 +126,24 @@
                             <strong>Envío en proceso de devolución:</strong> El bulto no pudo ser entregado y fue retornado por el operador logístico. Al recibir físicamente el bulto devuelto en su local, confirme la recepción para dar por cerrada la devolución.
                         </div>
                     </div>
-                    <button type="button"
-                            class="btn btn-warning btn-sm fw-bold d-inline-flex align-items-center gap-1 text-dark shadow-sm text-nowrap ms-md-2"
-                            disabled="@(idEnvioConfirmandoDevolucion == envioEnSeguimiento.Id)"
-                            @onclick="() => ConfirmarDevolucionDirectaAsync(envioEnSeguimiento.Id)">
-                        @if (idEnvioConfirmandoDevolucion == envioEnSeguimiento.Id)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                            <span>Confirmando...</span>
-                        }
-                        else
-                        {
-                            <Icono Nombre="check" Tamano="14" />
-                            <span>Confirmar Recepción</span>
-                        }
-                    </button>
+                    @if (!OperadorSoloLectura)
+                    {
+                        <button type="button"
+                                class="btn btn-warning btn-sm fw-bold d-inline-flex align-items-center gap-1 text-dark shadow-sm text-nowrap ms-md-2"
+                                disabled="@(idEnvioConfirmandoDevolucion == envioEnSeguimiento.Id)"
+                                @onclick="() => ConfirmarDevolucionDirectaAsync(envioEnSeguimiento.Id)">
+                            @if (idEnvioConfirmandoDevolucion == envioEnSeguimiento.Id)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <span>Confirmando...</span>
+                            }
+                            else
+                            {
+                                <Icono Nombre="check" Tamano="14" />
+                                <span>Confirmar Recepción</span>
+                            }
+                        </button>
+                    }
                 </div>
             }
             else if (envioEnSeguimiento.Estado == EstadoEnvioDto.Devuelto)
@@ -398,7 +404,7 @@
                                                 }
                                             </td>
                                             <td class="pe-2 text-end">
-                                                @if (aviso.Estado != "Entregado")
+                                                @if (aviso.Estado != "Entregado" && !OperadorSoloLectura)
                                                 {
                                                     <button type="button"
                                                             class="btn btn-outline-primary btn-sm py-0 px-2 d-inline-flex align-items-center gap-1"
@@ -604,7 +610,7 @@
                         <input type="checkbox"
                                class="form-check-input"
                                title="Seleccionar todos los envíos admitidos de la página"
-                               disabled="@(CantidadAdmitidosEnPagina == 0)"
+                               disabled="@(OperadorSoloLectura || CantidadAdmitidosEnPagina == 0)"
                                checked="@TodosAdmitidosSeleccionados"
                                @onchange="AlternarSeleccionTodosAdmitidos" />
                     </th>
@@ -647,9 +653,9 @@
                             <td class="text-center">
                                 <input type="checkbox"
                                        class="form-check-input"
-                                       disabled="@(!esAdmitido)"
+                                       disabled="@(OperadorSoloLectura || !esAdmitido)"
                                        checked="@estaSeleccionado"
-                                       title="@(esAdmitido ? "Seleccionar envío para imprimir etiqueta" : "Solo los envíos en estado Admitido permiten generar etiqueta")"
+                                       title="@(OperadorSoloLectura ? "Solo consulta histórica" : esAdmitido ? "Seleccionar envío para imprimir etiqueta" : "Solo los envíos en estado Admitido permiten generar etiqueta")"
                                        @onchange="() => AlternarSeleccionEnvio(envio)" />
                             </td>
                             <td>
@@ -677,7 +683,7 @@
                                             @onclick="() => AbrirSeguimientoEnvioAsync(envio)">
                                         Seguimiento
                                     </button>
-                                    @if (envio.Estado == EstadoEnvioDto.EnDevolucion)
+                                    @if (!OperadorSoloLectura && envio.Estado == EstadoEnvioDto.EnDevolucion)
                                     {
                                         <button type="button"
                                                 class="btn btn-outline-warning text-dark btn-sm py-0 px-2 small d-inline-flex align-items-center gap-1"
@@ -695,7 +701,7 @@
                                             <span>Confirmar devolución</span>
                                         </button>
                                     }
-                                    @if (esAdmitido)
+                                    @if (!OperadorSoloLectura && esAdmitido)
                                     {
                                         <button type="button"
                                                 class="btn btn-outline-dark btn-sm py-0 px-2 small"
@@ -750,6 +756,9 @@
 </div>
 
 @code {
+    [CascadingParameter(Name = "OperadorSoloLectura")]
+    public bool OperadorSoloLectura { get; set; }
+
     private ResultadoPaginadoDto<EnvioDto> resultadoPaginado = new();
     private bool estaCargando = true;
     private bool estaGenerandoEtiquetas = false;

@@ -15,17 +15,23 @@ public class ActualizarComercioCommandHandler : IRequestHandler<ActualizarComerc
     private readonly IComercioOperadorRepository _comercioOperadorRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
+    private readonly BajaComercioProcesador? _bajaComercioProcesador;
+    private readonly ITableroRealtimeNotifier? _tiempoReal;
 
     public ActualizarComercioCommandHandler(
         IComercioRepository comercioRepositorio,
         IComercioOperadorRepository comercioOperadorRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        BajaComercioProcesador? bajaComercioProcesador = null,
+        ITableroRealtimeNotifier? tiempoReal = null)
     {
         _comercioRepositorio = comercioRepositorio;
         _comercioOperadorRepositorio = comercioOperadorRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
+        _bajaComercioProcesador = bajaComercioProcesador;
+        _tiempoReal = tiempoReal;
     }
 
     public async Task<ComercioDetalleDto> Handle(ActualizarComercioCommand solicitud, CancellationToken cancellationToken)
@@ -61,6 +67,8 @@ public class ActualizarComercioCommandHandler : IRequestHandler<ActualizarComerc
             solicitud.Telefono,
             solicitud.Direccion);
 
+        var estabaActivo = vinculo.EstaActivo;
+
         if (solicitud.Activo)
         {
             vinculo.Activar();
@@ -68,11 +76,31 @@ public class ActualizarComercioCommandHandler : IRequestHandler<ActualizarComerc
         else
         {
             vinculo.Suspender();
+            if (_bajaComercioProcesador is not null)
+            {
+                await _bajaComercioProcesador.CancelarOperacionesPreviasASalidaAsync(
+                    vinculo.OperadorId,
+                    vinculo.Id,
+                    _inquilinoActual.UsuarioId,
+                    cancellationToken);
+            }
         }
 
         await _comercioRepositorio.ActualizarAsync(comercio, cancellationToken);
         await _comercioOperadorRepositorio.ActualizarAsync(vinculo, cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+
+        if (_tiempoReal is not null && estabaActivo != vinculo.EstaActivo)
+        {
+            try
+            {
+                await _tiempoReal.NotificarOperadoresDelComercioAsync(vinculo.ComercioId, cancellationToken);
+            }
+            catch
+            {
+                // El portal verá el cambio al recargar
+            }
+        }
 
         return new ComercioDetalleDto(
             comercio.Id,

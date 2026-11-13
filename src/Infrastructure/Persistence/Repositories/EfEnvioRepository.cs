@@ -121,6 +121,20 @@ public class EfEnvioRepository : IEnvioRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Envio>> ListarParaBajaComercioAsync(
+        Guid operadorId,
+        Guid comercioOperadorId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Envios
+            .Where(e => e.OperadorId == operadorId
+                        && e.ComercioOperadorId == comercioOperadorId
+                        && (e.EstadoActual == EstadoEnvio.Admitido
+                            || e.EstadoActual == EstadoEnvio.EnDeposito
+                            || e.EstadoActual == EstadoEnvio.AsignadoARuta))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default)
     {
         // Una entidad ya rastreada detecta sola sus cambios; Update marcaría como modificados los hijos nuevos (eventos, intentos) y fallaría al guardar

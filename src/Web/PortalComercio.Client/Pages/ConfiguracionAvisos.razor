@@ -22,21 +22,24 @@
                 <Icono Nombre="repetir" Tamano="14" />
                 <span>Actualizar</span>
             </button>
-            <button type="button"
-                    class="btn btn-sm btn-marca d-flex align-items-center gap-1"
-                    disabled="@(cargando || guardando || probando || reintentando)"
-                    @onclick="GuardarConfiguracionAsync">
-                @if (guardando)
-                {
-                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    <span>Guardando...</span>
-                }
-                else
-                {
-                    <Icono Nombre="guardar" Tamano="14" />
-                    <span>Guardar Cambios</span>
-                }
-            </button>
+            @if (!OperadorSoloLectura)
+            {
+                <button type="button"
+                        class="btn btn-sm btn-marca d-flex align-items-center gap-1"
+                        disabled="@(cargando || guardando || probando || reintentando)"
+                        @onclick="GuardarConfiguracionAsync">
+                    @if (guardando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Guardando...</span>
+                    }
+                    else
+                    {
+                        <Icono Nombre="guardar" Tamano="14" />
+                        <span>Guardar Cambios</span>
+                    }
+                </button>
+            }
         </div>
     </div>
 
@@ -89,6 +92,7 @@
                                    type="checkbox"
                                    role="switch"
                                    id="switchActiva"
+                                   disabled="@OperadorSoloLectura"
                                    @bind="suscripcionActiva" />
                             <label class="form-check-label small fw-semibold" for="switchActiva">
                                 @(suscripcionActiva ? "Suscripción Activa" : "Pausada")
@@ -104,6 +108,7 @@
                                    id="urlWebhookInput"
                                    class="form-control form-control-sm font-monospace"
                                    placeholder="https://api.sucomercio.com/webhooks/ultimamilla"
+                                   disabled="@OperadorSoloLectura"
                                    @bind="urlWebhook" />
                             <div class="form-text small" style="font-size: 0.75rem;">
                                 Debe ser una URL accesible vía HTTP o HTTPS (POST). El sistema enviará un payload JSON cada vez que un evento configurado ocurra.
@@ -123,6 +128,7 @@
                                        id="claveFirmaInput"
                                        class="form-control font-monospace"
                                        placeholder="Clave secreta para verificar X-Firma-Sha256"
+                                       disabled="@OperadorSoloLectura"
                                        @bind="claveFirma" />
                                 <button class="btn btn-outline-secondary"
                                         type="button"
@@ -130,13 +136,16 @@
                                         @onclick="CopiarClaveFirmaAsync">
                                     <Icono Nombre="copiar" Tamano="14" />
                                 </button>
-                                <button class="btn btn-outline-secondary"
-                                        type="button"
-                                        title="Generar nueva clave aleatoria"
-                                        @onclick="GenerarNuevaClaveFirma">
-                                    <Icono Nombre="repetir" Tamano="14" />
-                                    <span>Regenerar</span>
-                                </button>
+                                @if (!OperadorSoloLectura)
+                                {
+                                    <button class="btn btn-outline-secondary"
+                                            type="button"
+                                            title="Generar nueva clave aleatoria"
+                                            @onclick="GenerarNuevaClaveFirma">
+                                        <Icono Nombre="repetir" Tamano="14" />
+                                        <span>Regenerar</span>
+                                    </button>
+                                }
                             </div>
                             <div class="form-text small" style="font-size: 0.75rem;">
                                 Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Firma-Sha256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
@@ -152,21 +161,24 @@
                             <Icono Nombre="notificacion" Tamano="16" />
                             <span>Herramienta de Prueba (Ping Diagnóstico)</span>
                         </span>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
-                                disabled="@(probando || guardando || string.IsNullOrWhiteSpace(urlWebhook))"
-                                @onclick="EjecutarPruebaWebhookAsync">
-                            @if (probando)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                <span>Enviando Ping...</span>
-                            }
-                            else
-                            {
-                                <Icono Nombre="enviar" Tamano="14" />
-                                <span>Probar Webhook (Ping)</span>
-                            }
-                        </button>
+                        @if (!OperadorSoloLectura)
+                        {
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+                                    disabled="@(probando || guardando || string.IsNullOrWhiteSpace(urlWebhook))"
+                                    @onclick="EjecutarPruebaWebhookAsync">
+                                @if (probando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span>Enviando Ping...</span>
+                                }
+                                else
+                                {
+                                    <Icono Nombre="enviar" Tamano="14" />
+                                    <span>Probar Webhook (Ping)</span>
+                                }
+                            </button>
+                        }
                     </div>
                     <div class="card-body p-3">
                         <p class="text-secondary small mb-2" style="font-size: 0.8rem;">
@@ -233,14 +245,15 @@
                             {
                                 var estaMarcado = eventosSeleccionados.Contains(ev.Codigo);
                                 <div class="p-2 border rounded-2 d-flex align-items-start gap-2 @(estaMarcado ? "bg-light border-primary" : "bg-white")"
-                                     style="cursor: pointer;"
-                                     @onclick="() => AlternarEvento(ev.Codigo)">
+                                     style="@(OperadorSoloLectura ? "" : "cursor: pointer;")"
+                                     @onclick="() => { if (!OperadorSoloLectura) AlternarEvento(ev.Codigo); }">
                                     <div class="form-check mt-1">
                                         <input class="form-check-input"
                                                type="checkbox"
                                                checked="@estaMarcado"
+                                               disabled="@OperadorSoloLectura"
                                                id="chk_@ev.Codigo"
-                                               @onchange="() => AlternarEvento(ev.Codigo)" />
+                                               @onchange="() => { if (!OperadorSoloLectura) AlternarEvento(ev.Codigo); }" />
                                     </div>
                                     <div class="flex-grow-1">
                                         <div class="d-flex justify-content-between align-items-center">
@@ -399,7 +412,7 @@
                                                 <span>Detalle</span>
                                             </button>
 
-                                            @if (esFallido)
+                                            @if (esFallido && !OperadorSoloLectura)
                                             {
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
@@ -489,7 +502,7 @@
                 </div>
                 <div class="modal-footer py-2 px-3 bg-light border-top d-flex justify-content-between">
                     <div>
-                        @if (avisoSeleccionadoParaVer.Estado != "Entregado")
+                        @if (!OperadorSoloLectura && avisoSeleccionadoParaVer.Estado != "Entregado")
                         {
                             <button type="button"
                                     class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
@@ -510,6 +523,9 @@
 }
 
 @code {
+    [CascadingParameter(Name = "OperadorSoloLectura")]
+    public bool OperadorSoloLectura { get; set; }
+
     private bool cargando = true;
     private bool cargandoHistorial = false;
     private bool guardando = false;

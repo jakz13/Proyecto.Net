@@ -63,6 +63,23 @@ public class EfRutaRepository : IRutaRepository
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
     }
 
+    public async Task<List<HojaDeRuta>> GetByIdsWithParadasYAsignacionesAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var idsValidos = ids.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (idsValidos.Count == 0)
+            return new List<HojaDeRuta>();
+
+        return await _dbContext.HojasDeRuta
+            .Include(h => h.Paradas)
+            .Include(h => h.Asignaciones)
+            .Where(h => idsValidos.Contains(h.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default)
     {
         // Despachada o finalizada en calle, pero aún sin rendición en depósito

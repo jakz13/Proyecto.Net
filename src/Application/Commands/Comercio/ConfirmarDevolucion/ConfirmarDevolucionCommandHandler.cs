@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Ejecucion;
@@ -17,6 +18,7 @@ public class ConfirmarDevolucionCommandHandler : IRequestHandler<ConfirmarDevolu
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ConfirmarDevolucionCommandHandler(
         IEnvioRepository envioRepository,
@@ -24,7 +26,8 @@ public class ConfirmarDevolucionCommandHandler : IRequestHandler<ConfirmarDevolu
         IOutboxStorage outboxStorage,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _envioRepository = envioRepository;
         _devolucionRepository = devolucionRepository;
@@ -32,6 +35,7 @@ public class ConfirmarDevolucionCommandHandler : IRequestHandler<ConfirmarDevolu
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _clock = clock;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<ConfirmarDevolucionResultDto> Handle(ConfirmarDevolucionCommand request, CancellationToken cancellationToken)
@@ -43,6 +47,8 @@ public class ConfirmarDevolucionCommandHandler : IRequestHandler<ConfirmarDevolu
 
         var comercioId = _currentTenant.ComercioOperadorId
             ?? throw new UnauthorizedAccessException("Acceso denegado: el usuario no pertenece a un comercio.");
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(_comercioOperadorRepository, comercioId, cancellationToken);
 
         var envio = await _envioRepository.GetByIdAsync(request.EnvioId, cancellationToken)
             ?? throw new NotFoundException($"Envío '{request.EnvioId}' no encontrado.");

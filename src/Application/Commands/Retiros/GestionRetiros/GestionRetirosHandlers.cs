@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Retiros;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
@@ -54,11 +55,22 @@ public abstract class RetiroHandlerBase
 
 public class CancelarRetiroCommandHandler : RetiroHandlerBase, IRequestHandler<CancelarRetiroCommand, RetiroDetalleDto>
 {
-    public CancelarRetiroCommandHandler(IRetiroRepository retiros, IUnitOfWork unitOfWork, ICurrentTenant tenant)
-        : base(retiros, unitOfWork, tenant) { }
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
+
+    public CancelarRetiroCommandHandler(
+        IRetiroRepository retiros,
+        IUnitOfWork unitOfWork,
+        ICurrentTenant tenant,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
+        : base(retiros, unitOfWork, tenant)
+    {
+        _comercioOperadorRepository = comercioOperadorRepository;
+    }
 
     public async Task<RetiroDetalleDto> Handle(CancelarRetiroCommand request, CancellationToken cancellationToken)
     {
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(_comercioOperadorRepository, Tenant.ComercioOperadorId, cancellationToken);
+
         var retiro = await CargarAsync(request.RetiroId, cancellationToken);
 
         if (retiro.EstadoActual == EstadoRetiro.AsignadoARuta)

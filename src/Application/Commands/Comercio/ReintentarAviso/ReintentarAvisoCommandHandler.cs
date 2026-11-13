@@ -1,5 +1,6 @@
 using MediatR;
 using UltimaMilla.Application.Commands.Mensajeria;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
 
@@ -14,17 +15,20 @@ public class ReintentarAvisoCommandHandler : IRequestHandler<ReintentarAvisoComm
     private readonly ISuscripcionAvisoRepository _suscripcionRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly AvisoComercioEntregador _entregador;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ReintentarAvisoCommandHandler(
         IAvisoComercioConsultaRepository avisoRepository,
         ISuscripcionAvisoRepository suscripcionRepository,
         ICurrentTenant currentTenant,
-        AvisoComercioEntregador entregador)
+        AvisoComercioEntregador entregador,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _avisoRepository = avisoRepository;
         _suscripcionRepository = suscripcionRepository;
         _currentTenant = currentTenant;
         _entregador = entregador;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<ResultadoReintentoAvisoDto> Handle(ReintentarAvisoCommand request, CancellationToken cancellationToken)
@@ -41,6 +45,8 @@ public class ReintentarAvisoCommandHandler : IRequestHandler<ReintentarAvisoComm
         {
             throw new UnauthorizedAccessException("Se requiere una sesión activa de comercio para reintentar avisos.");
         }
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(_comercioOperadorRepository, comercioOperadorId, cancellationToken);
 
         var aviso = await _avisoRepository.ObtenerPorIdAsync(request.AvisoId, cancellationToken);
         if (aviso is null)

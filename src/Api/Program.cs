@@ -357,6 +357,53 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
+// Un comercio dado de baja en el operador solo puede consultar información histórica (GET/HEAD/OPTIONS); se bloquean altas, ediciones y cancelaciones.
+app.Use(async (context, next) =>
+{
+    var user = context.User;
+    if (user.Identity?.IsAuthenticated == true
+        && user.IsInRole(PoliticasApi.RolComercio)
+        && !HttpMethods.IsGet(context.Request.Method)
+        && !HttpMethods.IsHead(context.Request.Method)
+        && !HttpMethods.IsOptions(context.Request.Method))
+    {
+        var path = context.Request.Path;
+        var exento = path.StartsWithSegments("/api/comercio/operadores", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase);
+
+        if (!exento)
+        {
+            var tenant = context.RequestServices.GetRequiredService<ICurrentTenant>();
+            if (tenant.ComercioOperadorId is { } comercioOperadorId && comercioOperadorId != Guid.Empty)
+            {
+                var db = context.RequestServices.GetRequiredService<AppDbContext>();
+                var estado = await db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
+                    .Where(v => v.Id == comercioOperadorId)
+                    .Join(
+                        db.Operadores.IgnoreQueryFilters().AsNoTracking(),
+                        v => v.OperadorId,
+                        o => o.Id,
+                        (v, o) => new { VinculoEstado = v.Estado, OperadorEstado = o.Estado })
+                    .FirstOrDefaultAsync(context.RequestAborted);
+
+                if (estado is null || estado.VinculoEstado != "Activo" || estado.OperadorEstado != "Activo")
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = "El comercio se encuentra dado de baja en este operador y solo puede consultar información histórica."
+                    }, context.RequestAborted);
+                    return;
+                }
+            }
+        }
+    }
+
+    await next();
+});
+
 // Auto-migrate database on startup with resilience retry and idempotent seed data
 await ApplyMigrationsAsync(app);
 

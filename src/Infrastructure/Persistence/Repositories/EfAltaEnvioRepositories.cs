@@ -94,6 +94,20 @@ public class EfComercioOperadorRepository : IComercioOperadorRepository
             .FirstOrDefaultAsync(co => co.ComercioId == comercioId && co.OperadorId == operadorId, cancellationToken);
     }
 
+    public async Task<List<ComercioOperador>> ListarRelacionesDelComercioAsync(Guid comercioId, CancellationToken cancellationToken = default)
+    {
+        if (comercioId == Guid.Empty)
+            return new List<ComercioOperador>();
+
+        return await _dbContext.ComerciosOperadores
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(co => co.ComercioId == comercioId)
+            .OrderByDescending(co => co.Estado == "Activo")
+            .ThenBy(co => co.FechaAlta)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default)
     {
         if (comercioId == Guid.Empty || operadorId == Guid.Empty)

@@ -7,6 +7,7 @@ namespace UltimaMilla.Frontend.Contracts.Modelos;
 public record OperadoresDelComercioDto
 {
     public string OperadorActualId { get; init; } = string.Empty;
+    public bool OperadorActualDadoDeBaja { get; init; }
     public List<IdentidadVisualDto> Operadores { get; init; } = new();
 }
 

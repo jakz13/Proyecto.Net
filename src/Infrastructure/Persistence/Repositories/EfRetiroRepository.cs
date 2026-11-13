@@ -106,6 +106,15 @@ public class EfRetiroRepository : IRetiroRepository
         return filas.ToDictionary(f => f.Estado, f => f.Cantidad);
     }
 
+    public async Task<List<Retiro>> ListarParaBajaComercioAsync(Guid operadorId, Guid comercioOperadorId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Retiros
+            .Where(r => r.OperadorId == operadorId
+                        && r.ComercioOperadorId == comercioOperadorId
+                        && (r.EstadoActual == EstadoRetiro.Solicitado || r.EstadoActual == EstadoRetiro.AsignadoARuta))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task UpdateAsync(Retiro retiro, CancellationToken cancellationToken = default)
     {
         // Una entidad ya rastreada detecta sola sus cambios; Update marcaría como modificados los hijos nuevos (eventos) y fallaría al guardar

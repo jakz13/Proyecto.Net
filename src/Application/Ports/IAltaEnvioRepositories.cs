@@ -37,6 +37,8 @@ public interface IComercioOperadorRepository
     /// cuando todavía no hay operador en contexto. Solo debe consultarse con el par comercio-operador del propio usuario.
     /// </summary>
     Task<ComercioOperador?> ObtenerRelacionParaSesionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
+    /// <summary>Lista todas las relaciones del comercio sin filtro de operador ni estado, para elegir o consultar operadores.</summary>
+    Task<List<ComercioOperador>> ListarRelacionesDelComercioAsync(Guid comercioId, CancellationToken cancellationToken = default);
     Task<bool> ExisteRelacionAsync(Guid comercioId, Guid operadorId, CancellationToken cancellationToken = default);
     Task AgregarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);
     Task ActualizarAsync(ComercioOperador relacion, CancellationToken cancellationToken = default);

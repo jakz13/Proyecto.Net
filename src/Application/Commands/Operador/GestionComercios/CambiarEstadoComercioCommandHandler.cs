@@ -14,14 +14,17 @@ public class CambiarEstadoComercioCommandHandler : IRequestHandler<CambiarEstado
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
     private readonly ITableroRealtimeNotifier? _tiempoReal;
+    private readonly BajaComercioProcesador? _bajaComercioProcesador;
 
     public CambiarEstadoComercioCommandHandler(
         IComercioOperadorRepository comercioOperadorRepositorio,
         ICurrentTenant inquilinoActual,
         IUnitOfWork unidadDeTrabajo,
-        ITableroRealtimeNotifier? tiempoReal = null)
+        ITableroRealtimeNotifier? tiempoReal = null,
+        BajaComercioProcesador? bajaComercioProcesador = null)
     {
         _tiempoReal = tiempoReal;
+        _bajaComercioProcesador = bajaComercioProcesador;
         _comercioOperadorRepositorio = comercioOperadorRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
@@ -49,6 +52,14 @@ public class CambiarEstadoComercioCommandHandler : IRequestHandler<CambiarEstado
         else
         {
             vinculo.Suspender();
+            if (_bajaComercioProcesador is not null)
+            {
+                await _bajaComercioProcesador.CancelarOperacionesPreviasASalidaAsync(
+                    vinculo.OperadorId,
+                    vinculo.Id,
+                    _inquilinoActual.UsuarioId,
+                    cancellationToken);
+            }
         }
 
         await _comercioOperadorRepositorio.ActualizarAsync(vinculo, cancellationToken);

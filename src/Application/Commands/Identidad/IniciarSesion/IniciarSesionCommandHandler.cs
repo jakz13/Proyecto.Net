@@ -103,12 +103,36 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         var permisos = await _usuarioRepository.ObtenerPermisosDePerfilAsync(usuario.PerfilId, cancellationToken);
         var codigosPermisos = permisos.Select(p => p.Codigo).ToList();
 
-        // Un usuario de comercio opera a través de la relación comercio-operador: esa es la identidad que viaja en el token
+        // Un usuario de comercio opera a través de la relación comercio-operador: esa es la identidad que viaja en el token.
+        // Si su operador por defecto está dado de baja pero tiene otro vínculo activo, entra en uno activo;
+        // si todos están dados de baja, igual puede iniciar sesión para consultar su historial en modo solo lectura.
         Guid? comercioOperadorId = null;
-        if (usuario.ComercioId.HasValue && usuario.OperadorId.HasValue && _comercioOperadorRepository is not null)
+        var operadorSesionId = usuario.OperadorId;
+        if (usuario.ComercioId.HasValue && _comercioOperadorRepository is not null)
         {
-            var relacion = await _comercioOperadorRepository.ObtenerRelacionParaSesionAsync(
-                usuario.ComercioId.Value, usuario.OperadorId.Value, cancellationToken);
+            var relacion = usuario.OperadorId.HasValue
+                ? await _comercioOperadorRepository.ObtenerRelacionParaSesionAsync(
+                    usuario.ComercioId.Value, usuario.OperadorId.Value, cancellationToken)
+                : null;
+
+            if (relacion is null || !relacion.EstaActivo)
+            {
+                var relaciones = await _comercioOperadorRepository.ListarRelacionesDelComercioAsync(
+                    usuario.ComercioId.Value, cancellationToken);
+                var activa = relaciones.FirstOrDefault(r => r.EstaActivo);
+                if (activa is not null)
+                {
+                    relacion = activa;
+                    operadorSesionId = activa.OperadorId;
+                }
+                else
+                {
+                    relacion ??= relaciones.FirstOrDefault();
+                    if (relacion is not null)
+                        operadorSesionId = relacion.OperadorId;
+                }
+            }
+
             comercioOperadorId = relacion?.Id;
         }
 
@@ -117,7 +141,8 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
             usuario,
             perfil ?? new Perfil(usuario.PerfilId, nombrePerfil, string.Empty),
             codigosPermisos,
-            comercioOperadorId: comercioOperadorId);
+            comercioOperadorId: comercioOperadorId,
+            operadorId: operadorSesionId);
 
         return new IniciarSesionResultadoDto(
             tokenGenerado.Token,
@@ -125,7 +150,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
             usuario.Nombre,
             usuario.Email,
             nombrePerfil,
-            usuario.OperadorId,
+            operadorSesionId,
             usuario.ComercioId,
             codigosPermisos,
             tokenGenerado.ExpiraUtc);

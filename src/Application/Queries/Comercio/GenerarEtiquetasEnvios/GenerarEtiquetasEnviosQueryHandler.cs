@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Enums;
@@ -13,20 +14,28 @@ public class GenerarEtiquetasEnviosQueryHandler : IRequestHandler<GenerarEtiquet
     private readonly IEnvioRepository _envioRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly IOperadorRepository? _operadorRepository;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public GenerarEtiquetasEnviosQueryHandler(
         IEnvioRepository envioRepository,
         ICurrentTenant currentTenant,
-        IOperadorRepository? operadorRepository = null)
+        IOperadorRepository? operadorRepository = null,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _envioRepository = envioRepository;
         _currentTenant = currentTenant;
         _operadorRepository = operadorRepository;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<EtiquetasGeneradasResultDto> Handle(GenerarEtiquetasEnviosQuery request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(
+            _comercioOperadorRepository,
+            _currentTenant.ComercioOperadorId,
+            cancellationToken);
 
         if (request.EnvioIds is null || request.EnvioIds.Count == 0)
             throw new DomainValidationException("Debe seleccionar al menos un envío para generar etiquetas.");

@@ -79,6 +79,12 @@ public class FakeEnvioRepository : IEnvioRepository
         return Task.FromResult(Envios.Where(e => set.Contains(e.Id)).ToList());
     }
 
+    public Task<List<Envio>> ListarParaBajaComercioAsync(Guid operadorId, Guid comercioOperadorId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Envios.Where(e =>
+            e.OperadorId == operadorId
+            && e.ComercioOperadorId == comercioOperadorId
+            && e.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta).ToList());
+
     public Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default) => Task.CompletedTask;

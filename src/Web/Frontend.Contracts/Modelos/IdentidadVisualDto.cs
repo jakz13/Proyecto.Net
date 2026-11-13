@@ -17,6 +17,8 @@ public record IdentidadVisualDto
     public string? TelefonoContacto { get; init; }
     public string? SitioWeb { get; init; }
     public string? MensajeComunicaciones { get; init; }
+    /// <summary>Indica si la relación comercio-operador y el operador están activos; de lo contrario solo se permite consulta histórica.</summary>
+    public bool Activo { get; init; } = true;
 
     /// <summary>
     /// Retorna el color de texto con contraste óptimo para el color primario (#FFFFFF o #0F172A).

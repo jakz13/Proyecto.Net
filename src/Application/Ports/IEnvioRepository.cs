@@ -21,6 +21,8 @@ public interface IEnvioRepository
     Task<Envio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetByHojaDeRutaIdAsync(Guid hojaDeRutaId, CancellationToken cancellationToken = default);
     Task<List<Envio>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+    /// <summary>Envíos previos a la salida a calle (Admitido, EnDeposito, AsignadoARuta) del comercio para cancelar en su baja.</summary>
+    Task<List<Envio>> ListarParaBajaComercioAsync(Guid operadorId, Guid comercioOperadorId, CancellationToken cancellationToken = default);
     Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default);
     Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default);
     Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default);

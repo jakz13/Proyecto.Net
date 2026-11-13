@@ -346,7 +346,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     }
 
     /// <summary>Retira de la ruta un envío que todavía no salió: vuelve directamente a depósito (UC-10).</summary>
-    public void RetirarDeRuta(string motivo, Guid responsableUsuarioId)
+    public void RetirarDeRuta(string motivo, Guid? responsableUsuarioId = null)
     {
         if (EstadoActual != EstadoEnvio.AsignadoARuta)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede retirar de la ruta porque su estado es '{EstadoActual}'.");
@@ -436,6 +436,33 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         TransicionarEstado(EstadoEnvio.Extraviado, "EnvioExtraviado", responsableUsuarioId, "Backoffice", payload: motivo.Trim());
         HojaDeRutaId = null;
+    }
+
+    /// <summary>
+    /// Cancela el envío antes de que salga a la calle (solo desde <see cref="EstadoEnvio.Admitido"/> o <see cref="EstadoEnvio.EnDeposito"/>).
+    /// </summary>
+    public void Cancelar(string motivo, Guid? responsableUsuarioId = null, string origen = "Backoffice")
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new DomainValidationException("Debe indicar el motivo de cancelación del envío.");
+
+        var motivoLimpio = motivo.Trim();
+        if (motivoLimpio.Length > 500)
+            throw new DomainValidationException("El motivo de cancelación no puede superar los 500 caracteres.");
+
+        if (EstadoActual == EstadoEnvio.Cancelado)
+            return;
+
+        if (EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito))
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no se puede cancelar porque su estado es '{EstadoActual}'.");
+
+        HojaDeRutaId = null;
+        TransicionarEstado(
+            EstadoEnvio.Cancelado,
+            "EnvioCancelado",
+            responsableUsuarioId,
+            string.IsNullOrWhiteSpace(origen) ? "Backoffice" : origen.Trim(),
+            payload: motivoLimpio);
     }
 
     public void TransicionarEstado(

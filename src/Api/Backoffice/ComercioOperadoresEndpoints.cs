@@ -25,13 +25,15 @@ public static class ComercioOperadoresEndpoints
             if (comercioId is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status403Forbidden, "La sesión no corresponde a un comercio.");
 
-            var vinculados = await OperadoresActivosAsync(db, comercioId.Value, ct);
+            var vinculados = await OperadoresVinculadosAsync(db, comercioId.Value, ct);
+            var idsOperadores = vinculados.Select(x => x.Operador.Id).ToList();
             var identidades = await db.IdentidadesVisuales.IgnoreQueryFilters().AsNoTracking()
-                .Where(i => vinculados.Select(o => o.Id).Contains(i.OperadorId)).ToListAsync(ct);
+                .Where(i => idsOperadores.Contains(i.OperadorId)).ToListAsync(ct);
 
             var porDefecto = new IdentidadVisualDto();
-            var lista = vinculados.Select(o =>
+            var lista = vinculados.Select(x =>
             {
+                var o = x.Operador;
                 var identidad = identidades.FirstOrDefault(i => i.OperadorId == o.Id);
                 return new IdentidadVisualDto
                 {
@@ -43,14 +45,24 @@ public static class ComercioOperadoresEndpoints
                     EmailContacto = identidad?.EmailContacto,
                     TelefonoContacto = identidad?.TelefonoContacto,
                     SitioWeb = identidad?.SitioWeb,
-                    MensajeComunicaciones = identidad?.MensajeComunicaciones
+                    MensajeComunicaciones = identidad?.MensajeComunicaciones,
+                    Activo = x.Activo
                 };
             }).ToList();
 
-            return Results.Ok(new OperadoresDelComercioDto { OperadorActualId = tenant.OperadorId.ToString(), Operadores = lista });
+            var operadorActualId = tenant.OperadorId.ToString();
+            var operadorActualDadoDeBaja = lista.FirstOrDefault(o =>
+                string.Equals(o.OperadorId, operadorActualId, StringComparison.OrdinalIgnoreCase)) is { Activo: false };
+
+            return Results.Ok(new OperadoresDelComercioDto
+            {
+                OperadorActualId = operadorActualId,
+                OperadorActualDadoDeBaja = operadorActualDadoDeBaja,
+                Operadores = lista
+            });
         }))
         .WithName("ListarOperadoresDelComercio")
-        .WithSummary("Operadores activos con los que trabaja el comercio de la sesión");
+        .WithSummary("Operadores con los que el comercio tiene vínculo (activos o dados de baja para consulta histórica)");
 
         grupo.MapPost("/{operadorId:guid}/sesion", (
             Guid operadorId,
@@ -64,13 +76,13 @@ public static class ComercioOperadoresEndpoints
             if (comercioId is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status403Forbidden, "La sesión no corresponde a un comercio.");
 
-            // Solo se puede operar con un operador con el que el comercio tiene un vínculo activo; de lo contrario no se revela que existe
+            // Permite abrir sesión en cualquier operador con el que el comercio tuvo vínculo: si está dado de baja, opera en modo solo lectura histórica
             var vinculo = await db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
-                .FirstOrDefaultAsync(v => v.ComercioId == comercioId.Value && v.OperadorId == operadorId && v.Estado == "Activo", ct);
-            var operadorActivo = vinculo is not null
-                && await db.Operadores.IgnoreQueryFilters().AnyAsync(o => o.Id == operadorId && o.Estado == "Activo", ct);
-            if (!operadorActivo)
-                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "El comercio no tiene un vínculo activo con ese operador.");
+                .FirstOrDefaultAsync(v => v.ComercioId == comercioId.Value && v.OperadorId == operadorId, ct);
+            var operadorExiste = vinculo is not null
+                && await db.Operadores.IgnoreQueryFilters().AnyAsync(o => o.Id == operadorId, ct);
+            if (!operadorExiste)
+                return RespuestasBackoffice.Error(StatusCodes.Status404NotFound, "El comercio no tiene un vínculo con ese operador.");
 
             var usuario = await usuarios.ObtenerPorIdAsync(tenant.UsuarioId!.Value, ct);
             if (usuario is null || !usuario.Activo)
@@ -103,12 +115,18 @@ public static class ComercioOperadoresEndpoints
             .Where(u => u.Id == usuarioId).Select(u => u.ComercioId).FirstOrDefaultAsync(ct);
     }
 
-    private static async Task<List<UltimaMilla.Domain.Entities.Operador.Operador>> OperadoresActivosAsync(AppDbContext db, Guid comercioId, CancellationToken ct)
-    {
-        var ids = await db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
-            .Where(v => v.ComercioId == comercioId && v.Estado == "Activo").Select(v => v.OperadorId).ToListAsync(ct);
+    private sealed record OperadorVinculado(UltimaMilla.Domain.Entities.Operador.Operador Operador, bool Activo);
 
-        return await db.Operadores.IgnoreQueryFilters().AsNoTracking()
-            .Where(o => ids.Contains(o.Id) && o.Estado == "Activo").OrderBy(o => o.NombreComercial).ToListAsync(ct);
+    private static async Task<List<OperadorVinculado>> OperadoresVinculadosAsync(AppDbContext db, Guid comercioId, CancellationToken ct)
+    {
+        var filas = await (from v in db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
+                           join o in db.Operadores.IgnoreQueryFilters().AsNoTracking() on v.OperadorId equals o.Id
+                           where v.ComercioId == comercioId
+                           select new { Operador = o, Activo = v.Estado == "Activo" && o.Estado == "Activo" })
+            .OrderByDescending(x => x.Activo)
+            .ThenBy(x => x.Operador.NombreComercial)
+            .ToListAsync(ct);
+
+        return filas.Select(x => new OperadorVinculado(x.Operador, x.Activo)).ToList();
     }
 }

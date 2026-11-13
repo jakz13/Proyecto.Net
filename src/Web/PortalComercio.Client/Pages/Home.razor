@@ -12,10 +12,13 @@
         <p class="text-muted small mb-0">Resumen y estado de las órdenes de despacho de su comercio.</p>
     </div>
     <div class="d-flex gap-2">
-        <button class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1" @onclick='() => Navegador.NavigateTo("envios/nuevo")'>
-            <Icono Nombre="plus" Tamano="14" />
-            <span>Nuevo Envío</span>
-        </button>
+        @if (!OperadorSoloLectura)
+        {
+            <button class="btn btn-marca btn-sm d-inline-flex align-items-center gap-1" @onclick='() => Navegador.NavigateTo("envios/nuevo")'>
+                <Icono Nombre="plus" Tamano="14" />
+                <span>Nuevo Envío</span>
+            </button>
+        }
     </div>
 </div>
 
@@ -104,6 +107,9 @@
 </div>
 
 @code {
+    [CascadingParameter(Name = "OperadorSoloLectura")]
+    public bool OperadorSoloLectura { get; set; }
+
     private bool estaCargando = true;
     private int totalEnvios = 0;
     private int enTransito = 0;

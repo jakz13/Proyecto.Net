@@ -23,7 +23,18 @@
     </a>
 </div>
 
-@if (estaProcesando)
+@if (OperadorSoloLectura)
+{
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        <p class="text-secondary mb-3">
+            No es posible importar nuevos envíos porque su comercio se encuentra dado de baja en este operador (modo solo lectura histórica).
+        </p>
+        <div>
+            <a href="envios" class="btn btn-outline-primary btn-sm">Ir al listado de envíos</a>
+        </div>
+    </div>
+}
+else if (estaProcesando)
 {
     <div class="card border-0 shadow-sm rounded-4 p-5 text-center mb-4 bg-white">
         <div class="spinner-border text-primary mx-auto mb-3" style="width: 3rem; height: 3rem;" role="status">
@@ -322,6 +333,9 @@ else
 }
 
 @code {
+    [CascadingParameter(Name = "OperadorSoloLectura")]
+    public bool OperadorSoloLectura { get; set; }
+
     private IBrowserFile? archivoSeleccionado;
     private byte[]? bytesEjemplo;
     private string? nombreArchivoEjemplo;

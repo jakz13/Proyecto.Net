@@ -28,7 +28,9 @@
 }
 
 <div class="row g-4">
-    <div class="col-12 col-lg-5">
+    @if (!OperadorSoloLectura)
+    {
+        <div class="col-12 col-lg-5">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white fw-bold">Solicitar un retiro</div>
             <div class="card-body">
@@ -102,9 +104,10 @@
                 </EditForm>
             </div>
         </div>
-    </div>
+        </div>
+    }
 
-    <div class="col-12 col-lg-7">
+    <div class="col-12 @(OperadorSoloLectura ? "" : "col-lg-7")">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <span class="fw-bold">Mis retiros (@retiros.Count)</span>
@@ -133,7 +136,7 @@
                                 <td class="text-end">$ @retiro.Tarifa.ToString("N2")</td>
                                 <td><span class="badge bg-dark">@retiro.Estado</span></td>
                                 <td class="text-end">
-                                    @if (retiro.Estado is "Solicitado" or "NoRetirado")
+                                    @if (!OperadorSoloLectura && retiro.Estado is "Solicitado" or "NoRetirado")
                                     {
                                         <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => CancelarAsync(retiro.Id)">Cancelar</button>
                                     }
@@ -148,6 +151,9 @@
 </div>
 
 @code {
+    [CascadingParameter(Name = "OperadorSoloLectura")]
+    public bool OperadorSoloLectura { get; set; }
+
     private SolicitarRetiroDto solicitud = new();
     private List<RetiroResumenDto> retiros = new();
     private bool cargando = true;

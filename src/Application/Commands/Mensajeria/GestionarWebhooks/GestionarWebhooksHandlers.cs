@@ -48,6 +48,8 @@ public class CrearSuscripcionAvisoCommandHandler : IRequestHandler<CrearSuscripc
 
         if (comercioOperador.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("No tiene autorización para gestionar webhooks de un comercio de otro operador.");
+        if (!comercioOperador.EstaActivo)
+            throw new UnauthorizedAccessException(UltimaMilla.Application.Common.ComercioOperadorActivoGuard.MensajeComercioDadoDeBaja);
 
         var suscripcion = new SuscripcionAviso(
             Guid.NewGuid(),
@@ -92,19 +94,30 @@ public class DesactivarSuscripcionAvisoCommandHandler : IRequestHandler<Desactiv
 {
     private readonly IAvisoComercioRepository _avisoRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
+    private readonly ICurrentTenant? _currentTenant;
 
     public DesactivarSuscripcionAvisoCommandHandler(
         IAvisoComercioRepository avisoRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IComercioOperadorRepository? comercioOperadorRepository = null,
+        ICurrentTenant? currentTenant = null)
     {
         _avisoRepository = avisoRepository;
         _unitOfWork = unitOfWork;
+        _comercioOperadorRepository = comercioOperadorRepository;
+        _currentTenant = currentTenant;
     }
 
     public async Task<SuscripcionAvisoDto> Handle(DesactivarSuscripcionAvisoCommand request, CancellationToken cancellationToken)
     {
         if (request.SuscripcionId == Guid.Empty)
             throw new DomainValidationException("El identificador de la suscripción no puede ser vacío.");
+
+        await UltimaMilla.Application.Common.ComercioOperadorActivoGuard.AsegurarActivoAsync(
+            _comercioOperadorRepository,
+            _currentTenant?.ComercioOperadorId ?? request.ComercioOperadorId,
+            cancellationToken);
 
         var suscripcion = await _avisoRepository.GetSuscripcionParaEdicionAsync(request.SuscripcionId, cancellationToken)
             ?? throw new NotFoundException($"La suscripción '{request.SuscripcionId}' no fue encontrada.");
@@ -165,21 +178,29 @@ public class ReenviarAvisoManualCommandHandler : IRequestHandler<ReenviarAvisoMa
     private readonly IAvisoComercioRepository _avisoRepository;
     private readonly AvisoComercioEntregador _entregador;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ReenviarAvisoManualCommandHandler(
         IAvisoComercioRepository avisoRepository,
         AvisoComercioEntregador entregador,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _avisoRepository = avisoRepository;
         _entregador = entregador;
         _currentTenant = currentTenant;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<AvisoComercioHistorialDto> Handle(ReenviarAvisoManualCommand request, CancellationToken cancellationToken)
     {
         if (request.AvisoId == Guid.Empty)
             throw new DomainValidationException("El identificador del aviso no puede ser vacío.");
+
+        await UltimaMilla.Application.Common.ComercioOperadorActivoGuard.AsegurarActivoAsync(
+            _comercioOperadorRepository,
+            _currentTenant.ComercioOperadorId,
+            cancellationToken);
 
         var aviso = await _avisoRepository.GetAvisoByIdAsync(request.AvisoId, cancellationToken)
             ?? throw new NotFoundException($"El aviso '{request.AvisoId}' no fue encontrado.");

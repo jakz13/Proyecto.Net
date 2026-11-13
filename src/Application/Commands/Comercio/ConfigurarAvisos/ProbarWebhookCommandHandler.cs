@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
 
@@ -11,13 +12,16 @@ public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand,
 {
     private readonly ISuscripcionAvisoRepository _suscripcionRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ProbarWebhookCommandHandler(
         ISuscripcionAvisoRepository suscripcionRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _suscripcionRepository = suscripcionRepository;
         _currentTenant = currentTenant;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<ProbarWebhookResultDto> Handle(ProbarWebhookCommand request, CancellationToken cancellationToken)
@@ -29,6 +33,8 @@ public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand,
         {
             throw new UnauthorizedAccessException("Se requiere una sesión activa de comercio para probar el webhook.");
         }
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(_comercioOperadorRepository, comercioOperadorId, cancellationToken);
 
         string urlDestino;
         string claveFirma = "demo-firma-hmac-sha256";

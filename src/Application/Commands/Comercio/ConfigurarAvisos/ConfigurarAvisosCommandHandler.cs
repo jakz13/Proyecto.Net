@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Seguimiento;
 using UltimaMilla.Domain.Exceptions;
@@ -25,15 +26,18 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
     private readonly ISuscripcionAvisoRepository _suscripcionRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
     public ConfigurarAvisosCommandHandler(
         ISuscripcionAvisoRepository suscripcionRepository,
         ICurrentTenant currentTenant,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IComercioOperadorRepository? comercioOperadorRepository = null)
     {
         _suscripcionRepository = suscripcionRepository;
         _currentTenant = currentTenant;
         _unitOfWork = unitOfWork;
+        _comercioOperadorRepository = comercioOperadorRepository;
     }
 
     public async Task<ConfiguracionAvisosResultDto> Handle(ConfigurarAvisosCommand request, CancellationToken cancellationToken)
@@ -77,6 +81,8 @@ public class ConfigurarAvisosCommandHandler : IRequestHandler<ConfigurarAvisosCo
         {
             throw new UnauthorizedAccessException("Se requiere una sesión activa de comercio para configurar avisos automáticos.");
         }
+
+        await ComercioOperadorActivoGuard.AsegurarActivoAsync(_comercioOperadorRepository, comercioOperadorId, cancellationToken);
 
         var claveFirma = string.IsNullOrWhiteSpace(request.ClaveFirma)
             ? Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant()

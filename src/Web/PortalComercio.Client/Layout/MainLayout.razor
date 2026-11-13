@@ -44,6 +44,10 @@
                                 </div>
                             }
                             <span class="fw-bold fs-6">@identidad.NombreComercial</span>
+                            @if (operadorActualDadoDeBaja)
+                            {
+                                <span class="badge bg-warning text-dark ms-1">Solo lectura</span>
+                            }
                             <!-- Flecha hacia abajo indicando selector de múltiples operadores -->
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-chevron-down flecha-desplegable ms-1 @(desplegableOperadoresAbierto ? "flecha-rotada" : "")" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
@@ -68,6 +72,10 @@
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="punto-color-operador" style="background-color: @operador.ColorPrimario;"></span>
                                             <span>@operador.NombreComercial</span>
+                                            @if (!operador.Activo)
+                                            {
+                                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle" style="font-size: 0.65rem;">Dado de baja</span>
+                                            }
                                         </div>
                                         @if (esSeleccionado)
                                         {
@@ -97,6 +105,10 @@
                             </div>
                         }
                         <span class="fs-6">@identidad.NombreComercial</span>
+                        @if (operadorActualDadoDeBaja)
+                        {
+                            <span class="badge bg-warning text-dark ms-1">Solo lectura</span>
+                        }
                     </div>
                 }
             </div>
@@ -121,19 +133,30 @@
         </div>
     </header>
 
-    <div class="container-fluid px-3 px-md-4 py-3 flex-grow-1">
-        <div class="row g-3">
-            <!-- Barra Lateral de Navegación -->
-            <aside class="col-12 col-md-3 col-lg-2">
-                <NavMenu />
-            </aside>
+    <CascadingValue Value="operadorActualDadoDeBaja" Name="OperadorSoloLectura">
+        <div class="container-fluid px-3 px-md-4 py-3 flex-grow-1">
+            <div class="row g-3">
+                <!-- Barra Lateral de Navegación -->
+                <aside class="col-12 col-md-3 col-lg-2">
+                    <NavMenu />
+                </aside>
 
-            <!-- Contenido Principal -->
-            <main class="col-12 col-md-9 col-lg-10">
-                @Body
-            </main>
+                <!-- Contenido Principal -->
+                <main class="col-12 col-md-9 col-lg-10">
+                    @if (operadorActualDadoDeBaja)
+                    {
+                        <div class="alert alert-warning border-warning shadow-sm mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2" role="alert">
+                            <div class="small">
+                                <strong>Operador dado de baja — Modo solo lectura:</strong>
+                                Su comercio fue dado de baja en <strong>@identidad.NombreComercial</strong>. Puede consultar el historial de envíos, retiros, avisos y cuenta corriente, pero no realizar modificaciones ni nuevas solicitudes.
+                            </div>
+                        </div>
+                    }
+                    @Body
+                </main>
+            </div>
         </div>
-    </div>
+    </CascadingValue>
 </div>
 
 @code {
@@ -150,6 +173,7 @@
 
     // Verdadero cuando la lista de operadores viene de la sesión real del comercio (no del selector de la demo)
     private bool sesionReal;
+    private bool operadorActualDadoDeBaja;
 
     private async Task CerrarSesionAsync()
     {
@@ -193,6 +217,7 @@
         await InvokeAsync(async () =>
         {
             await CargarOperadoresDisponibles();
+            await CargarIdentidadVisual();
             StateHasChanged();
         });
     }
@@ -204,12 +229,14 @@
         {
             var delComercio = await IdentidadApi.ObtenerOperadoresDelComercioAsync();
             operadoresDisponibles = delComercio.Operadores;
+            operadorActualDadoDeBaja = delComercio.OperadorActualDadoDeBaja;
             sesionReal = true;
             return;
         }
         catch
         {
             sesionReal = false;
+            operadorActualDadoDeBaja = false;
         }
 
         // Sin sesión real solo existe el selector de la demo local; en el servidor no se muestran operadores inventados

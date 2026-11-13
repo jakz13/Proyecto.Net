@@ -7,6 +7,7 @@ public interface IRutaRepository
     Task<HojaDeRuta?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<HojaDeRuta>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
     Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<List<HojaDeRuta>> GetByIdsWithParadasYAsignacionesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
     /// <summary>Indica si el repartidor tiene otra hoja de ruta despachada que todavía no fue rendida en depósito.</summary>
     Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default);
     /// <summary>Hojas de ruta de una jornada del repartidor que estén en alguno de los estados indicados.</summary>

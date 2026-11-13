@@ -356,6 +356,8 @@ public class EntregaParcialBultosTests
             Task.FromResult(new List<Envio> { _envio });
         public Task<List<Envio>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) =>
             Task.FromResult(ids.Contains(_envio.Id) ? new List<Envio> { _envio } : new List<Envio>());
+        public Task<List<Envio>> ListarParaBajaComercioAsync(Guid operadorId, Guid comercioOperadorId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new List<Envio>());
         public Task UpdateAsync(Envio envio, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateRangeAsync(IEnumerable<Envio> envios, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<ReglaOperativa?> GetReglaOperativaVigenteAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
@@ -383,6 +385,8 @@ public class EntregaParcialBultosTests
             Task.FromResult(ids.Contains(_ruta.Id) ? new List<HojaDeRuta> { _ruta } : new List<HojaDeRuta>());
         public Task<HojaDeRuta?> GetByIdWithParadasYAsignacionesAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(id == _ruta.Id ? _ruta : null);
+        public Task<List<HojaDeRuta>> GetByIdsWithParadasYAsignacionesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ids.Contains(_ruta.Id) ? new List<HojaDeRuta> { _ruta } : new List<HojaDeRuta>());
         public Task<bool> ExisteRutaSinRendirAsync(Guid repartidorId, Guid excluirHojaDeRutaId, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
         public Task<List<HojaDeRuta>> GetByRepartidorYFechaAsync(Guid repartidorId, DateOnly fecha, IReadOnlyCollection<string> estados, CancellationToken cancellationToken = default) =>

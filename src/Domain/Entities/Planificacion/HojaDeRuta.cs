@@ -88,9 +88,13 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     /// Retira un envío de la ruta (UC-10): su parada se cancela y su asignación deja de estar vigente.
     /// Solo es posible mientras la parada no esté cerrada.
     /// </summary>
+    public bool NoSalioACalle => Estado is "Borrador" or "Liberada" or "EnCarga";
+
+    public bool TieneParadasVigentes => _paradas.Any(p => p.Estado != "Cancelada");
+
     public void RetirarEnvio(Guid envioId)
     {
-        if (Estado is not ("Liberada" or "EnCarga" or "Despachada" or "EnTransito"))
+        if (Estado is not ("Borrador" or "Liberada" or "EnCarga" or "Despachada" or "EnTransito"))
             throw new DomainValidationException($"No se pueden retirar envíos de una hoja de ruta en estado '{Estado}'.");
 
         var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId && p.Estado != "Cancelada")
@@ -304,7 +308,7 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     /// <summary>Saca un retiro de la ruta antes de la salida: su parada se cancela (RF 39).</summary>
     public void RetirarRetiro(Guid retiroId)
     {
-        if (Estado is not ("Liberada" or "EnCarga"))
+        if (Estado is not ("Borrador" or "Liberada" or "EnCarga"))
             throw new DomainValidationException($"Solo se puede sacar un retiro de una hoja de ruta que todavía no salió (estado '{Estado}').");
 
         var parada = _paradas.FirstOrDefault(p => p.RetiroId == retiroId && p.Estado != "Cancelada")
@@ -351,6 +355,27 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     public void Finalizar()
     {
         Estado = "Finalizada";
+        SelloModificacion = Guid.NewGuid();
+    }
+
+    public void Cancelar(string motivo)
+    {
+        if (Estado == "Cancelada")
+            return;
+
+        if (!NoSalioACalle)
+            throw new DomainValidationException($"No se puede cancelar una hoja de ruta en estado '{Estado}'.");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new DomainValidationException("Debe indicar el motivo de cancelación de la hoja de ruta.");
+
+        foreach (var parada in _paradas.Where(p => p.Estado != "Cancelada"))
+            parada.CancelarPorFaltante(motivo.Trim());
+
+        foreach (var asignacion in _asignaciones.Where(a => a.Vigente))
+            asignacion.Desactivar();
+
+        Estado = "Cancelada";
         SelloModificacion = Guid.NewGuid();
     }
 }
