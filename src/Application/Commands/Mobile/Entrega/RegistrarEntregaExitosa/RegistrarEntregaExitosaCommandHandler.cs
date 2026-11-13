@@ -100,6 +100,21 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
+        // Tolerancia de secuencia offline: si la hoja de ruta ya tenía carga confirmada o despacho pendiente
+        // de iniciar recorrido, se promueve automáticamente a EnTransito antes de evaluar conflictos o entrega.
+        if (ruta.Estado == "EnCarga")
+        {
+            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
+                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega móvil");
+            ruta.Despachar();
+        }
+        if (ruta.Estado == "Despachada")
+        {
+            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
+                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega móvil");
+            ruta.IniciarRecorrido();
+        }
+
         // Manejo explícito de conflictos de sincronización:
         // si el repartidor completó la entrega física offline pero el servidor ya había retirado o reasignado el envío,
         // prevalece la entrega física real con su prueba y se asienta el conflicto en ConflictoSincronizacion y en el historial.

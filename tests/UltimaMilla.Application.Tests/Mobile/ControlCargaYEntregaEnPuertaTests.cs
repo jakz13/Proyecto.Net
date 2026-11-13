@@ -320,6 +320,67 @@ public class ControlCargaYEntregaEnPuertaTests
         Assert.Equal("PrevaleceEstadoServidor", envioRepo.Conflictos[0].PoliticaAplicada);
     }
 
+    [Fact]
+    public async Task ConfirmarEntrega_RutaDespachadaConDosParadas_AutoIniciaRecorridoYRegistraEntrega()
+    {
+        // Arrange: la ruta sigue en Despachada porque IniciarRecorrido offline no se procesó antes
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "Despachada");
+        ruta.AgregarParada(Guid.NewGuid(), Guid.NewGuid(), 2, Direccion1Id, null, "Pendiente");
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-ENTREGA-DESPACHADA-001",
+            "Martín Rodríguez",
+            "4.123.456-7",
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: null,
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Entregado", result.EstadoEnvio);
+        Assert.Equal("EnTransito", ruta.Estado);
+    }
+
+    [Fact]
+    public async Task IntentoFallido_RutaDespachadaConDosParadas_AutoIniciaRecorridoYRegistraFallo()
+    {
+        // Arrange: la ruta sigue en Despachada cuando llega un intento fallido offline
+        var (ruta, envio, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "Despachada");
+        ruta.AgregarParada(Guid.NewGuid(), Guid.NewGuid(), 2, Direccion1Id, null, "Pendiente");
+        var motivoCliente = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "CLI_AUSENTE", "Cliente ausente", esInterno: false);
+        envioRepo.Motivos.Add(motivoCliente);
+        var handler = new RegistrarIntentoFallidoCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+
+        var command = new RegistrarIntentoFallidoCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-FALLO-DESPACHADA-001",
+            MotivoNoEntregaId: motivoCliente.Id,
+            MotivoCodigo: "CLI_AUSENTE",
+            Observaciones: "No atiende timbre",
+            FotoEvidenciaBase64: null,
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("EnTransito", ruta.Estado);
+    }
+
     private sealed class FakeCacheService : IDistributedCacheService
     {
         public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) =>

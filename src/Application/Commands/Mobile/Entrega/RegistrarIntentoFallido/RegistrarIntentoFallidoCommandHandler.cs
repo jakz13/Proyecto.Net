@@ -99,6 +99,20 @@ public class RegistrarIntentoFallidoCommandHandler : IRequestHandler<RegistrarIn
             );
         }
 
+        // Tolerancia de secuencia offline: promover rutas en carga o despachadas a EnTransito automáticamente
+        if (ruta.Estado == "EnCarga")
+        {
+            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
+                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de intento fallido móvil");
+            ruta.Despachar();
+        }
+        if (ruta.Estado == "Despachada")
+        {
+            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
+                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de intento fallido móvil");
+            ruta.IniciarRecorrido();
+        }
+
         // Manejo explícito de conflictos de sincronización (Punto 7):
         // Si el envío ya fue retirado o reasignado en el servidor por el despachador (parada cancelada o envío no en tránsito),
         // prevalece el estado del servidor; se registra el intento fallido en la bitácora de auditoría y en ConflictoSincronizacion,
