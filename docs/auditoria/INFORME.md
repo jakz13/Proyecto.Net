@@ -335,7 +335,7 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 - **Impacto:** el botón de publicar quedaba bloqueado en un navegador real: F5 (cambiar tarifa en caliente) imposible por la interfaz. Lo habría descubierto el docente.
 - **Solución:** los `step` se alinean con la escala de la base (0.001 para peso y volumen, 0.01 para precios), en las filas del servidor y en la plantilla JS.
 - **Prueba que fallaba antes:** `TarifaNuevaVersion_LosValoresPrecargadosCumplenElPasoDeSusCampos` (rojo con el `.cshtml` original: "PesoDesde: '0,000' tiene más decimales que el paso '0.1'"; verde con el arreglo). El mock se llevó a la escala real de la base para reproducirlo.
-- **Estado:** corregido (`bf5bfa9`); verificación en navegador real tras el despliegue pendiente (N-09).
+- **Estado:** corregido (`bf5bfa9`); verificado en navegador real tras el despliegue: 11 de 11 comprobaciones (N-01 a N-11); un barrido de las demás pantallas con formulario no mostró otro valor precargado rechazado. N-10 se rehízo con un campo vacío: antes pasaba porque el formulario ya era inválido por el `step`; la regla "peso hasta > peso desde" la valida solo el servidor (con mensaje).
 
 ### D-19 (baja) — Un dato inválido del cliente se mostraba como "servicio no disponible" (503)
 - **Dónde:** el manejador global de errores de `Program.cs` trataba cualquier `NpgsqlException` como una caída de la base y respondía 503 con "Reintente en unos segundos".
