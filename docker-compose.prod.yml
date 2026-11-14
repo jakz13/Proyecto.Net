@@ -144,6 +144,9 @@ services:
       Smtp__Password: ${SMTP_PASS:-}
       Smtp__RemitenteEmail: ${SMTP_FROM:-}
       Smtp__UrlBaseSeguimiento: https://${DOMINIO}/seguimiento
+      # Anti-SSRF: es el worker quien entrega los avisos a los comercios, así que la excepción para el receptor de prueba interno
+      # (http://api1:8080/api/testing/webhook-receiver) tiene que estar acá; sin ella el aviso se rechaza como "dirección interna" (D-11, 14/11)
+      Avisos__HostsPermitidos: "api1,api2"
       DOTNET_GCConserveMemory: "7"
     depends_on:
       api1:
