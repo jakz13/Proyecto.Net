@@ -32,7 +32,7 @@ El `setup()` crea los datos de cada repartidor por la propia API (flota, retiro,
 |---|---|---|---|
 | Consulta pública, rampa 0 → 100 usuarios en 2 min | 21 628 pedidos (179/s), **p95 44,7 ms, p99 48,3 ms**, **0 errores de servidor** (los 404/429 son la protección y códigos inexistentes) | p95 < 300 ms, p99 < 800 ms, 0 errores 5xx | Cumple |
 
-Incluye la latencia de red de ida y vuelta (~40 ms). Se ejecutó con `SIN_CUENTAS=true` (solo el escenario anónimo). **Pendiente:** el escenario de **sincronización simultánea** y el de alta por API sobre el ambiente remoto, que necesitan las cuentas de demostración (contraseña `SEED_PASSWORD_DEMO` del servidor, que no se guarda en el repositorio). Se ejecutan así, y dejan datos de prueba en la base:
+Incluye la latencia de red de ida y vuelta (~40 ms). Se ejecutó con `SIN_CUENTAS=true` (solo el escenario anónimo). **Sincronización simultánea sobre el ambiente remoto (13/11/2026, 10 repartidores a la vez):** 40/40 comprobaciones correctas (descarga de la ruta, retiro, reenvío idempotente y rendición), ciclo completo por repartidor **p95 1,37 s** (promedio 1,2 s, máximo 1,41 s; objetivo < 2 s). **Pendiente:** el escenario de alta por API, que necesita la clave de integración del operador, y la repetición de los demás con las cuentas de demostración (contraseña `SEED_PASSWORD_DEMO` del servidor, que no se guarda en el repositorio). Se ejecutan así, y dejan datos de prueba en la base:
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm -i -v "$(pwd -W)/scripts/carga:/scripts" grafana/k6 run   -e BASE_URL=https://shippingbox.duckdns.org -e ESCENARIOS=seguimiento,sync -e REPARTIDORES=5   -e PASSWORD_DEMO='<SEED_PASSWORD_DEMO del servidor>' /scripts/carga.js
 ```

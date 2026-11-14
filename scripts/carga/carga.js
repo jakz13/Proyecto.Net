@@ -16,6 +16,7 @@ const CLAVE_API = __ENV.CLAVE_API || 'dev-api-key-megastore-2026';
 // En un ambiente real las cuentas de demostración usan la contraseña elegida al desplegar (SEED_PASSWORD_DEMO)
 const PASSWORD_ADMIN = __ENV.PASSWORD_DEMO || 'Admin.2026!';
 const PASSWORD_COMERCIO = __ENV.PASSWORD_DEMO || 'Comercio.2026!';
+const PASSWORD_DESPACHO = __ENV.PASSWORD_DEMO || 'Despacho.2026!';
 // SIN_CUENTAS=true: solo escenarios anónimos (consulta pública) contra un ambiente cuyas credenciales no se tienen a mano
 const SIN_CUENTAS = __ENV.SIN_CUENTAS === 'true';
 const ESCENARIOS = (__ENV.ESCENARIOS || 'seguimiento,alta,sync').split(',');
@@ -89,6 +90,9 @@ export function setup() {
   if (!ESCENARIOS.includes('sync')) return datos;
 
   const comercio = login('comercio@gmail.com', PASSWORD_COMERCIO);
+  // El administrador solo configura (flota); armar y despachar rutas es del despachador
+  const despachador = login('despacho@gmail.com', PASSWORD_DESPACHO);
+  datos.despachador = despachador;
   const fecha = new Date().toISOString().slice(0, 10);
   const sufijo = Date.now().toString(36);
 
@@ -102,10 +106,10 @@ export function setup() {
     }, comercio);
     const ruta = post('/api/planificacion/hojas-de-ruta', {
       repartidorId: repartidor.json('id'), vehiculoId: vehiculo.json('id'), fecha, enviosIds: [], retirosIds: [retiro.json('id')],
-    }, admin);
+    }, despachador);
     if (ruta.status !== 201) throw new Error(`armado de ruta ${i}: ${ruta.status} ${ruta.body}`);
     const rutaId = ruta.json('hojaDeRutaId');
-    const despacho = post(`/api/planificacion/hojas-de-ruta/${rutaId}/despacho`, {}, admin);
+    const despacho = post(`/api/planificacion/hojas-de-ruta/${rutaId}/despacho`, {}, despachador);
     if (despacho.status !== 200) throw new Error(`despacho ${i}: ${despacho.status} ${despacho.body}`);
     datos.reps.push({ email, rutaId, retiroId: retiro.json('id') });
   }
@@ -154,7 +158,7 @@ export function sincronizacion(datos) {
     const reenvio = post(rutaRetiro, cuerpo, token, etiqueta);
     check(reenvio, { 'reenvío idempotente': (x) => x.status === 200 && x.json('idempotente') === true }, etiqueta);
 
-    const rendicion = post(`/api/deposito/hojas-de-ruta/${rep.rutaId}/rendicion`, { codigosBultosDevueltos: [] }, datos.admin, etiqueta);
+    const rendicion = post(`/api/deposito/hojas-de-ruta/${rep.rutaId}/rendicion`, { codigosBultosDevueltos: [] }, datos.despachador, etiqueta);
     check(rendicion, { 'rendición en depósito': (x) => x.status === 200 }, etiqueta);
   });
   duracionSync.add(Date.now() - t0);
