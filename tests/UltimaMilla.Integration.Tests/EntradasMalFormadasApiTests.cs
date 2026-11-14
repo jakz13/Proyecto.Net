@@ -62,6 +62,19 @@ public class EntradasMalFormadasApiTests
     }
 
     [FactPostgres]
+    public async Task UnCaracterNuloEnUnParametroDeConsulta_Da400EnVezDeServicioNoDisponible()
+    {
+        // La base rechaza el carácter nulo en un texto (SQLSTATE 22021): el manejador global lo mostraba como "servicio no disponible" (503) (D-19)
+        var cliente = _factory.CreateClient();
+
+        foreach (var ruta in new[] { "/api/v1/flota/repartidores", "/api/v1/mensajeria/cola-fallidos/" })
+        {
+            var respuesta = await cliente.GetAsync(ruta + "?texto=%00&q=%00&busqueda=%00&estado=%00&codigo=%00&tipo=%00");
+            Assert.True(respuesta.StatusCode == HttpStatusCode.BadRequest, $"{ruta} -> {(int)respuesta.StatusCode}");
+        }
+    }
+
+    [FactPostgres]
     public async Task Posiciones_ConUnaPosicionNulaOSinCoordenadas_Da400()
     {
         // {"posiciones":[null]} daba 500 y {"posiciones":[{}]} guardaba una posición en (0, 0)

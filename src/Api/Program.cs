@@ -272,8 +272,17 @@ app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
 {
     var error = contexto.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
     var baseNoDisponible = false;
+    var datoInvalidoDelCliente = false;
     for (var e = error; e is not null; e = e.InnerException)
     {
+        // Clase 22 de SQLSTATE ("data exception"): la base rechazó un dato que mandó el cliente (un carácter nulo en un texto, un número o una fecha
+        // fuera de rango). No es una caída del servicio: reintentar no sirve y mostrar "no disponible" confundía a quien llama (D-19, 14/11).
+        if (e is Npgsql.PostgresException pg && pg.SqlState is { } estado && estado.StartsWith("22", StringComparison.Ordinal))
+        {
+            datoInvalidoDelCliente = true;
+            break;
+        }
+
         if (e is Npgsql.NpgsqlException || e is System.Net.Sockets.SocketException || e is TimeoutException)
         {
             baseNoDisponible = true;
@@ -282,6 +291,13 @@ app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
     }
 
     contexto.Response.ContentType = "application/json";
+    if (datoInvalidoDelCliente)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await contexto.Response.WriteAsJsonAsync(new { error = "Alguno de los datos enviados no es válido." });
+        return;
+    }
+
     if (baseNoDisponible)
     {
         contexto.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
