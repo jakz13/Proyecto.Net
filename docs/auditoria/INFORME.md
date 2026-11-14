@@ -281,7 +281,44 @@ OBS-21 (baja): con Redis caído una alta puede tardar unos 5 s; los tiempos de e
 
 Nota sobre los nombres de eventos del tablero (por si se prueba con un cliente propio): `PosicionVehiculo`, `EnvioCambioEstado`, `CambioRuta`, `HitoParada`, `RetiroCambioEstado` e `IncidenciaCambio` (el hub de operación del móvil usa otros, como `PosicionRepartidorActualizada`).
 
+### Ronda 18 — escenario F7 (destruir y reconstruir el ambiente con IaC)
+
+Esta ronda la inició la sesión anterior a las 05:07 y se cortó por el límite de uso antes de documentarse; lo siguiente se reconstruyó con el registro de actividad de Azure, el estado de la VM al retomar y las diferencias sin confirmar de los scripts.
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R18-01 | F7, destrucción (6.14) | `terraform destroy` | los 8 recursos se eliminan | 05:08:54 VM, 05:09:14 disco, 05:09:25 IP pública, 05:10:01 grupo de recursos (≈ 1 min 10 s) | OK |
+| R18-02 | F7, reconstrucción (6.14) | `scripts/reconstruir.ps1` (apply, DNS, secretos, despliegue, verificación) | ambiente operativo | 05:10:57 grupo, 05:11:27 IP, 05:11:58 VM; aplicación levantada a las 05:17 (12 contenedores, `api1` y `api2` sanas, base sembrada de nuevo) — pero **los dominios quedaron sin servicio hasta las 09:12** (≈ 3 h 55 min) | **DEFECTOS D-14, D-15 y D-16** |
+| R18-03 | F7, recuperación al retomar | actualizar DuckDNS a la IP nueva (57.156.63.70), reiniciar Caddy, actualizar el secreto `VM_HOST` | servicio restablecido | DNS propagado en menos de 1 min; certificados de los 4 dominios obtenidos 7 s después de reiniciar Caddy (Let's Encrypt, vencen el 12/02/2027); 7 de 7 cuentas demo inician sesión; tarifa y reglas originales (v1) y 3 zonas del operador 1 sembradas | OK |
+
+### Ronda 19 — prueba de humo de regresión sobre el ambiente reconstruido
+
+La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a mano durante la noche; esta ronda comprueba que lo reconstruido tiene todos los arreglos.
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R19-01 | Reproducibilidad (6.14) | 8 comprobaciones: D-02 (bulto nulo), D-03 (franja nula), D-04 (regla vacía sin cambiar la versión vigente), D-05 (posición sin coordenadas), D-06 (modalidades del formulario de tarifas), D-07 (volumen sin límite), D-08 (prueba y devolución enviadas una sola vez) y D-12 (token de un usuario desactivado: 200 → 401 → 200) | todas correctas | **8 de 8** | OK |
+| R19-02 | Límite de tasa (6.3), D-01 | 80 pedidos al seguimiento desde la PC y 3 desde la VM (otra IP) a continuación | cupos independientes | PC: 60 × 404 y 20 × 429; VM: 3 × 404, ningún 429 | OK |
+
+Estado tras F7: la base es nueva, así que **desaparecieron todos los datos `AUDIT` y los de ensayo** (versiones de tarifa y reglas, suscripción de avisos, zona y comercio del operador 2, envíos y rutas de prueba). Lo que hay que volver a preparar para la defensa: receptor de prueba apagado (valor por defecto), operador 2 sin zonas ni comercios (OBS-10) y la suscripción de avisos del comercio.
+
+Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por semana para el mismo nombre; cada reconstrucción pide certificados nuevos (Caddy los guarda en un volumen que se destruye). Esta semana ya se emitieron varios (VM del 13/11, esta reconstrucción y las máquinas anteriores). Reconstruir otra vez antes del jueves puede agotar el cupo; si se agota, Caddy intenta con ZeroSSL, pero conviene **no ensayar F7 de nuevo** y tener presente que la demostración en vivo consume un certificado más.
+
 ## Defectos y soluciones
+
+### D-16 (crítica para F7) — `actualizar-dns.ps1` está vacío: después de reconstruir, los dominios apuntan a una IP que ya no existe
+- **Dónde:** `scripts/actualizar-dns.ps1` mide 3 bytes (solo la marca BOM) **desde el commit que lo creó** (`73c088f`). `reconstruir.ps1` lo invoca justo después de `terraform apply`, así que ese paso no hacía nada.
+- **Evidencia:** tras la reconstrucción de las 05:11 los cuatro dominios resolvían a la IP anterior (57.156.57.234) y daban tiempo de espera; la VM nueva tenía la aplicación levantada pero Caddy no podía validar los dominios con Let's Encrypt (`Timeout during connect (likely firewall problem)` contra la IP vieja) y a las 09:12 no tenía ningún certificado. La IP pública estática de Azure cambia cada vez que se destruye el grupo de recursos.
+- **Impacto:** el escenario 7 ("destruir y reconstruir el ambiente mediante infraestructura como código") no se completaba con un solo comando como declara la documentación: quedaba un paso manual no documentado y la plataforma sin servicio entre tanto. Es lo que Nico va a pedir en vivo.
+- **Solución:** el script actualiza los dos nombres base de DuckDNS (los demás subdominios resuelven a la misma IP), toma el token de `DUCKDNS_TOKEN` (no se guarda en el repositorio) y espera a que un resolutor público devuelva la IP nueva, para que Caddy encuentre el DNS correcto cuando arranque.
+- **Pruebas que fallaban antes:** `ScriptsDeReconstruccionTests.ActualizarDns_NoEstaVacio_Y_ActualizaDuckDnsConElToken` (falla con el archivo vacío) y `Reconstruir_ActualizaElDnsAntesDeDesplegarLaAplicacion`.
+- **Qué hacer si Caddy ya falló antes de actualizar el DNS:** reiniciar el contenedor (`docker restart shippingbox-caddy-1`): Caddy espera cada vez más entre reintentos y el reinicio fuerza uno inmediato. Con el DNS actualizado antes del despliegue esto no debería hacer falta.
+
+### D-15 (alta para F7) — El progreso de `docker compose` rompía el despliegue de la VM recién creada
+- `desplegar.ps1` ejecuta `docker compose pull` y `up` por SSH bajo `$ErrorActionPreference = 'Stop'`; Windows PowerShell 5.1 convierte lo que el comando escribe por la salida de errores (el progreso de descarga de imágenes) en un error fatal (`NativeCommandError`) aunque todo salga bien. En una VM nueva, que descarga todas las imágenes, el despliegue se cortaba. **Solución:** la redirección `2>&1` va dentro del comando remoto (la misma lección que dejó mi propia redirección en el despliegue de las 01:20).
+
+### D-14 (alta para F7) — Reconstruir con `SEED_PASSWORD_DEMO` definida fallaba al guardar los secretos en la VM
+- `reconstruir.ps1` pasaba por SSH un comando con comillas dobles; Windows PowerShell 5.1 las pierde y bash respondía `syntax error near unexpected token '('`, justo en el caso del escenario 7 (reconstruir con la contraseña demo definida). **Solución:** los valores viajan en base64, el comando remoto no lleva comillas dobles y se comprueba el código de salida.
 
 ### D-13 (alta) — El hub de operación acepta posiciones, grupos y canales de cualquier usuario y los difunde a todos los operadores
 - **Dónde:** `src/Api/Hubs/OperacionHub.cs`. La clase solo exigía estar autenticado y sus métodos confiaban en lo que enviaba el cliente: `TransmitirUbicacion` y `TransmitirCoordenadas` (identificador del repartidor, de la ruta, coordenadas), `RegistrarRepartidor(Guid)` y `SuscribirAOperador(string)`. La retransmisión usaba `Clients.Others`, es decir, **todas** las conexiones del hub de cualquier operador. Además todo usuario, también de comercio, se unía al grupo `operador-{id}` al conectarse.

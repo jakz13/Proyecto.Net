@@ -2,42 +2,45 @@
 
 > Se actualiza al cerrar cada ronda. Detalle completo en [INFORME.md](INFORME.md); línea de tiempo en `diario.log`.
 
-- **Última actualización:** 2026-11-14 04:45
-- **Estado:** EN CURSO (hechos F1, F4, F5 y F6; próximos F2/F3 móvil, concurrencia, costos y F7)
-- **Escenarios de la defensa verificados en producción:** F1 (caída de api1 y api2 con tráfico, 811 pedidos sin errores), F4 (dos operadores, aislamiento y cambio en caliente aislado), F5 (tarifa y regla operativa desde la pantalla real), F6 (receptor caído, eventos, reactivación y recuperación sin duplicados)
-- **Pruebas ejecutadas:** más de 4.500 casos en 9 rondas
-- **Hallazgos:** 13 (D-01 a D-13) — **todos corregidos, con prueba que fallaba antes, publicados y verificados en producción**
-- **Suite del backend:** 1.217 pruebas, 0 fallas (también en el pipeline de GitHub, que compila, prueba, audita paquetes, publica imágenes y despliega solo en cada `push` a `main`)
-- **Último commit publicado:** `b5d9bf8` (línea base previa a la auditoría: `d65d984`)
+- **Última actualización:** 2026-11-14 09:25
+- **Estado:** producción **operativa** en la VM reconstruida. Escenarios 1 a 7 de la defensa ensayados.
+- **Qué pasó esta madrugada con F7 (destruir y reconstruir):** la reconstrucción de las 05:08 recreó la VM, la IP y la aplicación (≈ 9 min), pero **dejó los dominios sin servicio hasta las 09:12** porque `scripts/actualizar-dns.ps1` estaba vacío desde que se creó (defecto D-16). Ya está escrito, probado y publicado; el servicio se restableció a mano a las 09:12.
+- **Hallazgos:** 16 (D-01 a D-16), todos corregidos con prueba que fallaba antes. Más observaciones OBS-01 a OBS-21 (ver informe).
+- **IP actual de la VM:** `57.156.63.70` (cambia en cada reconstrucción). El secreto `VM_HOST` de GitHub ya apunta a esa IP.
+- **Último commit publicado de código:** `e531ec5` (línea base previa a la auditoría: `d65d984`).
+
+## Qué hay que dejar listo antes de la defensa (jueves 19/11, 15:00)
+1. **Receptor de prueba de avisos (escenario 6): APAGADO** (es el valor por defecto tras reconstruir). Para encenderlo:
+   `ssh -i ~/.ssh/azure_ultimamilla azureuser@<IP> "cd ~/shippingbox && echo RECEPTOR_PRUEBA_AVISOS=true >> .env.prod && for s in api1 api2; do docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps --force-recreate \$s; sleep 40; done"`.
+   Es un endpoint anónimo: apagarlo después. El comercio debe suscribirse a un evento y apuntar a `http://api1:8080/api/testing/webhook-receiver` (con clave `secreto-demo-comercio`).
+2. **Operador 2 (escenario 4):** no trae zonas ni comercios. Hay que crearle una zona (con polígono), un comercio y un usuario de comercio, o ensayar esa secuencia (ver ronda 8).
+3. **No ensayar F7 otra vez antes del jueves** salvo necesidad: Let's Encrypt limita a 5 certificados por semana por nombre y cada reconstrucción pide certificados nuevos (OBS-21). Si hay que reconstruir: definir `DUCKDNS_TOKEN` y `SEED_PASSWORD_DEMO` y ejecutar `scripts\reconstruir.ps1`; si Caddy no obtiene el certificado, `docker restart shippingbox-caddy-1`.
+4. Antes de la defensa, comprobar que las imágenes de `ghcr.io` están al día (la reconstrucción las descarga de ahí; OBS-20).
+5. Costo del ambiente: ≈ 1,40 USD/día (≈ 7,7 USD hasta la defensa). Después de la defensa: `terraform destroy`.
 
 ## Hallazgos de mayor impacto para la defensa
 | # | Gravedad | Qué pasaba | Estado |
 |---|---|---|---|
+| D-16 | crítica (F7) | `actualizar-dns.ps1` vacío: tras reconstruir, los dominios quedaban apuntando a la IP vieja | corregido y verificado |
+| D-14, D-15 | alta (F7) | la reconstrucción se cortaba por comillas de PowerShell 5.1 y por el progreso de `docker compose` | corregidos (scripts) |
 | D-06 | crítica (F5) | el formulario de tarifas renombraba todas las reglas y las altas fallaban | corregido y verificado |
 | D-07 | alta (F5) | no se podía publicar la tarifa vigente (volumen sin límite) y no mostraba el error | corregido y verificado |
 | D-08 | crítica (F5) | publicar una regla operativa cambiaba en silencio la prueba de entrega y la devolución | corregido y verificado |
-| D-10 | alta (F6) | suscribirse a "Admisión de Envío" (el evento que provoca el propio comercio) nunca generaba avisos | corregido y verificado |
-| D-11 | alta (F6) | el worker no tenía la excepción anti-SSRF: el receptor de prueba era inalcanzable | corregido y verificado |
+| D-10, D-11 | alta (F6) | la suscripción a "Admisión de Envío" nunca generaba avisos; el worker no alcanzaba el receptor de prueba | corregidos y verificados |
+| D-13 | alta | el hub de tiempo real aceptaba posiciones y canales de cualquier usuario y los difundía a todos los operadores | corregido y verificado |
+| D-12 | media-alta | el token de un usuario desactivado seguía valiendo 8 h | corregido y verificado |
 | D-01 | alta | el límite de tasa era un cupo único compartido por todos los visitantes | corregido y verificado |
 | D-02 a D-05 | media | elementos nulos en listas → HTTP 500; `{}` guardaba datos por defecto | corregidos y verificados |
 
 ## Estado de producción ahora
-- Tarifa vigente: Estandar 150, Urgente 300, Retiro 120 (versión 7). Regla operativa vigente: 3 intentos, prueba "Firma" (versión 6).
-- Las versiones intermedias del cuadro tarifario (2 a 6) y de las reglas operativas (2 a 5) son del propio ensayo y quedan en el historial.
-- Hay envíos de prueba con nombre `AUDIT-…` y una posición GPS de prueba para limpiar al final.
-- **Receptor de prueba de avisos: ENCENDIDO** (`RECEPTOR_PRUEBA_AVISOS=true` en el `.env.prod` de la VM) y en modo 200. Es un endpoint anónimo: apagarlo después de la defensa. La suscripción del comercio demo apunta a `http://api1:8080/api/testing/webhook-receiver`.
-- **Antes del jueves:** regenerar la clave de API del comercio si la demo de la API pública usa una guardada (mi barrido la rotó). El operador 2 no trae zonas ni comercios: ya se le creó una zona y un comercio `AUDIT…` (ver F4).
+- Base **nueva y sembrada**: tarifa (150 / 300 / 120), regla operativa original (3 intentos), 3 zonas del operador 1, 7 cuentas demo con la contraseña única. Todos los datos de ensayo (`AUDIT…`, versiones intermedias, suscripciones) desaparecieron con la reconstrucción.
+- Certificados de Let's Encrypt vigentes hasta el 12/02/2027 en los 4 dominios.
 
 ## Cómo saber si sigo trabajando
 1. La hora de la última línea de `docs/auditoria/diario.log`.
 2. La fecha de modificación de `C:\Users\Curbe\.claude\projects\c--Users-Curbe-OneDrive-Escritorio-Proyecto-Proyecto-Net\70ebc7ed-eac9-44d4-99b2-f66f2414612d.jsonl`.
-3. `C:\Users\Curbe\auditoria_local\latido.txt` (anti-suspensión, cada 5 min) y `reanudar.log` (script de reanudación).
+3. `C:\Users\Curbe\auditoria_local\latido.txt` (anti-suspensión, cada 5 min; vence hoy a las 14:00) y `reanudar.log` (script de reanudación).
 
-## Cola de ideas para las próximas rondas (ronda 12 en adelante)
-Seguridad de red y borde: puertos abiertos desde Internet (22, 5432, 5672, 15672, 6379, 9090, 3000), exposición y credenciales por defecto de Grafana y Prometheus, TLS (versiones y certificado), redirección HTTP→HTTPS, cabeceras en los cuatro dominios, CORS con orígenes ajenos, banderas de las cookies.
-Sesión y cuentas: bloqueo al 5.º intento (cuenta `audit.*`), enumeración de usuarios por mensaje o tiempo, política de contraseñas débiles, vigencia del JWT, token de un usuario desactivado, auto-edición de perfil (asignación masiva).
-Entradas y archivos: importación CSV (reimportación idempotente, fórmulas `=`, archivo enorme, codificación), carga de logos (SVG con script, tipo falsificado, ruta en el nombre), cuerpo de 30 MB.
-Seguimiento público: campos devueltos (sin identificadores internos ni datos personales), enumeración de códigos, reprogramación abusiva.
-Tiempo real y operación: autenticación y aislamiento de SignalR entre operadores, apagado controlado con una petición en vuelo, tareas programadas sin duplicado con dos instancias, secretos o contraseñas en los registros, crecimiento del outbox.
-API pública: clave de pruebas y límite de 20/min, rotación de claves.
-Infraestructura: `terraform.tfstate` dentro de OneDrive (copia en la nube), SSH abierto a `*` en el grupo de red, F7 (destruir y reconstruir) al final, limpieza de datos `AUDIT`.
+## Pendiente
+- Prueba de humo de regresión sobre la VM reconstruida (formularios de tarifa y reglas, rechazo de datos mal formados, límite de tasa, token desactivado).
+- Nuevas ideas de prueba (ver cola en el informe) y cierre final: limpieza de datos de prueba (ya hecha por la reconstrucción) y estado definitivo.
