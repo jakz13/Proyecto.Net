@@ -220,7 +220,37 @@ Notas de la ronda 12:
 - OBS-17: el historial público muestra pasos internos (por ejemplo "NoEntregado" cuando el despachador retira un envío en ruta y luego se entrega).
 - OBS-18: el tiempo de respuesta del login permite distinguir cuentas existentes de inexistentes; se resuelve verificando un hash ficticio cuando el correo no existe.
 
+### Ronda 13 — registros, tareas programadas, outbox, cuerpos grandes y pipeline
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R13-01 | Secretos (6.3) | registros de los 6 contenedores con estado (api1, api2, worker, backoffice, portal-comercio, caddy): contraseñas, tokens `Bearer`/JWT, claves de firma o de API, cabecera `Authorization`, correos | ninguno | 0 líneas con posibles secretos y 0 con correos en los seis | OK |
+| R13-02 | Tareas programadas (6.13) | `CierresDiariosOperacion` e `IndicadoresCumplimiento` con dos instancias de API y un worker | una fila por operador y fecha (o por combinación) | cierres: 6 filas, 6 combinaciones; indicadores: 8 filas, 8 combinaciones; sin duplicados | OK |
+| R13-03 | Outbox e idempotencia (6.8) | tamaño del outbox y de las claves del consumidor | acotado y todo procesado | 465 mensajes, **todos procesados**, 197 kB de contenido; 232 claves de idempotencia; base completa de 11 MB (el outbox procesado no se purga: OBS ya declarada, sin impacto a esta escala) | OK |
+| R13-04 | Cuerpos grandes (6.3) | `POST /api/envios` autenticado con 30 MB y con 120 MB de JSON | rechazo temprano sin agotar recursos | HTTP 413 en 0,7 s y 0,24 s (se corta a los 64 kB enviados); `/ready` sigue en 200 | OK |
+| R13-05 | CI/CD (6.14, 6.15) | estado real del pipeline de GitHub Actions y de las imágenes de `ghcr.io` | pipeline en verde con despliegue | **funciona**: los últimos seis `push` terminaron en `success` (compilar y probar, publicar imágenes, desplegar); las imágenes `latest` de `ghcr.io` son de hace una hora y las de la VM coinciden. Esto corrige la nota anterior de que el pipeline estaba bloqueado por facturación | OK (ver OBS-19) |
+
+OBS-19: **cada `push` a `main` despliega solo** (el trabajo `desplegar` del pipeline recrea los contenedores en la VM, unos 10 minutos de compilación y despliegue por `push`), también los commits que solo cambian documentación. Para no reiniciar los servicios en medio de una prueba conviene agrupar los `push` o usar `[skip ci]` en los commits de documentación. Mis `desplegar.ps1` manuales de esta noche eran redundantes pero inofensivos.
+OBS-20: la reconstrucción del escenario 7 (`reconstruir.ps1`, con `-DesdeRegistro`) toma las imágenes de `ghcr.io`, que hoy están al día; si el pipeline vuelve a fallar, la VM reconstruida quedaría con imágenes viejas. Conviene comprobar la fecha de la imagen antes de la defensa.
+
+### Ronda 14 — archivos y tiempo real
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R14-01 | Importación CSV, idempotencia (RF 7) | lote de 3 filas (2 válidas, 1 con peso inválido), el mismo archivo otra vez y un archivo parcial (1 repetida y 1 nueva), contra producción con el geocodificador real | sin duplicados; cada fila informada | 1.ª: 2 creados, 1 con error; 2.ª: `reimportacion = true`, 0 creados, 2 duplicados; parcial: 1 creado, 1 duplicado | OK |
+| R14-02 | Importación CSV, contenido hostil (6.3) | fórmula `=HYPERLINK`, XSS y SQL en el destinatario, sin cabecera, columnas de más y de menos, campo de 5.000 caracteres, bytes al azar, 0 bytes, UTF-16, Latin-1 con acentos, nombre de archivo con ruta `..\..\..\x.csv` | sin 5xx, errores claros | 200 con error por fila o 400 con mensaje ("Faltan columnas obligatorias…", "Adjunte un archivo CSV…"); Latin-1 aceptado; ningún 5xx; `/ready` sigue en 200 | OK |
+| R14-03 | Exportación de reportes (6.3) | lectura del código de `ReporteCsv` | neutraliza fórmulas en celdas de texto | entrecomilla y antepone `'` a los prefijos `=`, `+`, `-`, `@` | OK |
+| R14-04 | Tiempo real, autorización (6.10) | tres conexiones reales al hub `/hubs/operacion` de producción: un **usuario de comercio** del operador 1, un administrador del **operador 2** y el repartidor; el comercio invoca `TransmitirCoordenadas`, `SuscribirAOperador` (operador 2) y `RegistrarRepartidor` (repartidor ajeno) | rechazo; nada llega a otro operador | **todo aceptado**: el comercio transmitió una posición falsa que recibieron el administrador del operador 2 y el repartidor; se suscribió al grupo de otro operador y al canal personal de un repartidor ajeno | **DEFECTO D-13** |
+
 ## Defectos y soluciones
+
+### D-13 (alta) — El hub de operación acepta posiciones, grupos y canales de cualquier usuario y los difunde a todos los operadores
+- **Dónde:** `src/Api/Hubs/OperacionHub.cs`. La clase solo exigía estar autenticado y sus métodos confiaban en lo que enviaba el cliente: `TransmitirUbicacion` y `TransmitirCoordenadas` (identificador del repartidor, de la ruta, coordenadas), `RegistrarRepartidor(Guid)` y `SuscribirAOperador(string)`. La retransmisión usaba `Clients.Others`, es decir, **todas** las conexiones del hub de cualquier operador. Además todo usuario, también de comercio, se unía al grupo `operador-{id}` al conectarse.
+- **Evidencia (producción, tres conexiones reales):** el usuario de comercio del operador 1 invocó `TransmitirCoordenadas` (aceptado) y el evento llegó al administrador del operador 2 y al repartidor; `SuscribirAOperador` con el operador 2 y `RegistrarRepartidor` con un repartidor ajeno también se aceptaron. El servidor envía por el canal `repartidor_{id}` las novedades de ruta de cada repartidor, así que quien se une a ese canal las escucha.
+- **Impacto:** violación del aislamiento por inquilino (6.5, 6.10 y regla 3 del proyecto): falsificar la flota en el tablero, leer la posición y las novedades de otros operadores y, para un comercio, ver toda la flota de su operador. La app móvil sí usa este hub, por eso no se pudo quitar.
+- **Solución:** `TransmitirUbicacion`, `TransmitirCoordenadas` y `RegistrarRepartidor` exigen la política de repartidor; el operador y el repartidor se toman del token y de la base (no del cuerpo); la ruta enviada solo se acepta si es del propio repartidor; la difusión va solo al grupo del propio operador (`OthersInGroup`); `SuscribirAOperador` solo acepta el operador del token y nunca desde un comercio; `RegistrarRepartidor` solo acepta el propio repartidor; los usuarios de comercio ya no se unen al grupo del operador.
+- **Pruebas que fallaban antes** (cliente SignalR real contra la API, 3 de 3 rojas sin el arreglo): `OperacionHubApiTests.UnUsuarioDeComercio_NoPuedeTransmitirPosiciones`, `LaPosicionDeUnRepartidor_SoloLaRecibenLasConexionesDeSuOperador_NoDeComercioNiDeOtroOperador` (con control positivo: el administrador del mismo operador sí la recibe) y `NoSePuedeUnirseAlGrupoDeOtroOperadorNiAlCanalDeOtroRepartidor`.
+- **Pendiente tras desplegar:** repetir las tres conexiones en producción y comprobar que la app del repartidor (con su propio token) sigue transmitiendo.
 
 ### D-12 (media-alta) — El token de un usuario desactivado sigue valiendo hasta 8 horas
 - **Dónde:** el JWT se valida solo por firma y vencimiento; nada comprobaba que el usuario siguiera activo. Para los comercios dados de baja ya existía `ComercioActivoMiddleware`, pero no para el resto de los perfiles (administrador, despachador, operario, repartidor).

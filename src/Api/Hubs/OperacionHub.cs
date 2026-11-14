@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using UltimaMilla.Api.Auth;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Infrastructure.Persistence;
@@ -53,8 +54,18 @@ public class OperacionHub : Hub
     /// Metodo invocado por la app movil para reportar la posicion GPS periodica.
     /// Persiste la posicion en base de datos y la retransmite en tiempo real.
     /// </summary>
+    [Authorize(Policy = PoliticasApi.Repartidor)]
     public async Task TransmitirUbicacion(TransmisionUbicacionRequest payload)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        // El operador y el repartidor salen del token firmado, nunca del cuerpo: antes cualquier usuario autenticado (incluso de un comercio)
+        // podía enviar la posición de cualquier repartidor y la recibían todas las conexiones del hub, de cualquier operador (D-13, auditoría del 14/11)
+        var (operadorToken, repartidorToken) = await ResolverRepartidorDelTokenAsync();
+        var rutaPropia = payload.HojaDeRutaId != Guid.Empty && await _db.HojasDeRuta.IgnoreQueryFilters().AsNoTracking()
+            .AnyAsync(r => r.Id == payload.HojaDeRutaId && r.RepartidorId == repartidorToken && r.OperadorId == operadorToken);
+        payload = payload with { RepartidorId = repartidorToken, HojaDeRutaId = rutaPropia ? payload.HojaDeRutaId : Guid.Empty };
+
         _logger.LogInformation(
             "SignalR Hub: Coordenadas recibidas de Repartidor {RepartidorId} (Ruta {RutaId}): Lat={Lat:F5}, Lng={Lng:F5}",
             payload.RepartidorId, payload.HojaDeRutaId, payload.Latitud, payload.Longitud);
@@ -69,8 +80,8 @@ public class OperacionHub : Hub
             _logger.LogWarning(ex, "Fallo no bloqueante al persistir posicion GPS recibida por SignalR.");
         }
 
-        // 1. Retransmitir al canal de clientes suscritos a OperacionHub
-        await Clients.Others.SendAsync("PosicionRepartidorActualizada", payload);
+        // 1. Retransmitir solo a las conexiones del mismo operador (antes: a todas las del hub, de cualquier operador)
+        await Clients.OthersInGroup($"operador-{operadorToken}").SendAsync("PosicionRepartidorActualizada", payload);
 
         // 2. Puente obligatorio hacia TableroHub para que el Backoffice reciba las coordenadas en vivo
         if (resolucion.OperadorId != Guid.Empty && resolucion.VehiculoId.HasValue && resolucion.VehiculoId.Value != Guid.Empty)
@@ -109,6 +120,7 @@ public class OperacionHub : Hub
     /// <summary>
     /// Metodo con parametros escalares para clientes que transmitan campos primitivos directos.
     /// </summary>
+    [Authorize(Policy = PoliticasApi.Repartidor)]
     public async Task TransmitirCoordenadas(Guid hojaDeRutaId, Guid repartidorId, double latitud, double longitud, double? velocidadKmh = null, int? bateriaPct = null)
     {
         var request = new TransmisionUbicacionRequest(
@@ -128,10 +140,16 @@ public class OperacionHub : Hub
     /// <summary>
     /// Registra la conexion del repartidor en su grupo individual para notificaciones directas desde el Backoffice.
     /// </summary>
+    [Authorize(Policy = PoliticasApi.Repartidor)]
     public async Task RegistrarRepartidor(Guid repartidorId)
     {
         if (repartidorId == Guid.Empty)
             return;
+
+        // Solo el canal propio: antes se podía escuchar el canal personal (novedades de ruta) de cualquier repartidor de cualquier operador
+        var (_, repartidorToken) = await ResolverRepartidorDelTokenAsync();
+        if (repartidorId != repartidorToken)
+            throw new HubException("No puede suscribirse al canal de otro repartidor.");
 
         await Groups.AddToGroupAsync(Context.ConnectionId, GrupoRepartidor(repartidorId));
         _logger.LogInformation("SignalR Hub: Repartidor {RepartidorId} suscrito a su canal personal.", repartidorId);
@@ -142,15 +160,54 @@ public class OperacionHub : Hub
     /// </summary>
     public async Task SuscribirAOperador(string operadorId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"operador-{operadorId}");
-        _logger.LogInformation("SignalR Hub: Conexion {ConnectionId} unida al grupo operador {OperadorId}", Context.ConnectionId, operadorId);
+        // Solo al operador del token (y nunca un usuario de comercio, que solo ve lo suyo): antes se aceptaba el operador que enviara el cliente
+        if (!TableroHub.IntentarExtraerOperadorId(Context.User, out var operadorToken)
+            || !Guid.TryParse(operadorId, out var pedido) || pedido != operadorToken
+            || TableroHub.EsUsuarioDeComercio(Context.User))
+            throw new HubException("No puede suscribirse a los eventos de otro operador.");
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"operador-{operadorToken}");
+        _logger.LogInformation("SignalR Hub: Conexion {ConnectionId} unida al grupo operador {OperadorId}", Context.ConnectionId, operadorToken);
+    }
+
+    /// <summary>Operador y repartidor del usuario autenticado, resueltos desde el token y la base; si no es un repartidor de ese operador se rechaza.</summary>
+    private async Task<(Guid OperadorId, Guid RepartidorId)> ResolverRepartidorDelTokenAsync()
+    {
+        if (!TableroHub.IntentarExtraerOperadorId(Context.User, out var operadorId))
+            throw new HubException("La sesión no tiene operador.");
+
+        Guid? repartidorId = null;
+        if (Guid.TryParse(Context.User?.FindFirst("repartidor_id")?.Value, out var claimId) && claimId != Guid.Empty)
+        {
+            repartidorId = claimId;
+        }
+        else
+        {
+            var claimSub = Context.User?.FindFirst("sub")?.Value
+                ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(claimSub, out var usuarioId) && usuarioId != Guid.Empty)
+            {
+                repartidorId = await _db.Repartidores.IgnoreQueryFilters().AsNoTracking()
+                    .Where(r => (r.Id == usuarioId || r.UsuarioId == usuarioId) && r.OperadorId == operadorId)
+                    .Select(r => (Guid?)r.Id)
+                    .FirstOrDefaultAsync(Context.ConnectionAborted);
+            }
+        }
+
+        var existe = repartidorId.HasValue && await _db.Repartidores.IgnoreQueryFilters().AsNoTracking()
+            .AnyAsync(r => r.Id == repartidorId.Value && r.OperadorId == operadorId, Context.ConnectionAborted);
+        if (!existe)
+            throw new HubException("El usuario no es un repartidor de este operador.");
+
+        return (operadorId, repartidorId!.Value);
     }
 
     public override async Task OnConnectedAsync()
     {
         _logger.LogInformation("SignalR Hub: Cliente conectado. ConnectionId: {ConnectionId}", Context.ConnectionId);
 
-        if (TableroHub.IntentarExtraerOperadorId(Context.User, out var opId))
+        // Un usuario de comercio no se une al grupo del operador: recibiría la posición de toda la flota (el comercio solo ve lo suyo)
+        if (TableroHub.IntentarExtraerOperadorId(Context.User, out var opId) && !TableroHub.EsUsuarioDeComercio(Context.User))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"operador-{opId}");
         }
