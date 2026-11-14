@@ -32,6 +32,17 @@ public class ScriptsDeReconstruccionTests
     }
 
     [Fact]
+    public void Reconstruir_GuardaElSecretoVmHostSinPasarPorUnaTuberia()
+    {
+        // Una tubería de Windows PowerShell 5.1 puede anteponer una marca BOM al valor del secreto y el despliegue del pipeline no resolvía el servidor (D-17)
+        var script = Leer(Path.Combine("scripts", "reconstruir.ps1"));
+
+        Assert.Contains("gh secret set VM_HOST", script);
+        Assert.Contains("--body", script);
+        Assert.DoesNotContain("| gh secret set", script);
+    }
+
+    [Fact]
     public void Reconstruir_ActualizaElDnsAntesDeDesplegarLaAplicacion()
     {
         var script = Leer(Path.Combine("scripts", "reconstruir.ps1"));

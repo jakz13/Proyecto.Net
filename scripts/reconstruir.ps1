@@ -88,7 +88,9 @@ if (-not $SinDespliegueDeAplicacion) {
 
 if (Get-Command gh -ErrorAction SilentlyContinue) {
     Paso 'GitHub: actualizar el secreto VM_HOST para que el pipeline despliegue en la VM nueva'
-    $ip | gh secret set VM_HOST -R jakz13/Proyecto.Net
+    # --body y no una tubería: en Windows PowerShell 5.1 la tubería puede anteponer una marca BOM invisible al valor y el pipeline fallaba con
+    # "Could not resolve hostname \357\273\277<ip>" (hallazgo D-17 del 14/11)
+    gh secret set VM_HOST -R jakz13/Proyecto.Net --body $ip
     if ($LASTEXITCODE -ne 0) { Write-Host '  (aviso) No se pudo actualizar VM_HOST: hacerlo a mano en Settings > Secrets.' -ForegroundColor Yellow }
 }
 
