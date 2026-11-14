@@ -320,6 +320,7 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 | ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
 |---|---|---|---|---|---|
 | R22-01 | Robustez (6.4, 6.15) | 72 endpoints GET (con la identidad que su política exige) × 15 cargas aplicadas a 25 nombres de parámetro comunes a la vez (`estado`, `desde`, `hasta`, `texto`, `q`, `pagina`, `tamano`, `fecha`, `tipo`, `id`…): vacío, texto, negativo, cero, número gigante, comilla, inyección SQL, `<script>`, `%00`, fecha imposible, año 9999, GUID roto, 5.000 caracteres, Unicode con marca bidireccional y parámetro repetido = 1.080 casos | 4xx controlado, sin 5xx, sin filtrar la pila | 473 × 200, 197 × 400, 336 × 404; **0 respuestas 500 y 0 con pila o internos**; **2 × 503** con `%00` (flota de repartidores y cola de fallidos); 72 casos sin respuesta por una URL de 125 KB (límite del servidor: 431 desde ≈ 20.000 caracteres por parámetro, 8.000 pasa) | **DEFECTO D-19** |
+| R23-01 | F5 (letra 9.3) | Publicar una tarifa y una regla operativa desde la interfaz del Backoffice en un navegador real (Chromium), aceptando la confirmación "¿Confirma la publicación…?": el formulario redirige al listado y las versiones archivadas pasan de 1 a 2. Antes de D-21 esto era imposible. **OK** |
 
 ## Defectos y soluciones
 
