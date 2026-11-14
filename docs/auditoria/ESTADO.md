@@ -5,9 +5,9 @@
 - **Última actualización:** 2026-11-14 09:25
 - **Estado:** producción **operativa** en la VM reconstruida. Escenarios 1 a 7 de la defensa ensayados.
 - **Qué pasó esta madrugada con F7 (destruir y reconstruir):** la reconstrucción de las 05:08 recreó la VM, la IP y la aplicación (≈ 9 min), pero **dejó los dominios sin servicio hasta las 09:12** porque `scripts/actualizar-dns.ps1` estaba vacío desde que se creó (defecto D-16). Ya está escrito, probado y publicado; el servicio se restableció a mano a las 09:12.
-- **Hallazgos:** 16 (D-01 a D-16), todos corregidos con prueba que fallaba antes. Más observaciones OBS-01 a OBS-21 (ver informe).
-- **IP actual de la VM:** `57.156.63.70` (cambia en cada reconstrucción). El secreto `VM_HOST` de GitHub ya apunta a esa IP.
-- **Último commit publicado de código:** `e531ec5` (línea base previa a la auditoría: `d65d984`).
+- **Hallazgos:** 17 (D-01 a D-17), todos corregidos con prueba que fallaba antes. Más observaciones OBS-01 a OBS-21 (ver informe).
+- **IP actual de la VM:** `57.156.63.70` (cambia en cada reconstrucción). El secreto `VM_HOST` de GitHub apunta a esa IP y **el despliegue automático ya funciona contra la VM nueva** (comprobado a las 09:35: servicios recreados con la imagen del pipeline, dominios y `/ready` en 200). D-17: yo mismo dejé el secreto con una marca BOM delante la primera vez y el despliegue falló; corregido.
+- **Último commit publicado de código:** `10f638b` (línea base previa a la auditoría: `d65d984`).
 
 ## Qué hay que dejar listo antes de la defensa (jueves 19/11, 15:00)
 1. **Receptor de prueba de avisos (escenario 6): APAGADO** (es el valor por defecto tras reconstruir). Para encenderlo:
