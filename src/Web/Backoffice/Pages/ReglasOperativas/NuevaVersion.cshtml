@@ -2,6 +2,23 @@
 @model UltimaMilla.Backoffice.Pages.ReglasOperativas.NuevaVersionModel
 @{
     ViewData["Title"] = "Publicar Nueva Versión de Reglas Operativas";
+
+    // Las listas desplegables solo ayudan a rellenar la caja de texto; el valor que se guarda es el de la caja (ver D-08 en docs/auditoria/INFORME.md)
+    var pruebasHabituales = new (string Valor, string Etiqueta)[]
+    {
+        ("Firma digital del receptor y Foto del paquete en domicilio", "Firma digital + Foto del paquete en domicilio"),
+        ("Firma digital simple del receptor", "Firma digital simple"),
+        ("Foto del paquete entregado en puerta o buzón", "Foto del paquete en puerta"),
+        ("Código PIN OTP de seguridad y Documento de Identidad", "Código PIN OTP + Documento")
+    };
+    var devolucionesHabituales = new (string Valor, string Etiqueta)[]
+    {
+        ("Custodia por 72 horas en depósito central antes de retorno definitivo al comercio remitente", "Custodia 72h en depósito central antes de retorno"),
+        ("Devolución automática e inmediata al comercio remitente", "Devolución inmediata al comercio remitente"),
+        ("Custodia temporal por 5 días hábiles en punto Pickup cercano", "Custodia 5 días en punto Pickup")
+    };
+    var pruebaActual = Model.NuevaVersion.TipoPruebaEntregaExigida ?? string.Empty;
+    var devolucionActual = Model.NuevaVersion.PoliticaDevolucion ?? string.Empty;
 }
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -104,12 +121,12 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="NuevaVersion.TipoPruebaEntregaExigida" class="form-label small fw-semibold">Tipo de Prueba de Entrega Exigida</label>
-                    <select asp-for="NuevaVersion.TipoPruebaEntregaExigida" class="form-select form-select-sm mb-2" id="selectorPrueba" onchange="actualizarPruebaTexto(this)">
-                        <option value="Firma digital del receptor y Foto del paquete en domicilio">Firma digital + Foto del paquete en domicilio</option>
-                        <option value="Firma digital simple del receptor">Firma digital simple</option>
-                        <option value="Foto del paquete entregado en puerta o buzón">Foto del paquete en puerta</option>
-                        <option value="Código PIN OTP de seguridad y Documento de Identidad">Código PIN OTP + Documento</option>
-                        <option value="personalizado">Otro (especificar texto libre)...</option>
+                    <select class="form-select form-select-sm mb-2" id="selectorPrueba" aria-label="Tipos de prueba habituales" onchange="actualizarPruebaTexto(this)">
+                        @foreach (var p in pruebasHabituales)
+                        {
+                            <option value="@p.Valor" selected="@(p.Valor == pruebaActual)">@p.Etiqueta</option>
+                        }
+                        <option value="personalizado" selected="@(!pruebasHabituales.Any(p => p.Valor == pruebaActual))">Otro (especificar texto libre)...</option>
                     </select>
                     <input asp-for="NuevaVersion.TipoPruebaEntregaExigida" class="form-control form-control-sm" id="inputPruebaTexto" required />
                     <span asp-validation-for="NuevaVersion.TipoPruebaEntregaExigida" class="text-danger small"></span>
@@ -117,11 +134,12 @@
 
                 <div class="col-md-6">
                     <label asp-for="NuevaVersion.PoliticaDevolucion" class="form-label small fw-semibold">Política de Devolución al Agotar Intentos</label>
-                    <select asp-for="NuevaVersion.PoliticaDevolucion" class="form-select form-select-sm mb-2" id="selectorDevolucion" onchange="actualizarDevolucionTexto(this)">
-                        <option value="Custodia por 72 horas en depósito central antes de retorno definitivo al comercio remitente">Custodia 72h en depósito central antes de retorno</option>
-                        <option value="Devolución automática e inmediata al comercio remitente">Devolución inmediata al comercio remitente</option>
-                        <option value="Custodia temporal por 5 días hábiles en punto Pickup cercano">Custodia 5 días en punto Pickup</option>
-                        <option value="personalizado">Otro (especificar texto libre)...</option>
+                    <select class="form-select form-select-sm mb-2" id="selectorDevolucion" aria-label="Políticas de devolución habituales" onchange="actualizarDevolucionTexto(this)">
+                        @foreach (var d in devolucionesHabituales)
+                        {
+                            <option value="@d.Valor" selected="@(d.Valor == devolucionActual)">@d.Etiqueta</option>
+                        }
+                        <option value="personalizado" selected="@(!devolucionesHabituales.Any(d => d.Valor == devolucionActual))">Otro (especificar texto libre)...</option>
                     </select>
                     <input asp-for="NuevaVersion.PoliticaDevolucion" class="form-control form-control-sm" id="inputDevolucionTexto" required />
                     <span asp-validation-for="NuevaVersion.PoliticaDevolucion" class="text-danger small"></span>

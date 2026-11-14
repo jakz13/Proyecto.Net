@@ -115,6 +115,52 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         return datos;
     }
 
+    /// <summary>Como el anterior pero conserva el orden del documento y los nombres repetidos: ASP.NET toma el primer valor de cada nombre.</summary>
+    private static List<(string Nombre, string Valor)> ParesDelFormulario(string html)
+    {
+        var pares = new List<(string, string)>();
+        foreach (Match campo in Regex.Matches(html, "(?s)<input\\b[^>]*>|<select\\b[^>]*>.*?</select>"))
+        {
+            var nombre = Regex.Match(campo.Value.Split('>')[0], "\\bname=\"([^\"]+)\"").Groups[1].Value;
+            if (nombre.Length == 0) continue;
+            if (campo.Value.StartsWith("<input"))
+            {
+                var tipo = Regex.Match(campo.Value, "\\btype=\"([^\"]+)\"").Groups[1].Value;
+                if ((tipo == "checkbox" || tipo == "radio") && !Regex.IsMatch(campo.Value, "\\bchecked\\b")) continue;
+                pares.Add((nombre, WebUtility.HtmlDecode(Regex.Match(campo.Value, "\\bvalue=\"([^\"]*)\"").Groups[1].Value)));
+            }
+            else
+            {
+                var opciones = Regex.Matches(campo.Value, "<option\\b([^>]*)>").ToList();
+                if (opciones.Count == 0) continue;
+                var elegida = opciones.FirstOrDefault(o => Regex.IsMatch(o.Groups[1].Value, "\\bselected\\b")) ?? opciones[0];
+                pares.Add((nombre, WebUtility.HtmlDecode(Regex.Match(elegida.Groups[1].Value, "value=\"([^\"]*)\"").Groups[1].Value)));
+            }
+        }
+        return pares;
+    }
+
+    [Fact]
+    public async Task ReglasOperativasNuevaVersion_SinTocarNada_ConservaLaPruebaDeEntregaYLaPoliticaDeDevolucion()
+    {
+        // La lista desplegable y la caja de texto compartían el mismo nombre: ASP.NET tomaba el valor de la lista (la primera opción si ninguna
+        // coincidía con el valor vigente) y publicar una versión cambiaba en silencio la prueba exigida y la política de devolución (D-08, 14/11).
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/ReglasOperativas/NuevaVersion")).Content.ReadAsStringAsync();
+        var pares = ParesDelFormulario(html);
+
+        foreach (var (campo, esperado) in new[]
+                 {
+                     ("NuevaVersion.TipoPruebaEntregaExigida", "Firma digital y documento del receptor"),
+                     ("NuevaVersion.PoliticaDevolucion", "Retorno a depósito central al alcanzar 3 intentos fallidos")
+                 })
+        {
+            var valores = pares.Where(p => p.Nombre == campo).Select(p => p.Valor).ToList();
+            Assert.Single(valores);          // la lista ya no envía nada
+            Assert.Equal(esperado, valores[0]);
+        }
+    }
+
     [Fact]
     public async Task TarifaNuevaVersion_ConElVolumenSinLimiteDeLaTarifaReal_SePublica()
     {
