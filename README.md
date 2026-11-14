@@ -52,9 +52,9 @@ dotnet test tests/UltimaMilla.Frontend.Tests        # componentes y clientes del
 ```
 Las pruebas de integración necesitan Postgres local (`docker compose up -d postgres`); si no hay uno disponible se omiten. El detalle de qué se prueba, cómo medir la cobertura y las pruebas de carga y de resiliencia está en [`docs/Plan_de_Pruebas.md`](docs/Plan_de_Pruebas.md).
 
-## Despliegue en la nube (Oracle Cloud)
+## Despliegue en la nube (Azure)
 - **Producción:** https://shippingbox.duckdns.org (backoffice y API) · https://shippingbox-comercio.duckdns.org (portal) · https://panel.shippingbox.duckdns.org (Grafana).
-- **Infraestructura como código:** `infra/terraform` (red, reglas de seguridad, VM y preparación del servidor). Plan, aplicación y destrucción: ver [`infra/terraform/README.md`](infra/terraform/README.md).
+- **Infraestructura como código:** `infra/terraform-azure` (grupo de recursos, red, reglas de seguridad, IP pública, VM y preparación del servidor). Plan, aplicación, destrucción y reconstrucción con un comando: ver [`infra/terraform-azure/README.md`](infra/terraform-azure/README.md). `infra/terraform` es el código histórico de Oracle Cloud.
 - **Aplicación:** Docker Compose de producción (`docker-compose.prod.yml`) con dos instancias de la API detrás de Caddy (HTTPS automático y chequeos de salud).
 - **Entrega continua:** al fusionar en `main`, GitHub Actions compila, prueba, mide la cobertura y despliega. Despliegue manual: `scripts\desplegar.bat [api|worker|backoffice|portal|panel]`.
 - **Demostración de la correlación de extremo a extremo:** `scripts\demo-correlacion.ps1`.

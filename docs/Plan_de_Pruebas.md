@@ -33,7 +33,7 @@ dotnet test tests/UltimaMilla.Frontend.Tests
 Las pruebas de integración se omiten (no fallan) si no hay Postgres. Comparten una base: cada una debe crear sus propios datos y no depender del estado de otras.
 
 ## 4. Cobertura
-Medida con coverlet y publicada por el pipeline con ReportGenerator (artefacto `cobertura` y resumen en cada ejecución). Última medición local de dominio + aplicación: **76 % de líneas**, 63 % de ramas. El pipeline falla si baja del 70 %.
+Medida con coverlet y publicada por el pipeline con ReportGenerator (artefacto `cobertura` y resumen en cada ejecución). Última medición (13/11/2026, local y en el pipeline) de dominio + aplicación: **89,4 % de líneas**, 73,2 % de ramas. El pipeline falla si baja del 70 %.
 ```bash
 dotnet test UltimaMilla.Backend.slnf -c Release --collect:"XPlat Code Coverage" --results-directory ./resultados
 reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cobertura -assemblyfilters:"+UltimaMilla.Domain;+UltimaMilla.Application"
@@ -51,7 +51,7 @@ reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cober
 | Dos operadores con configuración distinta | Cuentas `admin@gmail.com` y `admin2@gmail.com` (tarifas distintas) |
 | Modificar tarifa y regla en caliente | Backoffice → Tarifas / Reglas operativas |
 | Detener el receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
-| Destruir y reconstruir el ambiente | `terraform destroy` / `apply` (**pendiente de ejecutar contra la cuenta real**) |
+| Destruir y reconstruir el ambiente | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 2,5 min medidos) o `terraform destroy` / `apply` en `infra\terraform-azure` |
 
 ## 7. Carga, resiliencia y seguridad
 - **Carga:** `docs/Plan_de_Carga.md` (k6, SLO como umbrales, sincronización simultánea de repartidores). Medida en local; falta ejecutarla sobre el ambiente remoto.

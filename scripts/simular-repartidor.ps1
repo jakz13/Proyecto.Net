@@ -223,7 +223,12 @@ if ($estadoRuta -eq 'Liberada') {
 if ($estadoRuta -eq 'EnCarga') {
     if (-not $script:tokenDespachador) { throw 'La carga está confirmada pero falta el despacho de salida: pásale -EmailDespachador (o despáchala desde el Backoffice) y vuelve a correr el script.' }
     Log 'Despacho de salida (despachador)...' 'Cyan'
-    Llamar 'POST' "/api/planificacion/hojas-de-ruta/$($script:rutaId)/despacho" @{ observaciones = 'Despacho de salida (simulación)' } $script:tokenDespachador | Out-Null
+    try {
+        Llamar 'POST' "/api/planificacion/hojas-de-ruta/$($script:rutaId)/despacho" @{ observaciones = 'Despacho de salida (simulación)' } $script:tokenDespachador | Out-Null
+    } catch {
+        if ("$_" -match 'sin rendir') { throw "$_`nEl repartidor tiene otra hoja de ruta terminada sin rendir: el operario de depósito debe rendirla (Depósito > Rendición) y luego se vuelve a correr el script." }
+        throw
+    }
     $estadoRuta = 'Despachada'
 }
 

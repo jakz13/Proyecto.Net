@@ -25,13 +25,13 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | 6.11 Aplicación móvil | **Parcial** | Notificaciones con la app **cerrada**: ADR-002 descarta FCM y usa un servicio en primer plano, que no cubre la app cerrada del todo. Riesgo de calificación |
 | 6.12 Observabilidad | Cumplido con una salvedad | La app móvil aún no envía `X-Correlation-Id` |
 | 6.13 Escalabilidad y balanceo | Cumplido | Dos instancias con Caddy y chequeos de salud |
-| 6.14 Despliegue e IaC | **Parcial** | Terraform para Azure (`infra/terraform-azure`) validado, con `plan` real de 8 recursos y costo estimado, **sin aplicar** (no se duplicó el ambiente); falta ensayar destruir/reconstruir. CI/CD hoy bloqueado por la cuenta de GitHub |
-| 6.15 Calidad | Cumplido | 1017 pruebas del backend y 111 del frontend |
+| 6.14 Despliegue e IaC | Cumplido | El ambiente de producción lo crea y gestiona el Terraform de Azure (`infra/terraform-azure`, 8 recursos); reconstrucción con un comando medida en ≈ 2,5 min; CI/CD funcionando (imágenes en `ghcr.io`, despliegue con cada push a `main`). Salvedad: el `terraform.tfstate` está solo en la PC desde la que se aplica |
+| 6.15 Calidad | Cumplido | 1198 pruebas del backend (13/11/2026) y 111 del frontend |
 
 ## Opcionales (mínimo 12 puntos)
 | Opcional | Puntos | Estado |
 |---|---|---|
-| Cobertura superior al 70 % | 2 | Cumplido: 76 % medido y publicado por el pipeline |
+| Cobertura superior al 70 % | 2 | Cumplido: 89,4 % de líneas y 73,2 % de ramas sobre Dominio y Aplicación, medido y publicado por el pipeline (falla si baja del 70 %) |
 | Geocercas (Joaquín) | 3 | **Casi completo**: implementado y con análisis (`docs/Geocercas_Bateria.md`: costo medido del cálculo y muestreo adaptativo); **falta completar la tabla de consumo medida en un teléfono** |
 | Optimización del orden de paradas (Joaquín) | 2 | **Cumplido**: 2-opt en la app y comparación medida contra el criterio del RF 16 (`docs/Optimizacion_Paradas.md`, ahorro de 31 % a 60 %) |
 | Banderas de funcionalidad | 2 | **Ahora con pantalla** (Backoffice → Plataforma → Funcionalidades, perfil `AdministradorPlataforma`) además de la API. Antes: **no se reclamaba**: se acordó no entregarlo (pocos puntos para lo que exige) y Joaquín lo compensó con otro opcional. El backend existe y funciona (`/api/plataforma/operadores`), pero sin pantalla de administración no cumple el requisito |

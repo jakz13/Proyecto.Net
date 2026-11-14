@@ -56,14 +56,14 @@ Para un ambiente aparte (por ejemplo, ensayar la reconstrucción sin tocar produ
 ```powershell
 $env:DUCKDNS_TOKEN = '<token de DuckDNS>'          # para apuntar los dominios a la IP nueva
 $env:SEED_PASSWORD_DEMO = '<contraseña de las cuentas demo>'   # opcional; también SMTP_* si se quiere correo
-.\scriptseconstruir.ps1
+.\scripts\reconstruir.ps1
 ```
 Hace: `terraform apply` → actualiza DuckDNS → espera a la VM (cloud-init) → agrega los secretos opcionales a `.env.prod` → `desplegar.ps1 -DesdeRegistro` (la VM descarga las imágenes y levanta Docker Compose) → verifica `https://<dominio>/ready`.
 
 ## Guion para el escenario 7 de la defensa (destruir y reconstruir)
 1. Mostrar el ambiente en pie: `https://shippingbox.duckdns.org/ready` y el grupo `rg-ultimamilla-prod` en el portal de Azure.
-2. Destruir: `cd infra	erraform-azure; terraform destroy -var-file=ambientes/prod.tfvars` (≈ 25 s). Mostrar que el sitio deja de responder.
-3. Reconstruir: `.\scriptseconstruir.ps1` (≈ 2,5 min). Mientras corre se explica cada paso.
+2. Destruir: `cd infra\terraform-azure; terraform destroy -var-file=ambientes/prod.tfvars` (≈ 25 s). Mostrar que el sitio deja de responder.
+3. Reconstruir: `.\scripts\reconstruir.ps1` (≈ 2,5 min). Mientras corre se explica cada paso.
 4. Verificar: `/ready` en 200, login en el Backoffice, una API detenida con el balanceador sirviendo.
 Cuidado: Let's Encrypt limita a 5 certificados por semana para el mismo conjunto de dominios; cada reconstrucción pide uno nuevo. Ensayar 1 o 2 veces como máximo.
 
