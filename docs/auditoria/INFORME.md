@@ -272,6 +272,15 @@ Prueba única de 380 s con tráfico continuo (lecturas de tarifa, envíos y segu
 
 OBS-21 (baja): con Redis caído una alta puede tardar unos 5 s; los tiempos de espera de conexión al caché (`ConnectTimeout` 1 s, `SyncTimeout` 1 s, un reintento) se suman en cada operación. Es degradado pero correcto; para la defensa conviene saber que con el caché caído el sistema sigue, más lento.
 
+### Ronda 17 — tiempo real con dos instancias y worker detenido
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R17-01 | Tiempo real con 2 instancias (6.10, 6.13) | 4 tableros SignalR reales (despachador y administrador del operador 1, usuario de comercio del operador 1, administrador del operador 2); 20 posiciones y 10 altas enviadas por REST, que el balanceador reparte entre `api1` y `api2` | todo lo del operador llega a sus tableros, el comercio solo ve lo suyo, el otro operador nada | despachador y administrador: `PosicionVehiculo` 20 de 20 y `EnvioCambioEstado` 10 de 10; comercio: solo `EnvioCambioEstado` 10 (sus altas), ninguna posición; administrador del operador 2: nada | OK |
+| R17-02 | Worker detenido (6.8, 6.9) | `docker stop` del worker; 5 altas con una suscripción activa; se arranca el worker | la API sigue; los avisos salen al volver, sin duplicar | durante la caída: 5 altas con 201, `/ready` 200, seguimiento público 200 y 0 avisos; al arrancar: **5 de 5 `Entregado` en 7 s, 1 intento cada uno** | OK |
+
+Nota sobre los nombres de eventos del tablero (por si se prueba con un cliente propio): `PosicionVehiculo`, `EnvioCambioEstado`, `CambioRuta`, `HitoParada`, `RetiroCambioEstado` e `IncidenciaCambio` (el hub de operación del móvil usa otros, como `PosicionRepartidorActualizada`).
+
 ## Defectos y soluciones
 
 ### D-13 (alta) — El hub de operación acepta posiciones, grupos y canales de cualquier usuario y los difunde a todos los operadores
