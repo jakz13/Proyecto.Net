@@ -2,13 +2,13 @@
 
 > Se actualiza al cerrar cada ronda. Detalle completo en [INFORME.md](INFORME.md); línea de tiempo en `diario.log`.
 
-- **Última actualización:** 2026-11-14 02:45
+- **Última actualización:** 2026-11-14 04:45
 - **Estado:** EN CURSO (hechos F1, F4, F5 y F6; próximos F2/F3 móvil, concurrencia, costos y F7)
 - **Escenarios de la defensa verificados en producción:** F1 (caída de api1 y api2 con tráfico, 811 pedidos sin errores), F4 (dos operadores, aislamiento y cambio en caliente aislado), F5 (tarifa y regla operativa desde la pantalla real), F6 (receptor caído, eventos, reactivación y recuperación sin duplicados)
 - **Pruebas ejecutadas:** más de 4.500 casos en 9 rondas
-- **Hallazgos:** 11 (D-01 a D-11) — **todos corregidos, con prueba que fallaba antes, publicados y verificados en producción**
-- **Suite del backend:** 1.213 pruebas, 0 fallas
-- **Último commit publicado:** `a671eb8` (línea base previa a la auditoría: `d65d984`)
+- **Hallazgos:** 13 (D-01 a D-13) — **todos corregidos, con prueba que fallaba antes, publicados y verificados en producción**
+- **Suite del backend:** 1.217 pruebas, 0 fallas (también en el pipeline de GitHub, que compila, prueba, audita paquetes, publica imágenes y despliega solo en cada `push` a `main`)
+- **Último commit publicado:** `b5d9bf8` (línea base previa a la auditoría: `d65d984`)
 
 ## Hallazgos de mayor impacto para la defensa
 | # | Gravedad | Qué pasaba | Estado |
