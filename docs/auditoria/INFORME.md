@@ -133,7 +133,59 @@ El barrido R4-03 envió `{"reglasTarifa":[{}]}` a `POST /api/cuadros-tarifarios`
 | R6-03 | F5, efecto en caliente | simulador con máximo 2: 1 intento → queda 1; 2 intentos → `superaMaximoIntentos = true`; luego máximo 3 con 2 intentos | el efecto es inmediato y por versión | confirmado en los tres casos (`versionAplicada` 5 y luego 6) | OK |
 | R6-04 | Calidad (6.15) | suite de integración repetida 3, 8 y 7 veces | estable | `ComercioDadoDeBaja_ConUnTokenAbiertoYaNoPuedeOperar` fallaba 1 de cada 3 a 5 corridas (400 al crear el comercio) | **DEFECTO D-09** (de las pruebas) |
 
+### Ronda 7 — escenario F1 (caída de una instancia con tráfico)
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R7-01 | F1, RNF 6.13 | 235 s de tráfico continuo (≈ 3,5 pedidos/s: lecturas del tarifario y de envíos y un alta real cada 10 pedidos) mientras se ejecuta `docker stop` de `api1` (s 30), `docker start` (s 80), `docker stop` de `api2` (s 130) y `docker start` (s 180) | continuidad del servicio, sin errores visibles | **811 pedidos, 0 no-2xx** en las cinco fases (19, 28, 37, 36, 36 pedidos); las 81 altas durante la prueba dieron 201; latencia mediana 58-63 ms en todas las fases; máximo 1.069 ms (reintento de Caddy); las dos APIs terminaron `healthy` | OK |
+
+### Ronda 8 — escenario F4 (dos operadores de configuración distinta)
+
+Preparación: se crearon, con el administrador del operador 2, un despachador, un operario, un comercio y su usuario (`audit.*@example.com`) y la zona `AUDIT Centro Op2` (con el mismo polígono del centro de Montevideo), porque el operador 2 se entrega **sin zonas de cobertura y no puede admitir envíos** (ver OBS-10).
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R8-01 | Multitenencia, lectura (6.5) | 31 recursos por identificador (comercios, cuadros, reglas, zonas, flota, retiros, envíos…): el id sale del listado del operador 1 y se pide con la identidad equivalente del operador 2 (administrador, despachador, operario, comercio) | 403 o 404 | 27 × 404 con control 200 en el operador 1; 4 casos no concluyentes (ids de reglas anidadas que ni el operador 1 puede consultar por ese endpoint) | OK |
+| R8-02 | Multitenencia, escritura (6.5) | 15 `PUT`/`PATCH`/`DELETE` sobre ids del operador 1 con la identidad del operador 2 | ninguno 2xx | 15 sin 2xx | OK |
+| R8-03 | Multitenencia, listados (6.5) | 37 listados con la misma identidad en cada operador | ningún id en común | 37 sin intersección | OK |
+| R8-04 | Configuración distinta (6.5, 6.6) | tarifa, reglas e identidad de cada operador | distintas | op1: 150 / 300 / 120, 3 intentos, plazo estándar 2 días; op2: 180 / 350 / 160, 2 intentos, plazo estándar 3 días; nombre comercial distinto, mismo color (OBS-09) | OK |
+| R8-05 | Operación simultánea (F4) | mismo destino y mismo bulto en los dos operadores | cada uno con su tarifa | op1 cotiza 150; op2 cotiza 180 | OK |
+| R8-06 | Cambio en caliente aislado (F4, 6.6) | op2: Estandar 180 → 190; se consulta y se da de alta en ambos operadores | op2 cambia al instante; op1 no | op2 190 (v2); op1 150 (v7 sin cambios); restaurado a 180 (v3) | OK |
+
+OBS-09 (baja): el color de marca de los dos operadores demo es el mismo (`#1D4ED8`); para que la diferencia visual se note en la defensa conviene cambiar el del operador 2 desde Identidad Visual.
+OBS-10 (media para F4): el operador 2 no trae zonas ni comercios de demostración; para operar con él en la defensa hay que crearle una zona (con polígono), un comercio y un usuario de comercio. Conviene sembrarlos o tener la secuencia ensayada.
+
+### Ronda 9 — escenario F6 (avisos a comercios)
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R9-01 | Receptor de prueba (6.9, F6) | habilitar `RECEPTOR_PRUEBA_AVISOS=true` en la VM y reiniciar `api1` y `api2` por turnos | receptor disponible; el servicio no se corta | las dos APIs `healthy`; `GET /api/testing/webhook-receiver/recibidos` (administrador) → 200; el `POST` anónimo del worker → 200 | OK |
+| R9-02 | Suscripción (6.9) | comercio suscribe `EnvioAdmitido` (el primer evento del catálogo que le ofrece la plataforma) hacia el receptor de prueba, da de alta un envío y se espera más de 60 s | aviso firmado entregado al receptor | **ningún aviso**: el worker procesa el evento con `"Avisos": 0`; la tabla `AvisosComercio` no recibe filas | **DEFECTO D-10** |
+
+| R9-03 | Suscripción (6.9, F6), tras desplegar D-10 | mismo alta con suscripción `EnvioAdmitido` | aviso generado y entregado | el aviso **se genera** (historial con firma `sha256=…`, estado `Reintentando`, 2 intentos) pero la entrega falla: "Destino no permitido: la URL del aviso apunta a una dirección interna. (api1:8080)" | **DEFECTO D-11** |
+| R9-04 | Reintentos (6.8, 6.9) | primer fallo de entrega del aviso anterior | reintento programado con espera creciente | `Reintentando`, 2 intentos en el primer minuto y `proximoReintento` en el historial | OK |
+| R9-05 | F6, entrega normal (6.9), tras desplegar D-10 y D-11 | alta con el receptor sano | aviso entregado con firma válida | `Entregado` en el primer intento; además el aviso que había quedado atascado por D-11 se **recuperó solo** al corregir el worker (3 intentos, HTTP 200) | OK |
+| R9-06 | F6, receptor detenido | receptor en modo 503; 3 altas | 3 avisos `Reintentando` con espera creciente | 3 × `Reintentando`, 1 intento, HTTP 503, próximo reintento a +1 min; el primer reintento automático también falló (2 intentos) y el siguiente se reprogramó a +5 min; el receptor registró cada intento con firma válida | OK |
+| R9-07 | F6, reactivación | receptor en 200; reintento manual de 2 avisos desde el panel del comercio (`POST /api/comercio/avisos/{id}/reintentar`) y el tercero sin intervención | los tres se recuperan | 2 `Entregado` al instante; el tercero se recuperó solo a los **282 s** (reintento programado de 5 min); los tres con `intentos = 3` | OK |
+| R9-08 | F6, idempotencia (6.8) | 11 entregas registradas por el receptor en total | una sola entrega exitosa por aviso | cada aviso con fallas tuvo 2 × 503 y **1 × 2xx**; 0 avisos con más de una entrega exitosa; 11 de 11 firmas válidas | OK |
+
+Política observada: 4 intentos con esperas de 1, 5 y 15 minutos (`ReglasAvisosComercio`). Para la defensa conviene **reintentar a mano** desde el panel en lugar de esperar los 5 minutos.
+
 ## Defectos y soluciones
+
+### D-11 (alta para F6) — El worker no puede entregar avisos al receptor de prueba: la excepción anti-SSRF está en el servicio equivocado
+- **Dónde:** `docker-compose.prod.yml`. `Avisos__HostsPermitidos: "api1,api2"` figuraba en las APIs y en el **Backoffice** (que no envía avisos), pero no en el **worker**, que es quien entrega los avisos (`HttpWebhookSender` con `DestinoWebhookSeguro`). Confirmado en el contenedor: `docker exec shippingbox-worker-1 printenv` no tiene ninguna variable `Avisos__*`.
+- **Evidencia (producción):** el aviso queda `Reintentando` con "Error de red: Destino no permitido: la URL del aviso apunta a una dirección interna. (api1:8080)"; el receptor no recibe nada.
+- **Impacto:** la letra exige un receptor de prueba "con el que demostrar el mecanismo, incluidos los escenarios de falla" y el escenario 6 consiste en detenerlo y reactivarlo. En producción el receptor propio era inalcanzable para el worker: no había entrega que detener ni que recuperar. Las pruebas de código no lo ven porque es configuración del despliegue.
+- **Solución:** la excepción se agrega al worker. Una prueba nueva lee el compose y exige que el worker defina `api1` y `api2`, y que el receptor de prueba no se habilite por defecto.
+- **Prueba que fallaba antes:** `ComposeDeProduccionTests.ElWorker_PermiteEntregarAvisosAlReceptorDePruebaInterno`.
+
+### D-10 (alta para F6) — La suscripción a "EnvioAdmitido", la primera del catálogo, nunca genera avisos
+- **Dónde:** `ProcesarMensajeCommandHandler.CoincideConEvento`. El comercio puede suscribirse a `EnvioAdmitido` ("Admisión de Envío: emitido cuando el paquete es admitido por API, carga masiva o registro manual"; catálogo en `ObtenerConfiguracionAvisosQueryHandler` y lista permitida en `ConfigurarAvisosCommandHandler`). El alta publica el evento con tipo de dominio `AltaEnvio` y estado nuevo `Admitido`; el worker compara la suscripción solo con esos dos valores, y `EnvioAdmitido` no es ninguno.
+- **Evidencia (producción):** alta con suscripción `EnvioAdmitido` → outbox procesado con `"Avisos":0`; tabla `AvisosComercio` vacía. Los demás eventos del catálogo sí coinciden con el nombre del estado (`EnDeposito`, `EnTransito`, `Entregado`, …).
+- **Impacto:** es el único evento que el propio comercio provoca sin intervención del operador: en el escenario 6 ("generar eventos") quien configure la admisión como evento no recibe nada y el panel de avisos queda vacío.
+- **Solución:** la suscripción `EnvioAdmitido` se interpreta como el estado `Admitido` (alias en `NormalizarTipoEventoSuscripto`, que además ahora conserva el resto del tratamiento del prefijo `v1:`/`v2:`).
+- **Prueba que fallaba antes:** `EntregaParcialBultosTests.ProcesarMensaje_SuscripcionAEnvioAdmitido_GeneraElAvisoDelAltaDelEnvio` (colección vacía sin el arreglo).
 
 ### D-09 (baja, calidad de las pruebas) — Tres pruebas de integración fallaban de forma intermitente por RUT repetidos
 - `AutorizacionPorPerfilApiTests` y `ComercioConVariosOperadoresApiTests` (dos pruebas) calculaban el RUT como `(hash + i·k) % 10`: solo hay 10 valores posibles. Con la base local acumulada entre corridas, el alta del comercio daba 400 por RUT duplicado una de cada tres a cinco veces. No dependía del código de producción (se comprobó repitiendo la suite sin los cambios del día).
