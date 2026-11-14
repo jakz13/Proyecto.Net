@@ -125,9 +125,9 @@
                             </td>
                             <td>
                                 <div class="input-group input-group-sm">
-                                    <input type="number" step="0.1" name="Reglas[@i].PesoDesde" value="@Model.Reglas[i].PesoDesde" class="form-control" placeholder="Min" title="Peso desde" required />
+                                    <input type="number" step="0.001" name="Reglas[@i].PesoDesde" value="@Model.Reglas[i].PesoDesde" class="form-control" placeholder="Min" title="Peso desde" required />
                                     <span class="input-group-text p-1">-</span>
-                                    <input type="number" step="0.1" name="Reglas[@i].PesoHasta" value="@Model.Reglas[i].PesoHasta" class="form-control" placeholder="Max" title="Peso hasta" required />
+                                    <input type="number" step="0.001" name="Reglas[@i].PesoHasta" value="@Model.Reglas[i].PesoHasta" class="form-control" placeholder="Max" title="Peso hasta" required />
                                 </div>
                             </td>
                             <td>
@@ -138,13 +138,13 @@
                                 </div>
                             </td>
                             <td>
-                                <input type="number" step="1" name="Reglas[@i].PrecioBase" value="@Model.Reglas[i].PrecioBase" class="form-control form-control-sm text-end" required />
+                                <input type="number" step="0.01" name="Reglas[@i].PrecioBase" value="@Model.Reglas[i].PrecioBase" class="form-control form-control-sm text-end" required />
                             </td>
                             <td>
-                                <input type="number" step="1" name="Reglas[@i].Recargo" value="@Model.Reglas[i].Recargo" class="form-control form-control-sm text-end text-danger" />
+                                <input type="number" step="0.01" name="Reglas[@i].Recargo" value="@Model.Reglas[i].Recargo" class="form-control form-control-sm text-end text-danger" />
                             </td>
                             <td>
-                                <input type="number" step="1" name="Reglas[@i].Bonificacion" value="@Model.Reglas[i].Bonificacion" class="form-control form-control-sm text-end text-success" />
+                                <input type="number" step="0.01" name="Reglas[@i].Bonificacion" value="@Model.Reglas[i].Bonificacion" class="form-control form-control-sm text-end text-success" />
                             </td>
                             <td class="text-end">
                                 <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar regla" onclick="eliminarFila(this)">
@@ -209,9 +209,9 @@
                 </td>
                 <td>
                     <div class="input-group input-group-sm">
-                        <input type="number" step="0.1" name="Reglas[${indice}].PesoDesde" value="0" class="form-control" placeholder="Min" required />
+                        <input type="number" step="0.001" name="Reglas[${indice}].PesoDesde" value="0" class="form-control" placeholder="Min" required />
                         <span class="input-group-text p-1">-</span>
-                        <input type="number" step="0.1" name="Reglas[${indice}].PesoHasta" value="5" class="form-control" placeholder="Max" required />
+                        <input type="number" step="0.001" name="Reglas[${indice}].PesoHasta" value="5" class="form-control" placeholder="Max" required />
                     </div>
                 </td>
                 <td>
@@ -222,13 +222,13 @@
                     </div>
                 </td>
                 <td>
-                    <input type="number" step="1" name="Reglas[${indice}].PrecioBase" value="200" class="form-control form-control-sm text-end" required />
+                    <input type="number" step="0.01" name="Reglas[${indice}].PrecioBase" value="200" class="form-control form-control-sm text-end" required />
                 </td>
                 <td>
-                    <input type="number" step="1" name="Reglas[${indice}].Recargo" value="0" class="form-control form-control-sm text-end text-danger" />
+                    <input type="number" step="0.01" name="Reglas[${indice}].Recargo" value="0" class="form-control form-control-sm text-end text-danger" />
                 </td>
                 <td>
-                    <input type="number" step="1" name="Reglas[${indice}].Bonificacion" value="0" class="form-control form-control-sm text-end text-success" />
+                    <input type="number" step="0.01" name="Reglas[${indice}].Bonificacion" value="0" class="form-control form-control-sm text-end text-success" />
                 </td>
                 <td class="text-end">
                     <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar regla" onclick="eliminarFila(this)">

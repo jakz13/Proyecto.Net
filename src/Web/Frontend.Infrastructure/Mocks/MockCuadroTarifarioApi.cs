@@ -31,13 +31,13 @@ public class MockCuadroTarifarioApi : ICuadroTarifarioApi
                     ZonaCoberturaId = null,
                     NombreZona = "Todas las zonas",
                     ModalidadServicio = "Estandar",
-                    PesoDesde = 0,
-                    PesoHasta = 5,
-                    VolumenDesde = 0,
-                    VolumenHasta = 0.05m,
-                    PrecioBase = 180,
-                    Recargo = 0,
-                    Bonificacion = 0
+                    PesoDesde = 0.000m,
+                    PesoHasta = 5.000m,
+                    VolumenDesde = 0.000m,
+                    VolumenHasta = 0.050m,
+                    PrecioBase = 180.00m,
+                    Recargo = 0.00m,
+                    Bonificacion = 0.00m
                 },
                 new()
                 {

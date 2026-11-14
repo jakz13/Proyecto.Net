@@ -162,6 +162,25 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task TarifaNuevaVersion_LosValoresPrecargadosCumplenElPasoDeSusCampos()
+    {
+        // jquery-validation rechaza un valor con más decimales que su "step" ("150.00" con step="1"): el servidor escribe los números con la escala de la
+        // base y, con la validación del navegador funcionando, el formulario no se podía publicar con sus propios valores (D-21, visto en un navegador real)
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Tarifas/NuevaVersion")).Content.ReadAsStringAsync();
+
+        var campos = Regex.Matches(html, "<input type=\"number\" step=\"([0-9.]+)\" name=\"Reglas\\[\\d+\\]\\.(\\w+)\" value=\"([^\"]*)\"").ToList();
+        Assert.NotEmpty(campos);
+        static int Decimales(string numero) { var corte = numero.IndexOfAny(new[] { '.', ',' }); return corte < 0 ? 0 : numero.Length - corte - 1; }
+        foreach (var campo in campos)
+        {
+            var paso = campo.Groups[1].Value; var valor = campo.Groups[3].Value;
+            Assert.True(Decimales(valor) <= Decimales(paso),
+                $"{campo.Groups[2].Value}: el valor '{valor}' tiene más decimales que el paso '{paso}'; la validación del navegador lo rechaza.");
+        }
+    }
+
+    [Fact]
     public async Task TarifaNuevaVersion_ConElVolumenSinLimiteDeLaTarifaReal_SePublica()
     {
         // La tarifa de producción usa 1.000.000.000 como "sin límite" de volumen; el formulario solo admitía hasta 1.000, así que editar un precio
