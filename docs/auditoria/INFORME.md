@@ -242,6 +242,23 @@ OBS-20: la reconstrucción del escenario 7 (`reconstruir.ps1`, con `-DesdeRegist
 | R14-03 | Exportación de reportes (6.3) | lectura del código de `ReporteCsv` | neutraliza fórmulas en celdas de texto | entrecomilla y antepone `'` a los prefijos `=`, `+`, `-`, `@` | OK |
 | R14-04 | Tiempo real, autorización (6.10) | tres conexiones reales al hub `/hubs/operacion` de producción: un **usuario de comercio** del operador 1, un administrador del **operador 2** y el repartidor; el comercio invoca `TransmitirCoordenadas`, `SuscribirAOperador` (operador 2) y `RegistrarRepartidor` (repartidor ajeno) | rechazo; nada llega a otro operador | **todo aceptado**: el comercio transmitió una posición falsa que recibieron el administrador del operador 2 y el repartidor; se suscribió al grupo de otro operador y al canal personal de un repartidor ajeno | **DEFECTO D-13** |
 
+### Ronda 15 — API pública, ensayo de F7 y cuentas
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R15-01 | API pública, sandbox (opcional 7.4) | `GET /api/comercio/clave-api-pruebas` y alta con `X-Api-Key` de pruebas | cotiza sin registrar | 200 `sandbox = true`, tarifa 150, id vacío; el envío no se registró | OK |
+| R15-02 | API pública, límite de tasa | 45 altas seguidas con la clave de pruebas (límite 20/min por instancia) | 429 al superar | 39 × 200 y 6 × 429 (≈ 20 por instancia × 2) | OK |
+| R15-03 | API pública, rotación | rotar la clave de producción (`POST /api/comercio/clave-api`), usar la nueva y la anterior | la anterior deja de valer | anterior 401, nueva 201 | OK |
+| R15-04 | API pública, autenticación | sin clave, clave vacía, clave en la URL (`?apiKey=`), clave de otro comercio | 401 | 401 en los cuatro | OK |
+| R15-05 | Idempotencia (RF 7) | misma `referenciaExterna` dos veces, y **8 altas simultáneas** con la misma | un solo envío | 201 y luego 200 con `duplicado = true` y el mismo id; en la carrera 1 × 201, 6 × 200 y 1 × 409, ningún 5xx; **1 envío en la base por referencia** | OK |
+| R15-06 | IaC, ensayo de F7 (6.14) | `terraform validate` y `terraform plan -detailed-exitcode` de solo lectura contra producción | sin deriva | "No changes. Your infrastructure matches the configuration." (8 recursos, código 0) | OK |
+| R15-07 | Estado de Terraform (6.3, 6.14) | contenido de `terraform.tfstate` (sin imprimir valores) | sin secretos | `admin_password` vacío; el cloud-init genera las claves de la aplicación al azar en la VM; solo identificadores y claves SSH públicas; el archivo está en OneDrive (copia en la nube con versiones) | OK |
+| R15-08 | Enumeración de usuarios (6.3) | tiempo de respuesta del login con correo inexistente frente a existente | mismo costo | ≈ 86 ms frente a ≈ 170 ms (OBS-18) → corregido: se verifica un hash ficticio | OK tras el arreglo |
+
+Nota: una alta con la clave nueva dio "HTTP 0" justo después de 61 s de espera; fue una conexión HTTP inactiva reutilizada por el cliente de PowerShell (la repetición sin espera salió bien), no una falla del servidor. La clave de producción del comercio demo **queda rotada**: hay que regenerarla desde el portal antes de la defensa si la demostración de la API pública usa una clave guardada.
+
+Corrección de OBS-18 (baja): `IniciarSesionCommandHandler` verifica una contraseña contra un hash ficticio cuando el correo no existe; prueba que fallaba antes: `IniciarSesionCommandHandlerTests.ConUnCorreoInexistente_TambienSeVerificaUnaContrasena_ParaQueElTiempoNoDelateQueCuentasExisten` (0 verificaciones sin el arreglo, 1 con él). El bloqueo de cuenta sigue ocurriendo solo en cuentas existentes (OBS).
+
 ## Defectos y soluciones
 
 ### D-13 (alta) — El hub de operación acepta posiciones, grupos y canales de cualquier usuario y los difunde a todos los operadores

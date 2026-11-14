@@ -20,6 +20,9 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
     private readonly IUnitOfWork _unitOfWork;
     private readonly IComercioOperadorRepository? _comercioOperadorRepository;
 
+    // Compartido por todas las instancias del manejador: se calcula una sola vez (la carrera entre dos pedidos simultáneos es inocua)
+    private static string? HashFicticio;
+
     public const int MaximoIntentosPermitidos = 5;
     public static readonly TimeSpan DuracionBloqueoTemporal = TimeSpan.FromMinutes(15);
 
@@ -55,6 +58,11 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         var usuario = await _usuarioRepository.ObtenerPorEmailAsync(emailNormalizado, cancellationToken);
         if (usuario is null)
         {
+            // Con un correo inexistente también se paga el costo de verificar una contraseña: sin esto la respuesta tardaba la mitad
+            // (≈ 86 ms frente a ≈ 170 ms) y el tiempo delataba qué cuentas existen aunque el mensaje fuera el mismo (OBS-18, auditoría del 14/11)
+            HashFicticio ??= _passwordHasher.HashearPassword(Guid.NewGuid().ToString("N"));
+            _passwordHasher.VerificarPassword(request.Password, HashFicticio);
+
             // Mensaje genérico para evitar enumeración de usuarios
             throw new CredencialesInvalidasException("Credenciales inválidas.");
         }

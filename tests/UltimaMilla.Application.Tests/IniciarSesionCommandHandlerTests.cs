@@ -1,5 +1,6 @@
 using UltimaMilla.Application.Commands.Identidad.IniciarSesion;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Identidad;
 using UltimaMilla.Domain.Exceptions;
@@ -78,6 +79,30 @@ public class IniciarSesionCommandHandlerTests
         var uAdminOp2 = new Usuario(Guid.NewGuid(), "Admin Dos", "admin2@gmail.com", _passwordHasher.HashearPassword("Password.123!"), PerfilAdminId, operadorId: Operador2Id);
 
         _usuarioRepository.Usuarios.AddRange(new[] { uAdmin, uDespacho, uOperario, uRepartidor, uComercio, uAdminOp2 });
+    }
+
+    private sealed class HasheadorContador : IPasswordHasherService
+    {
+        public int Verificaciones { get; private set; }
+        public string HashearPassword(string passwordPlano) => $"hashed_{passwordPlano}";
+        public bool VerificarPassword(string passwordPlano, string passwordHash) { Verificaciones++; return passwordHash == $"hashed_{passwordPlano}"; }
+    }
+
+    [Fact]
+    public async Task ConUnCorreoInexistente_TambienSeVerificaUnaContrasena_ParaQueElTiempoNoDelateQueCuentasExisten()
+    {
+        // Sin esto el correo inexistente respondía en la mitad del tiempo que uno existente con contraseña incorrecta (≈ 86 ms frente a ≈ 170 ms)
+        var hasheador = new HasheadorContador();
+        var manejador = new IniciarSesionCommandHandler(_usuarioRepository, hasheador, _tokenJwtService, _clock, _unitOfWork);
+
+        await Assert.ThrowsAsync<CredencialesInvalidasException>(() =>
+            manejador.Handle(new IniciarSesionCommand("no.existe@correo.com", "Cualquiera.123!"), CancellationToken.None));
+        Assert.Equal(1, hasheador.Verificaciones);
+
+        // Y con un correo existente y contraseña incorrecta, también una (mismo costo)
+        await Assert.ThrowsAsync<CredencialesInvalidasException>(() =>
+            manejador.Handle(new IniciarSesionCommand("admin@gmail.com", "Incorrecta.123!"), CancellationToken.None));
+        Assert.Equal(2, hasheador.Verificaciones);
     }
 
     [Theory]
