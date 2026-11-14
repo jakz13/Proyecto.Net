@@ -196,7 +196,38 @@ OBS-12: el catálogo de motivos internos del operador demo tiene un solo código
 
 OBS-13: perder la carrera da 400 o 409 según el instante en que la segunda petición lee el estado; ambos rechazan correctamente, pero un cliente que solo reintente ante 409 trataría distinto al 400.
 
+### Ronda 12 — borde, sesión y cuentas
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R12-01 | Exposición de red (6.3, 6.14) | 28 puertos TCP desde Internet (SSH, bases de datos, cola, caché, Prometheus, Grafana, paneles) | solo web | abiertos: **22, 80 y 443**; 5432, 5672, 15672, 6379, 9090, 3000 y el resto, cerrados | OK (OBS-15: SSH abierto a todo Internet) |
+| R12-02 | TLS (6.14) | HTTP, TLS 1.1, 1.2 y 1.3 en los 4 dominios; certificado | HTTP→HTTPS; TLS ≥ 1.2; certificado válido | 308 a HTTPS; TLS 1.1 rechazado; 1.2 y 1.3 correctos; Let's Encrypt vigente hasta 11/02/2027 | OK |
+| R12-03 | Cabeceras (6.3) | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Content-Security-Policy`, `Strict-Transport-Security`, `Permissions-Policy` | todas, sin cabeceras que revelen versión | todas salvo `Content-Security-Policy` en Backoffice, Portal, Seguimiento y Grafana (la API sí la envía); ninguna cabecera reveladora | OBS (declarada el 13/11) |
+| R12-04 | CORS (6.3) | `OPTIONS` con origen ajeno, con el origen del portal y con `null` | solo el portal | ajeno y `null` sin `Allow-Origin`; el portal con su origen exacto y credenciales | OK |
+| R12-05 | Grafana (6.12) | sin sesión: `/api/search`, `/api/datasources`, `/api/dashboards/home`, `/api/admin/stats`, `/api/user`; login `admin`/`admin` | 401 | todos 401; `admin/admin` rechazado; `/api/health` y **`/metrics` responden 200 sin sesión** | OBS-16 (baja) |
+| R12-06 | Cookies (6.3) | banderas de las cookies del Backoffice y del balanceador | `Secure`, `HttpOnly`, `SameSite` | sesión: `secure; httponly; samesite=lax`; balanceador: `Secure; HttpOnly`; **antifalsificación sin `Secure`** | OBS-14 (ver nota) |
+| R12-07 | Seguimiento público (RF 25, 6.3) | JSON de un envío entregado buscando GUID, correo, teléfono, documento, dirección, nombre y evidencia | ninguno | 0 coincidencias; solo código, estado, historial público, avance de bultos y marca del operador | OK (OBS-17) |
+| R12-08 | Bloqueo de cuenta (6.3) | 6 contraseñas incorrectas y luego la correcta | bloqueo temporal | 401 ×4, **423 al 5.º intento**, 423 también con la contraseña correcta | OK |
+| R12-09 | Enumeración de usuarios (6.3) | 4 intentos con correo existente y 4 con inexistente | mismo mensaje y tiempo | mismo mensaje ("Credenciales inválidas."); **tiempos distintos: ≈ 165-230 ms frente a ≈ 86 ms**, además el bloqueo solo ocurre en cuentas que existen | OBS-18 |
+| R12-10 | Política de contraseñas (6.3) | `1`, `12345678`, `password`, `abcdefgh`, `Abcdefg1`, `Abcdefg1!`, `Abcdefghijkl`, `Abcdefgh12!`, `Valida-2026-Xy!` | débiles rechazadas | rechazadas con motivo claro (mínimo 10 caracteres y tres tipos); las dos válidas dan 201 | OK |
+| R12-11 | Vigencia del token (6.3) | `exp` − `iat` del JWT | acotada | 28.800 s (8 h) | OK |
+| R12-12 | Revocación (6.3) | iniciar sesión, desactivar al usuario con el administrador y usar el token anterior | rechazo inmediato | **200**: el token seguía valiendo hasta 8 h | **DEFECTO D-12** |
+
+Notas de la ronda 12:
+- **OBS-14 (cookie antifalsificación sin `Secure`) no se corrigió a propósito.** Se probó forzar `SecurePolicy = Always` y una prueba bajo el entorno Production mostró que ASP.NET lanza `InvalidOperationException` si cree que la petición no es HTTPS, y que la cookie salga sin `Secure` indica que el Backoffice ve las peticiones de Caddy como HTTP. Desplegarlo habría dado **error 500 en todos los formularios del Backoffice**. El cambio se descartó y queda como pendiente de investigar por qué el esquema HTTPS no llega al Backoffice.
+- OBS-15: el grupo de red permite SSH desde cualquier origen (`cidr_ssh_permitido = "*"`); el acceso es solo por clave, pero conviene limitarlo a la IP de quien administra.
+- OBS-16: `/metrics` de Grafana, sin sesión, expone métricas internas del propio Grafana.
+- OBS-17: el historial público muestra pasos internos (por ejemplo "NoEntregado" cuando el despachador retira un envío en ruta y luego se entrega).
+- OBS-18: el tiempo de respuesta del login permite distinguir cuentas existentes de inexistentes; se resuelve verificando un hash ficticio cuando el correo no existe.
+
 ## Defectos y soluciones
+
+### D-12 (media-alta) — El token de un usuario desactivado sigue valiendo hasta 8 horas
+- **Dónde:** el JWT se valida solo por firma y vencimiento; nada comprobaba que el usuario siguiera activo. Para los comercios dados de baja ya existía `ComercioActivoMiddleware`, pero no para el resto de los perfiles (administrador, despachador, operario, repartidor).
+- **Evidencia (producción):** token de un despachador, `PATCH /api/usuarios/{id}/estado` con `activo=false` (204) y el mismo token → `GET /api/planificacion/hojas-de-ruta/` → **200**.
+- **Impacto:** un empleado despedido o una cuenta comprometida que el administrador desactiva conserva el acceso (incluida la app del repartidor y el tablero) hasta 8 horas. Contradice la intención de "desactivar".
+- **Solución:** `UsuarioActivoMiddleware` consulta por clave primaria si el usuario existe y está desactivado y responde 401 con `USUARIO_DESACTIVADO`; los pedidos sin usuario en la base (modo demostración) no se tocan. El inicio de sesión de un usuario desactivado ya devolvía 403.
+- **Prueba que fallaba antes:** `UsuarioDesactivadoApiTests.UnTokenAbierto_DejaDeValerCuandoElAdministradorDesactivaAlUsuario` (200 sin el middleware; con él 401, y 200 de nuevo al reactivar).
 
 ### D-11 (alta para F6) — El worker no puede entregar avisos al receptor de prueba: la excepción anti-SSRF está en el servicio equivocado
 - **Dónde:** `docker-compose.prod.yml`. `Avisos__HostsPermitidos: "api1,api2"` figuraba en las APIs y en el **Backoffice** (que no envía avisos), pero no en el **worker**, que es quien entrega los avisos (`HttpWebhookSender` con `DestinoWebhookSeguro`). Confirmado en el contenedor: `docker exec shippingbox-worker-1 printenv` no tiene ninguna variable `Avisos__*`.

@@ -33,6 +33,11 @@
 2. La fecha de modificación de `C:\Users\Curbe\.claude\projects\c--Users-Curbe-OneDrive-Escritorio-Proyecto-Proyecto-Net\70ebc7ed-eac9-44d4-99b2-f66f2414612d.jsonl`.
 3. `C:\Users\Curbe\auditoria_local\latido.txt` (anti-suspensión, cada 5 min) y `reanudar.log` (script de reanudación).
 
-## Pendiente (próximas rondas)
-F1 caída de una API con tráfico; F4 dos operadores; F6 receptor de avisos caído y recuperado; F2/F3 móvil sin conexión y conflicto de sincronización;
-concurrencia e idempotencia; costos de Azure; limpieza de datos `AUDIT-`; F7 destruir y reconstruir (al final).
+## Cola de ideas para las próximas rondas (ronda 12 en adelante)
+Seguridad de red y borde: puertos abiertos desde Internet (22, 5432, 5672, 15672, 6379, 9090, 3000), exposición y credenciales por defecto de Grafana y Prometheus, TLS (versiones y certificado), redirección HTTP→HTTPS, cabeceras en los cuatro dominios, CORS con orígenes ajenos, banderas de las cookies.
+Sesión y cuentas: bloqueo al 5.º intento (cuenta `audit.*`), enumeración de usuarios por mensaje o tiempo, política de contraseñas débiles, vigencia del JWT, token de un usuario desactivado, auto-edición de perfil (asignación masiva).
+Entradas y archivos: importación CSV (reimportación idempotente, fórmulas `=`, archivo enorme, codificación), carga de logos (SVG con script, tipo falsificado, ruta en el nombre), cuerpo de 30 MB.
+Seguimiento público: campos devueltos (sin identificadores internos ni datos personales), enumeración de códigos, reprogramación abusiva.
+Tiempo real y operación: autenticación y aislamiento de SignalR entre operadores, apagado controlado con una petición en vuelo, tareas programadas sin duplicado con dos instancias, secretos o contraseñas en los registros, crecimiento del outbox.
+API pública: clave de pruebas y límite de 20/min, rotación de claves.
+Infraestructura: `terraform.tfstate` dentro de OneDrive (copia en la nube), SSH abierto a `*` en el grupo de red, F7 (destruir y reconstruir) al final, limpieza de datos `AUDIT`.
