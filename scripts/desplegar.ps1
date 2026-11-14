@@ -139,7 +139,9 @@ ssh @opcionesSsh $destino "touch ~/shippingbox/.env.prod; grep -v '^REGISTRO=' ~
 
 if ($DesdeRegistro) {
     Paso "La VM descarga las imágenes del registro ($Registro)"
-    ssh @opcionesSsh $destino "cd ~/shippingbox && docker compose -f docker-compose.prod.yml --env-file .env.prod pull $($serviciosCompose -join ' ')"; Verificar 'docker compose pull en la VM'
+    # "2>&1" va DENTRO del comando remoto: docker compose escribe su progreso por stderr y Windows PowerShell 5.1, con $ErrorActionPreference = 'Stop',
+    # lo trata como un error fatal ("NativeCommandError") aunque la descarga salga bien (hallazgo D-15 del 14/11: rompía la reconstrucción del escenario 7)
+    ssh @opcionesSsh $destino "cd ~/shippingbox && docker compose -f docker-compose.prod.yml --env-file .env.prod pull $($serviciosCompose -join ' ') 2>&1"; Verificar 'docker compose pull en la VM'
 }
 elseif ($imagenes.Count -gt 0 -and -not $SinImagenes) {
     Paso 'Enviando imágenes a la VM (comprimidas; la primera vez son unos 350 MB)'
@@ -155,7 +157,8 @@ Paso 'Reiniciando servicios en la VM'
 $remoto = (Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'reiniciar-remoto.sh')).Replace("`r", '')
 # Se envía en base64 para evitar problemas de saltos de línea entre Windows y Linux
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoto))
-ssh @opcionesSsh $destino "echo $b64 | base64 -d | bash -s -- '$($serviciosCompose -join ' ')'"
+# "2>&1" también acá: en una VM recién creada "docker compose up" descarga las imágenes de Redis, Postgres, etc. y su progreso sale por stderr (D-15)
+ssh @opcionesSsh $destino "echo $b64 | base64 -d | bash -s -- '$($serviciosCompose -join ' ')' 2>&1"
 Verificar 'reinicio en la VM'
 
 # ---------------------------------------------------------------- Verificación

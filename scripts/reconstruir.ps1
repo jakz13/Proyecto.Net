@@ -74,7 +74,11 @@ foreach ($v in 'SEED_PASSWORD_DEMO', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SSL', 'SMTP
 if ($extra.Count) {
     Paso 'Secretos de la aplicación (SEED_PASSWORD_DEMO, SMTP) -> .env.prod de la VM'
     $texto = ($extra -join "`n") + "`n"
-    $texto | ssh @opc "azureuser@$ip" 'grep -v -E "^(SEED_PASSWORD_DEMO|SMTP_[A-Z]+)=" ~/shippingbox/.env.prod > ~/shippingbox/.env.tmp; cat >> ~/shippingbox/.env.tmp; mv ~/shippingbox/.env.tmp ~/shippingbox/.env.prod; chmod 600 ~/shippingbox/.env.prod'
+    # Los valores viajan en base64 y el comando remoto no lleva comillas dobles: Windows PowerShell 5.1 las pierde al pasarlas a ssh y bash fallaba con
+    # "syntax error near unexpected token `('" justo en el caso del escenario 7 (reconstruir con SEED_PASSWORD_DEMO definida; hallazgo D-14 del 14/11)
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($texto))
+    ssh @opc "azureuser@$ip" "grep -v -E '^(SEED_PASSWORD_DEMO|SMTP_[A-Z]+)=' ~/shippingbox/.env.prod > ~/shippingbox/.env.tmp; echo $b64 | base64 -d >> ~/shippingbox/.env.tmp; mv ~/shippingbox/.env.tmp ~/shippingbox/.env.prod; chmod 600 ~/shippingbox/.env.prod"
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron guardar los secretos en la VM (.env.prod).' }
 }
 
 if (-not $SinDespliegueDeAplicacion) {
