@@ -300,11 +300,25 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 | R19-01 | Reproducibilidad (6.14) | 8 comprobaciones: D-02 (bulto nulo), D-03 (franja nula), D-04 (regla vacía sin cambiar la versión vigente), D-05 (posición sin coordenadas), D-06 (modalidades del formulario de tarifas), D-07 (volumen sin límite), D-08 (prueba y devolución enviadas una sola vez) y D-12 (token de un usuario desactivado: 200 → 401 → 200) | todas correctas | **8 de 8** | OK |
 | R19-02 | Límite de tasa (6.3), D-01 | 80 pedidos al seguimiento desde la PC y 3 desde la VM (otra IP) a continuación | cupos independientes | PC: 60 × 404 y 20 × 429; VM: 3 × 404, ningún 429 | OK |
 
+### Ronda 20 — observabilidad (6.12) y caché (6.7)
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R20-01 | Correlación de extremo a extremo (6.12) | alta de un envío con `X-Correlation-Id: AUDIT-CORR-…` y búsqueda del identificador en la respuesta, los registros de las dos APIs y del worker y en el outbox | el mismo identificador en todo el recorrido | vuelve en la cabecera de la respuesta; aparece en el registro de la API que atendió (5 líneas), en el del worker (3) y en 2 filas del outbox | OK |
+| R20-02 | Tablero técnico (6.12, 6.7) | nombres de métrica en Prometheus de la VM reconstruida | latencia p95/p99, errores, cola, sincronizaciones pendientes, avisos fallidos, aciertos y fallos del caché | `http_server_request_duration_seconds_*` (histograma), `um_cola_mensajes_pendientes`, `um_sync_eventos_pendientes`, `um_sync_eventos_recibidos_total`, `um_avisos_comercio_fallidos`, `um_avisos_comercio_intentos_total`, `um_cache_aciertos_total`, `um_cache_fallos_total` | OK |
+
 Estado tras F7: la base es nueva, así que **desaparecieron todos los datos `AUDIT` y los de ensayo** (versiones de tarifa y reglas, suscripción de avisos, zona y comercio del operador 2, envíos y rutas de prueba). Lo que hay que volver a preparar para la defensa: receptor de prueba apagado (valor por defecto), operador 2 sin zonas ni comercios (OBS-10) y la suscripción de avisos del comercio.
 
 Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por semana para el mismo nombre; cada reconstrucción pide certificados nuevos (Caddy los guarda en un volumen que se destruye). Esta semana ya se emitieron varios (VM del 13/11, esta reconstrucción y las máquinas anteriores). Reconstruir otra vez antes del jueves puede agotar el cupo; si se agota, Caddy intenta con ZeroSSL, pero conviene **no ensayar F7 de nuevo** y tener presente que la demostración en vivo consume un certificado más.
 
 ## Defectos y soluciones
+
+### D-17 (media para F7, provocado y corregido durante la recuperación) — El secreto `VM_HOST` quedaba con una marca BOM delante de la IP
+- **Dónde:** `reconstruir.ps1` guardaba el secreto con `$ip | gh secret set VM_HOST`. Al repetir ese paso a mano desde Windows PowerShell 5.1 (`"57.156.63.70" | gh secret set VM_HOST`), el valor quedó con los bytes `EF BB BF` delante y el despliegue automático falló con `ssh: Could not resolve hostname \357\273\27757.156.63.70`.
+- **Evidencia:** la ejecución `43594200837` del pipeline compiló, probó (todas las pruebas) y publicó las imágenes, y falló solo en `desplegar` a los 4 segundos.
+- **Solución:** el valor se pasa con `--body` (sin tubería), tanto a mano como en el script. El secreto ya se corrigió y el paso fallido se relanzó.
+- **Prueba que fallaba antes:** `ScriptsDeReconstruccionTests.Reconstruir_GuardaElSecretoVmHostSinPasarPorUnaTuberia`.
+- **Lección:** el error lo introduje yo al actualizar el secreto sin comprobar el valor guardado; después de tocar un secreto hay que mirar el siguiente despliegue.
 
 ### D-16 (crítica para F7) — `actualizar-dns.ps1` está vacío: después de reconstruir, los dominios apuntan a una IP que ya no existe
 - **Dónde:** `scripts/actualizar-dns.ps1` mide 3 bytes (solo la marca BOM) **desde el commit que lo creó** (`73c088f`). `reconstruir.ps1` lo invoca justo después de `terraform apply`, así que ese paso no hacía nada.
