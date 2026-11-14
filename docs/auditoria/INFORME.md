@@ -171,6 +171,31 @@ OBS-10 (media para F4): el operador 2 no trae zonas ni comercios de demostració
 
 Política observada: 4 intentos con esperas de 1, 5 y 15 minutos (`ReglasAvisosComercio`). Para la defensa conviene **reintentar a mano** desde el panel en lugar de esperar los 5 minutos.
 
+### Ronda 10 — escenarios F2 y F3 (móvil sin conexión y conflicto de sincronización)
+
+La app MAUI no se puede ejercitar desde esta máquina; se probó el contrato que usa contra producción con una dotación propia (repartidor y vehículo `AUDIT`, dos envíos recibidos y clasificados en depósito, una hoja de ruta). El "sin conexión" se emula así: el repartidor descarga la ruta, confirma la carga y deja de llamar; mientras tanto el servidor cambia; después el dispositivo envía su cola con las mismas claves de idempotencia.
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R10-01 | RF 18, 24 (descarga y sincronización diferida) | descarga de la ruta, confirmación de carga y envío posterior de dos entregas con evidencia (firma, foto, receptor y documento) | 200 y estado `Entregado` | 200 en ambas; `Entregado` / `Entregada`; una prueba de entrega por envío | OK |
+| R10-02 | RF 15, 24, ADR-001 (entrega vs retiro de la ruta) | ruta **en tránsito**; el despachador retira el envío A con un motivo interno del catálogo (`RETORNO_SIN_INTENTO`: A pasa a `NoEntregado`, pendiente de rendición) y luego el dispositivo envía la entrega de A | prevalece la entrega física con evidencia y el conflicto queda asentado | 200 `Entregado`; fila en `ConflictosSincronizacion`: `Envio`, servidor `NoEntregado`, dispositivo `Entregado`, política `PrevaleceEntregaFisicaConEvidencia`; eventos del envío `RetiroEnRuta` y `EntregaExitosa` una vez cada uno | OK |
+| R10-03 | Idempotencia (6.8, 24) | reenvío idéntico de la cola con las mismas claves (corte de red) | mismo resultado, sin duplicados | 200 con el mismo contenido; un solo evento `EntregaExitosa` y una sola prueba por envío | OK |
+| R10-04 | Integridad de la evidencia | entrega de un envío ya entregado con **otra** clave y otro nombre de receptor | no sobrescribe la evidencia ni duplica eventos | 200 (se devuelve el resultado existente); la prueba conserva el receptor original ("Ana Gomez") y sigue habiendo un solo evento | OK (OBS-11) |
+| R10-05 | Estado inválido (RF 11) | entrega de un envío que el despachador sacó de una ruta **no despachada** (`EnDeposito`) | rechazo | 400 "no se puede entregar porque su estado actual es 'EnDeposito' (se requiere 'EnTransito')" | OK |
+| R10-06 | Validación del receptor (RF 20) | documento del receptor con un solo dígito | rechazo | 400 "El documento del receptor debe contener exactamente 8 dígitos numéricos." (acepta `1.234.567-8` y lo normaliza) | OK |
+
+OBS-11: la segunda entrega de un envío ya entregado responde 200 con el resultado existente en lugar de 409; es coherente con la idempotencia por envío y la evidencia original queda intacta, pero la app no se entera de que su segundo intento no se aplicó.
+OBS-12: el catálogo de motivos internos del operador demo tiene un solo código (`RETORNO_SIN_INTENTO`); retirar un envío en la calle sin ese catálogo falla con 400, lo que conviene saber al ensayar el escenario 3.
+
+### Ronda 11 — concurrencia (RF 15, 6.4)
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R11-01 | RF 15 (un envío no puede estar en dos rutas) | 3 rondas; en cada una, dos peticiones **simultáneas** (misma instancia de cliente, enviadas a la vez) asignan el mismo envío a dos rutas distintas con dos dotaciones propias | una ruta creada y la otra rechazada | ronda 1: 400 y 201 ("El envío ya fue asignado a otra hoja de ruta"); rondas 2 y 3: 409 y 201 ("Otra operación simultánea ya registró los mismos datos"); 0 respuestas 5xx | OK (OBS-13) |
+| R11-02 | 6.4 concurrencia optimista | editar un comercio con el sello vigente, con el mismo sello ya usado, con el sello nuevo, y dos ediciones **simultáneas** con el mismo sello | 200 / 409 / 200 / una 200 y una 409 | 200 / 409 / 200 / 409 y 200 | OK |
+
+OBS-13: perder la carrera da 400 o 409 según el instante en que la segunda petición lee el estado; ambos rechazan correctamente, pero un cliente que solo reintente ante 409 trataría distinto al 400.
+
 ## Defectos y soluciones
 
 ### D-11 (alta para F6) — El worker no puede entregar avisos al receptor de prueba: la excepción anti-SSRF está en el servicio equivocado
@@ -247,8 +272,23 @@ Política observada: 4 intentos con esperas de 1, 5 y 15 minutos (`ReglasAvisosC
 ## Hipótesis abiertas
 1. **Receptor de prueba apagado en producción (6.9, escenario 6).** `/api/testing/webhook-receiver` da 404; confirmar con qué receptor se demuestra la caída y recuperación de avisos.
 
-## Costos de Azure
-(se completa durante la auditoría)
+## Costos de Azure (evidencia del costo, letra 6.14)
+
+Suscripción *Azure for Students*, región `chilecentral`. Recursos del ambiente (todos creados y gestionados por `infra/terraform-azure`): una VM `Standard_B2als_v2`, un disco de sistema `StandardSSD_LRS` de 64 GB y una IP pública `Standard` estática. **No hay otros recursos que consuman saldo** en la suscripción (verificado con `az vm list`, `az disk list`, `az network public-ip list` y `az group list`; solo existen `rg-ultimamilla-prod` y el grupo gratuito `NetworkWatcherRG`).
+
+Precios de la lista pública de Azure (`prices.azure.com`, consultada el 14/11/2026):
+
+| Recurso | Precio | Por día | Por mes (30 d) |
+|---|---|---|---|
+| VM `Standard_B2als_v2` (Linux) | 0,0526 USD/h | 1,26 USD | 37,9 USD |
+| IP pública estática `Standard` | 0,005 USD/h | 0,12 USD | 3,6 USD |
+| Disco `StandardSSD_LRS` E6 (64 GB) | 0,658 USD/mes (más operaciones, despreciables) | 0,02 USD | 0,7 USD |
+| **Total** | | **≈ 1,40 USD** | **≈ 42 USD** |
+
+- La VM actual existe desde el 13/11 a las 23:14 UTC (reconstruida con Terraform); el consumo de las VM anteriores (ya eliminadas) no se puede obtener con la CLI en una suscripción de estudiante: hay que mirarlo en *Cost Management* del portal de Azure.
+- Hasta la defensa (jueves 19/11 a las 15:00, unas 130 h desde ahora) el ambiente agrega **≈ 7,7 USD**; hasta fin de mes, ≈ 42 USD. Las pruebas de carga y de caída de esta auditoría duraron minutos y no cambian esa cifra de forma apreciable.
+- Para ahorrar sin destruir: la VM desasignada (`az vm deallocate`) deja de cobrar el cómputo y mantiene disco e IP (≈ 0,14 USD/día). Después de la defensa conviene `terraform destroy` (ver F7).
+- Los precios son de lista; el saldo real descontado puede diferir. El tamaño de la VM (2 vCPU) es la causa de la latencia alta bajo 60 usuarios concurrentes ya anotada el 13/11.
 
 ## Limpieza de datos de prueba
 (se completa al final)
