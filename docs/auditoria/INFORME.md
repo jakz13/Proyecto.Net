@@ -259,6 +259,19 @@ Nota: una alta con la clave nueva dio "HTTP 0" justo después de 61 s de espera;
 
 Corrección de OBS-18 (baja): `IniciarSesionCommandHandler` verifica una contraseña contra un hash ficticio cuando el correo no existe; prueba que fallaba antes: `IniciarSesionCommandHandlerTests.ConUnCorreoInexistente_TambienSeVerificaUnaContrasena_ParaQueElTiempoNoDelateQueCuentasExisten` (0 verificaciones sin el arreglo, 1 con él). El bloqueo de cuenta sigue ocurriendo solo en cuentas existentes (OBS).
 
+### Ronda 16 — pruebas de resiliencia sobre producción (opcional 7.4)
+
+Prueba única de 380 s con tráfico continuo (lecturas de tarifa, envíos y seguimiento público, `/ready` y un alta real cada 5 pedidos; 701 pedidos, 117 altas con 201) mientras se detenía y se volvía a arrancar cada dependencia: Redis (s 20 a 77), RabbitMQ (s 125 a 180) y Postgres (s 230 a 285).
+
+| ID | Dependencia interrumpida | Comportamiento degradado esperado | Observado | Veredicto |
+|---|---|---|---|---|
+| R16-01 | **Redis** (caché distribuido) | el sistema sigue sirviendo, leyendo de la base | 47 de 47 pedidos 2xx (37 lecturas y 10 altas); las lecturas llegaron a 1,6 s y las altas a **5,3 s** (esperas de conexión al caché caído); recuperación inmediata | OK (OBS-21: latencia alta de las altas sin Redis) |
+| R16-02 | **RabbitMQ** (cola de mensajes) | las altas siguen y los eventos se entregan al volver (outbox) | 111 de 111 pedidos 2xx, altas de 205 ms como máximo; los 22 avisos de esa ventana salieron al volver la cola | OK |
+| R16-03 | **Postgres** (base de datos) | rechazo rápido y limpio, sin colgarse, y recuperación sola | 503 en 50-130 ms (lecturas 67 de 92 y 22 de 23 altas, ninguna colgada); el seguimiento público siguió sirviendo desde el caché; **recuperación a los 2,5 s** de arrancar Postgres (`/ready` 200), sin reiniciar las APIs | OK |
+| R16-04 | Integridad tras las tres interrupciones | no se pierde ningún dato ni aviso | **117 altas con 201 = 117 envíos en la base = 117 avisos `Entregado`**; outbox con 721 mensajes, todos procesados (0 pendientes); 3 mensajes en la cola de fallidos, anteriores a la prueba | OK |
+
+OBS-21 (baja): con Redis caído una alta puede tardar unos 5 s; los tiempos de espera de conexión al caché (`ConnectTimeout` 1 s, `SyncTimeout` 1 s, un reintento) se suman en cada operación. Es degradado pero correcto; para la defensa conviene saber que con el caché caído el sistema sigue, más lento.
+
 ## Defectos y soluciones
 
 ### D-13 (alta) — El hub de operación acepta posiciones, grupos y canales de cualquier usuario y los difunde a todos los operadores
