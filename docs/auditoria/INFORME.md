@@ -307,11 +307,27 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 | R20-01 | Correlación de extremo a extremo (6.12) | alta de un envío con `X-Correlation-Id: AUDIT-CORR-…` y búsqueda del identificador en la respuesta, los registros de las dos APIs y del worker y en el outbox | el mismo identificador en todo el recorrido | vuelve en la cabecera de la respuesta; aparece en el registro de la API que atendió (5 líneas), en el del worker (3) y en 2 filas del outbox | OK |
 | R20-02 | Tablero técnico (6.12, 6.7) | nombres de métrica en Prometheus de la VM reconstruida | latencia p95/p99, errores, cola, sincronizaciones pendientes, avisos fallidos, aciertos y fallos del caché | `http_server_request_duration_seconds_*` (histograma), `um_cola_mensajes_pendientes`, `um_sync_eventos_pendientes`, `um_sync_eventos_recibidos_total`, `um_avisos_comercio_fallidos`, `um_avisos_comercio_intentos_total`, `um_cache_aciertos_total`, `um_cache_fallos_total` | OK |
 
+### Ronda 21 — operación de la VM: registros, disco y reinicio
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R21-01 | Operación (6.14) | driver y límites de registros de Docker, tamaño por contenedor, disco, memoria y política de reinicio | registros acotados; arranque automático | `json-file` **sin límites**; disco 12 % usado (7 GB de 61), 2,5 GB disponibles de memoria; `docker` habilitado en el arranque y los 12 servicios con `restart: unless-stopped` | **DEFECTO D-18** |
+| R21-02 | Operación, tras el arreglo y el despliegue del pipeline | rotación en los 12 contenedores; recuperación al recrearlos; datos | rotación activa; servicio y datos intactos | `max-size 10m` y `max-file 3` en los 12; todos de nuevo en menos de 1 min (api1 sana a los 51 s); base intacta (9 usuarios, 8 envíos, 3 cuadros, 2 mensajes de outbox); certificados sin cambios | OK |
+| R21-03 | Persistencia ante reinicio de la VM (6.13) | `systemctl reboot` de la VM | todo vuelve solo, con datos y sin pedir certificados | `/ready` responde 200 a los **40 s**; los 12 contenedores arriba solos; base intacta (mismos conteos); Caddy emitió **0** certificados y el vencimiento no cambió (12/02/2027); login correcto | OK |
+
 Estado tras F7: la base es nueva, así que **desaparecieron todos los datos `AUDIT` y los de ensayo** (versiones de tarifa y reglas, suscripción de avisos, zona y comercio del operador 2, envíos y rutas de prueba). Lo que hay que volver a preparar para la defensa: receptor de prueba apagado (valor por defecto), operador 2 sin zonas ni comercios (OBS-10) y la suscripción de avisos del comercio.
 
 Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por semana para el mismo nombre; cada reconstrucción pide certificados nuevos (Caddy los guarda en un volumen que se destruye). Esta semana ya se emitieron varios (VM del 13/11, esta reconstrucción y las máquinas anteriores). Reconstruir otra vez antes del jueves puede agotar el cupo; si se agota, Caddy intenta con ZeroSSL, pero conviene **no ensayar F7 de nuevo** y tener presente que la demostración en vivo consume un certificado más.
 
 ## Defectos y soluciones
+
+### D-18 (media, operación) — Los registros de Docker no tenían límite de tamaño
+- **Dónde:** `docker-compose.prod.yml`. Los 12 contenedores usaban el driver `json-file` sin `max-size` ni `max-file` (`docker inspect` → `"Config":{}`; no existe `/etc/docker/daemon.json`).
+- **Evidencia:** en la VM los registros pesaban KB porque los contenedores eran recientes, pero la API escribe una línea JSON por pedido, Caddy una por conexión y el worker una por mensaje: sin rotación crecen indefinidamente en un disco de 64 GB (hoy 12 % usado).
+- **Impacto:** no afecta a la defensa de la semana, pero una plataforma que corre semanas con un disco que se llena sola es un riesgo operativo real (la VM deja de poder escribir, la base falla).
+- **Solución:** un ancla `x-logging` (`json-file`, 10 MB por archivo, 3 archivos) aplicada a los 12 servicios; el compose se validó con `docker compose config`.
+- **Prueba que fallaba antes:** `ComposeDeProduccionTests.TodosLosServicios_RotanSusRegistros`.
+- **Nota:** el despliegue recrea los contenedores (también Postgres y RabbitMQ; sus datos están en volúmenes) y produce una interrupción de unos segundos.
 
 ### D-17 (media para F7, provocado y corregido durante la recuperación) — El secreto `VM_HOST` quedaba con una marca BOM delante de la IP
 - **Dónde:** `reconstruir.ps1` guardaba el secreto con `$ip | gh secret set VM_HOST`. Al repetir ese paso a mano desde Windows PowerShell 5.1 (`"57.156.63.70" | gh secret set VM_HOST`), el valor quedó con los bytes `EF BB BF` delante y el despliegue automático falló con `ssh: Could not resolve hostname \357\273\27757.156.63.70`.
