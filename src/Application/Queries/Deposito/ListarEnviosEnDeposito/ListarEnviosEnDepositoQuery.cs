@@ -18,7 +18,8 @@ public record EnvioEnDepositoDto(
     int CantidadClasificados,
     bool EstaClasificado,
     DateTime FechaAlta,
-    IReadOnlyList<BultoClasificadoResumenDto> Bultos);
+    IReadOnlyList<BultoClasificadoResumenDto> Bultos,
+    Guid? ZonaDestinoId = null);
 
 public record BultoClasificadoResumenDto(
     Guid BultoId,

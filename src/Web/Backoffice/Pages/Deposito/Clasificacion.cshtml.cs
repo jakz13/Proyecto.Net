@@ -113,7 +113,15 @@ public class ClasificacionModel : PageModel
         {
             Resultado = await _depositoApi.ClasificarBultosAsync(Formulario.EnvioId, solicitud, cancelacion);
 
-            TempData["MensajeExito"] = $"Clasificación registrada con éxito para el envío '{Resultado.CodigoSeguimiento}'. {(Resultado.ListoParaHojaDeRuta ? "El envío quedó listo para su inclusión en una hoja de ruta." : "Quedan bultos pendientes de clasificar.")}";
+            // La página se vuelve a mostrar sin redirigir: el mensaje va en la propiedad (TempData recién aparecería en la próxima visita)
+            MensajeExito = $"Clasificación registrada con éxito para el envío '{Resultado.CodigoSeguimiento}'. {(Resultado.ListoParaHojaDeRuta ? "El envío quedó listo para su inclusión en una hoja de ruta." : "Quedan bultos pendientes de clasificar.")}";
+
+            // Los helpers de formulario prefieren lo posteado (ModelState) a lo recargado: sin limpiarlo se ven valores viejos
+            // y hace falta repetir la acción para que la prioridad "tome".
+            ModelState.Clear();
+
+            // El listado de la izquierda y los contadores se cargaron antes de guardar: se recargan para reflejar la clasificación
+            await CargarDatosBaseAsync(cancelacion);
 
             // Refrescar envío seleccionado tras guardar
             EnvioSeleccionado = await _depositoApi.ObtenerEnvioParaClasificacionAsync(Formulario.EnvioId, cancelacion);
@@ -172,7 +180,9 @@ public class ClasificacionModel : PageModel
                 Peso = b.Peso,
                 EstadoBulto = b.EstadoBulto,
                 Prioridad = !string.IsNullOrWhiteSpace(b.Prioridad) ? b.Prioridad : "Normal",
-                ZonaCoberturaId = b.ZonaClasificadaId,
+                // Si el bulto aún no tiene zona, se propone la de la dirección de entrega (solo si es una zona activa del operador)
+                ZonaCoberturaId = b.ZonaClasificadaId
+                    ?? (envio.ZonaDestinoId is { } zonaDestino && ZonasDisponibles.Any(z => z.Id == zonaDestino) ? zonaDestino : null),
                 Tipo = !string.IsNullOrWhiteSpace(b.TipoClasificacion) ? b.TipoClasificacion : "Estándar"
             }).ToList()
         };

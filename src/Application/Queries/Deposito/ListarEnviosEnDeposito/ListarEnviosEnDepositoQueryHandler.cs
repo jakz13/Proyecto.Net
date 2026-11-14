@@ -9,10 +9,16 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
     private readonly IEnvioRepository _envioRepository;
     private readonly ICurrentTenant _currentTenant;
 
-    public ListarEnviosEnDepositoQueryHandler(IEnvioRepository envioRepository, ICurrentTenant currentTenant)
+    private readonly IDireccionRepository? _direccionRepository;
+
+    public ListarEnviosEnDepositoQueryHandler(
+        IEnvioRepository envioRepository,
+        ICurrentTenant currentTenant,
+        IDireccionRepository? direccionRepository = null)
     {
         _envioRepository = envioRepository ?? throw new ArgumentNullException(nameof(envioRepository));
         _currentTenant = currentTenant ?? throw new ArgumentNullException(nameof(currentTenant));
+        _direccionRepository = direccionRepository;
     }
 
     public async Task<IReadOnlyList<EnvioEnDepositoDto>> Handle(ListarEnviosEnDepositoQuery request, CancellationToken cancellationToken)
@@ -21,6 +27,18 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
 
         var operadorId = _currentTenant.OperadorId;
         var enviosEnDeposito = await _envioRepository.ListarPorEstadoAsync(operadorId, EstadoEnvio.EnDeposito, cancellationToken);
+
+        // Zona de la dirección de entrega: el depósito la propone por defecto al clasificar (el operario puede cambiarla)
+        var zonaPorDireccion = new Dictionary<Guid, Guid?>();
+        if (_direccionRepository is not null)
+        {
+            var ids = enviosEnDeposito.Where(e => e.DireccionEntregaId.HasValue).Select(e => e.DireccionEntregaId!.Value).Distinct().ToList();
+            if (ids.Count > 0)
+            {
+                var direcciones = await _direccionRepository.GetByIdsAsync(ids, cancellationToken);
+                zonaPorDireccion = direcciones.ToDictionary(d => d.Id, d => (Guid?)d.ZonaCoberturaId);
+            }
+        }
 
         return enviosEnDeposito
             .Select(envio =>
@@ -53,7 +71,8 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
                         b.Prioridad?.ToString(),
                         b.ZonaClasificadaId,
                         b.TipoClasificacion,
-                        b.FechaClasificacion)).ToList()
+                        b.FechaClasificacion)).ToList(),
+                    envio.DireccionEntregaId.HasValue && zonaPorDireccion.TryGetValue(envio.DireccionEntregaId.Value, out var zona) ? zona : null
                 );
             })
             .ToList();

@@ -14,7 +14,8 @@ public record EnvioEnDepositoDto(
     int CantidadClasificados,
     bool EstaClasificado,
     DateTime FechaAlta,
-    IReadOnlyList<BultoClasificadoResumenDto> Bultos);
+    IReadOnlyList<BultoClasificadoResumenDto> Bultos,
+    Guid? ZonaDestinoId = null);
 
 /// <summary>
 /// Detalle del bulto físico recepcionado con su clasificación actual.
