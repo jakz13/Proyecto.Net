@@ -41,6 +41,23 @@ public class ComposeDeProduccionTests
     }
 
     [Fact]
+    public void TodosLosServicios_RotanSusRegistros()
+    {
+        // El driver json-file de Docker no tiene límites por defecto: los registros crecen sin tope y con las semanas llenan el disco de la VM (D-18)
+        var compose = LeerCompose();
+
+        Assert.Matches(@"x-logging:\s*&logging[\s\S]*?max-size:\s*""?\d+m""?[\s\S]*?max-file:\s*""?\d+""?", compose);
+        var bloqueApis = compose[compose.IndexOf("x-api: &api", StringComparison.Ordinal)..compose.IndexOf("services:", StringComparison.Ordinal)];
+        Assert.Contains("logging: *logging", bloqueApis);
+
+        foreach (var nombre in new[] { "postgres", "redis", "rabbitmq", "api1", "api2", "worker", "backoffice", "portal-comercio", "seguimiento-publico", "prometheus", "grafana", "caddy" })
+        {
+            var servicio = Servicio(compose, nombre);
+            Assert.True(servicio.Contains("logging: *logging") || servicio.Contains("<<: *api"), $"El servicio '{nombre}' no rota sus registros.");
+        }
+    }
+
+    [Fact]
     public void ElReceptorDePrueba_SoloSeHabilitaPorVariableYNuncaPorDefecto()
     {
         // La línea vive en el bloque de variables compartido por las dos APIs, no dentro de un servicio concreto

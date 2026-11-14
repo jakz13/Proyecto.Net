@@ -10,6 +10,13 @@
 # REGISTRO: prefijo de las imágenes (por ejemplo ghcr.io/jakz13/ultimamilla). Sin definir se usan imágenes locales "ultimamilla/<servicio>".
 # Opcionales: SEED_PASSWORD_DEMO (cuentas de demostración), SEED_API_KEY_DEMO, RECEPTOR_PRUEBA_AVISOS=true (solo durante una demostración)
 # Solo Caddy publica puertos (80/443). Todo lo demás queda en la red interna.
+# Rotación de los registros de Docker: sin límites el driver json-file crece sin tope y con las semanas llena el disco (hallazgo D-18 del 14/11)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-api: &api
   image: ${REGISTRO:-ultimamilla}/api:latest
   build:
@@ -18,6 +25,7 @@ x-api: &api
     labels:
       org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
   restart: unless-stopped
+  logging: *logging
   stop_grace_period: 40s
   environment: &api-env
     ASPNETCORE_ENVIRONMENT: Production
@@ -56,6 +64,7 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ultimamilla
       POSTGRES_USER: postgres
@@ -80,6 +89,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *logging
     command: ["redis-server", "--maxmemory", "32mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
     mem_limit: 48m
     networks: [interna]
@@ -87,6 +97,7 @@ services:
   rabbitmq:
     image: rabbitmq:3-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       RABBITMQ_DEFAULT_USER: ultimamilla
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?definir RABBITMQ_PASSWORD}
@@ -129,6 +140,7 @@ services:
       labels:
         org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
+    logging: *logging
     environment:
       DOTNET_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD};Maximum Pool Size=6;Timeout=20
@@ -166,6 +178,7 @@ services:
       labels:
         org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
+    logging: *logging
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
@@ -198,6 +211,7 @@ services:
       labels:
         org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
+    logging: *logging
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
@@ -220,6 +234,7 @@ services:
       labels:
         org.opencontainers.image.source: https://github.com/jakz13/Proyecto.Net
     restart: unless-stopped
+    logging: *logging
     environment:
       API_BASE_URL: https://${DOMINIO_SEGUIMIENTO:?definir DOMINIO_SEGUIMIENTO}
     depends_on:
@@ -231,6 +246,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: unless-stopped
+    logging: *logging
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -246,6 +262,7 @@ services:
   grafana:
     image: grafana/grafana-oss:11.4.0
     restart: unless-stopped
+    logging: *logging
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?definir GRAFANA_PASSWORD}
@@ -267,6 +284,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       DOMINIO: ${DOMINIO}
       DOMINIO_COMERCIO: ${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
