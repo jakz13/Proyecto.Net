@@ -323,6 +323,20 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 
 ## Defectos y soluciones
 
+### D-20 (media) — jQuery y su validación no llegaban a la imagen del pipeline
+- **Evidencia (navegador real, 14/11):** en producción `/lib/jquery/...` respondía 404; las 16 pantallas con formulario cargan `_ValidationScriptsPartial`, así que la validación del lado del cliente no funcionaba (el servidor igual validaba, por eso ninguna prueba HTTP lo notó).
+- **Causa:** `.gitignore` ignoraba `**/wwwroot/lib/`; los archivos existían en la PC pero no en el repositorio, y la imagen se construye desde el repositorio.
+- **Solución:** se ignora solo el contenido de `lib/` salvo `jquery`, `jquery-validation` y `jquery-validation-unobtrusive`, que se versionan.
+- **Prueba que fallaba antes:** `LibreriasDelBackofficeTests` (los archivos existen y `git check-ignore` devuelve 1).
+- **Estado:** corregido (`b5994c8`), desplegado.
+
+### D-21 (alta) — Con la validación del navegador activa, la tarifa no se podía publicar (escenario 5)
+- **Evidencia:** tras D-20, `jQuery(form).valid()` daba `false` en `/Tarifas/NuevaVersion` sin tocar nada: valores precargados como `150.00` (paso 1) y `1000.000` (paso 0.1) tienen más decimales que el `step` y jquery-validation los rechaza.
+- **Impacto:** el botón de publicar quedaba bloqueado en un navegador real: F5 (cambiar tarifa en caliente) imposible por la interfaz. Lo habría descubierto el docente.
+- **Solución:** los `step` se alinean con la escala de la base (0.001 para peso y volumen, 0.01 para precios), en las filas del servidor y en la plantilla JS.
+- **Prueba que fallaba antes:** `TarifaNuevaVersion_LosValoresPrecargadosCumplenElPasoDeSusCampos` (rojo con el `.cshtml` original: "PesoDesde: '0,000' tiene más decimales que el paso '0.1'"; verde con el arreglo). El mock se llevó a la escala real de la base para reproducirlo.
+- **Estado:** corregido (`bf5bfa9`); verificación en navegador real tras el despliegue pendiente (N-09).
+
 ### D-19 (baja) — Un dato inválido del cliente se mostraba como "servicio no disponible" (503)
 - **Dónde:** el manejador global de errores de `Program.cs` trataba cualquier `NpgsqlException` como una caída de la base y respondía 503 con "Reintente en unos segundos".
 - **Evidencia (producción):** `GET /api/v1/flota/repartidores?texto=%00` y `GET /api/v1/mensajeria/cola-fallidos/?texto=%00` → 503 (PostgreSQL rechaza el carácter nulo en un texto con SQLSTATE 22021).
