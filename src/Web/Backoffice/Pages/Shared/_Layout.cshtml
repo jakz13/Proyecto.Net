@@ -1,5 +1,6 @@
 @inject UltimaMilla.Backoffice.Seguridad.IdentidadDelOperadorEnSesion IdentidadOperador
 @inject IWebHostEnvironment Entorno
+@inject IConfiguration Configuracion
 @{
     var operadorActivo = await IdentidadOperador.ObtenerAsync();
 }
@@ -33,7 +34,8 @@
 
     <!-- Contenedor Principal con margen dinámico y scroll independiente -->
     <div class="layout-contenido-principal">
-        @if (Entorno.IsDevelopment())
+        @* El banner es solo del modo demo (selector de perfil sin contraseña); con login real no se muestra, ni en desarrollo *@
+        @if (UltimaMilla.Backoffice.Pages.LoginModel.ModoDemoActivo(Configuracion, Entorno))
         {
             <!-- Banner de desarrollo: Selector de operador y conmutador rápido de perfiles para demo oral -->
             <div class="banner-demo-dev d-flex justify-content-between align-items-center flex-wrap gap-2">

@@ -61,7 +61,7 @@
             </div>
         </div>
         <div class="text-end small text-muted font-monospace">
-            Generado: @Model.Reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+            Generado: @Model.Reporte.FechaGeneracion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
         </div>
     </div>
 </div>
@@ -287,7 +287,7 @@
             </span>
         </div>
         <span class="badge bg-light text-secondary border font-monospace">
-            Actualizado @Model.Reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+            Actualizado @Model.Reporte.FechaGeneracion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
         </span>
     </div>
 

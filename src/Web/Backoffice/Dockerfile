@@ -27,5 +27,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_HTTP_PORTS=8080
+# Las pantallas formatean con ToLocalTime(): sin esto mostraban la hora UTC (3 horas de diferencia con el operador)
+ENV TZ=America/Montevideo
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "UltimaMilla.Backoffice.dll"]

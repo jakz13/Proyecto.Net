@@ -219,7 +219,7 @@
                                     <td>
                                         <div class="fw-bold text-dark small">@alerta.FranjaHoraria</div>
                                         <div class="text-secondary small" style="font-size: 0.725rem;">
-                                            Límite: @alerta.HoraLimiteVentana.ToString("HH:mm") hs
+                                            Límite: <span class="hora-utc" data-utc="@DateTime.SpecifyKind(alerta.HoraLimiteVentana, DateTimeKind.Utc).ToString("O")">@alerta.HoraLimiteVentana.ToString("HH:mm")</span> hs
                                         </div>
                                     </td>
                                     <td>
@@ -227,7 +227,7 @@
                                             +@alerta.MinutosRetrasoEstimado min
                                         </span>
                                         <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
-                                            Est: @alerta.HoraEstimadaLlegada.ToString("HH:mm") hs
+                                            Est: <span class="hora-utc" data-utc="@DateTime.SpecifyKind(alerta.HoraEstimadaLlegada, DateTimeKind.Utc).ToString("O")">@alerta.HoraEstimadaLlegada.ToString("HH:mm")</span> hs
                                         </div>
                                     </td>
                                     <td>
@@ -651,6 +651,11 @@
     <script src="~/js/tablero-tiempo-real.js" asp-append-version="true"></script>
 
     <script>
+        // Las horas llegan en UTC desde el servidor: se muestran en la hora local del navegador (igual que las que llegan en tiempo real)
+        document.querySelectorAll('.hora-utc').forEach(function (el) {
+            var f = new Date(el.getAttribute('data-utc'));
+            if (!isNaN(f.getTime())) el.textContent = String(f.getHours()).padStart(2, '0') + ':' + String(f.getMinutes()).padStart(2, '0');
+        });
         var urlHubTablero = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.UrlHubTablero));
         var datosVehiculos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Resumen.Vehiculos));
         var vehiculoSeleccionadoEnMapa = null;

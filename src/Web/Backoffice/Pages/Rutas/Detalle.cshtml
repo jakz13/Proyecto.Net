@@ -394,7 +394,7 @@ else
                             {
                                 <tr>
                                     <td class="text-secondary small">
-                                        @ev.FechaHora.ToString("dd/MM/yyyy HH:mm")
+                                        @ev.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                         <div class="text-muted" style="font-size: 0.72rem;">Por: @ev.DespachadorUsuario</div>
                                     </td>
                                     <td>

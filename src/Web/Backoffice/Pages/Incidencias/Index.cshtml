@@ -142,7 +142,7 @@
                             <td>
                                 <div class="fw-bold text-dark font-monospace">@inc.NumeroIncidencia</div>
                                 <div class="text-secondary small" style="font-size: 0.725rem;">
-                                    @inc.FechaRegistro.ToString("dd/MM/yyyy HH:mm")
+                                    @inc.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                 </div>
                             </td>
                             <td>
@@ -220,7 +220,7 @@
                                                 data-bs-toggle="tooltip" 
                                                 data-bs-placement="top" 
                                                 title="Ver resolución"
-                                                onclick="abrirModalResolucion(@System.Text.Json.JsonSerializer.Serialize(inc.NumeroIncidencia), @System.Text.Json.JsonSerializer.Serialize(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? ""), @System.Text.Json.JsonSerializer.Serialize(inc.DespachadorCierre ?? "Despachador"), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(inc.ResolucionDetalle)))">
+                                                onclick="abrirModalResolucion(@System.Text.Json.JsonSerializer.Serialize(inc.NumeroIncidencia), @System.Text.Json.JsonSerializer.Serialize(inc.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? ""), @System.Text.Json.JsonSerializer.Serialize(inc.DespachadorCierre ?? "Despachador"), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(inc.ResolucionDetalle)))">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <polyline points="20 6 9 17 4 12"></polyline>
                                             </svg>
@@ -237,14 +237,14 @@
                                             data-inc-severidad="@inc.Severidad"
                                             data-inc-estado="@inc.Estado"
                                             data-inc-descripcion="@inc.Descripcion"
-                                            data-inc-fecha="@inc.FechaRegistro.ToString("dd/MM/yyyy HH:mm")"
+                                            data-inc-fecha="@inc.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy HH:mm")"
                                             data-inc-envio="@(inc.CodigoSeguimientoEnvio ?? "")"
                                             data-inc-destinatario="@(inc.DestinatarioEnvio ?? "")"
                                             data-inc-ruta="@(inc.NumeroRuta ?? "")"
                                             data-inc-vehiculo="@(inc.VehiculoMatricula ?? "")"
                                             data-inc-repartidor="@(inc.RepartidorNombre ?? "")"
                                             data-inc-resolucion="@(inc.ResolucionDetalle ?? "")"
-                                            data-inc-cierre="@(inc.FechaResolucion?.ToString("dd/MM/yyyy HH:mm") ?? "")"
+                                            data-inc-cierre="@(inc.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "")"
                                             data-inc-historial='@System.Text.Json.JsonSerializer.Serialize(inc.HistorialSeguimiento)'>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>

@@ -228,12 +228,12 @@ internal static class ConstructorTablero
 
                 var franjaIdEfectiva = parada.FranjaHorariaId ?? envio?.FranjaHorariaComprometidaId;
                 var franja = franjaIdEfectiva.HasValue ? franjas.GetValueOrDefault(franjaIdEfectiva.Value) : null;
-                var (horaInicioVentana, horaFinVentana) = ResolverVentanaParada(franja, franjaIdEfectiva, envio, parada.Orden, ahora);
+                var ventana = ResolverVentanaParada(franja, franjaIdEfectiva);
 
                 var zona = direccion?.ZonaCoberturaId is { } zid ? zonas.GetValueOrDefault(zid) ?? string.Empty : string.Empty;
                 if (string.IsNullOrWhiteSpace(zona))
                     zona = ResolverZonaPorDefecto(direccion, envio);
-                var textoFranja = $"{horaInicioVentana:HH\\:mm} - {horaFinVentana:HH\\:mm}";
+                var textoFranja = ventana is { } v0 ? $"{v0.HoraInicio:HH\\:mm} - {v0.HoraFin:HH\\:mm}" : "Sin franja comprometida";
 
                 string? incidenciaParada = null;
                 if (parada.EnvioId.HasValue && incidenciaPorEnvio.TryGetValue(parada.EnvioId.Value, out var incEnvio))
@@ -242,9 +242,10 @@ internal static class ConstructorTablero
                     incidenciaParada = incidenciaAbiertaRuta;
 
                 RiesgoEvaluado? riesgo = null;
-                if (EstaPendiente(parada))
+                if (EstaPendiente(parada) && (ventana is not null || !string.IsNullOrWhiteSpace(incidenciaParada)))
                 {
-                    var limite = ZonaHorariaOperador.ALaHoraUtc(ruta.Fecha, horaFinVentana);
+                    // Sin franja solo cuenta una incidencia abierta: el límite se toma al cierre del día operativo
+                    var limite = ZonaHorariaOperador.ALaHoraUtc(ruta.Fecha, ventana?.HoraFin ?? new TimeOnly(23, 59));
                     var recorrido = pendientes.TakeWhile(p => p.Id != parada.Id).Append(parada)
                         .Select(p => PuntoDe(direcciones.GetValueOrDefault(p.DireccionId))).ToList();
                     var llegada = EvaluadorRiesgoVentana.EstimarLlegada(ahora, origen, recorrido);
@@ -440,8 +441,11 @@ internal static class ConstructorTablero
         return resultado;
     }
 
-    private static (TimeOnly HoraInicio, TimeOnly HoraFin) ResolverVentanaParada(
-        FranjaHoraria? franja, Guid? franjaId, Envio? envio, int ordenParada, DateTime ahoraUtc)
+    /// <summary>
+    /// Ventana comprometida de la parada, o null si no tiene franja: sin compromiso horario no hay ventana que se pueda incumplir
+    /// (antes se inventaba una ventana fija y toda parada sin franja figuraba siempre como demorada).
+    /// </summary>
+    private static (TimeOnly HoraInicio, TimeOnly HoraFin)? ResolverVentanaParada(FranjaHoraria? franja, Guid? franjaId)
     {
         if (franja is not null)
             return (franja.HoraInicio, franja.HoraFin);
@@ -457,21 +461,7 @@ internal static class ConstructorTablero
                 return (new TimeOnly(14, 0), new TimeOnly(18, 0));
         }
 
-        // Si el envío es Express/Urgente y no tiene franja asignada explícitamente, evaluar contra ventana prioritaria corta
-        if (envio is not null &&
-            (string.Equals(envio.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(envio.ModalidadServicio, "Urgente", StringComparison.OrdinalIgnoreCase) ||
-             envio.Bultos.Any(b => b.Prioridad == PrioridadBulto.Urgente)))
-        {
-            var horaLocal = TimeOnly.FromDateTime(ahoraUtc.AddHours(-3));
-            var inicioExpress = horaLocal.AddHours(-1);
-            var finExpress = horaLocal.AddMinutes(5);
-            return (inicioExpress, finExpress);
-        }
-
-        return ordenParada <= 2
-            ? (new TimeOnly(9, 0), new TimeOnly(12, 0))
-            : (new TimeOnly(14, 0), new TimeOnly(18, 0));
+        return null;
     }
 
     private static string? FormatearDireccion(Domain.Entities.Envios.Direccion? direccion) =>
