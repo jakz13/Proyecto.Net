@@ -49,8 +49,14 @@
     private string? error;
     private bool enCurso;
 
+    [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "baja")]
+    public string? Baja { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (Baja == "1")
+            error = "El operador dio de baja a este comercio: se cerró su sesión y no puede realizar más acciones. Comuníquese con el operador logístico.";
+
         // Entrar al login equivale a empezar de cero: se descarta cualquier token anterior (sesión cerrada o vencida)
         await TokenStore.EliminarTokenAsync();
     }

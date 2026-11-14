@@ -130,6 +130,42 @@ public class ComercioConVariosOperadoresApiTests
     }
 
     [FactPostgres]
+    public async Task ComercioDadoDeBaja_ConUnTokenAbiertoYaNoPuedeOperar()
+    {
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var rut = string.Concat(Enumerable.Range(0, 12).Select(i => (Math.Abs(sufijo.GetHashCode()) + i * 7) % 10));
+        var email = $"baja.{sufijo}@ultimamilla.com.uy";
+        var admin = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
+        var alta = await admin.PostAsJsonAsync("/api/comercios", new
+        {
+            razonSocial = "Tienda Baja " + sufijo, nombreFantasia = "Baja", rut, email, telefono = "099111222", direccion = "Av. Italia 2"
+        });
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var comercioId = (await alta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var usuario = await admin.PostAsJsonAsync("/api/usuarios", new
+        {
+            nombre = "Usuario", apellido = "Baja", email, password = "Baja.2026!",
+            perfilId = DatabaseSeeder.DefaultPerfilComercioId, comercioId
+        });
+        Assert.True(usuario.StatusCode == HttpStatusCode.Created, await usuario.Content.ReadAsStringAsync());
+
+        var comercio = await ClienteComoAsync(email, "Baja.2026!");
+        Assert.Equal(HttpStatusCode.OK, (await comercio.GetAsync("/api/comercio/operadores")).StatusCode);
+
+        var baja = await admin.PatchAsJsonAsync($"/api/comercios/{comercioId}/estado", new { activo = false });
+        Assert.True(baja.IsSuccessStatusCode, await baja.Content.ReadAsStringAsync());
+
+        // El token seguía vigente, pero la baja corta cualquier acción del comercio
+        Assert.Equal(HttpStatusCode.Forbidden, (await comercio.GetAsync("/api/comercio/operadores")).StatusCode);
+        var envio = await comercio.PostAsJsonAsync("/api/envios", new
+        {
+            modalidadServicio = "Estandar", nombreDestinatario = "Cliente", calle = "Av. Italia", numero = "9", ciudad = "Montevideo",
+            bultos = new[] { new { peso = 1, alto = 10, ancho = 10, profundo = 10 } }
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, envio.StatusCode);
+    }
+
+    [FactPostgres]
     public async Task NoSePuedeAbrirSesionConUnOperadorSinVinculoNiDesdeUnPerfilQueNoEsDeComercio()
     {
         await SembrarSegundoOperadorAsync();

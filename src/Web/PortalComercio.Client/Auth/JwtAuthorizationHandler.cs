@@ -11,9 +11,12 @@ public class JwtAuthorizationHandler : DelegatingHandler
 {
     private readonly ITokenStore _tokenStore;
 
-    public JwtAuthorizationHandler(ITokenStore tokenStore)
+    private readonly Microsoft.AspNetCore.Components.NavigationManager _navegador;
+
+    public JwtAuthorizationHandler(ITokenStore tokenStore, Microsoft.AspNetCore.Components.NavigationManager navegador)
     {
         _tokenStore = tokenStore;
+        _navegador = navegador;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage peticion, CancellationToken cancelacion)
@@ -36,6 +39,20 @@ public class JwtAuthorizationHandler : DelegatingHandler
             peticion.Headers.Add("X-Correlation-Id", Guid.NewGuid().ToString());
         }
 
-        return await base.SendAsync(peticion, cancelacion);
+        var respuesta = await base.SendAsync(peticion, cancelacion);
+
+        // El operador dio de baja al comercio con la sesión abierta: la API responde 403 con este código.
+        // Se cierra la sesión y se lleva al login con el aviso, en vez de dejar pantallas que fallan una por una.
+        if (respuesta.StatusCode == System.Net.HttpStatusCode.Forbidden && respuesta.Content is not null)
+        {
+            var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            if (cuerpo.Contains("COMERCIO_DADO_DE_BAJA", StringComparison.Ordinal))
+            {
+                await _tokenStore.EliminarTokenAsync();
+                _navegador.NavigateTo("/login?baja=1", forceLoad: true);
+            }
+        }
+
+        return respuesta;
     }
 }
