@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -241,7 +242,21 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Detrás del proxy inverso (Caddy) la IP y el esquema reales del cliente llegan en X-Forwarded-*. Sin esto, la API ve siempre la IP de Caddy
+// y los límites de tasa por origen (login, seguimiento público, integración) pasan a ser un único cupo compartido por todos los visitantes:
+// un solo cliente podría bloquear el acceso de los demás. Solo Caddy alcanza este contenedor (la red de Docker no lo publica), y Caddy
+// descarta el X-Forwarded-For que traiga el cliente y pone el suyo, por eso se aceptan sin lista de proxies conocidos.
+builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
+{
+    opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    opciones.KnownIPNetworks.Clear();
+    opciones.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+// Debe ir antes de todo lo que lea la IP o el esquema (HSTS, redirección a HTTPS, límite de tasa)
+app.UseForwardedHeaders();
 
 // Inicializar instrumentos del Meter UltimaMilla para exponer contadores y gauges desde el arranque
 _ = app.Services.GetRequiredService<IMetricasNegocio>();
