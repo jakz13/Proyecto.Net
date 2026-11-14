@@ -153,7 +153,7 @@ public class AutorizacionPorPerfilApiTests
         // Se da de alta un segundo comercio del mismo operador, con su propio usuario de comercio
         var sufijo = Sufijo();
         var emailB = $"comercio.b.{sufijo}@ultimamilla.com.uy";
-        var rutB = string.Concat(Enumerable.Range(0, 12).Select(i => (Math.Abs(sufijo.GetHashCode()) + i * 7) % 10));
+        var rutB = string.Concat(Enumerable.Range(0, 12).Select(_ => Random.Shared.Next(0, 10)));
 
         var comercioCreado = await admin.PostAsJsonAsync("/api/comercios", new
         {

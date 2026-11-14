@@ -57,7 +57,7 @@ public class ComercioConVariosOperadoresApiTests
 
         // El operador 1 da de alta el comercio y su usuario
         var sufijo = Guid.NewGuid().ToString("N")[..8];
-        var rut = string.Concat(Enumerable.Range(0, 12).Select(i => (Math.Abs(sufijo.GetHashCode()) + i * 3) % 10));
+        var rut = string.Concat(Enumerable.Range(0, 12).Select(_ => Random.Shared.Next(0, 10)));
         var email = $"multi.{sufijo}@ultimamilla.com.uy";
         var admin1 = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
         var alta1 = await admin1.PostAsJsonAsync("/api/comercios", new
@@ -133,7 +133,7 @@ public class ComercioConVariosOperadoresApiTests
     public async Task ComercioDadoDeBaja_ConUnTokenAbiertoYaNoPuedeOperar()
     {
         var sufijo = Guid.NewGuid().ToString("N")[..8];
-        var rut = string.Concat(Enumerable.Range(0, 12).Select(i => (Math.Abs(sufijo.GetHashCode()) + i * 7) % 10));
+        var rut = string.Concat(Enumerable.Range(0, 12).Select(_ => Random.Shared.Next(0, 10)));
         var email = $"baja.{sufijo}@ultimamilla.com.uy";
         var admin = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
         var alta = await admin.PostAsJsonAsync("/api/comercios", new
