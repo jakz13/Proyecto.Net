@@ -2,7 +2,7 @@
 
 > Se actualiza al cerrar cada ronda. Detalle completo en [INFORME.md](INFORME.md); línea de tiempo en `diario.log`.
 
-- **Última actualización:** 2026-11-14 15:35 (R24: VM sana, 0 errores en logs; R23: F5 por la interfaz OK; 21 defectos, 1.225 pruebas en verde)
+- **Última actualización:** 2026-11-14 15:52 (R25 pulso OK; sin pendientes; 21 defectos, 1.225 pruebas en verde)
 - **Estado:** producción **operativa** en la VM reconstruida (`/ready` 200, los 4 dominios responden, pipeline en verde). Escenarios 1 a 7 de la defensa ensayados. Se llegó a **21 defectos (D-01 a D-21)**, cada uno con su prueba que fallaba antes, y la suite del backend quedó en **1.225 pruebas, 0 fallas**.
 - **Anti-suspensión terminó a las 14:00**, como se pidió ("hasta las 2 de la tarde"): si querés que la auditoría siga de noche, hay que volver a lanzar `C:\Users\Curbe\auditoria_local\mantener_despierto.ps1` con otra hora límite.
 - **Correcciones a la documentación para la entrega del domingo:** la reconstrucción tarda ≈ 8 min (destrucción 137 s), no 2,5 min; se corrigió en `infra/terraform-azure/README.md`, `docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md`.
