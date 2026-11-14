@@ -378,7 +378,12 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
 
         var limpio = tipoEvento.Trim();
         if (limpio.StartsWith("v1:", StringComparison.OrdinalIgnoreCase) || limpio.StartsWith("v2:", StringComparison.OrdinalIgnoreCase))
-            return limpio[3..].Trim();
+            limpio = limpio[3..].Trim();
+
+        // El catálogo le ofrece al comercio "EnvioAdmitido" (admisión del envío), pero el alta publica el evento con el estado "Admitido" y el
+        // tipo "AltaEnvio": sin este alias esa suscripción nunca coincidía con ningún evento y el comercio no recibía ningún aviso (D-10, 14/11).
+        if (string.Equals(limpio, "EnvioAdmitido", StringComparison.OrdinalIgnoreCase))
+            return nameof(EstadoEnvio.Admitido);
 
         return limpio;
     }

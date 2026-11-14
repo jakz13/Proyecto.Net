@@ -240,6 +240,41 @@ public class EntregaParcialBultosTests
     }
 
     [Fact]
+    public async Task ProcesarMensaje_SuscripcionAEnvioAdmitido_GeneraElAvisoDelAltaDelEnvio()
+    {
+        // El catálogo le ofrece al comercio "EnvioAdmitido", pero el alta se publica con el estado "Admitido" y el tipo "AltaEnvio":
+        // antes esa suscripción no coincidía con ningún evento y el comercio nunca recibía el aviso (D-10, auditoría del 14/11)
+        var (envio, _, _, motivo, regla) = CrearEscenarioEnTransito();
+        var suscripcion = new SuscripcionAviso(
+            Guid.NewGuid(), ComercioOperadorId, "EnvioAdmitido", "https://comercio.test/webhooks/alta", "clave-secreta-hmac-alta", SuscripcionAviso.ContratoV1);
+        var avisoRepo = new FakeAvisoParcialRepo(new[] { suscripcion });
+        var uow = new FakeUnitOfWorkParcial();
+        var entregador = new AvisoComercioEntregador(avisoRepo, new FakeWebhookSenderParcial(), uow, new FakeClockParcial());
+        var handler = new ProcesarMensajeCommandHandler(
+            new FakeIdempotenciaParcialRepo(),
+            new FakeEnvioParcialRepo(envio, regla, motivo),
+            new FakeDestinatarioRepository(),
+            new FakeNotificacionParcialRepo(),
+            new FakeNotificacionServiceParcial(),
+            avisoRepo,
+            entregador,
+            uow,
+            new FakeTenantParcial(OperadorId, UsuarioRepartidorId),
+            new FakeCacheParcialService());
+
+        var altaPublicada = new EventoEnvioPublicado(
+            OperadorId, envio.Id, ComercioOperadorId, envio.CodigoSeguimientoPublico, "AltaEnvio", null, "Admitido", DateTime.UtcNow, "CORR-ALTA-ADMITIDO");
+
+        var resultado = await handler.Handle(
+            new ProcesarMensajeCommand(Guid.NewGuid(), nameof(Envio), envio.Id, EventoEnvioPublicado.TipoMensaje, altaPublicada.Serializar()),
+            CancellationToken.None);
+
+        Assert.Equal(EstadoProcesamientoMensaje.Procesado, resultado.Estado);
+        var aviso = Assert.Single(avisoRepo.AvisosGuardados);
+        Assert.Equal(suscripcion.Id, aviso.SuscripcionAvisoId);
+    }
+
+    [Fact]
     public async Task ProcesarMensaje_SuscripcionV1YV2_VersionaPayloadSinRomperSistemasExistentesDelComercio()
     {
         var (envio, _, _, motivo, regla) = CrearEscenarioEnTransito();
