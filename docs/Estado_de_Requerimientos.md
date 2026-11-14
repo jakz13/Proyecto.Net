@@ -25,7 +25,7 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | 6.11 Aplicación móvil | **Parcial** | Notificaciones con la app **cerrada**: ADR-002 descarta FCM y usa un servicio en primer plano, que no cubre la app cerrada del todo. Riesgo de calificación |
 | 6.12 Observabilidad | Cumplido con una salvedad | La app móvil aún no envía `X-Correlation-Id` |
 | 6.13 Escalabilidad y balanceo | Cumplido | Dos instancias con Caddy y chequeos de salud |
-| 6.14 Despliegue e IaC | Cumplido | El ambiente de producción lo crea y gestiona el Terraform de Azure (`infra/terraform-azure`, 8 recursos); reconstrucción con un comando medida en ≈ 2,5 min; CI/CD funcionando (imágenes en `ghcr.io`, despliegue con cada push a `main`). Salvedad: el `terraform.tfstate` está solo en la PC desde la que se aplica |
+| 6.14 Despliegue e IaC | Cumplido | El ambiente de producción lo crea y gestiona el Terraform de Azure (`infra/terraform-azure`, 8 recursos); reconstrucción con un comando medida el 14/11 en ≈ 8 min (destrucción ≈ 2 min 20 s; ensayo y defectos corregidos en `docs/auditoria/INFORME.md`); CI/CD funcionando (imágenes en `ghcr.io`, despliegue con cada push a `main`). Salvedad: el `terraform.tfstate` está solo en la PC desde la que se aplica |
 | 6.15 Calidad | Cumplido | 1198 pruebas del backend (13/11/2026) y 111 del frontend |
 
 ## Opcionales (mínimo 12 puntos)

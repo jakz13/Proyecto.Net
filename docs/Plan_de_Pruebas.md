@@ -51,7 +51,7 @@ reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cober
 | Dos operadores con configuración distinta | Cuentas `admin@gmail.com` y `admin2@gmail.com` (tarifas distintas) |
 | Modificar tarifa y regla en caliente | Backoffice → Tarifas / Reglas operativas |
 | Detener el receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
-| Destruir y reconstruir el ambiente | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 2,5 min medidos) o `terraform destroy` / `apply` en `infra\terraform-azure` |
+| Destruir y reconstruir el ambiente | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 8 min medidos el 14/11, destrucción incluida ≈ 10 min) o `terraform destroy` / `apply` en `infra\terraform-azure` |
 
 ## 7. Carga, resiliencia y seguridad
 - **Carga:** `docs/Plan_de_Carga.md` (k6, SLO como umbrales, sincronización simultánea de repartidores). Medida en local; falta ejecutarla sobre el ambiente remoto.

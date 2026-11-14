@@ -2,8 +2,10 @@
 
 > Se actualiza al cerrar cada ronda. Detalle completo en [INFORME.md](INFORME.md); línea de tiempo en `diario.log`.
 
-- **Última actualización:** 2026-11-14 09:25
-- **Estado:** producción **operativa** en la VM reconstruida. Escenarios 1 a 7 de la defensa ensayados.
+- **Última actualización:** 2026-11-14 14:10
+- **Estado:** producción **operativa** en la VM reconstruida (`/ready` 200, los 4 dominios responden, pipeline en verde). Escenarios 1 a 7 de la defensa ensayados. Se llegó a **19 defectos corregidos (D-01 a D-19)**, cada uno con su prueba que fallaba antes, y la suite del backend quedó en **1.223 pruebas, 0 fallas**.
+- **Anti-suspensión terminó a las 14:00**, como se pidió ("hasta las 2 de la tarde"): si querés que la auditoría siga de noche, hay que volver a lanzar `C:\Users\Curbe\auditoria_local\mantener_despierto.ps1` con otra hora límite.
+- **Correcciones a la documentación para la entrega del domingo:** la reconstrucción tarda ≈ 8 min (destrucción 137 s), no 2,5 min; se corrigió en `infra/terraform-azure/README.md`, `docs/Plan_de_Pruebas.md` y `docs/Estado_de_Requerimientos.md`.
 - **Qué pasó esta madrugada con F7 (destruir y reconstruir):** la reconstrucción de las 05:08 recreó la VM, la IP y la aplicación (≈ 9 min), pero **dejó los dominios sin servicio hasta las 09:12** porque `scripts/actualizar-dns.ps1` estaba vacío desde que se creó (defecto D-16). Ya está escrito, probado y publicado; el servicio se restableció a mano a las 09:12.
 - **Hallazgos:** 17 (D-01 a D-17), todos corregidos con prueba que fallaba antes. Más observaciones OBS-01 a OBS-21 (ver informe).
 - **IP actual de la VM:** `57.156.63.70` (cambia en cada reconstrucción). El secreto `VM_HOST` de GitHub apunta a esa IP y **el despliegue automático ya funciona contra la VM nueva** (comprobado a las 09:35: servicios recreados con la imagen del pipeline, dominios y `/ready` en 200). D-17: yo mismo dejé el secreto con una marca BOM delante la primera vez y el despliegue falló; corregido.

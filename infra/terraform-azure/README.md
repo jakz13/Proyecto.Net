@@ -50,7 +50,7 @@ Para un ambiente aparte (por ejemplo, ensayar la reconstrucción sin tocar produ
 **El ambiente de producción está creado y gestionado por este Terraform** (`rg-ultimamilla-prod`). La VM anterior, armada a mano, se eliminó.
 - Las imágenes las construye y publica el pipeline de GitHub en `ghcr.io/jakz13/ultimamilla/*` (paquetes públicos); la VM las **descarga**, no depende de la conexión de ninguna PC.
 - `terraform.tfstate` queda **solo en la PC desde la que se aplica** (está fuera del repositorio): destruir y reconstruir hay que hacerlo desde ella.
-- Reconstrucción medida: **≈ 2,5 minutos** de punta a punta (apply 30 s, cloud-init 40 s, descarga y arranque de la aplicación, DNS y verificación HTTPS).
+- Reconstrucción medida en el ensayo del escenario 7 (14/11/2026): destrucción **137 s**; reconstrucción **≈ 8 min** (apply y preparación de la VM ≈ 6 min, descarga y arranque de la aplicación ≈ 1,5 min), en total **≈ 10 min** contando un intento interrumpido por un defecto ya corregido. La cifra anterior de ≈ 2,5 min no se había medido de punta a punta: el paso de DNS no hacía nada (`actualizar-dns.ps1` estaba vacío) y los dominios quedaban apuntando a la IP vieja.
 
 ## Reconstruir con UN comando
 ```powershell
@@ -58,14 +58,14 @@ $env:DUCKDNS_TOKEN = '<token de DuckDNS>'          # para apuntar los dominios a
 $env:SEED_PASSWORD_DEMO = '<contraseña de las cuentas demo>'   # opcional; también SMTP_* si se quiere correo
 .\scripts\reconstruir.ps1
 ```
-Hace: `terraform apply` → actualiza DuckDNS → espera a la VM (cloud-init) → agrega los secretos opcionales a `.env.prod` → `desplegar.ps1 -DesdeRegistro` (la VM descarga las imágenes y levanta Docker Compose) → verifica `https://<dominio>/ready`.
+Hace: `terraform apply` → actualiza DuckDNS con `scripts\actualizar-dns.ps1` (espera a que el DNS propague: Caddy necesita que el dominio ya apunte a la VM para pedir el certificado) → espera a la VM (cloud-init) → agrega los secretos opcionales a `.env.prod` → `desplegar.ps1 -DesdeRegistro` (la VM descarga las imágenes y levanta Docker Compose) → verifica `https://<dominio>/ready`.
 
 ## Guion para el escenario 7 de la defensa (destruir y reconstruir)
 1. Mostrar el ambiente en pie: `https://shippingbox.duckdns.org/ready` y el grupo `rg-ultimamilla-prod` en el portal de Azure.
-2. Destruir: `cd infra\terraform-azure; terraform destroy -var-file=ambientes/prod.tfvars` (≈ 25 s). Mostrar que el sitio deja de responder.
-3. Reconstruir: `.\scripts\reconstruir.ps1` (≈ 2,5 min). Mientras corre se explica cada paso.
+2. Destruir: `cd infra\terraform-azure; terraform destroy -var-file=ambientes/prod.tfvars` (≈ 2 min 20 s medidos). Mostrar que el sitio deja de responder.
+3. Reconstruir: `.\scripts\reconstruir.ps1` (≈ 8 min medidos). Mientras corre se explica cada paso.
 4. Verificar: `/ready` en 200, login en el Backoffice, una API detenida con el balanceador sirviendo.
-Cuidado: Let's Encrypt limita a 5 certificados por semana para el mismo conjunto de dominios; cada reconstrucción pide uno nuevo. Ensayar 1 o 2 veces como máximo.
+Cuidado: Let's Encrypt limita a 5 certificados por semana para el mismo conjunto de dominios; cada reconstrucción pide uno nuevo. Ensayar 1 o 2 veces como máximo (el 14/11 ya se hizo un ensayo completo). Si Caddy no llega a obtener el certificado porque el DNS todavía no apuntaba a la VM, reiniciarlo fuerza un intento inmediato: `ssh azureuser@<ip> docker restart shippingbox-caddy-1`.
 
 ## Control de costo
 Precios de lista consultados a la API pública de precios de Azure el 12/11/2026 (región `chilecentral`, USD):

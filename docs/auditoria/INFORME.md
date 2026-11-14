@@ -315,7 +315,23 @@ La reconstrucción baja las imágenes de `ghcr.io`, no las que se compilaron a m
 | R21-02 | Operación, tras el arreglo y el despliegue del pipeline | rotación en los 12 contenedores; recuperación al recrearlos; datos | rotación activa; servicio y datos intactos | `max-size 10m` y `max-file 3` en los 12; todos de nuevo en menos de 1 min (api1 sana a los 51 s); base intacta (9 usuarios, 8 envíos, 3 cuadros, 2 mensajes de outbox); certificados sin cambios | OK |
 | R21-03 | Persistencia ante reinicio de la VM (6.13) | `systemctl reboot` de la VM | todo vuelve solo, con datos y sin pedir certificados | `/ready` responde 200 a los **40 s**; los 12 contenedores arriba solos; base intacta (mismos conteos); Caddy emitió **0** certificados y el vencimiento no cambió (12/02/2027); login correcto | OK |
 
-Estado tras F7: la base es nueva, así que **desaparecieron todos los datos `AUDIT` y los de ensayo** (versiones de tarifa y reglas, suscripción de avisos, zona y comercio del operador 2, envíos y rutas de prueba). Lo que hay que volver a preparar para la defensa: receptor de prueba apagado (valor por defecto), operador 2 sin zonas ni comercios (OBS-10) y la suscripción de avisos del comercio.
+### Ronda 22 — parámetros de consulta hostiles en todos los GET
+
+| ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
+|---|---|---|---|---|---|
+| R22-01 | Robustez (6.4, 6.15) | 72 endpoints GET (con la identidad que su política exige) × 15 cargas aplicadas a 25 nombres de parámetro comunes a la vez (`estado`, `desde`, `hasta`, `texto`, `q`, `pagina`, `tamano`, `fecha`, `tipo`, `id`…): vacío, texto, negativo, cero, número gigante, comilla, inyección SQL, `<script>`, `%00`, fecha imposible, año 9999, GUID roto, 5.000 caracteres, Unicode con marca bidireccional y parámetro repetido = 1.080 casos | 4xx controlado, sin 5xx, sin filtrar la pila | 473 × 200, 197 × 400, 336 × 404; **0 respuestas 500 y 0 con pila o internos**; **2 × 503** con `%00` (flota de repartidores y cola de fallidos); 72 casos sin respuesta por una URL de 125 KB (límite del servidor: 431 desde ≈ 20.000 caracteres por parámetro, 8.000 pasa) | **DEFECTO D-19** |
+
+## Defectos y soluciones
+
+### D-19 (baja) — Un dato inválido del cliente se mostraba como "servicio no disponible" (503)
+- **Dónde:** el manejador global de errores de `Program.cs` trataba cualquier `NpgsqlException` como una caída de la base y respondía 503 con "Reintente en unos segundos".
+- **Evidencia (producción):** `GET /api/v1/flota/repartidores?texto=%00` y `GET /api/v1/mensajeria/cola-fallidos/?texto=%00` → 503 (PostgreSQL rechaza el carácter nulo en un texto con SQLSTATE 22021).
+- **Impacto:** quien llama (o un docente que pruebe un dato raro) ve un error de servidor que sugiere una caída, el reintento nunca funciona y las métricas de error de servidor suben sin causa real (falsas alarmas).
+- **Solución:** una excepción de la clase 22 de SQLSTATE (datos inválidos: carácter no representable, número o fecha fuera de rango, texto inválido) responde 400 "Alguno de los datos enviados no es válido."; el 503 queda para cuando la base realmente no responde.
+- **Prueba que fallaba antes:** `EntradasMalFormadasApiTests.UnCaracterNuloEnUnParametroDeConsulta_Da400EnVezDeServicioNoDisponible` (503 sin el arreglo).
+- **Verificado en producción tras el despliegue del pipeline:** ambos endpoints con `%00` → 400; el uso normal sigue en 200.
+
+### D-18 (media, operación) así que **desaparecieron todos los datos `AUDIT` y los de ensayo** (versiones de tarifa y reglas, suscripción de avisos, zona y comercio del operador 2, envíos y rutas de prueba). Lo que hay que volver a preparar para la defensa: receptor de prueba apagado (valor por defecto), operador 2 sin zonas ni comercios (OBS-10) y la suscripción de avisos del comercio.
 
 Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por semana para el mismo nombre; cada reconstrucción pide certificados nuevos (Caddy los guarda en un volumen que se destruye). Esta semana ya se emitieron varios (VM del 13/11, esta reconstrucción y las máquinas anteriores). Reconstruir otra vez antes del jueves puede agotar el cupo; si se agota, Caddy intenta con ZeroSSL, pero conviene **no ensayar F7 de nuevo** y tener presente que la demostración en vivo consume un certificado más.
 
