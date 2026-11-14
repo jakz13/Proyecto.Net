@@ -287,8 +287,8 @@ Esta ronda la inició la sesión anterior a las 05:07 y se cortó por el límite
 
 | ID | Área (letra) | Condiciones probadas | Esperado | Real | Veredicto |
 |---|---|---|---|---|---|
-| R18-01 | F7, destrucción (6.14) | `terraform destroy` | los 8 recursos se eliminan | 05:08:54 VM, 05:09:14 disco, 05:09:25 IP pública, 05:10:01 grupo de recursos (≈ 1 min 10 s) | OK |
-| R18-02 | F7, reconstrucción (6.14) | `scripts/reconstruir.ps1` (apply, DNS, secretos, despliegue, verificación) | ambiente operativo | 05:10:57 grupo, 05:11:27 IP, 05:11:58 VM; aplicación levantada a las 05:17 (12 contenedores, `api1` y `api2` sanas, base sembrada de nuevo) — pero **los dominios quedaron sin servicio hasta las 09:12** (≈ 3 h 55 min) | **DEFECTOS D-14, D-15 y D-16** |
+| R18-01 | F7, destrucción (6.14) | `terraform destroy` (con copia previa del estado de Terraform) | los 8 recursos se eliminan | iniciada 05:07:50, **"Destroy complete! Resources: 8 destroyed" a las 05:10:07 (137 s)**; Azure confirma 0 VM y el grupo de recursos inexistente | OK |
+| R18-02 | F7, reconstrucción (6.14) | `scripts/reconstruir.ps1` (apply, DNS, secretos, despliegue, verificación) | ambiente operativo con un comando | 1.er intento 05:10:26: crea grupo, IP y VM (05:10:57–05:11:58) y **se corta al guardar los secretos (D-14)**; 2.º intento 05:16:32 con el arreglo: despliega los 12 contenedores y **`api1` sana 05:18:02 y `api2` sana 05:18:13** (≈ 10 min 23 s desde el inicio de la destrucción, incluido el intento fallido; sin el fallo, ≈ 2 min de destrucción y ≈ 8 min de reconstrucción). Pero **los dominios quedaron sin servicio hasta las 09:12** (≈ 3 h 55 min) | **DEFECTOS D-14, D-15 y D-16** |
 | R18-03 | F7, recuperación al retomar | actualizar DuckDNS a la IP nueva (57.156.63.70), reiniciar Caddy, actualizar el secreto `VM_HOST` | servicio restablecido | DNS propagado en menos de 1 min; certificados de los 4 dominios obtenidos 7 s después de reiniciar Caddy (Let's Encrypt, vencen el 12/02/2027); 7 de 7 cuentas demo inician sesión; tarifa y reglas originales (v1) y 3 zonas del operador 1 sembradas | OK |
 
 ### Ronda 19 — prueba de humo de regresión sobre el ambiente reconstruido
