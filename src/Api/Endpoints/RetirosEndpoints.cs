@@ -49,7 +49,10 @@ public static class RetirosEndpoints
         Guid.Empty,
         new ContactoRetiroDto(r.NombreContacto ?? string.Empty, r.TelefonoContacto, r.EmailContacto),
         new DireccionAltaDto(r.Calle ?? string.Empty, r.Numero ?? string.Empty, r.Ciudad ?? string.Empty, r.ZonaCoberturaId, r.Latitud, r.Longitud, r.Referencia),
-        r.Bultos?.Select(b => new BultoRetiroAltaDto(b.Descripcion, b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList() ?? new List<BultoRetiroAltaDto>(),
+        // Un elemento nulo en la lista de bultos es un dato mal formado: 400, no 500
+        r.Bultos?.Select(b => b is null
+            ? throw new DomainValidationException("Cada bulto debe indicar su descripción, su peso y sus dimensiones.")
+            : new BultoRetiroAltaDto(b.Descripcion, b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList() ?? new List<BultoRetiroAltaDto>(),
         r.Motivo ?? string.Empty,
         r.FranjaHorariaId,
         r.FechaSolicitada,

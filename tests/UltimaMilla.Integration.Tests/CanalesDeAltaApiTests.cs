@@ -98,6 +98,35 @@ public class CanalesDeAltaApiTests
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
 
+    // Un elemento nulo dentro de la lista de bultos ({"bultos":[null]}) es un dato mal formado: debe dar 400 y no 500 (defecto D-02 de la auditoría del 14/11)
+    private static StringContent ConBultoNulo(string extra = "") => new(
+        "{\"modalidadServicio\":\"Estandar\",\"nombreDestinatario\":\"Ana\",\"nombreContacto\":\"Ana\",\"calle\":\"18 de Julio\",\"numero\":\"1234\",\"ciudad\":\"Montevideo\","
+        + "\"motivo\":\"Prueba\"," + extra + "\"bultos\":[null]}", Encoding.UTF8, "application/json");
+
+    [FactPostgres]
+    public async Task Api_UnBultoNulo_Da400EnVezDeError500()
+    {
+        var respuesta = await ClienteApi().PostAsync("/api/integracion/v1/envios", ConBultoNulo());
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task Portal_UnBultoNulo_Da400EnVezDeError500()
+    {
+        var respuesta = await _factory.CreateClient().PostAsync("/api/envios", ConBultoNulo());
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task Retiro_UnBultoNulo_Da400EnVezDeError500()
+    {
+        var respuesta = await _factory.CreateClient().PostAsync("/api/comercio/retiros", ConBultoNulo());
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
     [FactPostgres]
     public async Task Portal_ElComercioDelCuerpoSeIgnora_SeUsaElDeLaSesion()
     {

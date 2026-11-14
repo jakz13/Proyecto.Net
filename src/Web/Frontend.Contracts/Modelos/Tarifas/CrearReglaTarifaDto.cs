@@ -12,8 +12,9 @@ public record CrearReglaTarifaDto
     /// </summary>
     public Guid? ZonaCoberturaId { get; init; }
 
+    // Sin valor por defecto: un cuerpo {} no debe fabricar una regla "completa" (D-04 de la auditoría del 14/11). El formulario siempre envía la modalidad.
     [Required(ErrorMessage = "La modalidad de servicio es obligatoria.")]
-    public string ModalidadServicio { get; init; } = "Estándar 24-48h";
+    public string ModalidadServicio { get; init; } = string.Empty;
 
     [Range(0, 10000, ErrorMessage = "El peso mínimo no puede ser negativo.")]
     public decimal PesoDesde { get; init; } = 0;

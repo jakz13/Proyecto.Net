@@ -50,6 +50,12 @@ public class RegistrarPosicionesCommandHandler : IRequestHandler<RegistrarPosici
         if (request.Posiciones.Count > MaximoPorLote)
             throw new DomainValidationException($"Un lote no puede superar las {MaximoPorLote} posiciones.");
 
+        // {"posiciones":[null]} o {"posiciones":[{}]} son datos mal formados: sin latitud y longitud explícitas la posición quedaría en (0, 0)
+        if (request.Posiciones.Any(p => p is null))
+            throw new DomainValidationException("Cada posición debe indicar su latitud y su longitud.");
+        if (request.Posiciones.Any(p => p.Latitud == 0 && p.Longitud == 0))
+            throw new DomainValidationException("La posición (0, 0) no es válida: informe la latitud y la longitud tomadas por el dispositivo.");
+
         var usuarioId = _currentTenant.UsuarioId
             ?? throw new UnauthorizedAccessException("Acceso denegado: no se pudo identificar al usuario.");
 

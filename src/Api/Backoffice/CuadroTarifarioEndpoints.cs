@@ -59,6 +59,7 @@ public static class CuadroTarifarioEndpoints
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var reglasDto = (dto.ReglasTarifa ?? new List<Contratos.CrearReglaTarifaDto>())
+                .SinNulos("Cada regla de tarifa debe indicar su modalidad, sus rangos de peso y volumen y su precio.")
                 .Select(r => new CrearReglaTarifaDto(
                     r.ZonaCoberturaId,
                     r.ModalidadServicio,

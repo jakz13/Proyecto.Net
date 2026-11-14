@@ -13,6 +13,8 @@ namespace UltimaMilla.Api.Backoffice;
 /// </summary>
 public static class ZonasCoberturaEndpoints
 {
+    private const string MensajeFranjaNula = "Cada franja horaria debe indicar el día, la hora de inicio, la hora de fin y la capacidad.";
+
     public static IEndpointRouteBuilder MapZonasCoberturaEndpoints(this IEndpointRouteBuilder app)
     {
         var grupo = app.MapGroup("/api/zonas-cobertura")
@@ -51,7 +53,7 @@ public static class ZonasCoberturaEndpoints
             [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var franjasDto = dto.FranjasHorarias?.Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
+            var franjasDto = dto.FranjasHorarias?.SinNulos(MensajeFranjaNula).Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
                 f.DiaSemana,
                 f.HoraInicio,
                 f.HoraFin,
@@ -79,7 +81,7 @@ public static class ZonasCoberturaEndpoints
             [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var franjasDto = dto.FranjasHorarias?.Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
+            var franjasDto = dto.FranjasHorarias?.SinNulos(MensajeFranjaNula).Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
                 f.DiaSemana,
                 f.HoraInicio,
                 f.HoraFin,
@@ -123,7 +125,7 @@ public static class ZonasCoberturaEndpoints
             [FromServices] IMediator mediator,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
-            var franjasDto = franjas?.Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
+            var franjasDto = franjas?.SinNulos(MensajeFranjaNula).Select(f => new Application.DTOs.Operador.CrearFranjaHorariaDto(
                 f.DiaSemana,
                 f.HoraInicio,
                 f.HoraFin,

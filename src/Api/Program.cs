@@ -510,7 +510,10 @@ enviosApi.MapPost("/", async (CreateEnvioRequest request, IMediator mediator) =>
                 request.Latitud,
                 request.Longitud,
                 request.Referencia),
-            request.Bultos?.Select(b => new BultoAltaDto(b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList()
+            // Un elemento nulo en la lista de bultos ({"bultos":[null]}) es un dato mal formado: se rechaza con 400, no revienta con 500
+            request.Bultos?.Select(b => b is null
+                    ? throw new DomainValidationException("Cada bulto debe indicar su peso y sus dimensiones.")
+                    : new BultoAltaDto(b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList()
                 ?? new List<BultoAltaDto>(),
             request.FranjaHorariaId);
 

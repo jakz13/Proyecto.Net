@@ -61,7 +61,10 @@ public static class AltaEnvioCanalesEndpoints
                         request.Latitud,
                         request.Longitud,
                         request.Referencia),
-                    request.Bultos?.Select(b => new BultoAltaDto(b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList() ?? new List<BultoAltaDto>(),
+                    // Un elemento nulo en la lista de bultos es un dato mal formado: 400, no 500
+                    request.Bultos?.Select(b => b is null
+                        ? throw new DomainValidationException("Cada bulto debe indicar su peso y sus dimensiones.")
+                        : new BultoAltaDto(b.Peso, b.Alto, b.Ancho, b.Profundo)).ToList() ?? new List<BultoAltaDto>(),
                     request.FranjaHorariaId,
                     request.ReferenciaExterna);
 
