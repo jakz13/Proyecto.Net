@@ -18,6 +18,13 @@
     </a>
 </div>
 
+@if (string.IsNullOrEmpty(Model.ErrorMessage) && !ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
+        <strong>No se pudo publicar:</strong>
+        <span>@string.Join(" ", ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct())</span>
+    </div>
+}
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
     <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">

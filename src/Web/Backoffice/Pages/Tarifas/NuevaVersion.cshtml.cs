@@ -98,6 +98,9 @@ public class NuevaVersionModel : PageModel
 
         if (!ModelState.IsValid)
         {
+            // Antes la página se volvía a mostrar sin decir qué estaba mal y el administrador creía que no pasaba nada
+            ErrorMessage = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct());
             return Page();
         }
 

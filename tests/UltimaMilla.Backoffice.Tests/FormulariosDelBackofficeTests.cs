@@ -93,6 +93,65 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         Assert.DoesNotContain("Estándar 24-48h", enviadas);
     }
 
+    /// <summary>Los datos que enviaría un navegador al guardar: todos los campos con nombre; en cada lista, la opción marcada o, si no hay, la primera.</summary>
+    private static Dictionary<string, string> DatosDelFormulario(string html)
+    {
+        var datos = new Dictionary<string, string>();
+        foreach (Match campo in Regex.Matches(html, "<input\\b[^>]*>"))
+        {
+            var nombre = Regex.Match(campo.Value, "\\bname=\"([^\"]+)\"").Groups[1].Value;
+            if (nombre.Length == 0) continue;
+            var tipo = Regex.Match(campo.Value, "\\btype=\"([^\"]+)\"").Groups[1].Value;
+            if ((tipo == "checkbox" || tipo == "radio") && !Regex.IsMatch(campo.Value, "\\bchecked\\b")) continue;
+            datos[nombre] = WebUtility.HtmlDecode(Regex.Match(campo.Value, "\\bvalue=\"([^\"]*)\"").Groups[1].Value);
+        }
+        foreach (Match lista in Regex.Matches(html, "(?s)<select\\b[^>]*\\bname=\"([^\"]+)\"[^>]*>(.*?)</select>"))
+        {
+            var opciones = Regex.Matches(lista.Groups[2].Value, "<option\\b([^>]*)>").ToList();
+            if (opciones.Count == 0) continue;
+            var elegida = opciones.FirstOrDefault(o => Regex.IsMatch(o.Groups[1].Value, "\\bselected\\b")) ?? opciones[0];
+            datos[lista.Groups[1].Value] = WebUtility.HtmlDecode(Regex.Match(elegida.Groups[1].Value, "value=\"([^\"]*)\"").Groups[1].Value);
+        }
+        return datos;
+    }
+
+    [Fact]
+    public async Task TarifaNuevaVersion_ConElVolumenSinLimiteDeLaTarifaReal_SePublica()
+    {
+        // La tarifa de producción usa 1.000.000.000 como "sin límite" de volumen; el formulario solo admitía hasta 1.000, así que editar un precio
+        // no hacía nada y no decía por qué (D-07, 14/11). Se simula lo que enviaría el navegador con los valores reales.
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Tarifas/NuevaVersion")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        foreach (var clave in datos.Keys.Where(k => k.EndsWith(".VolumenHasta")).ToList())
+            datos[clave] = "1000000000";
+        datos["Reglas[0].PrecioBase"] = "160";
+
+        var respuesta = await cliente.PostAsync("/Tarifas/NuevaVersion", new FormUrlEncodedContent(datos));
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync();
+        var aviso = Regex.Match(WebUtility.HtmlDecode(cuerpo), "(No se pudo publicar[^<]{0,300}|Error de validación[^<]{0,300})").Groups[1].Value;
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {aviso}");
+    }
+
+    [Fact]
+    public async Task TarifaNuevaVersion_ConUnDatoInvalido_MuestraElMotivoEnLaPagina()
+    {
+        // Antes la página se volvía a mostrar igual, sin ningún mensaje
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Tarifas/NuevaVersion")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        datos["Reglas[0].PesoDesde"] = "5";
+        datos["Reglas[0].PesoHasta"] = "5"; // el peso inicial no es menor al final
+
+        var respuesta = await cliente.PostAsync("/Tarifas/NuevaVersion", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("el peso inicial debe ser menor al peso final", cuerpo);
+        Assert.Contains("No se pudo publicar", cuerpo);
+    }
+
     [Fact]
     public async Task Recepcion_SiElOperarioDesmarcaTodosLosBultos_NoSeDaElEnvioPorRecibido()
     {

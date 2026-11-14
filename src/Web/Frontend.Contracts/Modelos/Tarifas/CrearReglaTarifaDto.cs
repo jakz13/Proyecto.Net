@@ -22,10 +22,11 @@ public record CrearReglaTarifaDto
     [Range(0.01, 10000, ErrorMessage = "El peso máximo debe ser mayor a cero.")]
     public decimal PesoHasta { get; init; } = 5;
 
-    [Range(0, 1000, ErrorMessage = "El volumen mínimo no puede ser negativo.")]
+    // El tope es el "sin límite" que usa el cuadro real (1.000.000.000): con un rango de hasta 1.000 la pantalla rechazaba la propia tarifa vigente (D-07, 14/11)
+    [Range(0, 1000000000, ErrorMessage = "El volumen mínimo debe estar entre 0 y 1.000.000.000.")]
     public decimal VolumenDesde { get; init; } = 0;
 
-    [Range(0.001, 1000, ErrorMessage = "El volumen máximo debe ser mayor a cero.")]
+    [Range(0.001, 1000000000, ErrorMessage = "El volumen máximo debe estar entre 0,001 y 1.000.000.000.")]
     public decimal VolumenHasta { get; init; } = 0.05m;
 
     [Range(0, 1000000, ErrorMessage = "El precio base no puede ser negativo.")]
