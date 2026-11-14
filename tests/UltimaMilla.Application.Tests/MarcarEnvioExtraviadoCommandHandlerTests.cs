@@ -62,6 +62,41 @@ public class MarcarEnvioExtraviadoCommandHandlerTests
         Assert.Equal(EstadoEnvio.Extraviado, envio.EstadoActual);
     }
 
+    private sealed class NotificadorRegistrador : UltimaMilla.Application.Ports.ITableroRealtimeNotifier
+    {
+        public List<(Guid RutaId, string Detalle)> AvisosAlRepartidor { get; } = new();
+        public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default) => Task.CompletedTask;
+        public Task NotificarCambioRutaConDetalleAsync(Guid operadorId, Guid hojaDeRutaId, string estado, string detalle, CancellationToken ct = default)
+        {
+            AvisosAlRepartidor.Add((hojaDeRutaId, detalle));
+            return Task.CompletedTask;
+        }
+        public Task NotificarHitoParadaAsync(Guid operadorId, Guid hojaDeRutaId, Guid paradaId, string estadoParada, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task EnvioEnTransito_AvisaAlRepartidorQueSuPaqueteSeRetiroDeLaRuta()
+    {
+        var envio = CrearEnvio();
+        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "RecepcionEnDeposito");
+        var ruta = new HojaDeRuta(Guid.NewGuid(), _tenant.OperadorId, DateOnly.FromDateTime(DateTime.UtcNow));
+        ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
+        ruta.AgregarParada(envio.Id, 1, Guid.NewGuid());
+        ruta.RegistrarAsignacion(envio.Id, Guid.NewGuid());
+        ruta.Liberar();
+        envio.AsignarRuta(ruta.Id);
+        _rutas.Rutas.Add(ruta);
+        var notificador = new NotificadorRegistrador();
+
+        await new MarcarEnvioExtraviadoCommandHandler(_envios, _rutas, _outbox, _uow, _tenant, notificador)
+            .Handle(new MarcarEnvioExtraviadoCommand(envio.Id, "No estaba al cargar"), default);
+
+        var aviso = Assert.Single(notificador.AvisosAlRepartidor);
+        Assert.Equal(ruta.Id, aviso.RutaId);
+        Assert.Contains(envio.CodigoSeguimientoPublico, aviso.Detalle);
+        Assert.Contains("extraviado", aviso.Detalle);
+    }
+
     [Fact]
     public async Task EnvioDeOtroOperador_LanzaUnauthorizedYNoCambiaNada()
     {

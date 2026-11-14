@@ -48,7 +48,13 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         _scopeFactory = scopeFactory;
     }
 
-    public async Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default)
+    public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default)
+        => NotificarCambioRutaConDetalleAsync(operadorId, hojaDeRutaId, estado, detalle: null, ct);
+
+    public Task NotificarCambioRutaConDetalleAsync(Guid operadorId, Guid hojaDeRutaId, string estado, string? detalle, CancellationToken ct = default)
+        => EmitirCambioRutaAsync(operadorId, hojaDeRutaId, estado, detalle, ct);
+
+    private async Task EmitirCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, string? detalle, CancellationToken ct)
     {
         if (operadorId == Guid.Empty || hojaDeRutaId == Guid.Empty || string.IsNullOrWhiteSpace(estado))
         {
@@ -84,10 +90,10 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                 operadorId);
         }
 
-        await NotificarRepartidorEnOperacionHubAsync(hojaDeRutaId, estadoNormalizado, ct);
+        await NotificarRepartidorEnOperacionHubAsync(hojaDeRutaId, estadoNormalizado, ct, detalle);
     }
 
-    private async Task NotificarRepartidorEnOperacionHubAsync(Guid hojaDeRutaId, string estado, CancellationToken ct)
+    private async Task NotificarRepartidorEnOperacionHubAsync(Guid hojaDeRutaId, string estado, CancellationToken ct, string? detalle = null)
     {
         if (_operacionHub is null || _scopeFactory is null || string.Equals(estado, "FlotaActualizada", StringComparison.OrdinalIgnoreCase))
             return;
@@ -117,9 +123,11 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
                 codigoRuta,
                 estado,
                 totalParadas = info.TotalParadas,
-                detalleCambio = estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase)
-                    ? "reprogramacion de horario en una parada"
-                    : "actualizacion desde central operativa",
+                detalleCambio = !string.IsNullOrWhiteSpace(detalle)
+                    ? detalle
+                    : estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase)
+                        ? "reprogramacion de horario en una parada"
+                        : "actualizacion desde central operativa",
                 timestamp = DateTime.UtcNow
             };
 

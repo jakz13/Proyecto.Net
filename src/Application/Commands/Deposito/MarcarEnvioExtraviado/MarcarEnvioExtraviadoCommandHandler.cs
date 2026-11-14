@@ -97,7 +97,13 @@ public class MarcarEnvioExtraviadoCommandHandler : IRequestHandler<MarcarEnvioEx
         {
             try
             {
-                await _tableroNotifier.NotificarCambioRutaAsync(envio.OperadorId, rutaAfectadaId, estadoRutaRetirada ?? "Despachada", cancellationToken);
+                // La app del repartidor muestra este texto: así sabe por qué desapareció una parada de su ruta
+                await _tableroNotifier.NotificarCambioRutaConDetalleAsync(
+                    envio.OperadorId,
+                    rutaAfectadaId,
+                    estadoRutaRetirada ?? "Despachada",
+                    $"El paquete {envio.CodigoSeguimientoPublico} fue declarado extraviado y se retiró de tu ruta. No lo entregues.",
+                    cancellationToken);
             }
             catch
             {

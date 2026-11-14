@@ -8,6 +8,13 @@ public interface ITableroRealtimeNotifier
 {
     Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default);
 
+    /// <summary>
+    /// Igual que <see cref="NotificarCambioRutaAsync"/>, pero con un texto para el repartidor (la app móvil lo muestra como aviso).
+    /// Por defecto se comporta como el cambio de ruta común.
+    /// </summary>
+    Task NotificarCambioRutaConDetalleAsync(Guid operadorId, Guid hojaDeRutaId, string estado, string detalle, CancellationToken ct = default)
+        => NotificarCambioRutaAsync(operadorId, hojaDeRutaId, estado, ct);
+
     Task NotificarHitoParadaAsync(Guid operadorId, Guid hojaDeRutaId, Guid paradaId, string estadoParada, CancellationToken ct = default);
 
     /// <summary>
