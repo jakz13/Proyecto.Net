@@ -45,7 +45,12 @@ bld/
 #wwwroot/
 
 # Librerías de terceros manejadas por libman/npm (Bootstrap, jQuery, etc.)
-**/wwwroot/lib/
+# Se ignora todo menos jQuery y su validación: el Backoffice las carga en 16 pantallas (_ValidationScriptsPartial) y las imágenes que construye el pipeline
+# salen del repositorio, así que si no están versionadas el navegador recibe 404 y la validación del lado del cliente no funciona (hallazgo D-20 del 14/11)
+**/wwwroot/lib/*
+!**/wwwroot/lib/jquery/
+!**/wwwroot/lib/jquery-validation/
+!**/wwwroot/lib/jquery-validation-unobtrusive/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
