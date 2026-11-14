@@ -70,6 +70,30 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task TarifaNuevaVersion_CadaReglaPrecargadaConservaSuModalidadAlGuardar()
+    {
+        // Las modalidades reales son "Estandar", "Urgente" y "Retiro". Si la lista desplegable no las ofrece, ninguna opción queda marcada, el navegador
+        // envía la primera y publicar una versión renombra todas las reglas: el operador se queda sin tarifa y fallan todas las altas (D-06, 14/11).
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Tarifas/NuevaVersion")).Content.ReadAsStringAsync();
+
+        var filas = Regex.Matches(html, "(?s)<select name=\"Reglas\\[\\d+\\]\\.ModalidadServicio\".*?</select>");
+        Assert.NotEmpty(filas);
+        var enviadas = filas.Select(f =>
+        {
+            var opciones = Regex.Matches(f.Value, "<option value=\"([^\"]*)\"([^>]*)>");
+            var marcada = opciones.FirstOrDefault(o => Regex.IsMatch(o.Groups[2].Value, "\\bselected\\b"));
+            // Sin ninguna opción marcada, un navegador envía la primera
+            return WebUtility.HtmlDecode((marcada ?? opciones.First()).Groups[1].Value);
+        }).ToList();
+
+        Assert.Contains("Estandar", enviadas);
+        Assert.Contains("Urgente", enviadas);
+        Assert.Contains("Carga Pesada", enviadas); // un valor anterior desconocido se conserva, no se reemplaza en silencio
+        Assert.DoesNotContain("Estándar 24-48h", enviadas);
+    }
+
+    [Fact]
     public async Task Recepcion_SiElOperarioDesmarcaTodosLosBultos_NoSeDaElEnvioPorRecibido()
     {
         // Antes, una lista vacía se interpretaba como "llegaron todos" y el envío quedaba En Depósito sin discrepancias

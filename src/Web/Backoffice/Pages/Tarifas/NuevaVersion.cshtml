@@ -97,10 +97,14 @@
                         <tr class="fila-regla">
                             <td>
                                 <select name="Reglas[@i].ModalidadServicio" class="form-select form-select-sm" required>
-                                    <option value="Estándar 24-48h" selected="@(Model.Reglas[i].ModalidadServicio == "Estándar 24-48h")">Estándar 24-48h</option>
-                                    <option value="Express en el Día" selected="@(Model.Reglas[i].ModalidadServicio == "Express en el Día")">Express en el Día</option>
-                                    <option value="Mismo Día" selected="@(Model.Reglas[i].ModalidadServicio == "Mismo Día")">Mismo Día (Urgente)</option>
-                                    <option value="Carga Pesada" selected="@(Model.Reglas[i].ModalidadServicio == "Carga Pesada")">Carga Pesada</option>
+                                    @foreach (var opcion in ModalidadesTarifa.Opciones)
+                                    {
+                                        <option value="@opcion.Valor" selected="@ModalidadesTarifa.Coincide(Model.Reglas[i].ModalidadServicio, opcion.Valor)">@opcion.Etiqueta</option>
+                                    }
+                                    @if (ModalidadesTarifa.EsDesconocida(Model.Reglas[i].ModalidadServicio))
+                                    {
+                                        <option value="@Model.Reglas[i].ModalidadServicio" selected>@Model.Reglas[i].ModalidadServicio (valor anterior)</option>
+                                    }
                                 </select>
                             </td>
                             <td>
@@ -177,15 +181,18 @@
                 @:opcionesZonas += '<option value="@z.Id">@z.Nombre</option>';
             }
 
+            var opcionesModalidad = '';
+            @foreach (var m in ModalidadesTarifa.Opciones)
+            {
+                @:opcionesModalidad += '<option value="@m.Valor">@m.Etiqueta</option>';
+            }
+
             var fila = document.createElement('tr');
             fila.className = 'fila-regla';
             fila.innerHTML = `
                 <td>
                     <select name="Reglas[${indice}].ModalidadServicio" class="form-select form-select-sm" required>
-                        <option value="Estándar 24-48h">Estándar 24-48h</option>
-                        <option value="Express en el Día">Express en el Día</option>
-                        <option value="Mismo Día">Mismo Día (Urgente)</option>
-                        <option value="Carga Pesada">Carga Pesada</option>
+                        ${opcionesModalidad}
                     </select>
                 </td>
                 <td>

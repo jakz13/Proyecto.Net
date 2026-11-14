@@ -63,8 +63,8 @@ public class NuevaVersionModel : PageModel
             // Reglas base sugeridas
             Reglas = new List<CrearReglaTarifaDto>
             {
-                new() { ModalidadServicio = "Estándar 24-48h", PesoDesde = 0, PesoHasta = 5, VolumenDesde = 0, VolumenHasta = 0.05m, PrecioBase = 180 },
-                new() { ModalidadServicio = "Express en el Día", PesoDesde = 0, PesoHasta = 5, VolumenDesde = 0, VolumenHasta = 0.05m, PrecioBase = 250, Recargo = 50 }
+                new() { ModalidadServicio = "Estandar", PesoDesde = 0, PesoHasta = 5, VolumenDesde = 0, VolumenHasta = 0.05m, PrecioBase = 180 },
+                new() { ModalidadServicio = "Urgente", PesoDesde = 0, PesoHasta = 5, VolumenDesde = 0, VolumenHasta = 0.05m, PrecioBase = 250, Recargo = 50 }
             };
         }
     }
