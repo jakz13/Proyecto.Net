@@ -23,6 +23,17 @@ $raiz = Split-Path -Parent $PSScriptRoot
 $tf = Join-Path $raiz 'infra\terraform-azure'
 function Paso($t) { Write-Host "`n==> $t" -ForegroundColor Cyan }
 
+# Datos que no están (ni deben estar) en el repositorio: si no se definieron como variables de entorno, se piden por teclado
+function PedirSiFalta($nombre, $ayuda, [int]$minimo = 1) {
+    $actual = [Environment]::GetEnvironmentVariable($nombre)
+    while (-not $actual -or $actual.Length -lt $minimo) {
+        $actual = (Read-Host "Falta $nombre ($ayuda)").Trim()
+    }
+    [Environment]::SetEnvironmentVariable($nombre, $actual, 'Process')
+}
+PedirSiFalta 'DUCKDNS_TOKEN' 'token de la cuenta DuckDNS'
+PedirSiFalta 'SEED_PASSWORD_DEMO' 'contraseña de las cuentas demo, mínimo 12 caracteres' 12
+
 if (-not $env:TF_VAR_subscription_id) { $env:TF_VAR_subscription_id = (az account show --query id -o tsv) }
 if (-not $env:TF_VAR_claves_publicas_ssh) {
     [string[]]$claves = @((Get-Content "$HOME\.ssh\azure_ultimamilla.pub" -Raw).Trim())
