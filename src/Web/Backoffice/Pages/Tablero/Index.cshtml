@@ -9,7 +9,7 @@
     <div>
         <div class="d-flex align-items-center gap-2">
             <h1 class="h4 fw-bold text-dark mb-0">Tablero de Operaciones</h1>
-            <partial name="_BotonAyuda" model='"Monitoreo en tiempo real de la flota en calle, telemetría de vehículos y detección temprana de envíos en riesgo de incumplir la franja horaria comprometida. Permite intervenir preventivamente contactando al repartidor o reasignando paradas."' />
+            <partial name="_BotonAyuda" model='"Monitoreo en tiempo real de la flota en calle, telemetría de vehículos y detección temprana de envíos en riesgo de incumplir la franja horaria comprometida. Permite intervenir preventivamente gestionando y reasignando paradas."' />
         </div>
         <p class="text-secondary small mb-0 mt-1">
             Seguimiento telemétrico de la flota urbana, alertas tempranas de SLA e intervención operativa inmediata.
@@ -238,16 +238,6 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="d-inline-flex gap-1 justify-content-end align-items-center">
-                                            <button type="button" 
-                                                    class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
-                                                    data-bs-toggle="tooltip"
-                                                    data-bs-placement="top"
-                                                    title="Contactar al chofer"
-                                                    onclick="abrirModalContacto(@System.Text.Json.JsonSerializer.Serialize(alerta.RepartidorNombre), @System.Text.Json.JsonSerializer.Serialize(alerta.RepartidorTelefono), @System.Text.Json.JsonSerializer.Serialize(alerta.VehiculoMatricula), @System.Text.Json.JsonSerializer.Serialize(alerta.CodigoSeguimiento), @System.Text.Json.JsonSerializer.Serialize(alerta.RepartidorId))">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                                </svg>
-                                            </button>
                                             <a asp-page="/Rutas/Detalle" asp-route-id="@alerta.HojaDeRutaId" 
                                                class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center" 
                                                data-bs-toggle="tooltip"
@@ -386,16 +376,6 @@
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                                                     <circle cx="12" cy="10" r="3"></circle>
-                                                </svg>
-                                            </button>
-                                            <button type="button" 
-                                                    class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
-                                                    data-bs-toggle="tooltip"
-                                                    data-bs-placement="top"
-                                                    title="Contactar al chofer"
-                                                    onclick="abrirModalContacto(@System.Text.Json.JsonSerializer.Serialize(veh.RepartidorNombre), @System.Text.Json.JsonSerializer.Serialize(veh.RepartidorTelefono), @System.Text.Json.JsonSerializer.Serialize(veh.VehiculoMatricula), null, @System.Text.Json.JsonSerializer.Serialize(veh.RepartidorId))">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                                                 </svg>
                                             </button>
                                             @if (veh.HojaDeRutaId != Guid.Empty)
@@ -542,106 +522,15 @@
                             </div>
                         </div>
 
-                        <!-- Botones de Acción (Fijos) -->
-                        <div class="pt-3 border-top mt-auto d-grid gap-2">
-                            <button type="button" class="btn btn-outline-dark btn-sm fw-semibold py-2" id="mapaBtnContactar" onclick="abrirModalContactoDesdeMapa()" disabled>
-                                Contactar al Repartidor
-                            </button>
-                            <a id="mapaBtnReasignar" href="#" class="btn btn-dark btn-sm text-white disabled">
+                        <!-- Botón de Acción (Fijo) -->
+                        <div class="pt-3 border-top mt-auto d-grid">
+                            <a id="mapaBtnReasignar" href="#" class="btn btn-dark btn-sm text-white fw-semibold py-2 disabled">
                                 Gestionar Hoja de Ruta
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- =========================================================================
-     MODAL DE CONTACTO RÁPIDO CON EL REPARTIDOR (ALTURA FIJA Y ESTABLE)
-     ========================================================================= -->
-<div class="modal fade" id="modalContactoRepartidor" tabindex="-1" aria-labelledby="modalContactoRepartidorLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <form method="post" asp-page-handler="EnviarInstruccion">
-                <input type="hidden" name="repartidorId" id="modalInputRepartidorId" />
-                <div class="modal-header bg-light border-bottom">
-                    <div>
-                        <h5 class="modal-title h6 fw-bold text-dark mb-0" id="modalContactoRepartidorLabel">
-                            Canal de Comunicación con Repartidor
-                        </h5>
-                        <span class="small text-secondary">
-                            Instrucciones operativas en calle para mitigar riesgos de ventana horaria
-                        </span>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-
-                <div class="modal-body p-4" style="min-height: 280px;">
-                    <!-- Ficha del Repartidor -->
-                    <div class="p-3 bg-light rounded-2 border mb-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-bold text-dark" id="modalNombreRepartidor">--</div>
-                                <div class="small text-secondary" id="modalMatriculaVehiculo">--</div>
-                            </div>
-                            <div class="text-end">
-                                <a id="modalLinkTelefono" href="#" class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-1">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                    </svg>
-                                    <span id="modalTextoTelefono">Llamar</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Envío en Riesgo Asociado -->
-                    <div class="mb-3" id="modalCajaAlertaEnvio" style="display: none;">
-                        <label class="form-label text-danger fw-semibold small mb-1">
-                            Envío en Riesgo Detectado:
-                        </label>
-                        <div class="p-2 border border-danger-subtle rounded-2 bg-danger-subtle small text-danger font-monospace" id="modalTextoAlertaEnvio">
-                            --
-                        </div>
-                    </div>
-
-                    <!-- Mensaje / Instrucción Prioritaria -->
-                    <div class="mb-2">
-                        <label class="form-label text-dark fw-semibold small mb-1" for="txtMensajeInstruccion">
-                            Instrucción Prioritaria a la Terminal Móvil: <span class="text-danger">*</span>
-                        </label>
-                        <textarea class="form-control form-control-sm text-dark" id="txtMensajeInstruccion" name="mensajeInstruccion" rows="3"
-                                  placeholder="Ej: Priorizar entrega de Farmacia San Roque en Av. Brasil antes de las 12:00 hs..." required></textarea>
-                    </div>
-
-                    <!-- Plantillas Rápidas de Intervención -->
-                    <div class="d-flex flex-wrap gap-1 mt-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
-                                onclick="insertarPlantilla('Priorizar parada actual de inmediato para evitar caída de ventana comprometida.')">
-                            Priorizar Parada
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
-                                onclick="insertarPlantilla('Desviar recorrido por arteria alternativa para eludir retención de tráfico.')">
-                            Desvío por Tráfico
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"
-                                onclick="insertarPlantilla('Detener marcha en lugar seguro. Móvil de asistencia en camino.')">
-                            Auxilio en Camino
-                        </button>
-                    </div>
-                </div>
-
-                <div class="modal-footer bg-light border-top">
-                    <button type="button" class="btn btn-outline-secondary btn-sm text-dark" data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-dark btn-sm text-white px-3 fw-semibold">
-                        Enviar Instrucción
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -732,55 +621,9 @@
                 cajaRiesgos.style.display = 'none';
             }
 
-            var btnCont = document.getElementById('mapaBtnContactar');
-            btnCont.disabled = false;
-
             var btnReas = document.getElementById('mapaBtnReasignar');
             btnReas.href = '/Rutas/Detalle/' + encodeURIComponent(v.HojaDeRutaId);
             btnReas.classList.remove('disabled');
-        }
-
-        function abrirModalContactoDesdeMapa() {
-            if (!vehiculoSeleccionadoEnMapa) return;
-            abrirModalContacto(
-                vehiculoSeleccionadoEnMapa.RepartidorNombre,
-                vehiculoSeleccionadoEnMapa.RepartidorTelefono,
-                vehiculoSeleccionadoEnMapa.VehiculoMatricula,
-                (vehiculoSeleccionadoEnMapa.EnviosEnRiesgo && vehiculoSeleccionadoEnMapa.EnviosEnRiesgo.length > 0) ? vehiculoSeleccionadoEnMapa.EnviosEnRiesgo[0].CodigoSeguimiento : null,
-                vehiculoSeleccionadoEnMapa.RepartidorId
-            );
-        }
-
-        function abrirModalContacto(nombre, telefono, matricula, envioCodigo, repartidorId) {
-            document.getElementById('modalNombreRepartidor').innerText = nombre;
-            document.getElementById('modalMatriculaVehiculo').innerText = 'Unidad: ' + matricula;
-            document.getElementById('modalTextoTelefono').innerText = 'Llamar ' + telefono;
-            document.getElementById('modalLinkTelefono').href = 'tel:' + (telefono ? telefono.replace(/\s+/g, '') : '');
-
-            document.getElementById('modalInputRepartidorId').value = repartidorId || '';
-
-            var alertaCaja = document.getElementById('modalCajaAlertaEnvio');
-            if (envioCodigo) {
-                alertaCaja.style.display = 'block';
-                document.getElementById('modalTextoAlertaEnvio').innerText = 'Envío: ' + envioCodigo + ' con riesgo de incumplimiento horario.';
-                document.getElementById('txtMensajeInstruccion').value = 'Priorizar entrega de ' + envioCodigo + ' para evitar vencimiento de la ventana horaria.';
-            } else {
-                alertaCaja.style.display = 'none';
-                document.getElementById('txtMensajeInstruccion').value = '';
-            }
-
-            var modalEl = document.getElementById('modalContactoRepartidor');
-            if (window.bootstrap && window.bootstrap.Modal) {
-                var inst = bootstrap.Modal.getOrCreateInstance(modalEl);
-                inst.show();
-            } else {
-                modalEl.classList.add('show');
-                modalEl.style.display = 'block';
-            }
-        }
-
-        function insertarPlantilla(texto) {
-            document.getElementById('txtMensajeInstruccion').value = texto;
         }
 
         document.addEventListener('DOMContentLoaded', function () {

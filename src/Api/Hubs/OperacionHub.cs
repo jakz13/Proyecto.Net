@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Api.Auth;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Infrastructure.Persistence;
@@ -30,24 +33,29 @@ public record TransmisionUbicacionRequest(
 [Authorize]
 public class OperacionHub : Hub
 {
+    private static readonly ConcurrentDictionary<Guid, string> ConexionesActivasPorUsuario = new();
+
     private readonly AppDbContext _db;
     private readonly ICurrentTenant _currentTenant;
     private readonly ILogger<OperacionHub> _logger;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
     private readonly IHubContext<TableroHub>? _tableroHubContext;
+    private readonly IDistributedCacheService? _cache;
 
     public OperacionHub(
         AppDbContext db,
         ICurrentTenant currentTenant,
         ILogger<OperacionHub> logger,
         ITableroRealtimeNotifier? tableroNotifier = null,
-        IHubContext<TableroHub>? tableroHubContext = null)
+        IHubContext<TableroHub>? tableroHubContext = null,
+        IDistributedCacheService? cache = null)
     {
         _db = db;
         _currentTenant = currentTenant;
         _logger = logger;
         _tableroNotifier = tableroNotifier;
         _tableroHubContext = tableroHubContext;
+        _cache = cache;
     }
 
     /// <summary>
@@ -58,6 +66,8 @@ public class OperacionHub : Hub
     public async Task TransmitirUbicacion(TransmisionUbicacionRequest payload)
     {
         ArgumentNullException.ThrowIfNull(payload);
+
+        await ValidarSesionUnicaEnHubAsync();
 
         // El operador y el repartidor salen del token firmado, nunca del cuerpo: antes cualquier usuario autenticado (incluso de un comercio)
         // podía enviar la posición de cualquier repartidor y la recibían todas las conexiones del hub, de cualquier operador (D-13, auditoría del 14/11)
@@ -146,6 +156,8 @@ public class OperacionHub : Hub
         if (repartidorId == Guid.Empty)
             return;
 
+        await ValidarSesionUnicaEnHubAsync();
+
         // Solo el canal propio: antes se podía escuchar el canal personal (novedades de ruta) de cualquier repartidor de cualquier operador
         var (_, repartidorToken) = await ResolverRepartidorDelTokenAsync();
         if (repartidorId != repartidorToken)
@@ -206,6 +218,11 @@ public class OperacionHub : Hub
     {
         _logger.LogInformation("SignalR Hub: Cliente conectado. ConnectionId: {ConnectionId}", Context.ConnectionId);
 
+        if (!await ValidarSesionUnicaAlConectarAsync())
+        {
+            return;
+        }
+
         // Un usuario de comercio no se une al grupo del operador: recibiría la posición de toda la flota (el comercio solo ve lo suyo)
         if (TableroHub.IntentarExtraerOperadorId(Context.User, out var opId) && !TableroHub.EsUsuarioDeComercio(Context.User))
         {
@@ -248,8 +265,123 @@ public class OperacionHub : Hub
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {
+        var usuarioId = ExtraerUsuarioIdDelContexto();
+        if (usuarioId.HasValue && ConexionesActivasPorUsuario.TryGetValue(usuarioId.Value, out var connId) && connId == Context.ConnectionId)
+        {
+            ConexionesActivasPorUsuario.TryRemove(new KeyValuePair<Guid, string>(usuarioId.Value, Context.ConnectionId));
+        }
+
         _logger.LogInformation(exception, "SignalR Hub: Cliente desconectado. ConnectionId: {ConnectionId}", Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);
+    }
+
+    private Guid? ExtraerUsuarioIdDelContexto()
+    {
+        if (_currentTenant?.UsuarioId is { } tenantUserId && tenantUserId != Guid.Empty)
+        {
+            return tenantUserId;
+        }
+
+        var rawSub = Context.User?.FindFirst("sub")?.Value
+                  ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return Guid.TryParse(rawSub, out var parsed) && parsed != Guid.Empty ? parsed : null;
+    }
+
+    private async Task<bool> ValidarSesionUnicaAlConectarAsync()
+    {
+        var usuarioId = ExtraerUsuarioIdDelContexto();
+        if (!usuarioId.HasValue)
+        {
+            return true;
+        }
+
+        var sidToken = Context.User?.FindFirst("sid")?.Value
+                    ?? Context.User?.FindFirst("jti")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(sidToken) && _cache is not null)
+        {
+            try
+            {
+                var sesionVigente = await _cache.GetAsync<string>(
+                    ClavesCache.SesionActivaUsuario(usuarioId.Value),
+                    Context.ConnectionAborted);
+
+                if (!string.IsNullOrWhiteSpace(sesionVigente)
+                    && !string.Equals(sesionVigente, sidToken, StringComparison.Ordinal))
+                {
+                    _logger.LogInformation(
+                        "SignalR Hub: Conexión rechazada por sesión desplazada para usuario {UsuarioId}.",
+                        usuarioId.Value);
+
+                    await Clients.Caller.SendAsync("SesionDesplazada", SesionUnicaActivaMiddleware.MensajeSesionDesplazada);
+                    Context.Abort();
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "SignalR Hub: Degradación controlada al validar sesión única en Redis.");
+            }
+        }
+
+        // Si había una conexión previa activa para este mismo usuario en otro dispositivo, notificarla de su desplazamiento
+        if (ConexionesActivasPorUsuario.TryGetValue(usuarioId.Value, out var conexionAnterior)
+            && !string.Equals(conexionAnterior, Context.ConnectionId, StringComparison.Ordinal))
+        {
+            try
+            {
+                await Clients.Client(conexionAnterior).SendAsync(
+                    "SesionDesplazada",
+                    SesionUnicaActivaMiddleware.MensajeSesionDesplazada);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "No se pudo notificar desplazamiento a la conexión anterior {ConnectionId}.", conexionAnterior);
+            }
+        }
+
+        ConexionesActivasPorUsuario[usuarioId.Value] = Context.ConnectionId;
+        return true;
+    }
+
+    private async Task ValidarSesionUnicaEnHubAsync()
+    {
+        var usuarioId = ExtraerUsuarioIdDelContexto();
+        if (!usuarioId.HasValue)
+        {
+            return;
+        }
+
+        var sidToken = Context.User?.FindFirst("sid")?.Value
+                    ?? Context.User?.FindFirst("jti")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(sidToken) && _cache is not null)
+        {
+            string? sesionVigente = null;
+            try
+            {
+                sesionVigente = await _cache.GetAsync<string>(
+                    ClavesCache.SesionActivaUsuario(usuarioId.Value),
+                    Context.ConnectionAborted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "SignalR Hub: Degradación controlada al consultar sesión activa en Redis.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(sesionVigente)
+                && !string.Equals(sesionVigente, sidToken, StringComparison.Ordinal))
+            {
+                _logger.LogInformation(
+                    "SignalR Hub: Transmisión bloqueada por sesión desplazada para usuario {UsuarioId}.",
+                    usuarioId.Value);
+
+                await Clients.Caller.SendAsync("SesionDesplazada", SesionUnicaActivaMiddleware.MensajeSesionDesplazada);
+                Context.Abort();
+                throw new HubException(SesionUnicaActivaMiddleware.CodigoSesionDesplazada);
+            }
+        }
     }
 
     private async Task<(Guid OperadorId, Guid? VehiculoId)> PersistirPosicionEnBaseDatosAsync(TransmisionUbicacionRequest payload)

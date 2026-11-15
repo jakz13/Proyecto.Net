@@ -11,6 +11,11 @@ public interface IBiometricAuthService
     Task<bool> ValidarIdentidadAsync(string titulo, string motivo);
 
     /// <summary>
+    /// Solicita autenticación biométrica nativa (huella o rostro) con el mensaje indicado.
+    /// </summary>
+    Task<bool> AutenticarAsync(string motivo);
+
+    /// <summary>
     /// Consulta si el dispositivo actual cuenta con hardware biométrico o bloqueo de pantalla configurado.
     /// </summary>
     Task<bool> DispositivoSoportaBiometriaAsync();

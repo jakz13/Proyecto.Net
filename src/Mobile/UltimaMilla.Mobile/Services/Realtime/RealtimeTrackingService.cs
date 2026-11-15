@@ -69,14 +69,14 @@ public class RealtimeTrackingService : IRealtimeTrackingService
                 {
                     try
                     {
-                        var token = await SecureStorage.Default.GetAsync(AuthDelegatingHandler.AuthTokenKey);
+                        var token = AuthDelegatingHandler.CurrentTokenInMemory
+                                 ?? await SecureStorage.Default.GetAsync(AuthDelegatingHandler.AuthTokenKey);
                         if (!string.IsNullOrWhiteSpace(token))
                         {
                             return token;
                         }
 
-                        // En servidor local en desarrollo se tolera 'dev-token', pero en la nube debe ser null
-                        return ApiEndpoints.EsServidorNube ? null : "dev-token";
+                        return null;
                     }
                     catch
                     {
@@ -99,6 +99,17 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         _hubConnection.On<JsonElement>("PosicionRepartidorActualizada", _ => { });
         _hubConnection.On<JsonElement>("PosicionActualizada", _ => { });
         _hubConnection.On<JsonElement>("PosicionVehiculo", _ => { });
+
+        _hubConnection.On<string>("SesionDesplazada", async (mensaje) =>
+        {
+            _logger.LogWarning("SignalR: Sesión desplazada notificada por el servidor: {Mensaje}", mensaje);
+            await StopAsync();
+            var auth = _serviceProvider?.GetService<IAuthService>();
+            if (auth is not null)
+            {
+                await auth.ManejarSesionDesplazadaAsync(mensaje);
+            }
+        });
 
         _hubConnection.On<string>("ReasignacionRecibida", async (mensaje) =>
         {
@@ -326,7 +337,9 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
-        if (e.NetworkAccess == NetworkAccess.Internet && _hubConnection?.State == HubConnectionState.Disconnected)
+        if (e.NetworkAccess == NetworkAccess.Internet
+            && _hubConnection?.State == HubConnectionState.Disconnected
+            && !string.IsNullOrWhiteSpace(AuthDelegatingHandler.CurrentTokenInMemory))
         {
             _logger.LogInformation("SignalR: Acceso a internet restablecido. Reanudando conexión...");
             _ = Task.Run(async () =>

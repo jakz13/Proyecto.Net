@@ -739,6 +739,29 @@
                                 <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
                             </Grid>
                         </Border>
+
+                        <!-- Opción 6: Buscar actualizaciones -->
+                        <Border StrokeShape="RoundRectangle 8"
+                                Stroke="#E2E8F0"
+                                StrokeThickness="1"
+                                BackgroundColor="#F8FAFC"
+                                Padding="12,10">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding BuscarActualizacionesDesdeMenuCommand}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="Buscar actualizaciones"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="#0F172A" />
+                                    <Label Text="Verificar e instalar nueva versión de la aplicación"
+                                           FontSize="11"
+                                           TextColor="#64748B" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
@@ -1390,6 +1413,171 @@
                                     BorderWidth="1"
                                     FontAttributes="Bold"
                                     FontSize="12"
+                                    HeightRequest="38"
+                                    CornerRadius="8" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- ========================================================= -->
+        <!-- OVERLAY 6: MODAL 5 - ACTUALIZACIÓN IN-APP (OTA)           -->
+        <!-- ========================================================= -->
+        <Grid Grid.Row="0"
+              Grid.RowSpan="3"
+              IsVisible="{Binding MostrarModalActualizacion}"
+              BackgroundColor="#80000000"
+              ZIndex="999">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding PosponerActualizacionCommand}" />
+            </Grid.GestureRecognizers>
+
+            <Border BackgroundColor="#FFFFFF"
+                    Stroke="{DynamicResource SecondaryColor}"
+                    StrokeThickness="1.5"
+                    StrokeShape="RoundRectangle 16"
+                    Margin="18,30,18,30"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center"
+                    MaximumWidthRequest="420"
+                    Padding="0">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer />
+                </Border.GestureRecognizers>
+
+                <VerticalStackLayout Spacing="0">
+                    <Border StrokeThickness="0"
+                            StrokeShape="RoundRectangle 14,14,0,0"
+                            BackgroundColor="{DynamicResource PrimaryColor}"
+                            Padding="16,12">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Label Text="Actualización Disponible"
+                                   FontSize="14.5"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1"
+                                    Text="X"
+                                    Command="{Binding PosponerActualizacionCommand}"
+                                    IsEnabled="{Binding NoDescargandoActualizacion}"
+                                    BackgroundColor="Transparent"
+                                    TextColor="#FFFFFF"
+                                    FontSize="14"
+                                    FontAttributes="Bold"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    Padding="0" />
+                        </Grid>
+                    </Border>
+
+                    <VerticalStackLayout Spacing="12" Padding="18,16">
+                        <Label Text="Se encuentra disponible una nueva versión de Última Milla Repartidor lista para instalar sin perder su sesión ni sus datos locales."
+                               FontSize="12"
+                               TextColor="#475569" />
+
+                        <!-- Comparativa de Versiones -->
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="8">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#F8FAFC"
+                                    Stroke="#E2E8F0"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="10,8">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="VERSIÓN ACTUAL"
+                                           FontSize="9.5"
+                                           FontAttributes="Bold"
+                                           TextColor="#64748B" />
+                                    <Label Text="{Binding VersionInstaladaTexto}"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           TextColor="#334155" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{DynamicResource SecondarySoftBackground}"
+                                    Stroke="{DynamicResource SecondaryColor}"
+                                    StrokeThickness="1.2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="10,8">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="NUEVA VERSIÓN"
+                                           FontSize="9.5"
+                                           FontAttributes="Bold"
+                                           TextColor="#64748B" />
+                                    <Label Text="{Binding VersionNuevaTexto}"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           TextColor="{DynamicResource SecondaryColor}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+
+                        <!-- Notas de la Versión -->
+                        <Border BackgroundColor="#F8FAFC"
+                                Stroke="#E2E8F0"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="NOTAS DE CAMBIOS"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="#64748B" />
+                                <Label Text="{Binding NotasActualizacionTexto}"
+                                       FontSize="12"
+                                       TextColor="#0F172A" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Barra de Progreso de Descarga -->
+                        <VerticalStackLayout IsVisible="{Binding DescargandoActualizacion}" Spacing="6">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <Label Text="Descargando paquete APK..."
+                                       FontSize="11.5"
+                                       FontAttributes="Bold"
+                                       TextColor="#475569" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding PorcentajeDescargaTexto}"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="{DynamicResource PrimaryColor}" />
+                            </Grid>
+                            <ProgressBar Progress="{Binding ProgresoDescargaActualizacion}"
+                                         ProgressColor="{DynamicResource SecondaryColor}"
+                                         HeightRequest="8" />
+                        </VerticalStackLayout>
+
+                        <Label IsVisible="{Binding TieneMensajeEstadoActualizacion}"
+                               Text="{Binding MensajeEstadoActualizacion}"
+                               FontSize="11.5"
+                               FontAttributes="Bold"
+                               TextColor="#475569"
+                               HorizontalTextAlignment="Center" />
+
+                        <!-- Botones de Acción -->
+                        <VerticalStackLayout Spacing="8" Margin="0,4,0,0">
+                            <Button Text="Descargar e instalar"
+                                    Command="{Binding DescargarEInstalarActualizacionCommand}"
+                                    IsEnabled="{Binding NoDescargandoActualizacion}"
+                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                    TextColor="#FFFFFF"
+                                    FontAttributes="Bold"
+                                    FontSize="13.5"
+                                    HeightRequest="44"
+                                    CornerRadius="8" />
+
+                            <Button Text="Más tarde"
+                                    Command="{Binding PosponerActualizacionCommand}"
+                                    IsEnabled="{Binding NoDescargandoActualizacion}"
+                                    BackgroundColor="#F1F5F9"
+                                    TextColor="#475569"
+                                    BorderColor="#CBD5E1"
+                                    BorderWidth="1"
+                                    FontAttributes="Bold"
+                                    FontSize="12.5"
                                     HeightRequest="38"
                                     CornerRadius="8" />
                         </VerticalStackLayout>

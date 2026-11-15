@@ -328,4 +328,53 @@ public class IniciarSesionCommandHandlerTests
 
         Assert.Contains("inactiva", ex.Message);
     }
+
+    [Fact]
+    public async Task IniciarSesion_EnDosDispositivos_SobrescribeSessionIdEnCacheInvalidandoSesionAnterior()
+    {
+        // Arrange
+        var cache = new FakeSesionCacheService();
+        var tokens = new FakeTokenJwtService();
+        var handler = new IniciarSesionCommandHandler(_usuarioRepository, _passwordHasher, tokens, _clock, _unitOfWork, cache: cache);
+
+        // Act 1: Inicio de sesión en Dispositivo A
+        var resultadoDispositivoA = await handler.Handle(new IniciarSesionCommand("repartidor@gmail.com", "Password.123!"), CancellationToken.None);
+        var sessionIdDispositivoA = tokens.UltimoSessionId;
+        var claveRedis = UltimaMilla.Application.Common.ClavesCache.SesionActivaUsuario(resultadoDispositivoA.UsuarioId);
+        var sesionEnCacheTrasLoginA = await cache.GetAsync<string>(claveRedis);
+
+        // Act 2: Inicio de sesión con la misma cuenta en Dispositivo B
+        await handler.Handle(new IniciarSesionCommand("repartidor@gmail.com", "Password.123!"), CancellationToken.None);
+        var sessionIdDispositivoB = tokens.UltimoSessionId;
+        var sesionEnCacheTrasLoginB = await cache.GetAsync<string>(claveRedis);
+
+        // Assert
+        Assert.False(string.IsNullOrWhiteSpace(sessionIdDispositivoA));
+        Assert.False(string.IsNullOrWhiteSpace(sessionIdDispositivoB));
+        Assert.NotEqual(sessionIdDispositivoA, sessionIdDispositivoB);
+        Assert.Equal(sessionIdDispositivoA, sesionEnCacheTrasLoginA);
+        Assert.Equal(sessionIdDispositivoB, sesionEnCacheTrasLoginB);
+    }
+
+    private sealed class FakeSesionCacheService : IDistributedCacheService
+    {
+        private readonly Dictionary<string, object?> _store = new(StringComparer.Ordinal);
+
+        public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_store.TryGetValue(key, out var val) && val is T typed ? typed : default);
+        }
+
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
+        {
+            _store[key] = value;
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(string key, CancellationToken cancellationToken = default)
+        {
+            _store.Remove(key);
+            return Task.CompletedTask;
+        }
+    }
 }

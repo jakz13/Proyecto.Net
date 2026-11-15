@@ -2,12 +2,15 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Services.Handlers;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Theme;
+using UltimaMilla.Mobile.Services.Tracking;
 
 namespace UltimaMilla.Mobile.Services.Auth;
 
@@ -34,13 +37,20 @@ public interface IAuthService
     bool EsAdministrador { get; }
 
     Task<ResultadoLogin> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<ResultadoLogin> IniciarSesionAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<bool> EstaAutenticadoAsync();
+    Task<bool> TieneSesionBiometricaGuardadaAsync();
+    Task<string?> ObtenerEmailBiometricoGuardadoAsync();
+    Task<ResultadoLogin> RestaurarSesionBiometricaAsync(CancellationToken cancellationToken = default);
+    Task RevocarVinculoBiometricoAsync();
     Task CerrarSesionAsync();
+    Task ManejarSesionDesplazadaAsync(string? motivo = null);
     Task ActualizarRepartidorIdAsync(Guid repartidorId);
 }
 
 public class AuthService : IAuthService
 {
+    public const string AuthTokenActivoKey = "auth_token_activo";
     public const string RepartidorIdKey = "auth_repartidor_id";
     public const string UsuarioIdKey = "auth_usuario_id";
     public const string NombreKey = "auth_nombre";
@@ -50,10 +60,27 @@ public class AuthService : IAuthService
     public const string ExpiraUtcKey = "auth_exp_utc";
     public const string PasswordHashKey = "auth_password_hash";
 
+    // Claves dedicadas al vínculo biométrico persistente en Android Keystore / SecureStorage
+    public const string BiometriaHabilitadaKey = "biometria_habilitada";
+    public const string BiometriaUsuarioEmailKey = "biometria_usuario_email";
+    public const string BiometriaTokenSesionKey = "biometria_token_sesion";
+    public const string BiometriaRefreshTokenKey = "biometria_refresh_token";
+    public const string BiometriaUsuarioIdKey = "biometria_usuario_id";
+    public const string BiometriaRepartidorIdKey = "biometria_repartidor_id";
+    public const string BiometriaNombreKey = "biometria_nombre";
+    public const string BiometriaPerfilKey = "biometria_perfil";
+    public const string BiometriaTenantIdKey = "biometria_tenant_id";
+    public const string BiometriaExpiraUtcKey = "biometria_exp_utc";
+    public const string BiometriaPasswordHashKey = "biometria_password_hash";
+    public const string BiometriaCredencialKey = "biometria_credencial";
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AuthService> _logger;
     private readonly ILocalDatabaseService _localDatabaseService;
     private readonly IOperadorThemeService? _themeService;
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly SemaphoreSlim _desplazamientoLock = new(1, 1);
+    private DateTimeOffset _ultimoDesplazamientoUtc = DateTimeOffset.MinValue;
 
     public string? AccessToken { get; private set; }
     public Guid? RepartidorId { get; private set; }
@@ -75,13 +102,18 @@ public class AuthService : IAuthService
         IHttpClientFactory httpClientFactory,
         ILogger<AuthService> logger,
         ILocalDatabaseService localDatabaseService,
-        IOperadorThemeService? themeService = null)
+        IOperadorThemeService? themeService = null,
+        IServiceProvider? serviceProvider = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _localDatabaseService = localDatabaseService;
         _themeService = themeService;
+        _serviceProvider = serviceProvider;
     }
+
+    public Task<ResultadoLogin> IniciarSesionAsync(string email, string password, CancellationToken cancellationToken = default) =>
+        LoginAsync(email, password, cancellationToken);
 
     public async Task<ResultadoLogin> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
@@ -140,7 +172,7 @@ public class AuthService : IAuthService
             var usuarioId = ExtraerGuidClaim(claims, "sub", "usuario_id") ?? loginResult.UsuarioId;
             var repartidorId = ExtraerGuidClaim(claims, "repartidor_id", "sub") ?? loginResult.UsuarioId;
             var nombre = ExtraerStringClaim(claims, "name") ?? loginResult.Nombre;
-            var emailResuelto = ExtraerStringClaim(claims, "email") ?? loginResult.Email;
+            var emailResuelto = ExtraerStringClaim(claims, "email") ?? loginResult.Email ?? email.Trim();
             var tenantId = ExtraerGuidClaim(claims, "tenant_id", "operador_id") ?? loginResult.OperadorId;
             var expiraUtc = ExtraerExpiracionUtc(claims) ?? loginResult.ExpiraUtc;
             var perfilResuelto = !string.IsNullOrWhiteSpace(perfilIngresado)
@@ -158,8 +190,9 @@ public class AuthService : IAuthService
             AuthDelegatingHandler.CurrentTokenInMemory = token;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            // Persistir de forma segura en SecureStorage del dispositivo y en Preferences para lectura síncrona
+            // Persistir de forma segura la sesión activa en SecureStorage del dispositivo y en Preferences para lectura síncrona
             await GuardarEnSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey, token);
+            await GuardarEnSecureStorageAsync(AuthTokenActivoKey, token);
             await GuardarEnSecureStorageAsync(UsuarioIdKey, usuarioId.ToString());
             await GuardarEnSecureStorageAsync(RepartidorIdKey, repartidorId.ToString());
             await GuardarEnSecureStorageAsync(NombreKey, nombre);
@@ -179,7 +212,20 @@ public class AuthService : IAuthService
             var passwordHash = Convert.ToBase64String(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password)));
             await GuardarEnSecureStorageAsync(PasswordHashKey, passwordHash);
 
-            _logger.LogInformation("Sesión iniciada correctamente para el usuario {Email} (Perfil: {Perfil}, Tenant: {TenantId}).", emailResuelto, perfilResuelto, tenantId);
+            // Guardar siempre el vínculo biométrico en Android Keystore / SecureStorage tras un login válido
+            await GuardarVinculoBiometricoAsync(
+                token: token,
+                email: emailResuelto,
+                password: password,
+                passwordHash: passwordHash,
+                usuarioId: usuarioId,
+                repartidorId: repartidorId,
+                nombre: nombre,
+                perfil: perfilResuelto,
+                tenantId: tenantId,
+                expiraUtc: expiraUtc);
+
+            _logger.LogInformation("Sesión iniciada correctamente y vínculo biométrico actualizado para {Email} (Perfil: {Perfil}, Tenant: {TenantId}).", emailResuelto, perfilResuelto, tenantId);
 
             // Sincronizar dinámicamente la identidad visual del operador en segundo plano
             if (_themeService != null)
@@ -227,6 +273,358 @@ public class AuthService : IAuthService
         }
     }
 
+    private static async Task GuardarVinculoBiometricoAsync(
+        string token,
+        string? email,
+        string? password,
+        string? passwordHash,
+        Guid? usuarioId,
+        Guid? repartidorId,
+        string? nombre,
+        string? perfil,
+        Guid? tenantId,
+        DateTime expiraUtc)
+    {
+        await GuardarEnSecureStorageAsync(BiometriaHabilitadaKey, "true");
+        await GuardarEnSecureStorageAsync(BiometriaTokenSesionKey, token);
+        await GuardarEnSecureStorageAsync(BiometriaRefreshTokenKey, token);
+        await GuardarEnSecureStorageAsync(BiometriaUsuarioEmailKey, email);
+        await GuardarEnSecureStorageAsync(BiometriaNombreKey, nombre);
+        await GuardarEnSecureStorageAsync(BiometriaPerfilKey, perfil);
+        await GuardarEnSecureStorageAsync(BiometriaExpiraUtcKey, expiraUtc.ToUniversalTime().ToString("O"));
+
+        if (usuarioId.HasValue && usuarioId.Value != Guid.Empty)
+        {
+            await GuardarEnSecureStorageAsync(BiometriaUsuarioIdKey, usuarioId.Value.ToString());
+        }
+
+        if (repartidorId.HasValue && repartidorId.Value != Guid.Empty)
+        {
+            await GuardarEnSecureStorageAsync(BiometriaRepartidorIdKey, repartidorId.Value.ToString());
+        }
+
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            await GuardarEnSecureStorageAsync(BiometriaTenantIdKey, tenantId.Value.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(passwordHash))
+        {
+            await GuardarEnSecureStorageAsync(BiometriaPasswordHashKey, passwordHash);
+        }
+
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            await GuardarEnSecureStorageAsync(BiometriaCredencialKey, password);
+        }
+    }
+
+    public async Task<bool> TieneSesionBiometricaGuardadaAsync()
+    {
+        try
+        {
+            var habilitada = await LeerDeSecureStorageAsync(BiometriaHabilitadaKey);
+            var tokenBiometria = await LeerDeSecureStorageAsync(BiometriaTokenSesionKey);
+
+            if (string.Equals(habilitada, "true", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(tokenBiometria))
+            {
+                return true;
+            }
+
+            // Migración transparente si ya existía una sesión activa previa en este dispositivo
+            var tokenActivo = AccessToken ?? await LeerDeSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey);
+            if (!string.IsNullOrWhiteSpace(tokenActivo))
+            {
+                var claims = ParsearClaimsJwt(tokenActivo);
+                var expiraUtc = ExtraerExpiracionUtc(claims) ?? DateTime.UtcNow.AddDays(7);
+                var email = Email ?? await LeerDeSecureStorageAsync(EmailKey) ?? ExtraerStringClaim(claims, "email");
+                var nombre = Nombre ?? await LeerDeSecureStorageAsync(NombreKey) ?? ExtraerStringClaim(claims, "name");
+                var perfil = Perfil ?? await LeerDeSecureStorageAsync(PerfilKey) ?? ExtraerStringClaim(claims, "role", "perfil", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
+                var subGuid = ExtraerGuidClaim(claims, "sub", "usuario_id");
+                var uIdStr = await LeerDeSecureStorageAsync(UsuarioIdKey);
+                var rIdStr = await LeerDeSecureStorageAsync(RepartidorIdKey);
+                var tIdStr = await LeerDeSecureStorageAsync(TenantIdKey);
+                var pwdHash = await LeerDeSecureStorageAsync(PasswordHashKey);
+
+                await GuardarVinculoBiometricoAsync(
+                    token: tokenActivo,
+                    email: email,
+                    password: null,
+                    passwordHash: pwdHash,
+                    usuarioId: Guid.TryParse(uIdStr, out var uId) ? uId : subGuid,
+                    repartidorId: Guid.TryParse(rIdStr, out var rId) ? rId : subGuid,
+                    nombre: nombre,
+                    perfil: perfil,
+                    tenantId: Guid.TryParse(tIdStr, out var tId) ? tId : ExtraerGuidClaim(claims, "tenant_id", "operador_id"),
+                    expiraUtc: expiraUtc);
+
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error al consultar estado de sesión biométrica en SecureStorage.");
+            return false;
+        }
+    }
+
+    public async Task<string?> ObtenerEmailBiometricoGuardadoAsync()
+    {
+        return await LeerDeSecureStorageAsync(BiometriaUsuarioEmailKey);
+    }
+
+    public async Task<ResultadoLogin> RestaurarSesionBiometricaAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await TieneSesionBiometricaGuardadaAsync())
+        {
+            return new ResultadoLogin(
+                false,
+                "No hay una sesión guardada en este dispositivo. Ingresa primero con tu correo electrónico y contraseña para vincular tu huella.");
+        }
+
+        var tokenGuardado = await LeerDeSecureStorageAsync(BiometriaTokenSesionKey);
+        var emailGuardado = await LeerDeSecureStorageAsync(BiometriaUsuarioEmailKey);
+        var credencialGuardada = await LeerDeSecureStorageAsync(BiometriaCredencialKey);
+
+        if (string.IsNullOrWhiteSpace(tokenGuardado))
+        {
+            return new ResultadoLogin(
+                false,
+                "No hay una sesión guardada en este dispositivo. Ingresa primero con tu correo electrónico y contraseña para vincular tu huella.");
+        }
+
+        var claims = ParsearClaimsJwt(tokenGuardado);
+        var expiraUtc = ExtraerExpiracionUtc(claims);
+        if (!expiraUtc.HasValue)
+        {
+            var expStr = await LeerDeSecureStorageAsync(BiometriaExpiraUtcKey);
+            if (DateTime.TryParse(expStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedExp))
+            {
+                expiraUtc = parsedExp.ToUniversalTime();
+            }
+        }
+
+        var hayInternet = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+
+        if (hayInternet)
+        {
+            var tokenPorExpirarOVencido = expiraUtc.HasValue && DateTime.UtcNow >= expiraUtc.Value.AddMinutes(-15);
+
+            // Si el token está vencido/próximo a vencer y contamos con credencial en Keystore, renovamos el JWT contra la API
+            if (tokenPorExpirarOVencido &&
+                !string.IsNullOrWhiteSpace(emailGuardado) &&
+                !string.IsNullOrWhiteSpace(credencialGuardada))
+            {
+                var renovacion = await IntentarRenovarTokenConServidorAsync(emailGuardado, credencialGuardada, cancellationToken);
+                if (renovacion.NoAutorizadoPorServidor)
+                {
+                    await RevocarVinculoBiometricoAsync();
+                    return new ResultadoLogin(
+                        false,
+                        "La sesión guardada expiró o las credenciales fueron modificadas. Ingresa con tu correo electrónico y contraseña para vincular nuevamente tu huella.");
+                }
+
+                if (renovacion.Resultado is { Exitoso: true })
+                {
+                    return renovacion.Resultado;
+                }
+            }
+            else
+            {
+                // Validar el JWT guardado contra el endpoint de operador si hay red disponible
+                var validacionServidor = await ValidarTokenGuardadoContraServidorAsync(tokenGuardado, cancellationToken);
+                if (validacionServidor == EstadoValidacionTokenRemoto.NoAutorizado)
+                {
+                    if (!string.IsNullOrWhiteSpace(emailGuardado) && !string.IsNullOrWhiteSpace(credencialGuardada))
+                    {
+                        var renovacion = await IntentarRenovarTokenConServidorAsync(emailGuardado, credencialGuardada, cancellationToken);
+                        if (renovacion.Resultado is { Exitoso: true })
+                        {
+                            return renovacion.Resultado;
+                        }
+                    }
+
+                    await RevocarVinculoBiometricoAsync();
+                    return new ResultadoLogin(
+                        false,
+                        "La sesión biométrica fue revocada por el servidor (401). Ingresa con tu correo electrónico y contraseña para vincular nuevamente tu huella.");
+                }
+            }
+        }
+
+        // Restaurar sesión activa desde los datos biométricos guardados (soporta Modo Avión / Offline con SQLCipher)
+        var subGuid = ExtraerGuidClaim(claims, "sub", "usuario_id");
+        var usrStorage = await LeerDeSecureStorageAsync(BiometriaUsuarioIdKey);
+        var repStorage = await LeerDeSecureStorageAsync(BiometriaRepartidorIdKey);
+        var tenantStorage = await LeerDeSecureStorageAsync(BiometriaTenantIdKey);
+        var pwdHash = await LeerDeSecureStorageAsync(BiometriaPasswordHashKey);
+
+        var usuarioId = Guid.TryParse(usrStorage, out var uId) ? uId : subGuid;
+        var repartidorId = Guid.TryParse(repStorage, out var rId) ? rId : subGuid;
+        var nombre = await LeerDeSecureStorageAsync(BiometriaNombreKey) ?? ExtraerStringClaim(claims, "name");
+        var emailResuelto = emailGuardado ?? ExtraerStringClaim(claims, "email");
+        var tenantId = Guid.TryParse(tenantStorage, out var tId) ? tId : ExtraerGuidClaim(claims, "tenant_id", "operador_id");
+        var perfilResuelto = await LeerDeSecureStorageAsync(BiometriaPerfilKey)
+            ?? ExtraerStringClaim(claims, "role", "perfil", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
+        var expiracionEfectiva = expiraUtc ?? DateTime.UtcNow.AddDays(7);
+
+        AccessToken = tokenGuardado;
+        UsuarioId = usuarioId;
+        RepartidorId = repartidorId;
+        Nombre = nombre;
+        Email = emailResuelto;
+        TenantId = tenantId;
+        Perfil = perfilResuelto;
+        AuthDelegatingHandler.CurrentTokenInMemory = tokenGuardado;
+
+        await GuardarEnSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey, tokenGuardado);
+        await GuardarEnSecureStorageAsync(AuthTokenActivoKey, tokenGuardado);
+        if (usuarioId.HasValue)
+        {
+            await GuardarEnSecureStorageAsync(UsuarioIdKey, usuarioId.Value.ToString());
+        }
+        if (repartidorId.HasValue)
+        {
+            await GuardarEnSecureStorageAsync(RepartidorIdKey, repartidorId.Value.ToString());
+        }
+        await GuardarEnSecureStorageAsync(NombreKey, nombre);
+        await GuardarEnSecureStorageAsync(EmailKey, emailResuelto);
+        if (!string.IsNullOrWhiteSpace(perfilResuelto))
+        {
+            await GuardarEnSecureStorageAsync(PerfilKey, perfilResuelto);
+            Preferences.Default.Set("RolUsuario", perfilResuelto);
+        }
+        if (tenantId.HasValue)
+        {
+            await GuardarEnSecureStorageAsync(TenantIdKey, tenantId.Value.ToString());
+        }
+        await GuardarEnSecureStorageAsync(ExpiraUtcKey, expiracionEfectiva.ToUniversalTime().ToString("O"));
+        if (!string.IsNullOrWhiteSpace(pwdHash))
+        {
+            await GuardarEnSecureStorageAsync(PasswordHashKey, pwdHash);
+        }
+
+        if (_themeService != null && hayInternet)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _themeService.DescargarYActualizarIdentidadAsync();
+                }
+                catch
+                {
+                    // Ignorar fallo no crítico de branding en segundo plano
+                }
+            });
+        }
+
+        _logger.LogInformation("Sesión restaurada mediante biometría para {Email} (Perfil: {Perfil}).", emailResuelto, perfilResuelto);
+
+        return new ResultadoLogin(
+            Exitoso: true,
+            Mensaje: "Sesión restaurada con biometría.",
+            RepartidorId: repartidorId,
+            Nombre: nombre,
+            Email: emailResuelto,
+            TenantId: tenantId,
+            Perfil: perfilResuelto);
+    }
+
+    private enum EstadoValidacionTokenRemoto
+    {
+        Valido,
+        NoAutorizado,
+        IndeterminadoOffline
+    }
+
+    private async Task<EstadoValidacionTokenRemoto> ValidarTokenGuardadoContraServidorAsync(string token, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(6));
+
+            var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/mobile/v1/operador/identidad-visual");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await client.SendAsync(request, cts.Token);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                return EstadoValidacionTokenRemoto.NoAutorizado;
+            }
+
+            return EstadoValidacionTokenRemoto.Valido;
+        }
+        catch
+        {
+            return EstadoValidacionTokenRemoto.IndeterminadoOffline;
+        }
+    }
+
+    private async Task<(ResultadoLogin? Resultado, bool NoAutorizadoPorServidor)> IntentarRenovarTokenConServidorAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+            var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+            var payload = new LoginRequestDto(email.Trim(), password);
+
+            var response = await client.PostAsJsonAsync("/api/v1/auth/login", payload, cts.Token);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                response = await client.PostAsJsonAsync("/api/auth/login", payload, cts.Token);
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                return (null, true);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return (null, false);
+            }
+
+            var resultado = await LoginAsync(email, password, cts.Token);
+            return (resultado, false);
+        }
+        catch
+        {
+            return (null, false);
+        }
+    }
+
+    public Task RevocarVinculoBiometricoAsync()
+    {
+        EliminarDeSecureStorage(BiometriaHabilitadaKey);
+        EliminarDeSecureStorage(BiometriaUsuarioEmailKey);
+        EliminarDeSecureStorage(BiometriaTokenSesionKey);
+        EliminarDeSecureStorage(BiometriaRefreshTokenKey);
+        EliminarDeSecureStorage(BiometriaUsuarioIdKey);
+        EliminarDeSecureStorage(BiometriaRepartidorIdKey);
+        EliminarDeSecureStorage(BiometriaNombreKey);
+        EliminarDeSecureStorage(BiometriaPerfilKey);
+        EliminarDeSecureStorage(BiometriaTenantIdKey);
+        EliminarDeSecureStorage(BiometriaExpiraUtcKey);
+        EliminarDeSecureStorage(BiometriaPasswordHashKey);
+        EliminarDeSecureStorage(BiometriaCredencialKey);
+        return Task.CompletedTask;
+    }
+
     public async Task<bool> EstaAutenticadoAsync()
     {
         try
@@ -234,7 +632,8 @@ public class AuthService : IAuthService
             var token = AccessToken;
             if (string.IsNullOrWhiteSpace(token))
             {
-                token = await LeerDeSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey);
+                token = await LeerDeSecureStorageAsync(AuthDelegatingHandler.AuthTokenKey)
+                     ?? await LeerDeSecureStorageAsync(AuthTokenActivoKey);
             }
 
             if (string.IsNullOrWhiteSpace(token))
@@ -256,7 +655,7 @@ public class AuthService : IAuthService
 
             if (expiraUtc.HasValue && DateTime.UtcNow >= expiraUtc.Value)
             {
-                _logger.LogInformation("El token JWT almacenado ha expirado ({ExpiraUtc}). Limpiando sesión.", expiraUtc.Value);
+                _logger.LogInformation("El token JWT activo ha expirado ({ExpiraUtc}). Limpiando sesión activa.", expiraUtc.Value);
                 await LimpiarCredencialesAsync();
                 return false;
             }
@@ -282,6 +681,24 @@ public class AuthService : IAuthService
                 Preferences.Default.Set("RolUsuario", Perfil);
             }
 
+            // Asegurar que el vínculo biométrico esté sincronizado si había una sesión activa válida
+            var bioHabilitada = await LeerDeSecureStorageAsync(BiometriaHabilitadaKey);
+            if (!string.Equals(bioHabilitada, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                var pwdHash = await LeerDeSecureStorageAsync(PasswordHashKey);
+                await GuardarVinculoBiometricoAsync(
+                    token: token,
+                    email: Email,
+                    password: null,
+                    passwordHash: pwdHash,
+                    usuarioId: UsuarioId,
+                    repartidorId: RepartidorId,
+                    nombre: Nombre,
+                    perfil: Perfil,
+                    tenantId: TenantId,
+                    expiraUtc: expiraUtc ?? DateTime.UtcNow.AddDays(7));
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -298,10 +715,12 @@ public class AuthService : IAuthService
 
         RepartidorId = repartidorId;
         await GuardarEnSecureStorageAsync(RepartidorIdKey, repartidorId.ToString());
+        await GuardarEnSecureStorageAsync(BiometriaRepartidorIdKey, repartidorId.ToString());
     }
 
     public async Task CerrarSesionAsync()
     {
+        await DetenerServiciosActivosDeRutaAsync();
         await LimpiarCredencialesAsync();
 
         // El siguiente repartidor no debe ver la hoja de ruta del anterior. Si quedan operaciones sin enviar se conserva todo
@@ -332,6 +751,90 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task ManejarSesionDesplazadaAsync(string? motivo = null)
+    {
+        if (!await _desplazamientoLock.WaitAsync(0))
+        {
+            return;
+        }
+
+        try
+        {
+            var ahora = DateTimeOffset.UtcNow;
+            if ((ahora - _ultimoDesplazamientoUtc) < TimeSpan.FromSeconds(8))
+            {
+                return;
+            }
+
+            _ultimoDesplazamientoUtc = ahora;
+            _logger.LogWarning("Cerrando sesión local porque la cuenta inició sesión en otro dispositivo.");
+
+            // 1. Detener inmediatamente el servicio de geolocalización en segundo plano y cerrar SignalR
+            await DetenerServiciosActivosDeRutaAsync();
+
+            // 2. Limpiar únicamente el token activo en memoria/sesión sin borrar la cola local de operaciones pendientes en SQLCipher
+            await LimpiarCredencialesAsync();
+
+            // 3. Navegar limpiamente en el hilo principal hacia LoginPage y mostrar alerta corporativa
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        appShell.RestablecerPestanas();
+                    }
+
+                    if (Shell.Current is not null)
+                    {
+                        await Shell.Current.GoToAsync("//LoginPage");
+                        await Shell.Current.DisplayAlertAsync(
+                            "Sesión Cerrada",
+                            "Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo.",
+                            "Aceptar");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No fue posible presentar el aviso de sesión desplazada en pantalla.");
+                }
+            });
+        }
+        finally
+        {
+            _desplazamientoLock.Release();
+        }
+    }
+
+    private async Task DetenerServiciosActivosDeRutaAsync()
+    {
+        try
+        {
+            var trackingService = _serviceProvider?.GetService<IGeolocalizacionTrackingService>();
+            if (trackingService is not null)
+            {
+                await trackingService.DetenerTrackingAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error no bloqueante al detener geolocalización tras cierre/desplazamiento de sesión.");
+        }
+
+        try
+        {
+            var realtimeService = _serviceProvider?.GetService<IRealtimeTrackingService>();
+            if (realtimeService is not null)
+            {
+                await realtimeService.StopAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error no bloqueante al detener SignalR tras cierre/desplazamiento de sesión.");
+        }
+    }
+
     private async Task LimpiarCredencialesAsync()
     {
         AccessToken = null;
@@ -344,7 +847,10 @@ public class AuthService : IAuthService
         AuthDelegatingHandler.CurrentTokenInMemory = null;
         Preferences.Default.Remove("RolUsuario");
 
+        // Limpiar únicamente el token activo y datos de la sesión en curso.
+        // Las claves de vinculación biométrica (biometria_*) se conservan intactas en SecureStorage.
         EliminarDeSecureStorage(AuthDelegatingHandler.AuthTokenKey);
+        EliminarDeSecureStorage(AuthTokenActivoKey);
         EliminarDeSecureStorage(RepartidorIdKey);
         EliminarDeSecureStorage(UsuarioIdKey);
         EliminarDeSecureStorage(NombreKey);

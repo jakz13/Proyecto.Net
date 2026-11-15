@@ -11,6 +11,7 @@ using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
+using UltimaMilla.Mobile.Services.Updates;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -187,6 +188,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     private readonly IOperadorThemeService? _themeService;
     private readonly INotificacionLocalService? _notificacionService;
     private readonly IRealtimeTrackingService? _realtimeTrackingService;
+    private readonly IAppUpdateService? _appUpdateService;
 
     [ObservableProperty]
     private int _totalParadasCount;
@@ -352,6 +354,37 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _mostrarModalFinalizarRuta;
 
+    // --- MODAL 5: AUTO-ACTUALIZADOR IN-APP (OTA) ---
+    [ObservableProperty]
+    private bool _mostrarModalActualizacion;
+
+    [ObservableProperty]
+    private string _versionInstaladaTexto = AppInfo.Current.VersionString;
+
+    [ObservableProperty]
+    private string _versionNuevaTexto = AppInfo.Current.VersionString;
+
+    [ObservableProperty]
+    private string _notasActualizacionTexto = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoDescargandoActualizacion))]
+    private bool _descargandoActualizacion;
+
+    public bool NoDescargandoActualizacion => !DescargandoActualizacion;
+
+    [ObservableProperty]
+    private double _progresoDescargaActualizacion;
+
+    [ObservableProperty]
+    private string _porcentajeDescargaTexto = "0%";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeEstadoActualizacion))]
+    private string? _mensajeEstadoActualizacion;
+
+    public bool TieneMensajeEstadoActualizacion => !string.IsNullOrWhiteSpace(MensajeEstadoActualizacion);
+
     [ObservableProperty]
     private int _kpiEntregasExitosasCount;
 
@@ -495,7 +528,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ParadaItemViewModel> Paradas { get; } = new();
 
-    public RutaDiaViewModel() : this(null, null, null, null, null, null, null, null, null, null)
+    public RutaDiaViewModel() : this(null, null, null, null, null, null, null, null, null, null, null)
     {
     }
 
@@ -509,7 +542,8 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         IBiometricAuthService? biometricAuthService = null,
         IOperadorThemeService? themeService = null,
         INotificacionLocalService? notificacionService = null,
-        IRealtimeTrackingService? realtimeTrackingService = null)
+        IRealtimeTrackingService? realtimeTrackingService = null,
+        IAppUpdateService? appUpdateService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -521,6 +555,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         _themeService = themeService;
         _notificacionService = notificacionService;
         _realtimeTrackingService = realtimeTrackingService;
+        _appUpdateService = appUpdateService;
         _fechaHojaRuta = DateTime.Now.ToString("dd/MM/yyyy");
 
         if (_syncService != null)
@@ -706,6 +741,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             }
 
             ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+            _ = VerificarActualizacionSilenciosaAsync();
         }
         catch (Exception ex)
         {
@@ -746,6 +782,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 : (_localDatabaseService != null ? await _localDatabaseService.ObtenerCantidadPendientesAsync() : 0);
 
             ActualizarEstadoVisualConectividad(_syncService?.IsOnline ?? false, pendientes);
+            _ = VerificarActualizacionSilenciosaAsync();
         }
         catch (Exception ex)
         {
@@ -1250,6 +1287,122 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         MostrarModalBateria = false;
         MostrarModalGpsGeocercas = false;
         MostrarModalOptimizacion = false;
+        if (!DescargandoActualizacion)
+        {
+            MostrarModalActualizacion = false;
+        }
+    }
+
+    private async Task VerificarActualizacionSilenciosaAsync()
+    {
+        if (_appUpdateService is null || _appUpdateService.ActualizacionPospuestaEnSesion)
+        {
+            return;
+        }
+
+        try
+        {
+            var resultado = await _appUpdateService.VerificarActualizacionAsync();
+            if (resultado.HayActualizacionDisponible && !_appUpdateService.ActualizacionPospuestaEnSesion)
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    VersionInstaladaTexto = resultado.VersionInstaladaTexto;
+                    VersionNuevaTexto = resultado.VersionRemotaTexto;
+                    NotasActualizacionTexto = resultado.Notas;
+                    ProgresoDescargaActualizacion = 0.0;
+                    PorcentajeDescargaTexto = "0%";
+                    MensajeEstadoActualizacion = null;
+                    DescargandoActualizacion = false;
+                    MostrarModalActualizacion = true;
+                });
+            }
+        }
+        catch
+        {
+            // No interrumpir la vista operativa si no responde el servidor de actualizaciones
+        }
+    }
+
+    [RelayCommand]
+    private async Task BuscarActualizacionesDesdeMenuAsync()
+    {
+        MostrarMenuHerramientas = false;
+        if (_appUpdateService is null)
+        {
+            MostrarAvisoRapido("Servicio de actualización no disponible.", esExito: false);
+            return;
+        }
+
+        var resultado = await _appUpdateService.VerificarActualizacionAsync();
+        if (resultado.HayActualizacionDisponible)
+        {
+            VersionInstaladaTexto = resultado.VersionInstaladaTexto;
+            VersionNuevaTexto = resultado.VersionRemotaTexto;
+            NotasActualizacionTexto = resultado.Notas;
+            ProgresoDescargaActualizacion = 0.0;
+            PorcentajeDescargaTexto = "0%";
+            MensajeEstadoActualizacion = null;
+            DescargandoActualizacion = false;
+            MostrarModalActualizacion = true;
+        }
+        else
+        {
+            MostrarAvisoRapido(
+                resultado.MensajeEstado ?? $"La aplicación ya cuenta con la última versión instalada ({resultado.VersionInstaladaTexto}).");
+        }
+    }
+
+    [RelayCommand]
+    private async Task DescargarEInstalarActualizacionAsync()
+    {
+        if (_appUpdateService is null || DescargandoActualizacion)
+        {
+            return;
+        }
+
+        try
+        {
+            DescargandoActualizacion = true;
+            MensajeEstadoActualizacion = "Descargando paquete de actualización...";
+            ProgresoDescargaActualizacion = 0.0;
+            PorcentajeDescargaTexto = "0%";
+
+            var progreso = new Progress<double>(valor =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    ProgresoDescargaActualizacion = Math.Clamp(valor, 0.0, 1.0);
+                    PorcentajeDescargaTexto = $"{Math.Round(ProgresoDescargaActualizacion * 100)}%";
+                });
+            });
+
+            var ok = await _appUpdateService.DescargarEInstalarAsync(progreso);
+            if (!ok)
+            {
+                MensajeEstadoActualizacion = _appUpdateService.UltimoErrorDescarga
+                    ?? "No fue posible descargar o iniciar el instalador. Verifique su conexión e intente nuevamente.";
+            }
+            else
+            {
+                MensajeEstadoActualizacion = "Integridad SHA-256 verificada. Instalador iniciado correctamente.";
+            }
+        }
+        finally
+        {
+            DescargandoActualizacion = false;
+        }
+    }
+
+    [RelayCommand]
+    private void PosponerActualizacion()
+    {
+        if (_appUpdateService is not null)
+        {
+            _appUpdateService.ActualizacionPospuestaEnSesion = true;
+        }
+
+        MostrarModalActualizacion = false;
     }
 
     [RelayCommand]

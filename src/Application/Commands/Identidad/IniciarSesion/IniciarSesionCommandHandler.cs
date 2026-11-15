@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Identidad;
@@ -19,6 +20,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IComercioOperadorRepository? _comercioOperadorRepository;
+    private readonly IDistributedCacheService? _cache;
 
     // Compartido por todas las instancias del manejador: se calcula una sola vez (la carrera entre dos pedidos simultáneos es inocua)
     private static string? HashFicticio;
@@ -32,9 +34,11 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         ITokenJwtService tokenJwtService,
         IClock clock,
         IUnitOfWork unitOfWork,
-        IComercioOperadorRepository? comercioOperadorRepository = null)
+        IComercioOperadorRepository? comercioOperadorRepository = null,
+        IDistributedCacheService? cache = null)
     {
         _comercioOperadorRepository = comercioOperadorRepository;
+        _cache = cache;
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _tokenJwtService = tokenJwtService ?? throw new ArgumentNullException(nameof(tokenJwtService));
@@ -126,12 +130,25 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
             comercioOperadorId = relacion?.Id;
         }
 
-        // Generar token JWT con los claims requeridos
+        // Generar identificador único de sesión para política de sesión única activa por usuario
+        string sessionId = Guid.NewGuid().ToString("N");
+
+        // Generar token JWT con los claims requeridos e identificador de sesión ("sid" / "jti")
         var tokenGenerado = _tokenJwtService.GenerarToken(
             usuario,
             perfil ?? new Perfil(usuario.PerfilId, nombrePerfil, string.Empty),
             codigosPermisos,
-            comercioOperadorId: comercioOperadorId);
+            comercioOperadorId: comercioOperadorId,
+            sessionId: sessionId);
+
+        if (_cache is not null)
+        {
+            await _cache.SetAsync(
+                ClavesCache.SesionActivaUsuario(usuario.Id),
+                sessionId,
+                ClavesCache.ExpiracionSesionActiva,
+                cancellationToken);
+        }
 
         return new IniciarSesionResultadoDto(
             tokenGenerado.Token,

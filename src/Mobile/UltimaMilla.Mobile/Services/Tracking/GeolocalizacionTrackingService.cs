@@ -428,6 +428,13 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 string canalTexto = transmitidaSignalR ? "HTTP 200 / SignalR" : "HTTP 200";
                 detalleServidor = $"Servidor: Enviado OK ({canalTexto})";
             }
+            else if (respHttp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                detalleServidor = "Servidor: Sesión finalizada (401)";
+                _ultimoEstadoServidorTexto = detalleServidor;
+                _ = Task.Run(() => DetenerTrackingAsync());
+                return evaluacion;
+            }
             else
             {
                 detalleServidor = $"Servidor: Error {(int)respHttp.StatusCode}";

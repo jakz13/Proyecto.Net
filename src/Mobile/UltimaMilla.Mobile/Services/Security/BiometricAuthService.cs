@@ -34,6 +34,11 @@ public class BiometricAuthService : IBiometricAuthService
         }
     }
 
+    public Task<bool> AutenticarAsync(string motivo)
+    {
+        return ValidarIdentidadAsync("Ingreso con Biometría", motivo);
+    }
+
     public async Task<bool> ValidarIdentidadAsync(string titulo, string motivo)
     {
         if (Shell.Current is null)
@@ -78,9 +83,7 @@ public class BiometricAuthService : IBiometricAuthService
 
                     prompt.Authenticate(cancellationSignal, mainExecutor, callback);
 
-                    var resultadoPrompt = await tcs.Task;
-                    if (resultadoPrompt)
-                        return true;
+                    return await tcs.Task;
                 }
             }
         }
@@ -117,6 +120,11 @@ public class BiometricAuthService : IBiometricAuthService
             return false;
 
         var storedHash = await SecureStorage.Default.GetAsync(AuthService.PasswordHashKey);
+        if (string.IsNullOrWhiteSpace(storedHash))
+        {
+            storedHash = await SecureStorage.Default.GetAsync(AuthService.BiometriaPasswordHashKey);
+        }
+
         if (string.IsNullOrWhiteSpace(storedHash))
         {
             return false;
@@ -200,6 +208,11 @@ public class BiometricAuthService : IBiometricAuthService
         return Task.FromResult(true);
     }
 
+    public Task<bool> AutenticarAsync(string motivo)
+    {
+        return ValidarIdentidadAsync("Ingreso con Biometría", motivo);
+    }
+
     public async Task<bool> ValidarIdentidadAsync(string titulo, string motivo)
     {
         if (Shell.Current is null)
@@ -222,6 +235,11 @@ public class BiometricAuthService : IBiometricAuthService
             return false;
 
         var storedHash = await SecureStorage.Default.GetAsync(AuthService.PasswordHashKey);
+        if (string.IsNullOrWhiteSpace(storedHash))
+        {
+            storedHash = await SecureStorage.Default.GetAsync(AuthService.BiometriaPasswordHashKey);
+        }
+
         if (string.IsNullOrWhiteSpace(storedHash))
         {
             return false;

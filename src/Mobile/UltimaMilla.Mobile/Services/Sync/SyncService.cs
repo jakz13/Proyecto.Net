@@ -217,7 +217,7 @@ public class SyncService : ISyncService, IDisposable
     {
         var rutasDescargadas = new List<RutaActivaRepartidorDto>();
 
-        if (!IsOnline)
+        if (!IsOnline || string.IsNullOrWhiteSpace(_authService.AccessToken))
         {
             return rutasDescargadas;
         }
@@ -238,6 +238,10 @@ public class SyncService : ISyncService, IDisposable
             // 1. Intentar consultar endpoint que devuelve todas las rutas activas/vigentes del repartidor: GET /api/mobile/v1/rutas/activas
             bool servidorRespondioLista = false;
             var responseActivas = await client.GetAsync("/api/mobile/v1/rutas/activas", cancellationToken);
+            if (responseActivas.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                return rutasDescargadas;
+            }
             if (responseActivas.IsSuccessStatusCode)
             {
                 var lista = await responseActivas.Content.ReadFromJsonAsync<List<RutaActivaRepartidorDto>>(JsonOptions, cancellationToken);
@@ -739,6 +743,12 @@ public class SyncService : ISyncService, IDisposable
                             {
                                 await _localDatabaseService.MarcarComoSincronizadosAsync(idsLote);
                                 exitosas += lote.Length;
+                            }
+                            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                            {
+                                _logger.LogWarning("Sincronización de lote GPS pausada por respuesta 401 Unauthorized (sesión desplazada o vencida).");
+                                detenidoPorCorteDeRed = true;
+                                break;
                             }
                             else
                             {
@@ -1417,6 +1427,13 @@ public class SyncService : ISyncService, IDisposable
         var error = await response.Content.ReadAsStringAsync(ct);
         var status = (int)response.StatusCode;
         var detalle = $"{nombreOp} (Op #{op.Id}): HTTP {status} - {error}";
+
+        // Si la sesión fue desplazada o revocada (HTTP 401), conservar intacta la operación en la cola local sin marcar error de negocio
+        if (status == (int)System.Net.HttpStatusCode.Unauthorized)
+        {
+            _logger.LogWarning("Operación {Nombre} (Op #{Id}) retenida en cola local por HTTP 401 Unauthorized.", nombreOp, op.Id);
+            throw new HttpRequestException("Sesión no autorizada o desplazada en otro dispositivo (401).");
+        }
 
         bool esDefinitivo = status is 400 or 404 or 409;
         bool mencionaRendidaOCerrada =

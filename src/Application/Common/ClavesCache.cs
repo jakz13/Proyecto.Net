@@ -12,7 +12,13 @@ public static class ClavesCache
     public const string CasoUsoSeguimientoPublico = "seguimiento_publico";
     public const string CasoUsoCuadroTarifario = "cuadro_tarifario";
     public const string CasoUsoIdentidadVisual = "identidad_visual";
+    public const string CasoUsoSesionActiva = "sesion_activa";
     public const string CasoUsoGeneral = "general";
+
+    /// <summary>
+    /// Expiración para la sesión única activa de un usuario (ligeramente superior a las 8 horas de vigencia del JWT).
+    /// </summary>
+    public static readonly TimeSpan ExpiracionSesionActiva = TimeSpan.FromHours(8.5);
 
     /// <summary>
     /// Expiración para la identidad visual del operador en caché distribuido; se invalida inmediatamente por API y Worker al actualizarse.
@@ -57,6 +63,9 @@ public static class ClavesCache
     public static string IdentidadVisualPorOperador(Guid operadorId) =>
         $"identidad-visual:operador:{operadorId:N}";
 
+    public static string SesionActivaUsuario(Guid usuarioId) =>
+        $"sesion:activa:usuario:{usuarioId}";
+
     public static string DeterminarCasoDeUso(string? clave)
     {
         if (string.IsNullOrWhiteSpace(clave))
@@ -76,6 +85,11 @@ public static class ClavesCache
         if (clave.StartsWith("identidad-visual:", StringComparison.OrdinalIgnoreCase))
         {
             return CasoUsoIdentidadVisual;
+        }
+
+        if (clave.StartsWith("sesion:activa:", StringComparison.OrdinalIgnoreCase))
+        {
+            return CasoUsoSesionActiva;
         }
 
         return CasoUsoGeneral;

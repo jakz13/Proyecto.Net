@@ -388,6 +388,7 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.UseMiddleware<UltimaMilla.Api.Auth.UsuarioActivoMiddleware>();
+app.UseMiddleware<UltimaMilla.Api.Auth.SesionUnicaActivaMiddleware>();
 app.UseMiddleware<UltimaMilla.Api.Auth.ComercioActivoMiddleware>();
 
 // Auto-migrate database on startup with resilience retry and idempotent seed data

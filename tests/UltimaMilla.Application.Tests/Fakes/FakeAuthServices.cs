@@ -14,6 +14,7 @@ public class FakePasswordHasherService : IPasswordHasherService
 public class FakeTokenJwtService : ITokenJwtService
 {
     public Guid? UltimoComercioOperadorId { get; private set; }
+    public string? UltimoSessionId { get; private set; }
 
     public TokenGeneradoDto GenerarToken(
         Usuario usuario,
@@ -21,9 +22,11 @@ public class FakeTokenJwtService : ITokenJwtService
         IReadOnlyCollection<string> codigosPermisos,
         TimeSpan? tiempoExpiracion = null,
         Guid? comercioOperadorId = null,
-        Guid? operadorId = null)
+        Guid? operadorId = null,
+        string? sessionId = null)
     {
         UltimoComercioOperadorId = comercioOperadorId;
+        UltimoSessionId = sessionId;
         var expira = DateTime.UtcNow.Add(tiempoExpiracion ?? TimeSpan.FromHours(8));
         return new TokenGeneradoDto($"fake.jwt.token.{usuario.Id}.{perfil.Nombre}", expira);
     }

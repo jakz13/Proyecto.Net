@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UltimaMilla.Api.Auth;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Frontend.Contracts.Modelos;
 using UltimaMilla.Infrastructure.Persistence;
@@ -58,6 +59,7 @@ public static class ComercioOperadoresEndpoints
             ICurrentTenant tenant,
             IUsuarioRepository usuarios,
             ITokenJwtService tokens,
+            IDistributedCacheService cache,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var comercioId = await ComercioDelUsuarioAsync(db, tenant, ct);
@@ -78,12 +80,20 @@ public static class ComercioOperadoresEndpoints
 
             var perfil = await usuarios.ObtenerPerfilPorIdAsync(usuario.PerfilId, ct);
             var permisos = (await usuarios.ObtenerPermisosDePerfilAsync(usuario.PerfilId, ct)).Select(p => p.Codigo).ToList();
+            var sessionId = Guid.NewGuid().ToString("N");
             var token = tokens.GenerarToken(
                 usuario,
                 perfil ?? new UltimaMilla.Domain.Entities.Identidad.Perfil(usuario.PerfilId, PoliticasApi.RolComercio, string.Empty),
                 permisos,
                 comercioOperadorId: vinculo!.Id,
-                operadorId: operadorId);
+                operadorId: operadorId,
+                sessionId: sessionId);
+
+            await cache.SetAsync(
+                ClavesCache.SesionActivaUsuario(usuario.Id),
+                sessionId,
+                ClavesCache.ExpiracionSesionActiva,
+                ct);
 
             return Results.Ok(new SesionOperadorDto { Token = token.Token, OperadorId = operadorId.ToString(), ExpiraUtc = token.ExpiraUtc });
         }))

@@ -80,13 +80,15 @@ public class TokenJwtService : ITokenJwtService
         IReadOnlyCollection<string> codigosPermisos,
         TimeSpan? tiempoExpiracion = null,
         Guid? comercioOperadorId = null,
-        Guid? operadorId = null)
+        Guid? operadorId = null,
+        string? sessionId = null)
     {
         ArgumentNullException.ThrowIfNull(usuario);
         ArgumentNullException.ThrowIfNull(perfil);
 
         var ahoraUtc = DateTime.UtcNow;
         var expiraUtc = ahoraUtc.Add(tiempoExpiracion ?? DuracionDefecto);
+        var sid = !string.IsNullOrWhiteSpace(sessionId) ? sessionId.Trim() : Guid.NewGuid().ToString("N");
 
         var header = new Dictionary<string, object>
         {
@@ -97,6 +99,8 @@ public class TokenJwtService : ITokenJwtService
         var payload = new Dictionary<string, object>
         {
             { "sub", usuario.Id.ToString() },
+            { "sid", sid },
+            { "jti", sid },
             { "name", usuario.Nombre },
             { "email", usuario.Email },
             { "role", perfil.RolDeAutorizacion },
@@ -203,7 +207,30 @@ public class TokenJwtService : ITokenJwtService
             var claims = new List<Claim>();
 
             if (raiz.TryGetProperty("sub", out var sub))
-                claims.Add(new Claim(ClaimTypes.NameIdentifier, sub.GetString() ?? string.Empty));
+            {
+                var valorSub = sub.GetString() ?? string.Empty;
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, valorSub));
+                claims.Add(new Claim("sub", valorSub));
+            }
+
+            if (raiz.TryGetProperty("sid", out var sidElement) && sidElement.ValueKind == JsonValueKind.String)
+            {
+                var valorSid = sidElement.GetString();
+                if (!string.IsNullOrWhiteSpace(valorSid))
+                {
+                    claims.Add(new Claim("sid", valorSid));
+                    claims.Add(new Claim("jti", valorSid));
+                }
+            }
+            else if (raiz.TryGetProperty("jti", out var jtiElement) && jtiElement.ValueKind == JsonValueKind.String)
+            {
+                var valorJti = jtiElement.GetString();
+                if (!string.IsNullOrWhiteSpace(valorJti))
+                {
+                    claims.Add(new Claim("sid", valorJti));
+                    claims.Add(new Claim("jti", valorJti));
+                }
+            }
 
             if (raiz.TryGetProperty("name", out var name))
                 claims.Add(new Claim(ClaimTypes.Name, name.GetString() ?? string.Empty));
