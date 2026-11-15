@@ -256,6 +256,11 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
             var payload = new { operadorId, timestamp = DateTime.UtcNow };
             await _hubContext.Clients.Groups(grupos).SendAsync(EventoIdentidadVisualActualizada, payload, ct);
             await _hubContext.Clients.Groups(grupos).SendAsync(EventoOperadoresDelComercio, payload, ct);
+            if (_operacionHub is not null)
+            {
+                await _operacionHub.Clients.Group($"operador-{operadorId}")
+                    .SendAsync(EventoIdentidadVisualActualizada, payload, ct);
+            }
         }
         catch (Exception ex)
         {

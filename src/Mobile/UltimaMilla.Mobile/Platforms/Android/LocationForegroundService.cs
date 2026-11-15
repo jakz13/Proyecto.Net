@@ -17,7 +17,7 @@ public class LocationForegroundService : Service
 {
     private const int NotificationId = 1001;
     private const string ChannelId = "ultimamilla_gps_channel";
-    private const string ChannelName = "Telemetria de Ruta Activa";
+    private const string ChannelName = "Telemetría de Ruta Activa";
 
     private PowerManager.WakeLock? _wakeLock;
     private CancellationTokenSource? _supervisionCts;
@@ -47,8 +47,8 @@ public class LocationForegroundService : Service
             if (OperatingSystem.IsAndroidVersionAtLeast(26))
             {
                 notification = new Notification.Builder(this, ChannelId)
-                    .SetContentTitle("Operacion en Ruta Activa")
-                    .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
+                    .SetContentTitle("Operación en Ruta Activa")
+                    .SetContentText("Reportando posición GPS del vehículo en segundo plano")
                     .SetSmallIcon(iconResId)
                     .SetOngoing(true)
                     .SetContentIntent(pendingIntent)
@@ -57,8 +57,8 @@ public class LocationForegroundService : Service
             else
             {
                 notification = new Notification.Builder(this)
-                    .SetContentTitle("Operacion en Ruta Activa")
-                    .SetContentText("Reportando posicion GPS del vehiculo en segundo plano")
+                    .SetContentTitle("Operación en Ruta Activa")
+                    .SetContentText("Reportando posición GPS del vehículo en segundo plano")
                     .SetSmallIcon(iconResId)
                     .SetOngoing(true)
                     .SetContentIntent(pendingIntent)
@@ -103,7 +103,7 @@ public class LocationForegroundService : Service
                 ChannelName,
                 NotificationImportance.Low)
             {
-                Description = "Canal de telemetria para seguimiento continuo en segundo plano"
+                Description = "Canal de telemetría para seguimiento continuo en segundo plano"
             };
 
             var notificationManager = (NotificationManager?)GetSystemService(NotificationService);
@@ -167,7 +167,11 @@ public class LocationForegroundService : Service
                             var syncService = services.GetService<ISyncService>();
                             if (syncService is not null)
                             {
-                                await syncService.DescargarYActualizarRutasDelServidorAsync(ct);
+                                if (await syncService.ObtenerCantidadPendientesAsync() > 0)
+                                    await syncService.SincronizarOperacionesPendientesAsync(ct);
+
+                                if (!authService.EsOperarioODeposito)
+                                    await syncService.DescargarYActualizarRutasDelServidorAsync(ct);
                             }
                         }
                     }

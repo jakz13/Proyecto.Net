@@ -8,6 +8,7 @@ using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Handlers;
 using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Sync;
+using UltimaMilla.Mobile.Services.Theme;
 
 namespace UltimaMilla.Mobile.Services.Realtime;
 
@@ -183,6 +184,23 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
             _logger.LogInformation("SignalR: RutaActualizada {HojaDeRutaId}", info.HojaDeRutaId);
             await RefrescarRutasSilenciosamenteAsync();
+        });
+
+        _hubConnection.On<JsonElement>("IdentidadVisualActualizada", async (_) =>
+        {
+            _logger.LogInformation("SignalR: IdentidadVisualActualizada recibida. Actualizando tema visual del operador...");
+            var themeService = _serviceProvider?.GetService<IOperadorThemeService>();
+            if (themeService is not null)
+            {
+                try
+                {
+                    await themeService.SincronizarIdentidadVisualAsync();
+                }
+                catch (Exception exTheme)
+                {
+                    _logger.LogWarning(exTheme, "SignalR: No se pudo actualizar la identidad visual desde SignalR.");
+                }
+            }
         });
 
         _hubConnection.Reconnecting += error =>

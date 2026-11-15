@@ -73,6 +73,7 @@ public class SyncService : ISyncService, IDisposable
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
     private readonly SemaphoreSlim _downloadRoutesSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _alertasRutaEmitidas = new();
+    private readonly CancellationTokenSource _autoSyncCts = new();
 
     private bool _isOfflineSimulado = false;
     private bool _isSyncing = false;
@@ -120,6 +121,7 @@ public class SyncService : ISyncService, IDisposable
         _notificacionService = notificacionService;
 
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        _ = IniciarBucleSincronizacionAutomaticaAsync(_autoSyncCts.Token);
     }
 
     public void RegistrarNotificacionRutaEmitida(Guid hojaDeRutaId, string tipoEvento)
@@ -150,29 +152,79 @@ public class SyncService : ISyncService, IDisposable
         await NotificarCambioEstadoAsync();
 
         // Disparar sincronización automática en segundo plano cuando la señal vuelve
-        if (IsOnline)
+        if (IsOnline && !string.IsNullOrWhiteSpace(_authService.AccessToken))
         {
             _ = Task.Run(async () =>
             {
                 try
                 {
                     _logger.LogInformation("Conexión restablecida. Iniciando sincronización automática de operaciones pendientes...");
-                    var resultado = await SincronizarOperacionesPendientesAsync();
-                    if (resultado.Exitosas > 0 && _notificacionService is not null)
-                    {
-                        await _notificacionService.MostrarNotificacionOperativaAsync(
-                            "Sincronización Offline Completada",
-                            $"Se transmitieron {resultado.Exitosas} operaciones pendientes a la central correctamente.",
-                            "SINCRONIZACION");
-                    }
-
-                    await DescargarYActualizarRutasDelServidorAsync();
+                    await EjecutarCicloSincronizacionAutomaticaAsync(_autoSyncCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Cancelación normal al liberar el servicio
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error durante la sincronización automática reactiva de red.");
                 }
             });
+        }
+    }
+
+    private async Task IniciarBucleSincronizacionAutomaticaAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(25));
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                try
+                {
+                    await EjecutarCicloSincronizacionAutomaticaAsync(ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Ciclo automático de sincronización omitido por error transitorio.");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Salida limpia al destruir el servicio
+        }
+    }
+
+    private async Task EjecutarCicloSincronizacionAutomaticaAsync(CancellationToken ct)
+    {
+        if (_disposed || ct.IsCancellationRequested || !IsOnline || string.IsNullOrWhiteSpace(_authService.AccessToken))
+            return;
+
+        if (await _localDatabaseService.ObtenerCantidadPendientesAsync() > 0)
+        {
+            var resultado = await SincronizarOperacionesPendientesAsync(ct);
+            if (resultado.Exitosas > 0 && _notificacionService is not null)
+            {
+                await _notificacionService.MostrarNotificacionOperativaAsync(
+                    "Sincronización Offline Completada",
+                    $"Se transmitieron {resultado.Exitosas} operaciones pendientes a la central correctamente.",
+                    "SINCRONIZACION");
+            }
+        }
+
+        if (_authService.EsOperarioODeposito)
+        {
+            if (_themeService is not null)
+                await _themeService.SincronizarIdentidadVisualAsync(ct);
+        }
+        else
+        {
+            await DescargarYActualizarRutasDelServidorAsync(ct);
         }
     }
 
@@ -1725,9 +1777,19 @@ public class SyncService : ISyncService, IDisposable
     {
         if (!_disposed)
         {
-            Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
-            _syncSemaphore.Dispose();
             _disposed = true;
+            Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+            try
+            {
+                _autoSyncCts.Cancel();
+            }
+            catch
+            {
+                // Ignorar cancelación duplicada
+            }
+            _autoSyncCts.Dispose();
+            _syncSemaphore.Dispose();
+            _downloadRoutesSemaphore.Dispose();
         }
         GC.SuppressFinalize(this);
     }

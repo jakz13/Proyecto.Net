@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Mobile.Responsive;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Realtime;
+using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 
 namespace UltimaMilla.Mobile;
@@ -79,7 +81,31 @@ public partial class App : Application
             var authService = _serviceProvider.GetService<IAuthService>();
             if (authService is not null)
             {
-                await authService.ValidarSesionVigenteEnServidorAsync();
+                var vigente = await authService.ValidarSesionVigenteEnServidorAsync();
+                if (!vigente || string.IsNullOrWhiteSpace(authService.AccessToken))
+                    return;
+
+                var realtime = _serviceProvider.GetService<IRealtimeTrackingService>();
+                if (realtime is not null)
+                {
+                    _ = realtime.StartAsync();
+                }
+
+                var themeService = _themeService ?? _serviceProvider.GetService<IOperadorThemeService>();
+                if (themeService is not null)
+                {
+                    await themeService.SincronizarIdentidadVisualAsync();
+                }
+
+                var syncService = _serviceProvider.GetService<ISyncService>();
+                if (syncService is not null && syncService.IsOnline)
+                {
+                    if (await syncService.ObtenerCantidadPendientesAsync() > 0)
+                        await syncService.SincronizarOperacionesPendientesAsync();
+
+                    if (!authService.EsOperarioODeposito)
+                        await syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
             }
         }
         catch (Exception ex)

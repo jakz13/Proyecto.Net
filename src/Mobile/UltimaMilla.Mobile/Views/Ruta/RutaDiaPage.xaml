@@ -112,19 +112,6 @@
                                 MinimumHeightRequest="30"
                                 Padding="10,0"
                                 VerticalOptions="Center" />
-
-                        <!-- Acción Unificada de Sincronización -->
-                        <Button Text="Sincronizar"
-                                Command="{Binding ActualizarRutasServidorCommand}"
-                                BackgroundColor="{DynamicResource SecondaryColor}"
-                                TextColor="#FFFFFF"
-                                FontSize="11"
-                                FontAttributes="Bold"
-                                CornerRadius="8"
-                                HeightRequest="32"
-                                MinimumHeightRequest="30"
-                                Padding="12,0"
-                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
                 </FlexLayout>
 
@@ -297,37 +284,35 @@
         <!-- ========================================================= -->
         <Grid Grid.Row="2">
             <!-- Estado Vacío: Sin Ruta Asignada o Todas Finalizadas -->
-            <ScrollView IsVisible="{Binding SinRutaAsignada}">
-                <VerticalStackLayout Spacing="16"
-                                     VerticalOptions="Center"
-                                     HorizontalOptions="Center"
-                                     Padding="20">
-                    <Border Stroke="{DynamicResource CardBorderColor}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 8"
-                            BackgroundColor="#FFFFFF"
-                            Padding="24"
-                            MaximumWidthRequest="400">
-                        <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
-                            <Label Text="Hoja de ruta finalizada. No posee nuevas rutas asignadas por el momento."
-                                   FontSize="15"
-                                   FontAttributes="Bold"
-                                   TextColor="#0F172A"
-                                   HorizontalTextAlignment="Center" />
-                            <Label Text="Las entregas y retornos de su última hoja de ruta han sido completados y rendidos en depósito. Si la central le asigna un nuevo viaje, toque el botón a continuación para sincronizar."
-                                   FontSize="12"
-                                   TextColor="#64748B"
-                                   HorizontalTextAlignment="Center" />
-                            <Button Text="Buscar Nueva Ruta Asignada"
-                                    Command="{Binding ActualizarRutasServidorCommand}"
-                                    Style="{StaticResource PrimaryButton}"
-                                    CornerRadius="8"
-                                    HeightRequest="46"
-                                    Margin="0,6,0,0" />
-                        </VerticalStackLayout>
-                    </Border>
-                </VerticalStackLayout>
-            </ScrollView>
+            <RefreshView IsVisible="{Binding SinRutaAsignada}"
+                         IsRefreshing="{Binding IsRefreshing}"
+                         Command="{Binding ActualizarRutasServidorCommand}">
+                <ScrollView>
+                    <VerticalStackLayout Spacing="16"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Padding="20">
+                        <Border Stroke="{DynamicResource CardBorderColor}"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                BackgroundColor="#FFFFFF"
+                                Padding="24"
+                                MaximumWidthRequest="400">
+                            <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
+                                <Label Text="Hoja de ruta finalizada. No posee nuevas rutas asignadas por el momento."
+                                       FontSize="15"
+                                       FontAttributes="Bold"
+                                       TextColor="#0F172A"
+                                       HorizontalTextAlignment="Center" />
+                                <Label Text="Las entregas y retiros de su última hoja de ruta han sido completados. Cuando la central le asigne un nuevo viaje aparecerá automáticamente en pantalla."
+                                       FontSize="12"
+                                       TextColor="#64748B"
+                                       HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </ScrollView>
+            </RefreshView>
 
             <!-- LISTA DE PARADAS (ESTILO PANEL-ESTANDAR DEL BACKOFFICE) -->
             <RefreshView IsVisible="{Binding HayRutaAsignada}"
@@ -537,17 +522,6 @@
                                     HeightRequest="48"
                                     CornerRadius="8"
                                     IsVisible="{Binding PuedeFinalizarRuta}" />
-
-                            <Button Text="Sincronizar Rutas e Identidad Visual"
-                                    Command="{Binding ActualizarRutasServidorCommand}"
-                                    BackgroundColor="{DynamicResource SecondarySoftBackground}"
-                                    TextColor="{DynamicResource SecondaryColor}"
-                                    BorderColor="{DynamicResource SecondaryColor}"
-                                    BorderWidth="1.2"
-                                    FontAttributes="Bold"
-                                    FontSize="12.5"
-                                    HeightRequest="42"
-                                    CornerRadius="8" />
                         </VerticalStackLayout>
                     </CollectionView.Footer>
                 </CollectionView>
@@ -648,29 +622,6 @@
                             </Grid>
                         </Border>
 
-                        <!-- Opción 3: Forzar Envío GPS Ahora -->
-                        <Border StrokeShape="RoundRectangle 8"
-                                Stroke="#E2E8F0"
-                                StrokeThickness="1"
-                                BackgroundColor="#F8FAFC"
-                                Padding="12,10">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding ForzarEnvioGpsDesdeMenuCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
-                                <VerticalStackLayout Spacing="2">
-                                    <Label Text="Forzar Envío GPS Ahora"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           TextColor="#0F172A" />
-                                    <Label Text="Transmitir coordenadas actuales de forma inmediata"
-                                           FontSize="11"
-                                           TextColor="#64748B" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
-                            </Grid>
-                        </Border>
-
                         <!-- Opción 3: Optimizar Orden 2-Opt -->
                         <Border StrokeShape="RoundRectangle 8"
                                 Stroke="#E2E8F0"
@@ -710,29 +661,6 @@
                                            FontAttributes="Bold"
                                            TextColor="#0F172A" />
                                     <Label Text="Informar retorno y llegada al depósito de origen"
-                                           FontSize="11"
-                                           TextColor="#64748B" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Text="›" FontSize="18" TextColor="{DynamicResource SecondaryColor}" FontAttributes="Bold" VerticalOptions="Center" />
-                            </Grid>
-                        </Border>
-
-                        <!-- Opción 5: Probar Notificación Operativa -->
-                        <Border StrokeShape="RoundRectangle 8"
-                                Stroke="#E2E8F0"
-                                StrokeThickness="1"
-                                BackgroundColor="#F8FAFC"
-                                Padding="12,10">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding ProbarNotificacionOperativaCommand}" />
-                            </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
-                                <VerticalStackLayout Spacing="2">
-                                    <Label Text="Probar Notificación Operativa"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           TextColor="#0F172A" />
-                                    <Label Text="Emitir alerta local en barra del sistema y banner UI"
                                            FontSize="11"
                                            TextColor="#64748B" />
                                 </VerticalStackLayout>
@@ -1140,28 +1068,16 @@
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
 
-                            <!-- Botones de Acción -->
-                            <Grid ColumnDefinitions="*, *" ColumnSpacing="8" Margin="0,6,0,0">
-                                <Button Grid.Column="0"
-                                        Text="Forzar Lectura GPS"
-                                        Command="{Binding ForzarLecturaGpsDesdeModalCommand}"
-                                        BackgroundColor="{DynamicResource SecondaryColor}"
-                                        TextColor="#FFFFFF"
-                                        FontAttributes="Bold"
-                                        FontSize="11.5"
-                                        HeightRequest="42"
-                                        CornerRadius="8" />
-
-                                <Button Grid.Column="1"
-                                        Text="Cerrar Panel"
-                                        Command="{Binding CerrarModalesCommand}"
-                                        BackgroundColor="{DynamicResource PrimaryColor}"
-                                        TextColor="#FFFFFF"
-                                        FontAttributes="Bold"
-                                        FontSize="11.5"
-                                        HeightRequest="42"
-                                        CornerRadius="8" />
-                            </Grid>
+                            <!-- Acción de Cierre -->
+                            <Button Text="Cerrar Panel"
+                                    Command="{Binding CerrarModalesCommand}"
+                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                    TextColor="#FFFFFF"
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    HeightRequest="42"
+                                    CornerRadius="8"
+                                    Margin="0,6,0,0" />
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </ScrollView>

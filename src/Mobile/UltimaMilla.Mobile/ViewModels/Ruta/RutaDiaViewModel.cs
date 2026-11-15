@@ -70,7 +70,8 @@ public partial class ParadaItemViewModel : ObservableObject
     /// <summary>"Entrega" o "Retiro" (retiro en domicilio).</summary>
     public string Tipo { get; init; } = "Entrega";
     public Guid? RetiroId { get; init; }
-    public bool EsRetiro => string.Equals(Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+    public bool EsRetiro => string.Equals(Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
+        || (RetiroId.HasValue && RetiroId.Value != Guid.Empty);
     public string TipoTexto => EsRetiro ? "RETIRO" : "ENTREGA";
 
     [ObservableProperty]
@@ -707,8 +708,30 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
                 }
             }
 
+            if (_realtimeTrackingService != null && _syncService?.IsOnline == true && !string.IsNullOrWhiteSpace(_authService?.AccessToken))
+            {
+                try
+                {
+                    await _realtimeTrackingService.StartAsync();
+                }
+                catch (Exception exRt)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al iniciar SignalR en RutaDia: {exRt.Message}");
+                }
+            }
+
             if (_syncService != null && _syncService.IsOnline)
             {
+                try
+                {
+                    if (await _syncService.ObtenerCantidadPendientesAsync() > 0)
+                        await _syncService.SincronizarOperacionesPendientesAsync();
+                }
+                catch (Exception exPendSync)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error al sincronizar operaciones pendientes: {exPendSync.Message}");
+                }
+
                 try
                 {
                     await _syncService.DescargarYActualizarRutasDelServidorAsync();
@@ -919,11 +942,27 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
             if (local.Paradas.Count > 0)
             {
-                Paradas.Clear();
-                foreach (var p in local.Paradas)
+                bool mismasParadas = Paradas.Count == local.Paradas.Count &&
+                    Paradas.Zip(local.Paradas, (a, b) =>
+                        a.Id == b.Id &&
+                        a.Orden == b.Orden &&
+                        string.Equals(a.Estado, b.Estado, StringComparison.Ordinal) &&
+                        string.Equals(a.Tipo, b.Tipo, StringComparison.Ordinal) &&
+                        a.RetiroId == b.RetiroId &&
+                        a.CantidadBultos == b.CantidadBultos &&
+                        string.Equals(a.CodigoSeguimiento, b.CodigoSeguimiento, StringComparison.Ordinal) &&
+                        string.Equals(a.Direccion, b.Direccion, StringComparison.Ordinal))
+                    .All(iguales => iguales);
+
+                if (!mismasParadas)
                 {
-                    Paradas.Add(p);
+                    Paradas.Clear();
+                    foreach (var p in local.Paradas)
+                    {
+                        Paradas.Add(p);
+                    }
                 }
+
                 AplicarEstadosGeocercaEnParadas();
             }
             EstadoHojaDeRuta = local.Ruta.Estado;
@@ -1506,13 +1545,6 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task ForzarLecturaGpsDesdeModalAsync()
-    {
-        await ForzarEnvioGpsAhoraAsync();
-        await CargarTelemetriaGpsGeocercasAsync();
-    }
-
-    [RelayCommand]
     private async Task AlternarModoOfflineDesdeMenuAsync()
     {
         MostrarMenuHerramientas = false;
@@ -1532,30 +1564,6 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task ProbarNotificacionOperativaAsync()
-    {
-        MostrarMenuHerramientas = false;
-        if (_notificacionService is null)
-        {
-            return;
-        }
-
-        await _notificacionService.SolicitarPermisosNotificacionAsync();
-        var pendientes = Math.Max(1, ParadasPendientesCount);
-        await _notificacionService.MostrarNotificacionOperativaAsync(
-            "Nueva Hoja de Ruta Asignada",
-            $"Se habilito la ruta HR-{DateTime.Today:yyyyMMdd}-01 con {pendientes} paradas pendientes. Ingresa a la seccion Carga para verificar los bultos.",
-            "RUTA");
-    }
-
-    [RelayCommand]
-    private async Task SincronizarTodoDesdeMenuAsync()
-    {
-        MostrarMenuHerramientas = false;
-        await ActualizarRutasServidorAsync();
-    }
-
-    [RelayCommand]
     private async Task EjecutarOptimizacionDesdeMenuAsync()
     {
         MostrarMenuHerramientas = false;
@@ -1563,34 +1571,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task ForzarEnvioGpsDesdeMenuAsync()
-    {
-        MostrarMenuHerramientas = false;
-        await ForzarEnvioGpsAhoraAsync();
-        MostrarAvisoRapido("Coordenadas GPS transmitidas a la central.");
-    }
-
-    [RelayCommand]
     private void GestionarGeocercasYBateria()
     {
         AbrirModalBateria();
-    }
-
-    [RelayCommand]
-    private async Task ForzarEnvioGpsAhoraAsync()
-    {
-        if (_trackingService == null)
-            return;
-
-        var rutaLocal = _localDatabaseService != null ? await _localDatabaseService.ObtenerRutaActivaLocalAsync() : null;
-        var rutaId = rutaLocal?.Ruta?.Id ?? (Paradas.FirstOrDefault()?.HojaDeRutaId ?? Guid.Empty);
-        var repartidorId = _authService?.RepartidorId ?? Guid.Empty;
-
-        UltimoEstadoServidorTexto = "Transmitiendo...";
-
-        var (exito, detalle) = await _trackingService.ForzarEnvioGpsInmediatoAsync(rutaId, repartidorId);
-        UltimaCoordenadaTexto = _trackingService.UltimaCoordenadaTexto;
-        UltimoEstadoServidorTexto = _trackingService.UltimoEstadoServidorTexto;
     }
 
     [RelayCommand]

@@ -269,19 +269,6 @@
                                             Padding="14,0"
                                             FontSize="12.5" />
                                 </Grid>
-
-                                <!-- Acción Unificada de Sincronización Completa -->
-                                <Button Text="Sincronizar Carga y Ruta"
-                                        BackgroundColor="{DynamicResource SecondarySoftBackground}"
-                                        TextColor="{DynamicResource SecondaryColor}"
-                                        BorderColor="{DynamicResource SecondaryColor}"
-                                        BorderWidth="1.2"
-                                        FontAttributes="Bold"
-                                        CornerRadius="8"
-                                        Command="{Binding ActualizarCommand}"
-                                        HeightRequest="40"
-                                        FontSize="12"
-                                        Margin="0,4,0,0" />
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>

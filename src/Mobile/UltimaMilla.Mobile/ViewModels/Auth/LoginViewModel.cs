@@ -352,6 +352,18 @@ public partial class LoginViewModel : ObservableObject
             CorreoBiometriaGuardado = Usuario.Trim();
             StatusMessage = "Descargando hoja de ruta asignada...";
 
+            if (_themeService is not null)
+            {
+                try
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync();
+                }
+                catch
+                {
+                    // El tema local se mantiene como respaldo si falla la descarga de identidad visual
+                }
+            }
+
             if (_syncService is not null)
             {
                 await _syncService.DescargarRutaDelDiaAsync();
@@ -485,6 +497,18 @@ public partial class LoginViewModel : ObservableObject
             }
 
             StatusMessage = "Sesión validada. Sincronizando datos operativos...";
+            if (_themeService is not null)
+            {
+                try
+                {
+                    await _themeService.SincronizarIdentidadVisualAsync();
+                }
+                catch
+                {
+                    // Se mantiene la identidad visual cacheada localmente cuando se ingresa offline
+                }
+            }
+
             if (_syncService is not null)
             {
                 try
