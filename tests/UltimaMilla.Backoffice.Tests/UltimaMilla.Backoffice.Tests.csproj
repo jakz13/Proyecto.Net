@@ -21,4 +21,9 @@
     <ProjectReference Include="..\..\src\Web\Backoffice\UltimaMilla.Backoffice.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Reglas de seguridad de la actualización de la app (sin dependencias de MAUI): se compilan aquí para probarlas sin el teléfono -->
+    <Compile Include="..\..\src\Mobile\UltimaMilla.Mobile\Services\Updates\PoliticaDeActualizacion.cs" Link="Mobile\PoliticaDeActualizacion.cs" />
+  </ItemGroup>
+
 </Project>

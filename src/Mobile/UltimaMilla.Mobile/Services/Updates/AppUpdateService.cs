@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace UltimaMilla.Mobile.Services.Updates;
@@ -10,7 +11,7 @@ public record VersionManifiestoDto(
     string VersionName,
     string ApkUrl,
     string? Sha256 = null,
-    long? Size = null,
+    [property: JsonPropertyName("tamano")] long? Size = null,
     string? Notas = null
 );
 
@@ -129,10 +130,24 @@ public class AppUpdateService : IAppUpdateService
                     MensajeEstado: "Manifiesto de versión no disponible.");
             }
 
-            bool disponible = manifiesto.VersionCode > versionCodeInstalada;
             string apkUrl = !string.IsNullOrWhiteSpace(manifiesto.ApkUrl)
                 ? manifiesto.ApkUrl.Trim()
                 : ApkRemotoPorDefectoUrl;
+
+            // Ante la duda se rechaza: una dirección ajena o un manifiesto sin huella verificable nunca llegan al instalador
+            if (!PoliticaDeActualizacion.EsUrlApkPermitida(apkUrl))
+            {
+                _logger.LogWarning("El manifiesto de actualización apunta a una dirección no permitida: {Url}", apkUrl);
+                return SinActualizacion(versionCodeInstalada, versionInstaladaTexto, "La actualización se omitió: el manifiesto apunta a una dirección no permitida.");
+            }
+
+            if (!PoliticaDeActualizacion.EsSha256Valido(manifiesto.Sha256))
+            {
+                _logger.LogWarning("El manifiesto de actualización no incluye una huella SHA-256 válida.");
+                return SinActualizacion(versionCodeInstalada, versionInstaladaTexto, "La actualización se omitió: el manifiesto no incluye una huella SHA-256 válida.");
+            }
+
+            bool disponible = manifiesto.VersionCode > versionCodeInstalada;
             string versionRemotaTexto = !string.IsNullOrWhiteSpace(manifiesto.VersionName)
                 ? manifiesto.VersionName.Trim()
                 : $"1.0.{manifiesto.VersionCode}";
@@ -178,6 +193,19 @@ public class AppUpdateService : IAppUpdateService
         }
     }
 
+    private static ResultadoVerificacionActualizacion SinActualizacion(int versionCodeInstalada, string versionInstaladaTexto, string mensaje)
+        => new(
+            HayActualizacionDisponible: false,
+            VersionCodeInstalada: versionCodeInstalada,
+            VersionInstaladaTexto: versionInstaladaTexto,
+            VersionCodeRemota: versionCodeInstalada,
+            VersionRemotaTexto: versionInstaladaTexto,
+            ApkUrl: ApkRemotoPorDefectoUrl,
+            Sha256Esperado: null,
+            TamanoBytes: null,
+            Notas: string.Empty,
+            MensajeEstado: mensaje);
+
     public async Task<bool> DescargarEInstalarAsync(IProgress<double> progreso, CancellationToken cancellationToken = default)
     {
         UltimoErrorDescarga = null;
@@ -193,12 +221,27 @@ public class AppUpdateService : IAppUpdateService
         var tamanoManifiesto = _tamanoBytesPendiente ?? UltimaVerificacion?.TamanoBytes;
         var rutaDestino = Path.Combine(FileSystem.CacheDirectory, NombreArchivoApkTemporal);
 
+        // Defensa en profundidad: aunque la verificación ya lo comprobó, se repite antes de descargar e instalar
+        if (!PoliticaDeActualizacion.EsUrlApkPermitida(urlDescarga))
+        {
+            UltimoErrorDescarga = "La dirección de descarga de la actualización no está permitida.";
+            return false;
+        }
+
+        if (!PoliticaDeActualizacion.EsSha256Valido(sha256Esperado))
+        {
+            UltimoErrorDescarga = "No hay una huella SHA-256 válida para verificar el paquete: la actualización no se instala.";
+            return false;
+        }
+
         try
         {
             progreso?.Report(0.0);
             EliminarArchivoTemporal(rutaDestino);
 
-            using var httpClient = new HttpClient
+            // Sin redirecciones: una respuesta que mande a otro servidor no es éxito y la descarga se rechaza
+            using var manejador = new HttpClientHandler { AllowAutoRedirect = false };
+            using var httpClient = new HttpClient(manejador)
             {
                 Timeout = TimeSpan.FromMinutes(5)
             };
@@ -234,28 +277,32 @@ public class AppUpdateService : IAppUpdateService
                 await fileStream.FlushAsync(cancellationToken);
             }
 
-            // Verificación criptográfica de integridad SHA-256 antes de invocar al instalador del sistema operativo
-            using (var sha256 = SHA256.Create())
+            // Verificación de integridad antes de invocar al instalador del sistema operativo: tamaño exacto y SHA-256 obligatorio
+            var tamanoDescargado = new FileInfo(rutaDestino).Length;
+            if (!PoliticaDeActualizacion.TamanoCoincide(tamanoManifiesto, tamanoDescargado))
+            {
+                _logger.LogError("Tamaño del APK descargado distinto del declarado. Esperado: {Esperado}, descargado: {Real}.", tamanoManifiesto, tamanoDescargado);
+                UltimoErrorDescarga = "El tamaño del paquete descargado no coincide con el declarado. El archivo fue descartado por seguridad.";
+                EliminarArchivoTemporal(rutaDestino);
+                return false;
+            }
+
+            string hashCalculado;
             await using (var verifyStream = new FileStream(rutaDestino, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true))
             {
-                var hashBytes = await sha256.ComputeHashAsync(verifyStream, cancellationToken);
-                var hashCalculado = Convert.ToHexString(hashBytes);
+                hashCalculado = await PoliticaDeActualizacion.CalcularSha256Async(verifyStream, cancellationToken);
+            }
 
-                if (!string.IsNullOrWhiteSpace(sha256Esperado) && !string.Equals(sha256Esperado.Trim(), "...", StringComparison.Ordinal))
-                {
-                    var hashNormalizado = sha256Esperado.Replace("-", string.Empty).Replace(" ", string.Empty).Trim();
-                    if (!string.Equals(hashCalculado, hashNormalizado, StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogError(
-                            "Verificación SHA-256 fallida para el APK descargado. Esperado: {Esperado}, Calculado: {Calculado}.",
-                            hashNormalizado,
-                            hashCalculado);
+            if (!PoliticaDeActualizacion.Sha256Coincide(sha256Esperado, hashCalculado))
+            {
+                _logger.LogError(
+                    "Verificación SHA-256 fallida para el APK descargado. Esperado: {Esperado}, Calculado: {Calculado}.",
+                    sha256Esperado,
+                    hashCalculado);
 
-                        UltimoErrorDescarga = "La verificación de integridad SHA-256 del paquete APK falló. El archivo fue descartado por seguridad.";
-                        EliminarArchivoTemporal(rutaDestino);
-                        return false;
-                    }
-                }
+                UltimoErrorDescarga = "La verificación de integridad SHA-256 del paquete APK falló. El archivo fue descartado por seguridad.";
+                EliminarArchivoTemporal(rutaDestino);
+                return false;
             }
 
             progreso?.Report(1.0);

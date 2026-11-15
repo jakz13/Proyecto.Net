@@ -50,7 +50,7 @@ Se revisó el proyecto como lo haría alguien que lo ataca. Cada punto tiene su 
 `https://shippingbox.duckdns.org/descargas/*` entrega el APK firmado y `version.json` **sin autenticación**, igual que una tienda de aplicaciones. Qué se hizo y qué se acepta:
 - Caddy sirve solo esa carpeta, montada en solo lectura y sin listado de directorio; la API, la base y el resto del sitio no intervienen. `version.json` se entrega con `Cache-Control: no-store`.
 - El APK no contiene secretos del servidor (el JWT y las claves viven en `.env.prod`). Android solo instala una actualización firmada con la misma clave que la app instalada.
-- `version.json` incluye `sha256` y tamaño para que la app verifique la descarga antes de instalarla (pendiente en la app).
+- `version.json` incluye `sha256` y tamaño y la app los verifica antes de instalar (`PoliticaDeActualizacion`, con pruebas): la huella es **obligatoria** (sin ella no se ofrece ni se instala la actualización), el tamaño debe coincidir, la URL del APK debe ser https del propio servidor y la descarga no sigue redirecciones.
 - **Riesgo aceptado:** cualquiera con la URL puede descargar el APK y consumir ancho de banda de salida (costo en Azure). No hay límite de tasa en esta ruta.
 - **Pendiente:** las contraseñas del keystore de firma están escritas en `UltimaMilla.Mobile.csproj` (contra la regla 6 de `CLAUDE.md`). Hay que pasarlas por variable de entorno y cambiarlas; con la clave de firma y sus contraseñas, quien tenga acceso al repositorio puede firmar APK que Android aceptaría como actualización.
 

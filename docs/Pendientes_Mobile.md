@@ -43,7 +43,7 @@ Recordatorio de la letra: *un opcional implementado parcialmente no otorga punto
 
 ## 3 bis. Actualización de la app por descarga directa (OTA): lo que falta en la app
 El servidor ya está listo (ver `README.md` y ADR-007): `https://shippingbox.duckdns.org/descargas/version.json` y `.../descargas/UltimaMilla-Release-Signed.apk`. Formato de `version.json`: `versionCode`, `versionName`, `apkUrl`, `sha256`, `tamano`, `notas`. **Esto no es una notificación push**: no cubre "notificaciones con la app cerrada" (6.11) ni suma los 3 puntos opcionales de push; solo evita pasar por una tienda.
-La app todavía **no** implementa nada de esto. Falta:
+El servicio de la app (`Services/Updates/AppUpdateService.cs`) ya consulta, descarga y lanza el instalador, con las reglas de seguridad de `PoliticaDeActualizacion.cs` (huella SHA-256 obligatoria, tamaño exacto, solo https del propio servidor, sin redirecciones; cubierto por `ActualizacionDeLaAppTests`). Sigue siendo necesario, y solo se prueba en el teléfono:
 - Al abrir la app, consultar `version.json` (sin caché) y comparar `versionCode` con el instalado; avisar si hay una versión nueva.
 - Descargar el APK, **verificar `sha256` y `tamano`** antes de instalar y descartar el archivo si no coinciden.
 - Permiso `REQUEST_INSTALL_PACKAGES` en el `AndroidManifest.xml`, un `FileProvider` para pasar el APK al instalador y guiar al usuario para que habilite "instalar apps desconocidas" para esta app.
