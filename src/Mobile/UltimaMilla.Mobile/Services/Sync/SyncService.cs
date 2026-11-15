@@ -71,6 +71,7 @@ public class SyncService : ISyncService, IDisposable
     private readonly IOperadorThemeService? _themeService;
     private readonly INotificacionLocalService? _notificacionService;
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _downloadRoutesSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _alertasRutaEmitidas = new();
 
     private bool _isOfflineSimulado = false;
@@ -135,7 +136,7 @@ public class SyncService : ISyncService, IDisposable
     {
         var clave = $"{hojaDeRutaId}:{tipoEvento.Trim().ToUpperInvariant()}";
         return _alertasRutaEmitidas.TryGetValue(clave, out var previo)
-            && (DateTimeOffset.UtcNow - previo) < TimeSpan.FromSeconds(30);
+            && (DateTimeOffset.UtcNow - previo) < TimeSpan.FromMinutes(5);
     }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
@@ -216,141 +217,161 @@ public class SyncService : ISyncService, IDisposable
     {
         var rutasDescargadas = new List<RutaActivaRepartidorDto>();
 
-        if (IsOnline)
+        if (!IsOnline)
         {
-            try
+            return rutasDescargadas;
+        }
+
+        await _downloadRoutesSemaphore.WaitAsync(cancellationToken);
+        try
+        {
+            if (_themeService != null)
             {
-                if (_themeService != null)
+                await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+            }
+
+            var client = _httpClientFactory.CreateClient("BackendApi");
+            client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
+
+            await ActualizarFuncionalidadesAsync(client, cancellationToken);
+
+            // 1. Intentar consultar endpoint que devuelve todas las rutas activas/vigentes del repartidor: GET /api/mobile/v1/rutas/activas
+            bool servidorRespondioLista = false;
+            var responseActivas = await client.GetAsync("/api/mobile/v1/rutas/activas", cancellationToken);
+            if (responseActivas.IsSuccessStatusCode)
+            {
+                var lista = await responseActivas.Content.ReadFromJsonAsync<List<RutaActivaRepartidorDto>>(JsonOptions, cancellationToken);
+                if (lista != null)
                 {
-                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
-                }
-
-                var client = _httpClientFactory.CreateClient("BackendApi");
-                client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
-
-                await ActualizarFuncionalidadesAsync(client, cancellationToken);
-
-                // 1. Intentar consultar endpoint que devuelve todas las rutas activas/vigentes del repartidor: GET /api/mobile/v1/rutas/activas
-                bool servidorRespondioLista = false;
-                var responseActivas = await client.GetAsync("/api/mobile/v1/rutas/activas", cancellationToken);
-                if (responseActivas.IsSuccessStatusCode)
-                {
-                    var lista = await responseActivas.Content.ReadFromJsonAsync<List<RutaActivaRepartidorDto>>(JsonOptions, cancellationToken);
-                    if (lista != null)
+                    servidorRespondioLista = true;
+                    if (lista.Count > 0)
                     {
-                        servidorRespondioLista = true;
-                        if (lista.Count > 0)
-                        {
-                            rutasDescargadas.AddRange(lista);
-                        }
-                        else if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
-                        {
-                            await _localDatabaseService.LimpiarDatosDeRutaAsync();
-                        }
+                        rutasDescargadas.AddRange(lista);
                     }
-                }
-                else if (responseActivas.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    // Fallback de compatibilidad: consultar GET /api/mobile/v1/rutas/activa
-                    var responseActiva = await client.GetAsync("/api/mobile/v1/rutas/activa", cancellationToken);
-                    if (responseActiva.IsSuccessStatusCode)
-                    {
-                        var rutaUnica = await responseActiva.Content.ReadFromJsonAsync<RutaActivaRepartidorDto>(JsonOptions, cancellationToken);
-                        if (rutaUnica != null && rutaUnica.HojaDeRutaId != Guid.Empty)
-                        {
-                            rutasDescargadas.Add(rutaUnica);
-                        }
-                    }
-                    else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound && await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                    else if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
                     {
                         await _localDatabaseService.LimpiarDatosDeRutaAsync();
                     }
                 }
-
-                var rutasPrevias = (await _localDatabaseService.ListarHojasDeRutaLocalesAsync())
-                    .ToDictionary(h => h.Id);
-
-                // Guardar cada ruta descargada en SQLite local y detectar novedades operativas
-                foreach (var r in rutasDescargadas)
-                {
-                    if (r.HojaDeRutaId == Guid.Empty) continue;
-
-                    rutasPrevias.TryGetValue(r.HojaDeRutaId, out var rutaPrevia);
-                    List<ParadaItemViewModel>? paradasPrevias = null;
-                    if (rutaPrevia is not null && !EsEstadoTerminalRuta(rutaPrevia.Estado) && !EsEstadoTerminalRuta(r.Estado))
-                    {
-                        var rutaLocalActual = await _localDatabaseService.ObtenerRutaActivaLocalAsync(r.HojaDeRutaId);
-                        paradasPrevias = rutaLocalActual?.Paradas;
-                    }
-
-                    UltimaRutaDescargada = r;
-                    if (!string.IsNullOrWhiteSpace(r.TipoPruebaEntregaExigida))
-                    {
-                        Preferences.Default.Set("ReglaOperativa_TipoPruebaEntrega", r.TipoPruebaEntregaExigida);
-                    }
-                    if (r.MaxIntentosEntrega.HasValue)
-                    {
-                        Preferences.Default.Set("ReglaOperativa_MaxIntentos", r.MaxIntentosEntrega.Value);
-                    }
-                    if (r.RepartidorId != Guid.Empty)
-                    {
-                        await _authService.ActualizarRepartidorIdAsync(r.RepartidorId);
-                    }
-
-                    List<MotivoNoEntregaLocal>? motivosLocal = null;
-                    if (r.MotivosNoEntrega is { Count: > 0 })
-                    {
-                        motivosLocal = r.MotivosNoEntrega
-                            .Select(m => new MotivoNoEntregaLocal
-                            {
-                                Id = m.Id,
-                                Codigo = m.Codigo,
-                                Descripcion = m.Descripcion,
-                                Activo = true
-                            })
-                            .ToList();
-                    }
-
-                    await _localDatabaseService.GuardarRutaDescargadaAsync(
-                        r.HojaDeRutaId,
-                        r.Paradas,
-                        motivosLocal,
-                        estadoRuta: r.Estado,
-                        numeroRuta: r.NumeroRuta,
-                        fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue));
-
-                    if (EsEstadoTerminalRuta(r.Estado))
-                    {
-                        await _localDatabaseService.PurgarOperacionesPorRutaAsync(r.HojaDeRutaId);
-                    }
-                    else
-                    {
-                        await DetectarYNotificarCambiosDeRutaAsync(r, rutaPrevia, paradasPrevias);
-                    }
-                }
-
-                if (servidorRespondioLista)
-                {
-                    await _localDatabaseService.MarcarRutasAusentesComoRendidasAsync(
-                        rutasDescargadas.Select(r => r.HojaDeRutaId));
-                }
-
-                if (rutasDescargadas.Count > 0)
-                {
-                    _logger.LogInformation("Se descargaron y actualizaron {Count} hojas de ruta desde el servidor.", rutasDescargadas.Count);
-                    await NotificarCambioEstadoAsync($"Se actualizaron {rutasDescargadas.Count} rutas desde el servidor.");
-                }
-
-                // Sincronizar también la identidad visual del operador en caso de cambios desde el Backoffice
-                if (_themeService != null)
-                {
-                    await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
-                }
             }
-            catch (Exception ex)
+            else if (responseActivas.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning(ex, "Fallo al consultar rutas activas desde el servidor.");
+                // Fallback de compatibilidad: consultar GET /api/mobile/v1/rutas/activa
+                var responseActiva = await client.GetAsync("/api/mobile/v1/rutas/activa", cancellationToken);
+                if (responseActiva.IsSuccessStatusCode)
+                {
+                    var rutaUnica = await responseActiva.Content.ReadFromJsonAsync<RutaActivaRepartidorDto>(JsonOptions, cancellationToken);
+                    if (rutaUnica != null && rutaUnica.HojaDeRutaId != Guid.Empty)
+                    {
+                        rutasDescargadas.Add(rutaUnica);
+                    }
+                }
+                else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound && await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                {
+                    await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                }
             }
+
+            // Guardar cada ruta descargada en SQLite local y detectar novedades operativas reales por firma determinista
+            foreach (var r in rutasDescargadas)
+            {
+                if (r.HojaDeRutaId == Guid.Empty) continue;
+
+                var rutaPrevia = await _localDatabaseService.ObtenerHojaDeRutaLocalPorIdAsync(r.HojaDeRutaId);
+                List<ParadaLocal>? paradasPrevias = null;
+                string? firmaPrevia = null;
+
+                if (rutaPrevia is not null)
+                {
+                    paradasPrevias = await _localDatabaseService.ObtenerParadasLocalesPorRutaAsync(r.HojaDeRutaId);
+                    var firmaLocalCalculada = LocalDatabaseService.CalcularFirmaContenidoRutaLocal(rutaPrevia, paradasPrevias);
+                    firmaPrevia = _localDatabaseService.ObtenerFirmaContenidoRutaDePreferencias(r.HojaDeRutaId) ?? firmaLocalCalculada;
+                }
+
+                UltimaRutaDescargada = r;
+                if (!string.IsNullOrWhiteSpace(r.TipoPruebaEntregaExigida))
+                {
+                    Preferences.Default.Set("ReglaOperativa_TipoPruebaEntrega", r.TipoPruebaEntregaExigida);
+                }
+                if (r.MaxIntentosEntrega.HasValue)
+                {
+                    Preferences.Default.Set("ReglaOperativa_MaxIntentos", r.MaxIntentosEntrega.Value);
+                }
+                if (r.RepartidorId != Guid.Empty)
+                {
+                    await _authService.ActualizarRepartidorIdAsync(r.RepartidorId);
+                }
+
+                List<MotivoNoEntregaLocal>? motivosLocal = null;
+                if (r.MotivosNoEntrega is { Count: > 0 })
+                {
+                    motivosLocal = r.MotivosNoEntrega
+                        .Select(m => new MotivoNoEntregaLocal
+                        {
+                            Id = m.Id,
+                            Codigo = m.Codigo,
+                            Descripcion = m.Descripcion,
+                            Activo = true
+                        })
+                        .ToList();
+                }
+
+                await _localDatabaseService.GuardarRutaDescargadaAsync(
+                    r.HojaDeRutaId,
+                    r.Paradas,
+                    motivosLocal,
+                    estadoRuta: r.Estado,
+                    numeroRuta: r.NumeroRuta,
+                    fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue));
+
+                var rutaPosterior = await _localDatabaseService.ObtenerHojaDeRutaLocalPorIdAsync(r.HojaDeRutaId);
+                var paradasPosteriores = await _localDatabaseService.ObtenerParadasLocalesPorRutaAsync(r.HojaDeRutaId);
+                var firmaPosterior = rutaPosterior is not null
+                    ? LocalDatabaseService.CalcularFirmaContenidoRutaLocal(rutaPosterior, paradasPosteriores)
+                    : LocalDatabaseService.CalcularFirmaContenidoRutaServidor(r.HojaDeRutaId, r.Estado, r.Paradas);
+
+                if (EsEstadoTerminalRuta(r.Estado))
+                {
+                    _localDatabaseService.GuardarFirmaContenidoRutaEnPreferencias(r.HojaDeRutaId, firmaPosterior);
+                    await _localDatabaseService.PurgarOperacionesPorRutaAsync(r.HojaDeRutaId);
+                }
+                else
+                {
+                    await DetectarYNotificarCambiosDeRutaAsync(
+                        r,
+                        rutaPrevia,
+                        paradasPrevias,
+                        paradasPosteriores,
+                        firmaPrevia,
+                        firmaPosterior);
+                }
+            }
+
+            if (servidorRespondioLista)
+            {
+                await _localDatabaseService.MarcarRutasAusentesComoRendidasAsync(
+                    rutasDescargadas.Select(r => r.HojaDeRutaId));
+            }
+
+            if (rutasDescargadas.Count > 0)
+            {
+                _logger.LogInformation("Se descargaron y actualizaron {Count} hojas de ruta desde el servidor.", rutasDescargadas.Count);
+                await NotificarCambioEstadoAsync($"Se actualizaron {rutasDescargadas.Count} rutas desde el servidor.");
+            }
+
+            // Sincronizar también la identidad visual del operador en caso de cambios desde el Backoffice
+            if (_themeService != null)
+            {
+                await _themeService.SincronizarIdentidadVisualAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallo al consultar rutas activas desde el servidor.");
+        }
+        finally
+        {
+            _downloadRoutesSemaphore.Release();
         }
 
         return rutasDescargadas;
@@ -365,8 +386,14 @@ public class SyncService : ISyncService, IDisposable
     private async Task DetectarYNotificarCambiosDeRutaAsync(
         RutaActivaRepartidorDto rutaActual,
         HojaDeRutaLocal? rutaPrevia,
-        List<ParadaItemViewModel>? paradasPrevias)
+        List<ParadaLocal>? paradasPrevias,
+        List<ParadaLocal> paradasPosteriores,
+        string? firmaPrevia,
+        string firmaPosterior)
     {
+        // Actualizar siempre la huella determinista persistida en Preferences
+        _localDatabaseService.GuardarFirmaContenidoRutaEnPreferencias(rutaActual.HojaDeRutaId, firmaPosterior);
+
         if (_notificacionService is null)
         {
             return;
@@ -374,9 +401,27 @@ public class SyncService : ISyncService, IDisposable
 
         if (rutaPrevia is null)
         {
-            if (FueNotificadaRecientemente(rutaActual.HojaDeRutaId, "NUEVA_RUTA"))
+            var claveNuevaRuta = $"RutaNuevaNotificada_{rutaActual.HojaDeRutaId:N}";
+            bool yaNotificadaNueva = false;
+            try
+            {
+                yaNotificadaNueva = Preferences.Default.Get(claveNuevaRuta, false);
+            }
+            catch
+            {
+            }
+
+            if (yaNotificadaNueva || FueNotificadaRecientemente(rutaActual.HojaDeRutaId, "NUEVA_RUTA"))
             {
                 return;
+            }
+
+            try
+            {
+                Preferences.Default.Set(claveNuevaRuta, true);
+            }
+            catch
+            {
             }
 
             RegistrarNotificacionRutaEmitida(rutaActual.HojaDeRutaId, "NUEVA_RUTA");
@@ -389,17 +434,25 @@ public class SyncService : ISyncService, IDisposable
 
             await _notificacionService.MostrarNotificacionOperativaAsync(
                 "Nueva Hoja de Ruta Asignada",
-                $"Se habilito la ruta {codigoRuta} con {totalPendientes} paradas pendientes. Ingresa a la seccion Carga para verificar los bultos.",
-                "RUTA");
+                $"Se habilitó la ruta {codigoRuta} con {totalPendientes} paradas pendientes. Ingresa a la sección Carga para verificar los bultos.",
+                "RUTA",
+                firmaContenido: $"NUEVA_RUTA|{rutaActual.HojaDeRutaId:N}");
             return;
         }
 
-        if (paradasPrevias is null)
+        if (paradasPrevias is null || EsEstadoTerminalRuta(rutaPrevia.Estado))
         {
             return;
         }
 
-        var detalleCambio = DescribirCambioDeParadas(paradasPrevias, rutaActual.Paradas);
+        // Regla estricta: si la firma determinista de contenido no cambió respecto al ciclo anterior, no emitir notificación
+        if (!string.IsNullOrWhiteSpace(firmaPrevia) &&
+            string.Equals(firmaPrevia, firmaPosterior, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var detalleCambio = DescribirCambioRealDeParadas(paradasPrevias, paradasPosteriores);
         if (detalleCambio is null || FueNotificadaRecientemente(rutaActual.HojaDeRutaId, "RUTA_ACTUALIZADA"))
         {
             return;
@@ -407,41 +460,75 @@ public class SyncService : ISyncService, IDisposable
 
         RegistrarNotificacionRutaEmitida(rutaActual.HojaDeRutaId, "RUTA_ACTUALIZADA");
         await _notificacionService.MostrarNotificacionOperativaAsync(
-            "Actualizacion en Hoja de Ruta Activa",
+            "Actualización en Hoja de Ruta Activa",
             $"Se actualizaron las paradas de tu ruta en curso ({detalleCambio}). Revisa el listado actualizado.",
-            "RUTA");
+            "RUTA",
+            firmaContenido: $"{rutaActual.HojaDeRutaId:N}|{firmaPosterior}");
     }
 
-    internal static string? DescribirCambioDeParadas(
-        IReadOnlyList<ParadaItemViewModel> previas,
-        IReadOnlyList<ParadaNavegacionDto> actuales)
+    internal static string? DescribirCambioRealDeParadas(
+        IReadOnlyList<ParadaLocal> previas,
+        IReadOnlyList<ParadaLocal> actuales)
     {
-        var mapaPrevias = previas.ToDictionary(p => p.Id);
-        var mapaActuales = actuales.ToDictionary(p => p.ParadaId);
+        var mapaPrevias = previas
+            .Where(p => p.Id != Guid.Empty)
+            .ToDictionary(p => p.Id);
+        var mapaActuales = actuales
+            .Where(p => p.Id != Guid.Empty)
+            .ToDictionary(p => p.Id);
 
-        int agregadas = actuales.Count(a => !mapaPrevias.ContainsKey(a.ParadaId));
-        int removidas = previas.Count(p => !mapaActuales.ContainsKey(p.Id));
+        int agregadas = actuales.Count(a =>
+            a.Id != Guid.Empty &&
+            !mapaPrevias.ContainsKey(a.Id) &&
+            !string.Equals(LocalDatabaseService.NormalizarEstadoParadaFirma(a.Estado), "Cancelada", StringComparison.OrdinalIgnoreCase));
+
+        int removidas = previas.Count(p =>
+            p.Id != Guid.Empty &&
+            !mapaActuales.ContainsKey(p.Id));
+
         int canceladas = 0;
-        int reprogramadas = 0;
+        int cambiosEstado = 0;
+        int cambiosDireccion = 0;
+        int cambiosOrden = 0;
 
         foreach (var actual in actuales)
         {
-            if (!mapaPrevias.TryGetValue(actual.ParadaId, out var previa))
+            if (actual.Id == Guid.Empty || !mapaPrevias.TryGetValue(actual.Id, out var previa))
             {
                 continue;
             }
 
-            if (!string.Equals(previa.Estado, "Cancelado", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(actual.EstadoParada, "Cancelado", StringComparison.OrdinalIgnoreCase))
+            var estadoPrevio = LocalDatabaseService.NormalizarEstadoParadaFirma(previa.Estado);
+            var estadoActual = LocalDatabaseService.NormalizarEstadoParadaFirma(actual.Estado);
+
+            if (!string.Equals(estadoPrevio, "Cancelada", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(estadoActual, "Cancelada", StringComparison.OrdinalIgnoreCase))
             {
                 canceladas++;
             }
-
-            var ventanaPrevia = previa.VentanaHoraria?.Trim() ?? string.Empty;
-            var ventanaActual = actual.VentanaHoraria?.Trim() ?? string.Empty;
-            if (!string.Equals(ventanaPrevia, ventanaActual, StringComparison.OrdinalIgnoreCase))
+            else if (!string.Equals(estadoPrevio, estadoActual, StringComparison.OrdinalIgnoreCase))
             {
-                reprogramadas++;
+                // Ignorar resolución automática Fallido -> EnDevolucion originada por un intento fallido propio del móvil
+                bool esResolucionDevolucionPropia =
+                    string.Equals(estadoPrevio, "Fallido", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(estadoActual, "EnDevolucion", StringComparison.OrdinalIgnoreCase);
+
+                if (!esResolucionDevolucionPropia)
+                {
+                    cambiosEstado++;
+                }
+            }
+
+            var dirPrevia = (previa.Direccion ?? string.Empty).Trim();
+            var dirActual = (actual.Direccion ?? string.Empty).Trim();
+            if (!string.Equals(dirPrevia, dirActual, StringComparison.OrdinalIgnoreCase))
+            {
+                cambiosDireccion++;
+            }
+
+            if (previa.Orden != actual.Orden)
+            {
+                cambiosOrden++;
             }
         }
 
@@ -449,7 +536,9 @@ public class SyncService : ISyncService, IDisposable
         if (agregadas > 0) partes.Add($"{agregadas} parada(s) agregada(s)");
         if (removidas > 0) partes.Add($"{removidas} parada(s) desasignada(s)");
         if (canceladas > 0) partes.Add($"{canceladas} parada(s) cancelada(s)");
-        if (reprogramadas > 0) partes.Add($"{reprogramadas} parada(s) reprogramada(s)");
+        if (cambiosEstado > 0) partes.Add($"{cambiosEstado} parada(s) con cambio de estado");
+        if (cambiosDireccion > 0) partes.Add($"{cambiosDireccion} dirección(es) actualizada(s)");
+        if (cambiosOrden > 0) partes.Add("orden de paradas actualizado");
 
         return partes.Count > 0 ? string.Join(", ", partes) : null;
     }

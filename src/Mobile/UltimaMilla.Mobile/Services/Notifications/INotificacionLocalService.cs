@@ -32,7 +32,8 @@ public interface INotificacionLocalService
         string titulo,
         string mensaje,
         string categoria = "OPERACIONES",
-        int? idNotificacion = null);
+        int? idNotificacion = null,
+        string? firmaContenido = null);
 
     /// <summary>
     /// Sobrecarga de compatibilidad sincrona para emisores legados.

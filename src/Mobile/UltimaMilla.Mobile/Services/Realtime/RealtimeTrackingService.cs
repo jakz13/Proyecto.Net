@@ -95,39 +95,49 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             })
             .Build();
 
+        // Ignorar explicitamente eventos de telemetria GPS y movimiento de vehiculos en el cliente movil
+        _hubConnection.On<JsonElement>("PosicionRepartidorActualizada", _ => { });
+        _hubConnection.On<JsonElement>("PosicionActualizada", _ => { });
+        _hubConnection.On<JsonElement>("PosicionVehiculo", _ => { });
+
         _hubConnection.On<string>("ReasignacionRecibida", async (mensaje) =>
         {
+            if (EsEventoTelemetriaGps( null, mensaje))
+            {
+                return;
+            }
+
             _logger.LogInformation("SignalR: Evento ReasignacionRecibida recibido: {Mensaje}", mensaje);
-            var detalle = string.IsNullOrWhiteSpace(mensaje)
-                ? "reasignacion urgente desde central operativa"
-                : mensaje.Trim();
-            await EmitirAlertaRutaActualizadaAsync(Guid.Empty, detalle);
             await RefrescarRutasSilenciosamenteAsync();
         });
 
         _hubConnection.On<string, string>("NotificacionOperativa", async (titulo, mensaje) =>
         {
+            if (EsEventoTelemetriaGps(titulo, mensaje))
+            {
+                return;
+            }
+
             _logger.LogInformation("SignalR: NotificacionOperativa recibida: {Titulo}", titulo);
             if (_notificacionService is not null)
             {
-                await _notificacionService.MostrarNotificacionOperativaAsync(titulo, mensaje, "OPERACIONES");
+                await _notificacionService.MostrarNotificacionOperativaAsync(
+                    titulo,
+                    mensaje,
+                    "OPERACIONES",
+                    firmaContenido: $"{titulo}|{mensaje}");
             }
         });
 
         _hubConnection.On<JsonElement>("CambioEstadoRuta", async (datos) =>
         {
             var info = ExtraerInfoRuta(datos);
+            if (EsEventoTelemetriaGps(info.Estado, info.DetalleCambio))
+            {
+                return;
+            }
+
             _logger.LogInformation("SignalR: CambioEstadoRuta {HojaDeRutaId} -> {Estado}", info.HojaDeRutaId, info.Estado);
-
-            if (EsEstadoAsignacionONuevaRuta(info.Estado))
-            {
-                await EmitirAlertaNuevaRutaAsync(info.HojaDeRutaId, info.CodigoRuta, info.TotalParadas);
-            }
-            else if (EsEstadoModificacionActiva(info.Estado))
-            {
-                await EmitirAlertaRutaActualizadaAsync(info.HojaDeRutaId, info.DetalleCambio);
-            }
-
             await RefrescarRutasSilenciosamenteAsync();
         });
 
@@ -135,7 +145,6 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         {
             var info = ExtraerInfoRuta(datos);
             _logger.LogInformation("SignalR: RutaAsignada {HojaDeRutaId}", info.HojaDeRutaId);
-            await EmitirAlertaNuevaRutaAsync(info.HojaDeRutaId, info.CodigoRuta, info.TotalParadas);
             await RefrescarRutasSilenciosamenteAsync();
         });
 
@@ -143,7 +152,6 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         {
             var info = ExtraerInfoRuta(datos);
             _logger.LogInformation("SignalR: RutaLiberada {HojaDeRutaId}", info.HojaDeRutaId);
-            await EmitirAlertaNuevaRutaAsync(info.HojaDeRutaId, info.CodigoRuta, info.TotalParadas);
             await RefrescarRutasSilenciosamenteAsync();
         });
 
@@ -151,15 +159,18 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         {
             var info = ExtraerInfoRuta(datos);
             _logger.LogInformation("SignalR: RutaDespachada {HojaDeRutaId}", info.HojaDeRutaId);
-            await EmitirAlertaNuevaRutaAsync(info.HojaDeRutaId, info.CodigoRuta, info.TotalParadas);
             await RefrescarRutasSilenciosamenteAsync();
         });
 
         _hubConnection.On<JsonElement>("RutaActualizada", async (datos) =>
         {
             var info = ExtraerInfoRuta(datos);
+            if (EsEventoTelemetriaGps(info.Estado, info.DetalleCambio))
+            {
+                return;
+            }
+
             _logger.LogInformation("SignalR: RutaActualizada {HojaDeRutaId}", info.HojaDeRutaId);
-            await EmitirAlertaRutaActualizadaAsync(info.HojaDeRutaId, info.DetalleCambio);
             await RefrescarRutasSilenciosamenteAsync();
         });
 
@@ -185,80 +196,35 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         };
     }
 
-    private async Task EmitirAlertaNuevaRutaAsync(Guid hojaDeRutaId, string codigoRuta, int totalParadas)
+    private static bool EsEventoTelemetriaGps(string? estadoOTitulo, string? detalleOMensaje)
     {
-        if (!DebeEmitirAlerta(hojaDeRutaId, "NUEVA_RUTA"))
+        if (ContieneIndicadorTelemetriaGps(estadoOTitulo) || ContieneIndicadorTelemetriaGps(detalleOMensaje))
         {
-            return;
+            return true;
         }
 
-        ObtenerSyncService()?.RegistrarNotificacionRutaEmitida(hojaDeRutaId, "NUEVA_RUTA");
-
-        if (_notificacionService is null)
-        {
-            return;
-        }
-
-        var codigoVisible = string.IsNullOrWhiteSpace(codigoRuta) ? "del dia" : codigoRuta.Trim();
-        var mensaje = $"Se habilito la ruta {codigoVisible} con {Math.Max(0, totalParadas)} paradas pendientes. Ingresa a la seccion Carga para verificar los bultos.";
-
-        await _notificacionService.MostrarNotificacionOperativaAsync(
-            "Nueva Hoja de Ruta Asignada",
-            mensaje,
-            "RUTA");
+        return false;
     }
 
-    private async Task EmitirAlertaRutaActualizadaAsync(Guid hojaDeRutaId, string detalleCambio)
+    private static bool ContieneIndicadorTelemetriaGps(string? texto)
     {
-        if (!DebeEmitirAlerta(hojaDeRutaId, "RUTA_ACTUALIZADA"))
-        {
-            return;
-        }
-
-        ObtenerSyncService()?.RegistrarNotificacionRutaEmitida(hojaDeRutaId, "RUTA_ACTUALIZADA");
-
-        if (_notificacionService is null)
-        {
-            return;
-        }
-
-        var detalleVisible = string.IsNullOrWhiteSpace(detalleCambio)
-            ? "modificacion de paradas desde central"
-            : detalleCambio.Trim();
-
-        await _notificacionService.MostrarNotificacionOperativaAsync(
-            "Actualizacion en Hoja de Ruta Activa",
-            $"Se actualizaron las paradas de tu ruta en curso ({detalleVisible}). Revisa el listado actualizado.",
-            "RUTA");
-    }
-
-    private bool DebeEmitirAlerta(Guid hojaDeRutaId, string tipo)
-    {
-        var clave = $"{hojaDeRutaId}:{tipo}";
-        var ahora = DateTimeOffset.UtcNow;
-
-        if (_alertasRecientes.TryGetValue(clave, out var previo) && (ahora - previo) < TimeSpan.FromSeconds(15))
+        if (string.IsNullOrWhiteSpace(texto))
         {
             return false;
         }
 
-        _alertasRecientes[clave] = ahora;
-        return true;
+        return texto.Contains("Posicion", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Posición", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Coordenada", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Latitud", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Longitud", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Telemetria", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Telemetría", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("GPS", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Bateria", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Batería", StringComparison.OrdinalIgnoreCase) ||
+               texto.Contains("Velocidad", StringComparison.OrdinalIgnoreCase);
     }
-
-    private static bool EsEstadoAsignacionONuevaRuta(string? estado) =>
-        estado is not null && (
-            estado.Equals("Asignada", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("Liberada", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("EnCarga", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("Despachada", StringComparison.OrdinalIgnoreCase));
-
-    private static bool EsEstadoModificacionActiva(string? estado) =>
-        estado is not null && (
-            estado.Equals("EnTransito", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("Cancelada", StringComparison.OrdinalIgnoreCase) ||
-            estado.Equals("Modificada", StringComparison.OrdinalIgnoreCase));
 
     private static (Guid HojaDeRutaId, string CodigoRuta, string Estado, int TotalParadas, string DetalleCambio) ExtraerInfoRuta(JsonElement payload)
     {

@@ -1,7 +1,11 @@
+using System.Collections.Concurrent;
 using System.Security;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Storage;
 
 namespace UltimaMilla.Mobile.Services.Notifications;
 
@@ -15,9 +19,11 @@ public sealed class NotificacionLocalService : INotificacionLocalService
     public const string CanalAlertasId = "ultimamilla_alertas_operativas";
     public const string CanalAlertasNombre = "Alertas Operativas de Ruta";
 
+    private static readonly TimeSpan CooldownDeduplicacion = TimeSpan.FromMinutes(5);
+
     private readonly ILogger<NotificacionLocalService>? _logger;
-    private int _secuenciaId = 2000;
     private readonly SemaphoreSlim _bannerLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _ultimasNotificaciones = new(StringComparer.Ordinal);
 
     public event EventHandler<NotificacionOperativaEventArgs>? NotificacionEmitida;
 
@@ -67,7 +73,8 @@ public sealed class NotificacionLocalService : INotificacionLocalService
         string titulo,
         string mensaje,
         string categoria = "OPERACIONES",
-        int? idNotificacion = null)
+        int? idNotificacion = null,
+        string? firmaContenido = null)
     {
         var tituloSeguro = string.IsNullOrWhiteSpace(titulo)
             ? "Alerta Operativa"
@@ -79,7 +86,23 @@ public sealed class NotificacionLocalService : INotificacionLocalService
             ? "OPERACIONES"
             : categoria.Trim().ToUpperInvariant();
 
-        var notificacionId = idNotificacion ?? Interlocked.Increment(ref _secuenciaId);
+        var firmaEfectiva = !string.IsNullOrWhiteSpace(firmaContenido)
+            ? firmaContenido.Trim()
+            : $"{categoriaSegura}|{mensajeSeguro.ToUpperInvariant()}";
+
+        var claveEvento = $"{tituloSeguro.ToUpperInvariant()}|{firmaEfectiva}";
+        var hashDeterminista = CalcularHashDeterminista(claveEvento);
+
+        if (DebeOmitirPorDeduplicacion(hashDeterminista))
+        {
+            _logger?.LogDebug(
+                "Notificacion operativa omitida por deduplicacion (< 5 min): {Titulo} [{Hash}]",
+                tituloSeguro,
+                hashDeterminista);
+            return;
+        }
+
+        var notificacionId = idNotificacion ?? CalcularIdNotificacionDeterminista(claveEvento);
 
         NotificacionEmitida?.Invoke(
             this,
@@ -107,6 +130,54 @@ public sealed class NotificacionLocalService : INotificacionLocalService
 #endif
 
         await Task.CompletedTask;
+    }
+
+    private bool DebeOmitirPorDeduplicacion(string hashDeterminista)
+    {
+        var ahora = DateTimeOffset.UtcNow;
+
+        if (_ultimasNotificaciones.TryGetValue(hashDeterminista, out var previoMemoria) &&
+            (ahora - previoMemoria) < CooldownDeduplicacion)
+        {
+            return true;
+        }
+
+        var clavePreferencia = $"NotifDedup_{hashDeterminista}";
+        try
+        {
+            var ticksGuardados = Preferences.Default.Get(clavePreferencia, 0L);
+            if (ticksGuardados > 0)
+            {
+                var previoPersistido = new DateTimeOffset(ticksGuardados, TimeSpan.Zero);
+                if ((ahora - previoPersistido) < CooldownDeduplicacion)
+                {
+                    _ultimasNotificaciones[hashDeterminista] = previoPersistido;
+                    return true;
+                }
+            }
+
+            _ultimasNotificaciones[hashDeterminista] = ahora;
+            Preferences.Default.Set(clavePreferencia, ahora.UtcTicks);
+        }
+        catch
+        {
+            _ultimasNotificaciones[hashDeterminista] = ahora;
+        }
+
+        return false;
+    }
+
+    private static string CalcularHashDeterminista(string clave)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(clave));
+        return Convert.ToHexString(bytes.AsSpan(0, 8));
+    }
+
+    private static int CalcularIdNotificacionDeterminista(string clave)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(clave));
+        var raw = BitConverter.ToInt32(bytes, 0) & 0x7FFFFFFF;
+        return 2000 + (raw % 900000);
     }
 
     public void MostrarAlertaOperativa(string titulo, string mensaje)

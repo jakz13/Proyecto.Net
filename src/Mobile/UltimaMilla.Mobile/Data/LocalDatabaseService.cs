@@ -34,6 +34,11 @@ public interface ILocalDatabaseService
     // Persistencia y consulta de hoja de ruta local
     Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null, DateTime? fechaRuta = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync(Guid? hojaDeRutaId = null);
+    Task<HojaDeRutaLocal?> ObtenerHojaDeRutaLocalPorIdAsync(Guid hojaDeRutaId);
+    Task<List<ParadaLocal>> ObtenerParadasLocalesPorRutaAsync(Guid hojaDeRutaId);
+    Task<string?> ObtenerFirmaContenidoRutaLocalAsync(Guid hojaDeRutaId);
+    void GuardarFirmaContenidoRutaEnPreferencias(Guid hojaDeRutaId, string firma);
+    string? ObtenerFirmaContenidoRutaDePreferencias(Guid hojaDeRutaId);
     Task<List<HojaDeRutaLocal>> ListarHojasDeRutaLocalesAsync();
     Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId);
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
@@ -510,7 +515,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 // "Cerrada" es el cierre que hizo el repartidor en el dispositivo: el servidor solo dice "Finalizada" (todas las paradas
                 // completadas) o "Rendida", y eso no debe reabrir una ruta que él ya cerró.
                 var yaCerradaPorElRepartidor = ruta.Estado == "Cerrada" && estadoRuta is "Finalizada" or "Rendida";
-                if (!string.IsNullOrWhiteSpace(estadoRuta) && !yaCerradaPorElRepartidor)
+                var yaEnTransitoPorElRepartidor = ruta.Estado == "EnTransito" && estadoRuta is "Liberada" or "EnCarga" or "Despachada";
+                if (!string.IsNullOrWhiteSpace(estadoRuta) && !yaCerradaPorElRepartidor && !yaEnTransitoPorElRepartidor)
                     ruta.Estado = estadoRuta;
                 if (!string.IsNullOrWhiteSpace(numeroRuta))
                     ruta.NumeroRuta = numeroRuta;
@@ -539,6 +545,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             }
 
             bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada" or "Rendida";
+            bool ordenOptimizadoLocalmente = Preferences.Default.Get($"RutaOrdenOptimizadoLocal_{hojaDeRutaId:N}", false);
 
             // 2. Paradas que el servidor ya no incluye (reasignadas o retiradas de la ruta) y que no tienen nada pendiente de enviar
             var idsServidor = paradas.Where(p => p.ParadaId != Guid.Empty).Select(p => p.ParadaId).ToHashSet();
@@ -575,11 +582,12 @@ public class LocalDatabaseService : ILocalDatabaseService
                 paradaLocal.EnvioId = envioId;
                 paradaLocal.Tipo = esRetiro ? "Retiro" : "Entrega";
                 paradaLocal.RetiroId = esRetiro ? p.RetiroId : null;
-                paradaLocal.Orden = p.Orden;
+                if (isNew || !ordenOptimizadoLocalmente || paradaLocal.Orden <= 0)
+                    paradaLocal.Orden = p.Orden;
                 paradaLocal.OrdenVisita = isNew || paradaLocal.OrdenVisita <= 0 ? p.Orden : paradaLocal.OrdenVisita;
 
                 // Lo completado en el dispositivo y todavía no sincronizado no se pisa con el estado viejo del servidor
-                if (isNew || paradaLocal.Estado is not ("Entregado" or "Fallido" or "EnDevolucion"))
+                if (isNew || paradaLocal.Estado is not ("Entregado" or "Fallido" or "EnDevolucion" or "Cancelada"))
                     paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
 
                 paradaLocal.CodigoSeguimiento = p.CodigoSeguimiento ?? string.Empty;
@@ -748,6 +756,124 @@ public class LocalDatabaseService : ILocalDatabaseService
             .ToList();
     }
 
+    public async Task<HojaDeRutaLocal?> ObtenerHojaDeRutaLocalPorIdAsync(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return null;
+
+        await InitAsync();
+        return await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
+    }
+
+    public async Task<List<ParadaLocal>> ObtenerParadasLocalesPorRutaAsync(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return new List<ParadaLocal>();
+
+        await InitAsync();
+        return await Db.Table<ParadaLocal>()
+            .Where(p => p.HojaDeRutaId == hojaDeRutaId)
+            .OrderBy(p => p.Orden)
+            .ThenBy(p => p.Id)
+            .ToListAsync();
+    }
+
+    public async Task<string?> ObtenerFirmaContenidoRutaLocalAsync(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return null;
+
+        var ruta = await ObtenerHojaDeRutaLocalPorIdAsync(hojaDeRutaId);
+        if (ruta is null)
+            return null;
+
+        var paradas = await ObtenerParadasLocalesPorRutaAsync(hojaDeRutaId);
+        return CalcularFirmaContenidoRutaLocal(ruta, paradas);
+    }
+
+    public void GuardarFirmaContenidoRutaEnPreferencias(Guid hojaDeRutaId, string firma)
+    {
+        if (hojaDeRutaId == Guid.Empty || string.IsNullOrWhiteSpace(firma))
+            return;
+
+        try
+        {
+            Preferences.Default.Set($"FirmaRuta_{hojaDeRutaId:N}", firma);
+        }
+        catch
+        {
+        }
+    }
+
+    public string? ObtenerFirmaContenidoRutaDePreferencias(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return null;
+
+        try
+        {
+            var valor = Preferences.Default.Get($"FirmaRuta_{hojaDeRutaId:N}", string.Empty);
+            return string.IsNullOrWhiteSpace(valor) ? null : valor;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task ActualizarFirmaRutaLocalEnPreferenciasAsync(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return;
+
+        var firma = await ObtenerFirmaContenidoRutaLocalAsync(hojaDeRutaId);
+        if (!string.IsNullOrWhiteSpace(firma))
+        {
+            GuardarFirmaContenidoRutaEnPreferencias(hojaDeRutaId, firma);
+        }
+    }
+
+    public static string NormalizarEstadoParadaFirma(string? estado) =>
+        MapearEstadoParada(estado ?? string.Empty);
+
+    public static string CalcularFirmaContenidoRuta(
+        Guid hojaDeRutaId,
+        string? estadoRuta,
+        IEnumerable<(Guid ParadaId, int Orden, string? Estado, string? Direccion)> paradas)
+    {
+        var listaOrdenada = paradas
+            .Where(p => p.ParadaId != Guid.Empty)
+            .OrderBy(p => p.Orden)
+            .ThenBy(p => p.ParadaId)
+            .Select(p =>
+            {
+                var estadoNorm = NormalizarEstadoParadaFirma(p.Estado);
+                var direccionNorm = (p.Direccion ?? string.Empty).Trim().ToUpperInvariant();
+                return $"{p.ParadaId:N}:{p.Orden}:{estadoNorm}:{direccionNorm}";
+            })
+            .ToList();
+
+        var estadoRutaNorm = (estadoRuta ?? string.Empty).Trim().ToUpperInvariant();
+        return $"{hojaDeRutaId:N}|{estadoRutaNorm}|{listaOrdenada.Count}|{string.Join("|", listaOrdenada)}";
+    }
+
+    public static string CalcularFirmaContenidoRutaLocal(
+        HojaDeRutaLocal ruta,
+        IEnumerable<ParadaLocal> paradas) =>
+        CalcularFirmaContenidoRuta(
+            ruta.Id,
+            ruta.Estado,
+            paradas.Select(p => (p.Id, p.Orden, (string?)p.Estado, (string?)p.Direccion)));
+
+    public static string CalcularFirmaContenidoRutaServidor(
+        Guid hojaDeRutaId,
+        string? estadoRuta,
+        IEnumerable<ParadaNavegacionDto> paradas) =>
+        CalcularFirmaContenidoRuta(
+            hojaDeRutaId,
+            estadoRuta,
+            paradas.Select(p => (p.ParadaId, p.Orden, (string?)p.EstadoParada, (string?)p.DireccionFormateada)));
+
     public async Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId)
     {
         await InitAsync();
@@ -764,6 +890,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             // Cierre explícito del repartidor (botón "Finalizar Hoja de Ruta"): recién entonces la ruta sale de la pantalla del día
             ruta.Estado = "Cerrada";
             await Db.UpdateAsync(ruta);
+            await ActualizarFirmaRutaLocalEnPreferenciasAsync(ruta.Id);
         }
     }
 
@@ -917,6 +1044,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                     await Db.UpdateAsync(b);
                 }
             }
+
+            await ActualizarFirmaRutaLocalEnPreferenciasAsync(parada.HojaDeRutaId);
         }
     }
 
@@ -941,6 +1070,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             bulto.VerificadoEnEntrega = entregados.Contains(bulto.Codigo.Trim());
             await Db.UpdateAsync(bulto);
         }
+
+        await ActualizarFirmaRutaLocalEnPreferenciasAsync(parada.HojaDeRutaId);
     }
 
     public async Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado)
@@ -955,6 +1086,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         {
             ruta.Estado = nuevoEstado;
             await Db.UpdateAsync(ruta);
+            await ActualizarFirmaRutaLocalEnPreferenciasAsync(ruta.Id);
         }
     }
 
@@ -1101,6 +1233,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             ruta.Estado = "EnCarga";
             await Db.UpdateAsync(ruta);
         }
+
+        await ActualizarFirmaRutaLocalEnPreferenciasAsync(ruta.Id);
     }
 
     public async Task ActualizarSecuenciaParadasAsync(IReadOnlyList<ParadaItemViewModel> paradasOrdenadas)
@@ -1109,6 +1243,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             return;
 
         await InitAsync();
+
+        Guid hojaDeRutaId = Guid.Empty;
 
         await Db.RunInTransactionAsync(conn =>
         {
@@ -1127,6 +1263,9 @@ public class LocalDatabaseService : ILocalDatabaseService
 
                 if (paradaLocal != null)
                 {
+                    if (hojaDeRutaId == Guid.Empty)
+                        hojaDeRutaId = paradaLocal.HojaDeRutaId;
+
                     paradaLocal.Orden = nuevoOrden;
                     paradaLocal.OrdenVisita = nuevoOrden;
                     paradaLocal.HoraEstimada = $"{8 + nuevoOrden:D2}:30";
@@ -1135,6 +1274,19 @@ public class LocalDatabaseService : ILocalDatabaseService
                 }
             }
         });
+
+        if (hojaDeRutaId != Guid.Empty)
+        {
+            try
+            {
+                Preferences.Default.Set($"RutaOrdenOptimizadoLocal_{hojaDeRutaId:N}", true);
+            }
+            catch
+            {
+            }
+
+            await ActualizarFirmaRutaLocalEnPreferenciasAsync(hojaDeRutaId);
+        }
     }
 
     public async Task<List<MotivoNoEntregaLocal>> ObtenerMotivosNoEntregaAsync()
@@ -1149,9 +1301,10 @@ public class LocalDatabaseService : ILocalDatabaseService
         return estado switch
         {
             "Completada" or "Entregada" or "Entregado" => "Entregado",
-            "Fallida" or "Fallido" => "Fallido",
+            "Fallida" or "Fallido" or "NoEntregado" => "Fallido",
             "Reprogramado" => "Fallido",
             "EnDevolucion" or "EnRetornoADeposito" => "EnDevolucion",
+            "Cancelada" or "Cancelado" or "Reasignado" => "Cancelada",
             "EnCamino" or "EnSitio" or "Pendiente" => "Pendiente",
             _ => "Pendiente"
         };
