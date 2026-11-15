@@ -32,7 +32,7 @@
                 <strong>Error al iniciar la aplicación WebAssembly.</strong>
                 <span id="blazor-error-texto" class="d-block small text-muted"></span>
             </div>
-            <button type="button" class="btn btn-danger btn-sm" onclick="location.reload(true)">
+            <button type="button" class="btn btn-danger btn-sm" onclick="forzarRecarga()">
                 Forzar Recarga (Ctrl+F5)
             </button>
         </div>
@@ -49,6 +49,16 @@
                 banner.style.display = 'block';
             }
         });
+    </script>
+    <script>
+        // Tras un despliegue, el navegador puede conservar archivos viejos de la aplicación y fallar su verificación: recargar no alcanza, hay que vaciar la caché de recursos
+        function forzarRecarga() {
+            var recargar = function () { location.reload(); };
+            if (!window.caches) { recargar(); return; }
+            caches.keys()
+                .then(function (claves) { return Promise.all(claves.map(function (c) { return caches.delete(c); })); })
+                .then(recargar, recargar);
+        }
     </script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="js/notificaciones.js"></script>

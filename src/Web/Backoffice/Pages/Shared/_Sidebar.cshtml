@@ -33,6 +33,15 @@
 <nav class="sidebar-oscura d-flex flex-column flex-shrink-0" id="sidebarPrincipal" aria-label="Navegación principal">
     <!-- Cabecera de la Marca y Botón para Colapsar -->
     <div class="sidebar-cabecera d-flex align-items-center justify-content-between p-3 border-bottom">
+        @if (esPlataforma)
+        {
+            @* El administrador de la plataforma no pertenece a ningún operador: sin logo, sin nombre de operador, sin "Operador" ni "Backoffice" *@
+            <div class="sidebar-marca-texto text-truncate">
+                <div class="fw-bold text-white small text-truncate">Administrador de plataforma</div>
+            </div>
+        }
+        else
+        {
         <div class="d-flex align-items-center gap-2 overflow-hidden">
             @if (!string.IsNullOrEmpty(operadorActivo.LogoUrl))
             {
@@ -62,6 +71,7 @@
                 </div>
             </div>
         </div>
+        }
 
         <!-- BotÃ³n para achicar/expandir la barra lateral -->
         <button type="button" class="btn btn-sm btn-colapsar-sidebar text-secondary p-1 border-0"
