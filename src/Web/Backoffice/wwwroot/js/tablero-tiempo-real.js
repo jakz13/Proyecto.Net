@@ -626,8 +626,12 @@
             programarActualizacionPorPosicion(datos);
         });
 
-        // Un envío que cambia de estado altera las métricas (en tránsito, entregados) y las paradas del tablero
+        // Un envío o retiro que cambia de estado altera las métricas (en tránsito, entregados) y las paradas del tablero
         conexion.on('EnvioCambioEstado', function () {
+            programarActualizacionPorPosicion();
+        });
+
+        conexion.on('RetiroCambioEstado', function () {
             programarActualizacionPorPosicion();
         });
 

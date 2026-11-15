@@ -1,6 +1,8 @@
 @page "/retiros"
 @using UltimaMilla.Frontend.Contracts.Modelos.Retiros
 @inject IRetirosApi RetirosApi
+@inject TiempoRealEnviosServicio TiempoReal
+@implements IDisposable
 
 <PageTitle>Portal del Comercio — Retiros en domicilio</PageTitle>
 
@@ -155,11 +157,51 @@
     private string? mensajeExito;
     private string? mensajeError;
 
+    private CancellationTokenSource? _refrescoPendiente;
+
     protected override async Task OnInitializedAsync() => await CargarAsync();
 
-    private async Task CargarAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        cargando = true;
+        if (firstRender)
+        {
+            TiempoReal.RetiroCambioEstado += AlCambiarEstadoRetiro;
+            await TiempoReal.IniciarAsync();
+        }
+    }
+
+    private async Task AlCambiarEstadoRetiro(string codigoSeguimiento, string estado)
+    {
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(600, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await CargarAsync(silencioso: true);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TiempoReal.RetiroCambioEstado -= AlCambiarEstadoRetiro;
+        _refrescoPendiente?.Cancel();
+    }
+
+    private Task CargarAsync() => CargarAsync(silencioso: false);
+
+    private async Task CargarAsync(bool silencioso)
+    {
+        if (!silencioso)
+            cargando = true;
         try
         {
             retiros = (await RetirosApi.ListarDelComercioAsync()).Items.ToList();

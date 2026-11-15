@@ -331,6 +331,8 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
     private async Task EncolarYCerrarAsync<T>(ParadaItemViewModel parada, string tipoOperacion, T payload, string nuevoEstado, string titulo, string detalle)
     {
+        var estadoAnterior = parada.Estado;
+
         if (_localDatabaseService is not null)
         {
             await _localDatabaseService.EncolarOperacionAsync(
@@ -342,26 +344,70 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
         parada.Estado = nuevoEstado;
 
+        bool? syncExitoso = null;
+        string? motivoRechazoServidor = null;
+
         if (_syncService?.IsOnline == true)
         {
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                var syncTask = _syncService.SincronizarOperacionesPendientesAsync();
+                var completada = await Task.WhenAny(syncTask, Task.Delay(TimeSpan.FromSeconds(6)));
+                if (completada == syncTask)
                 {
-                    await _syncService.SincronizarOperacionesPendientesAsync();
+                    var resultado = await syncTask;
+                    if (resultado.ErroresNegocio > 0)
+                    {
+                        syncExitoso = false;
+                        motivoRechazoServidor = resultado.DetallesErrores is { Count: > 0 }
+                            ? string.Join("\n", resultado.DetallesErrores)
+                            : resultado.Mensaje;
+                    }
+                    else if (!resultado.DetenidoPorCorteDeRed && resultado.Exitosas > 0)
+                    {
+                        syncExitoso = true;
+                        try
+                        {
+                            await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[RegistroRetiroViewModel] Refresco post-retiro omitido: {ex.Message}");
+                        }
+                    }
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[RegistroRetiroViewModel] Sincronización en segundo plano: {ex.Message}");
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RegistroRetiroViewModel] Error en sincronización inmediata: {ex.Message}");
+            }
+        }
+
+        if (syncExitoso == false)
+        {
+            parada.Estado = estadoAnterior;
+            if (_localDatabaseService is not null)
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, estadoAnterior);
+
+            if (Shell.Current is not null)
+            {
+                await Shell.Current.DisplayAlertAsync(
+                    "No se pudo completar la sincronización",
+                    string.IsNullOrWhiteSpace(motivoRechazoServidor)
+                        ? "La central rechazó la operación de retiro."
+                        : motivoRechazoServidor,
+                    "Entendido");
+            }
+            return;
         }
 
         if (Shell.Current is not null)
         {
-            var infoRed = _syncService?.IsOnline == true
-                ? "Se está enviando a la central."
-                : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
+            var infoRed = syncExitoso == true
+                ? "Sincronizado en tiempo real con la central."
+                : _syncService?.IsOnline == true
+                    ? "Enviándose a la central en segundo plano."
+                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
 
             await Shell.Current.DisplayAlertAsync(titulo, $"{detalle}\n\n{infoRed}", "Finalizar");
             await Shell.Current.GoToAsync("//RutaDiaPage");

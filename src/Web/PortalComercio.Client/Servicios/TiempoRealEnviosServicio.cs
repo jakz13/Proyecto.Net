@@ -26,6 +26,9 @@ public sealed class TiempoRealEnviosServicio : IAsyncDisposable
     /// <summary>Se dispara con el código de seguimiento y el estado nuevo; ambos vacíos indican "refrescá todo" (tras reconectar).</summary>
     public event Func<string, string, Task>? EnvioCambioEstado;
 
+    /// <summary>Se dispara cuando cambia el estado de un retiro en domicilio del comercio.</summary>
+    public event Func<string, string, Task>? RetiroCambioEstado;
+
     /// <summary>Cambió la lista de operadores del comercio (alta de un vínculo nuevo, suspensión o reactivación).</summary>
     public event Func<Task>? OperadoresDelComercioCambiaron;
 
@@ -53,7 +56,19 @@ public sealed class TiempoRealEnviosServicio : IAsyncDisposable
     [JSInvokable]
     public async Task AlCambiarEstado(string codigoSeguimiento, string estado)
     {
-        var manejador = EnvioCambioEstado;
+        await InvocarEscuchasAsync(EnvioCambioEstado, codigoSeguimiento, estado);
+
+        // Si ambos llegan vacíos ("refrescar todo" tras DatosCambiaron o reconexión), también avisamos a Retiros
+        if (string.IsNullOrWhiteSpace(codigoSeguimiento) && string.IsNullOrWhiteSpace(estado))
+            await InvocarEscuchasAsync(RetiroCambioEstado, string.Empty, string.Empty);
+    }
+
+    [JSInvokable]
+    public Task AlCambiarRetiro(string codigoSeguimiento, string estado) =>
+        InvocarEscuchasAsync(RetiroCambioEstado, codigoSeguimiento, estado);
+
+    private static async Task InvocarEscuchasAsync(Func<string, string, Task>? manejador, string codigoSeguimiento, string estado)
+    {
         if (manejador is null)
             return;
 

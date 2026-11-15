@@ -570,7 +570,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                     continue; // una parada sin identificador no se puede operar ni sincronizar
 
                 var paradaId = p.ParadaId;
-                var esRetiro = string.Equals(p.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
+                var esRetiro = string.Equals(p.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
+                    || (p.RetiroId.HasValue && p.RetiroId.Value != Guid.Empty);
                 // Una parada de retiro no tiene envío: se identifica por el retiro
                 var envioId = esRetiro ? (p.RetiroId ?? p.ParadaId) : p.EnvioId;
 

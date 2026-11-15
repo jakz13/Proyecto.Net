@@ -23,9 +23,11 @@ public partial class DetalleParadaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
     [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
     [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
-    [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
     [NotifyPropertyChangedFor(nameof(EsRetiro))]
     [NotifyPropertyChangedFor(nameof(EsEntrega))]
+    [NotifyPropertyChangedFor(nameof(CodigoEtiquetaTitulo))]
+    [NotifyPropertyChangedFor(nameof(ContactoSeccionTitulo))]
+    [NotifyPropertyChangedFor(nameof(BultosSeccionTitulo))]
     private ParadaItemViewModel? _parada;
 
     [ObservableProperty]
@@ -33,7 +35,6 @@ public partial class DetalleParadaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PuedeConfirmarEntrega))]
     [NotifyPropertyChangedFor(nameof(MostrarAvisoBloqueo))]
     [NotifyPropertyChangedFor(nameof(MensajeBloqueoEntrega))]
-    [NotifyPropertyChangedFor(nameof(PuedeRegistrarRetiroDevolucion))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -50,6 +51,10 @@ public partial class DetalleParadaViewModel : ObservableObject
 
     public bool EsRetiro => Parada?.EsRetiro == true;
     public bool EsEntrega => !EsRetiro;
+
+    public string CodigoEtiquetaTitulo => EsRetiro ? "Código de Retiro" : "Código de Envío";
+    public string ContactoSeccionTitulo => EsRetiro ? "Datos del Solicitante / Origen" : "Datos del Destinatario";
+    public string BultosSeccionTitulo => EsRetiro ? "Bultos a Retirar" : "Bultos del Envío";
 
     public bool TieneNotasComercio => !string.IsNullOrWhiteSpace(Parada?.NotasComercio);
 
@@ -75,12 +80,7 @@ public partial class DetalleParadaViewModel : ObservableObject
         }
     }
 
-    public bool PuedeRegistrarRetiroDevolucion =>
-        Parada is not null &&
-        !Parada.EsRetiro &&
-        Parada.Estado != "Entregado" &&
-        Parada.Estado != "EnDevolucion" &&
-        !IsBusy;
+
 
     public string ResumenBultosTexto
     {
@@ -247,98 +247,6 @@ public partial class DetalleParadaViewModel : ObservableObject
         {
             { "Parada", Parada }
         });
-    }
-
-    [RelayCommand]
-    private async Task RegistrarRetiroDevolucionAsync()
-    {
-        if (IsBusy || Parada is null || Parada.Id == Guid.Empty)
-            return;
-
-        string observaciones = "Bulto retirado para devolución a depósito";
-
-        if (Shell.Current is not null)
-        {
-            var input = await Shell.Current.DisplayPromptAsync(
-                "Retiro de devolución",
-                "Indique observaciones del retiro del bulto para su retorno al depósito:",
-                "Confirmar retiro",
-                "Cancelar",
-                "Observaciones",
-                initialValue: observaciones);
-
-            if (input is null)
-                return;
-
-            if (!string.IsNullOrWhiteSpace(input))
-                observaciones = input.Trim();
-        }
-
-        try
-        {
-            IsBusy = true;
-
-            var parada = Parada;
-            var ubicacion = await UbicacionDispositivo.ObtenerAsync();
-
-            var payload = new RetiroDevolucionOfflinePayload
-            {
-                HojaDeRutaId = parada.HojaDeRutaId,
-                ParadaId = parada.Id,
-                EnvioId = parada.EnvioId,
-                IdempotencyKey = $"RET-DEV-{parada.Id:N}",
-                Latitud = ubicacion?.Latitude,
-                Longitud = ubicacion?.Longitude,
-                FechaHoraDispositivoUtc = DateTime.UtcNow,
-                Observaciones = observaciones
-            };
-
-            if (_localDatabaseService is not null)
-            {
-                await _localDatabaseService.EncolarOperacionAsync(
-                    TiposOperacionOffline.RetiroDevolucion,
-                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
-
-                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, "EnDevolucion");
-            }
-
-            parada.Estado = "EnDevolucion";
-            OnPropertyChanged(nameof(PuedeAccionar));
-            OnPropertyChanged(nameof(PuedeRegistrarRetiroDevolucion));
-
-            if (_syncService?.IsOnline == true)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _syncService.SincronizarOperacionesPendientesAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[DetalleParadaViewModel] Sincronización en segundo plano: {ex.Message}");
-                    }
-                });
-            }
-
-            if (Shell.Current is not null)
-            {
-                string infoRed = (_syncService?.IsOnline == true)
-                    ? "Se está enviando a la central."
-                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
-
-                await Shell.Current.DisplayAlertAsync(
-                    "Retiro de devolución registrado",
-                    $"El retiro de bulto(s) del envío {parada.CodigoSeguimiento} para retorno a depósito fue registrado.\n\n{infoRed}",
-                    "Aceptar");
-
-                await Shell.Current.GoToAsync("//RutaDiaPage");
-            }
-        }
-        finally
-        {
-            IsBusy = false;
-        }
     }
 
     [RelayCommand]

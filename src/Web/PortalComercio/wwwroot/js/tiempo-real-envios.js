@@ -26,6 +26,10 @@
                 referencia.invokeMethodAsync('AlCambiarEstado', cambio.codigoSeguimiento || '', cambio.estado || '');
             });
 
+            conexion.on('RetiroCambioEstado', function (cambio) {
+                referencia.invokeMethodAsync('AlCambiarRetiro', cambio.codigoSeguimiento || '', cambio.estado || '');
+            });
+
             // Otra sesión de la misma cuenta (o el operador) cambió datos del comercio: la lista se pone al día sola, sin aviso de estado
             conexion.on('DatosCambiaron', function () {
                 referencia.invokeMethodAsync('AlCambiarEstado', '', '');
