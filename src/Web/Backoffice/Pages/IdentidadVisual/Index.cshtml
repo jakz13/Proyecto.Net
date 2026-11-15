@@ -1,13 +1,13 @@
 @page
 @model UltimaMilla.Backoffice.Pages.IdentidadVisual.IndexModel
 @{
-    ViewData["Title"] = "Identidad Visual";
+    ViewData["Title"] = "Identidad";
 }
 
 <!-- Encabezado Principal -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
-        <h1 class="h4 fw-bold mb-0">Identidad Visual y Personalización de Marca</h1>
+        <h1 class="h4 fw-bold mb-0">Identidad</h1>
         <partial name="_BotonAyuda" model='"Carga de logotipo, colores corporativos y datos de contacto oficial. Se refleja en portal comercio, seguimiento público y notificaciones."' />
     </div>
     <form method="post" asp-page-handler="RestablecerPredeterminados" onsubmit="return confirm('¿Deseas restablecer la paleta y datos a los valores predeterminados?');">
@@ -197,18 +197,6 @@
                         </div>
                     </div>
 
-                    <!-- Dirección del depósito: de ahí salen las rutas; la flota sin posición reportada se muestra allí -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label asp-for="Modelo.DireccionDeposito" class="form-label small fw-semibold">Dirección del depósito</label>
-                            <input asp-for="Modelo.DireccionDeposito" class="form-control form-control-sm" placeholder="Calle, número y ciudad (ej: Av. Italia 3456, Montevideo)" maxlength="300" />
-                            <div class="form-text small" style="font-size: 0.725rem;">
-                                Se ubica en el mapa al guardar. Mientras no la cargue, el sistema no tiene una dirección de depósito.
-                            </div>
-                            <span asp-validation-for="Modelo.DireccionDeposito" class="text-danger small"></span>
-                        </div>
-                    </div>
-
                     <!-- Fila 4: Firma en Notificaciones -->
                     <div class="mb-4">
                         <label asp-for="Modelo.MensajeComunicaciones" class="form-label small fw-semibold">
@@ -221,13 +209,25 @@
                         </div>
                     </div>
 
+                    <!-- Dirección del depósito: de ahí salen las rutas; la flota sin posición reportada se muestra allí -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label asp-for="Modelo.DireccionDeposito" class="form-label small fw-semibold">Dirección del depósito</label>
+                            <input asp-for="Modelo.DireccionDeposito" class="form-control form-control-sm" placeholder="Calle, número y ciudad (ej: Av. Italia 3456, Montevideo)" maxlength="300" />
+                            <div class="form-text small" style="font-size: 0.725rem;">
+                                Se ubica en el mapa al guardar. Mientras no la cargue, el sistema no tiene una dirección de depósito.
+                            </div>
+                            <span asp-validation-for="Modelo.DireccionDeposito" class="text-danger small"></span>
+                        </div>
+                    </div>
+
                     <!-- Botón de Envío con feedback de color de marca -->
                     <div class="d-flex justify-content-end">
                         <button type="submit" class="btn btn-marca btn-sm px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
-                            <span class="fw-semibold">Guardar Identidad Visual</span>
+                            <span class="fw-semibold">Guardar Identidad</span>
                         </button>
                     </div>
                 </form>
@@ -420,7 +420,7 @@
             <text>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.notificarExito) {
-                    window.notificarExito("Identidad Visual Actualizada", "@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.MensajeExito))");
+                    window.notificarExito("Identidad actualizada", "@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.MensajeExito))");
                 }
             });
             </text>
@@ -430,7 +430,7 @@
             <text>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.notificarError) {
-                    window.notificarError("Error en Identidad Visual", "@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.MensajeError))");
+                    window.notificarError("Error en Identidad", "@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.MensajeError))");
                 }
             });
             </text>

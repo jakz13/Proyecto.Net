@@ -31,6 +31,26 @@ public class HttpFuncionalidadesApi : IFuncionalidadesApi
         return await respuesta.Content.ReadFromJsonAsync<Dictionary<string, bool>>(cancellationToken: cancelacion) ?? new Dictionary<string, bool>();
     }
 
+    public async Task<Guid> CrearOperadorAsync(CrearOperadorDto dto, CancellationToken cancelacion = default)
+    {
+        var respuesta = await _http.PostAsJsonAsync("api/plataforma/operadores", new
+        {
+            razonSocial = dto.RazonSocial,
+            nombreComercial = dto.NombreComercial,
+            administrador = new { nombre = dto.AdministradorNombre, email = dto.AdministradorEmail, password = dto.AdministradorPassword }
+        }, cancelacion);
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            string? mensaje = null;
+            try { mensaje = System.Text.Json.JsonDocument.Parse(cuerpo).RootElement.GetProperty("error").GetString(); } catch { /* cuerpo sin forma conocida */ }
+            throw new ApiExcepcion(respuesta.StatusCode, mensaje ?? $"No se pudo crear la empresa ({(int)respuesta.StatusCode}).");
+        }
+
+        return System.Text.Json.JsonDocument.Parse(cuerpo).RootElement.GetProperty("operadorId").GetGuid();
+    }
+
     public async Task CambiarAsync(Guid operadorId, string clave, bool habilitada, CancellationToken cancelacion = default)
     {
         var respuesta = await _http.PutAsJsonAsync($"api/plataforma/operadores/{operadorId}/funcionalidades/{Uri.EscapeDataString(clave)}", new { habilitada }, cancelacion);

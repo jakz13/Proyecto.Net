@@ -294,4 +294,61 @@ public class ConsultasPlanificacionQueryHandlerTests
         Assert.Empty(_rutas.Rutas);
         Assert.Equal(0, uow.Confirmaciones);
     }
+
+    // ---- Retiros en la verificación previa al despacho ----
+
+    private sealed class RetiroRepositorioMinimo : UltimaMilla.Application.Ports.IRetiroRepository
+    {
+        public List<UltimaMilla.Domain.Entities.Retiros.Retiro> Retiros { get; } = new();
+        public Task AddAsync(UltimaMilla.Domain.Entities.Retiros.Retiro retiro, CancellationToken cancellationToken = default) { Retiros.Add(retiro); return Task.CompletedTask; }
+        public Task<UltimaMilla.Domain.Entities.Retiros.Retiro?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Retiros.FirstOrDefault(r => r.Id == id));
+        public Task<List<UltimaMilla.Domain.Entities.Retiros.Retiro>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) { var set = ids.ToHashSet(); return Task.FromResult(Retiros.Where(r => set.Contains(r.Id)).ToList()); }
+        public Task<UltimaMilla.Domain.Entities.Retiros.Retiro?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<UltimaMilla.Domain.Entities.Retiros.Retiro?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<(List<UltimaMilla.Domain.Entities.Retiros.Retiro> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, UltimaMilla.Domain.Enums.EstadoRetiro? estado, int pagina, int tamanoPagina, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<UltimaMilla.Domain.Entities.Retiros.Retiro>> ListarPorOperadorAsync(Guid operadorId, UltimaMilla.Domain.Enums.EstadoRetiro? estado, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<UltimaMilla.Domain.Enums.EstadoRetiro, int>> ContarPorEstadoAsync(Guid operadorId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateAsync(UltimaMilla.Domain.Entities.Retiros.Retiro retiro, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Verificacion_ListaLosRetirosDeLaRutaYUnaRutaSoloDeRetirosSePuedeDespachar()
+    {
+        var retiros = new RetiroRepositorioMinimo();
+        var retiro = new UltimaMilla.Domain.Entities.Retiros.Retiro(
+            Guid.NewGuid(), _tenant.OperadorId, Guid.NewGuid(), "RET-PRUEBA01", "Ana Gómez", Guid.NewGuid(), "Av. Italia 3456, Montevideo", "Cambio de talle");
+        retiro.AgregarBulto("Camisa", 2m, 10m, 10m, 10m);
+        retiros.Retiros.Add(retiro);
+
+        var ruta = new HojaDeRuta(Guid.NewGuid(), _tenant.OperadorId, Viernes);
+        ruta.AsignarRecursos(_repartidor.Id, _vehiculo.Id);
+        ruta.AgregarParadaRetiro(retiro.Id, 1, retiro.DireccionRetiroId);
+        ruta.Liberar();
+        _rutas.Rutas.Add(ruta);
+
+        var handler = new ObtenerVerificacionDespachoQueryHandler(_rutas, _envios, _vehiculos, _tenant, retiros);
+        var verificacion = await handler.Handle(new ObtenerVerificacionDespachoQuery(ruta.Id), default);
+
+        // Antes solo se listaban los envíos: el retiro es una parada que el repartidor también va a hacer
+        var parada = Assert.Single(verificacion.ParadasRetiro!);
+        Assert.Equal("RET-PRUEBA01", parada.CodigoSeguimiento);
+        Assert.Equal("Ana Gómez", parada.Contacto);
+        Assert.Equal("Av. Italia 3456, Montevideo", parada.Direccion);
+        Assert.Equal(1, parada.Orden);
+        Assert.Empty(verificacion.Bultos);
+        Assert.True(verificacion.PuedeDespachar, "Una ruta con solo retiros no tiene nada que cargar y puede salir.");
+    }
+
+    [Fact]
+    public async Task Verificacion_SinRetirosNiBultosCargados_NoSePuedeDespachar()
+    {
+        var envio = CrearEnvio();
+        var ruta = CrearRuta(new[] { envio });
+
+        var verificacion = await HandlerVerificacion().Handle(new ObtenerVerificacionDespachoQuery(ruta.Id), default);
+
+        Assert.Empty(verificacion.ParadasRetiro ?? Array.Empty<ParadaRetiroVerificacionDto>());
+        Assert.False(verificacion.PuedeDespachar);
+    }
 }

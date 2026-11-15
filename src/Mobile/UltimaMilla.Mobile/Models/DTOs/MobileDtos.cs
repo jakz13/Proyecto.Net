@@ -35,7 +35,11 @@ public record RutaActivaRepartidorDto(
     List<ParadaNavegacionDto> Paradas,
     List<MotivoNoEntregaDescargaDto>? MotivosNoEntrega,
     string? TipoPruebaEntregaExigida = null,
-    int? MaxIntentosEntrega = null
+    int? MaxIntentosEntrega = null,
+    // Depósito del operador (punto de partida de la ruta); null mientras el administrador no lo configure
+    string? DepositoDireccion = null,
+    double? DepositoLatitud = null,
+    double? DepositoLongitud = null
 );
 
 public record DestinatarioContactoDto(

@@ -3,6 +3,7 @@
 @inject IRetirosApi RetirosApi
 @inject TiempoRealEnviosServicio TiempoReal
 @implements IDisposable
+@inject IEnviosApi EnviosApi
 
 <PageTitle>Portal del Comercio — Retiros en domicilio</PageTitle>
 
@@ -28,6 +29,50 @@
         <button type="button" class="btn-close" aria-label="Cerrar" @onclick="() => mensajeError = null"></button>
     </div>
 }
+
+@* Devoluciones: los envíos ya entregados se ofrecen para pedir su retiro por devolución, con los datos del comprador ya cargados *@
+<div class="card border-0 shadow-sm mb-4" id="tarjetaDevoluciones">
+    <div class="card-header bg-white fw-bold">Devolver un envío ya entregado</div>
+    <div class="card-body">
+        <p class="small text-muted mb-3">
+            Elija un envío entregado: el formulario de retiro se completa con los datos de su comprador y el operador pasa a buscar los bultos por su domicilio.
+        </p>
+        @if (cargandoEntregados)
+        {
+            <div class="text-muted small">Cargando envíos entregados...</div>
+        }
+        else if (entregados.Count == 0)
+        {
+            <div class="text-muted small">Todavía no tiene envíos entregados.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr><th>Envío</th><th>Comprador</th><th>Domicilio</th><th>Fecha</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var envio in entregados)
+                        {
+                            <tr>
+                                <td class="font-monospace small">@envio.CodigoSeguimiento</td>
+                                <td class="small">@envio.NombreDestinatario</td>
+                                <td class="small text-muted">@envio.DireccionDestino</td>
+                                <td class="small">@envio.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-outline-dark btn-sm" disabled="@(preparandoDevolucion == envio.Id)" @onclick="() => PrepararDevolucionAsync(envio)">
+                                        Pedir retiro por devolución
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
 
 <div class="row g-4">
     <div class="col-12 col-lg-5">
@@ -156,10 +201,103 @@
     private bool enviando;
     private string? mensajeExito;
     private string? mensajeError;
+    private List<EnvioDto> entregados = new();
+    private bool cargandoEntregados = true;
+    private Guid? preparandoDevolucion;
 
     private CancellationTokenSource? _refrescoPendiente;
 
-    protected override async Task OnInitializedAsync() => await CargarAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+        await CargarEntregadosAsync();
+    }
+
+    private async Task CargarEntregadosAsync()
+    {
+        cargandoEntregados = true;
+        try
+        {
+            var pagina = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto
+            {
+                Estado = EstadoEnvioDto.Entregado,
+                Pagina = 1,
+                TamanoPagina = 20,
+                SoloEnviosPropiosComercio = true
+            });
+            entregados = pagina.Elementos.ToList();
+        }
+        catch (ApiExcepcion)
+        {
+            entregados = new List<EnvioDto>();
+        }
+        finally
+        {
+            cargandoEntregados = false;
+        }
+    }
+
+    /// <summary>Completa el formulario de retiro con los datos del comprador y los bultos del envío entregado (motivo: devolución).</summary>
+    private async Task PrepararDevolucionAsync(EnvioDto resumen)
+    {
+        preparandoDevolucion = resumen.Id;
+        mensajeError = null;
+        try
+        {
+            var envio = await EnviosApi.ObtenerPorIdAsync(resumen.Id) ?? resumen;
+            var (calle, numero, ciudad) = SepararDireccion(envio.DireccionDestino);
+
+            var cantidad = Math.Max(1, envio.BultosIdentificaciones?.Count ?? 1);
+            var pesoPorBulto = envio.PesoKg is > 0 ? Math.Round(envio.PesoKg.Value / cantidad, 2) : 1m;
+
+            solicitud = new SolicitarRetiroDto
+            {
+                NombreContacto = envio.NombreDestinatario,
+                TelefonoContacto = envio.TelefonoDestinatario,
+                Calle = calle,
+                Numero = numero,
+                Ciudad = ciudad,
+                Motivo = $"Devolución del envío {envio.CodigoSeguimiento}",
+                // Un mismo envío no genera dos retiros por devolución: el segundo pedido devuelve el primero
+                ReferenciaExterna = $"DEV-{envio.CodigoSeguimiento}",
+                Bultos = Enumerable.Range(1, cantidad)
+                    .Select(i => new BultoRetiroSolicitudDto
+                    {
+                        Descripcion = envio.BultosIdentificaciones is { Count: > 0 } ids ? $"Devolución {ids[i - 1]}" : $"Devolución {envio.CodigoSeguimiento}",
+                        Peso = pesoPorBulto
+                    })
+                    .ToList()
+            };
+            mensajeExito = $"Completamos el retiro con los datos del envío {envio.CodigoSeguimiento}. Revise los bultos y confirme con \"Solicitar retiro\".";
+        }
+        catch (ApiExcepcion ex)
+        {
+            mensajeError = ex.Message;
+        }
+        finally
+        {
+            preparandoDevolucion = null;
+        }
+    }
+
+    /// <summary>"Av. Italia 3456, Montevideo" → calle, número y ciudad. Lo que no se puede separar queda en la calle para que la persona lo corrija.</summary>
+    private static (string Calle, string Numero, string Ciudad) SepararDireccion(string direccion)
+    {
+        var texto = (direccion ?? string.Empty).Trim();
+        var ciudad = "Montevideo";
+        var coma = texto.LastIndexOf(',');
+        if (coma > 0)
+        {
+            ciudad = texto[(coma + 1)..].Trim();
+            texto = texto[..coma].Trim();
+        }
+
+        var espacio = texto.LastIndexOf(' ');
+        if (espacio > 0 && texto[(espacio + 1)..].Any(char.IsDigit))
+            return (texto[..espacio].Trim(), texto[(espacio + 1)..].Trim(), ciudad);
+
+        return (texto, string.Empty, ciudad);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

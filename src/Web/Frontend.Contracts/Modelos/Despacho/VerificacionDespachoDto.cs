@@ -1,5 +1,17 @@
 namespace UltimaMilla.Frontend.Contracts.Modelos.Despacho;
 
+public record ParadaRetiroVerificacionDto
+{
+    public int Orden { get; init; }
+    public Guid RetiroId { get; init; }
+    public string CodigoSeguimiento { get; init; } = string.Empty;
+    public string Contacto { get; init; } = string.Empty;
+    public string Direccion { get; init; } = string.Empty;
+    public int CantidadBultos { get; init; }
+    public decimal PesoKg { get; init; }
+    public decimal VolumenM3 { get; init; }
+}
+
 /// <summary>
 /// Información completa de la hoja de ruta para el control de salida por el operario de depósito.
 /// </summary>
@@ -25,6 +37,9 @@ public record VerificacionDespachoDto
     public string? NumeroRutaPendienteRendicion { get; init; }
 
     public List<BultoVerificacionDto> Bultos { get; init; } = new();
+
+    /// <summary>Paradas de retiro de la ruta: no se cargan en el depósito, pero forman parte del recorrido y se listan antes de confirmar la salida.</summary>
+    public List<ParadaRetiroVerificacionDto> ParadasRetiro { get; init; } = new();
 
     public int TotalBultos => Bultos.Count;
     public int BultosCargados => Bultos.Count(b => b.CargadoEfectivo);

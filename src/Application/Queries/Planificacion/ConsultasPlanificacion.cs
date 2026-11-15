@@ -83,12 +83,24 @@ public record VerificacionDespachoDto(
     bool TieneRutaPendienteDeRendir,
     string? NumeroRutaPendienteRendicion,
     bool PuedeDespachar,
-    IReadOnlyList<BultoVerificacionDto> Bultos)
+    IReadOnlyList<BultoVerificacionDto> Bultos,
+    IReadOnlyList<ParadaRetiroVerificacionDto>? ParadasRetiro = null)
 {
     public int TotalBultos => Bultos.Count;
     public int BultosCargados => Bultos.Count(b => b.CargadoEfectivo);
     public int BultosDiscrepantes => Bultos.Count(b => !b.CargadoEfectivo);
 }
+
+/// <summary>Parada de retiro de la ruta: no se carga en el depósito (los bultos se retiran en el domicilio), pero el despachador debe verla antes de confirmar la salida.</summary>
+public record ParadaRetiroVerificacionDto(
+    int Orden,
+    Guid RetiroId,
+    string CodigoSeguimiento,
+    string Contacto,
+    string Direccion,
+    int CantidadBultos,
+    decimal PesoKg,
+    decimal VolumenM3);
 
 public record BultoVerificacionDto(
     Guid BultoId,

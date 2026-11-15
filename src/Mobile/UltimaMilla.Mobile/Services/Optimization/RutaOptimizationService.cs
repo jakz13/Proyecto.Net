@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.Maui.Devices.Sensors;
+using Microsoft.Maui.Storage;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
 namespace UltimaMilla.Mobile.Services.Optimization;
@@ -38,9 +39,42 @@ public interface IRutaOptimizationService
 
 public class RutaOptimizationService : IRutaOptimizationService
 {
-    // Punto de partida operativo de referencia en Montevideo (Terminal Logística Sur / Punta Carretas)
+    // Punto de referencia en Montevideo: solo se usa mientras el operador no haya cargado la dirección de su depósito
     public const double DefaultOrigenLatitud = -34.9265;
     public const double DefaultOrigenLongitud = -56.1610;
+
+    private const string PrefDepositoLatitud = "Deposito_Latitud";
+    private const string PrefDepositoLongitud = "Deposito_Longitud";
+    private const string PrefDepositoDireccion = "Deposito_Direccion";
+
+    /// <summary>Guarda el depósito del operador (llega con la hoja de ruta): desde ahí se calcula el recorrido.</summary>
+    public static void GuardarDeposito(double latitud, double longitud, string? direccion)
+    {
+        Preferences.Default.Set(PrefDepositoLatitud, latitud);
+        Preferences.Default.Set(PrefDepositoLongitud, longitud);
+        Preferences.Default.Set(PrefDepositoDireccion, direccion ?? string.Empty);
+    }
+
+    public static void OlvidarDeposito()
+    {
+        Preferences.Default.Remove(PrefDepositoLatitud);
+        Preferences.Default.Remove(PrefDepositoLongitud);
+        Preferences.Default.Remove(PrefDepositoDireccion);
+    }
+
+    /// <summary>Punto de partida: el depósito del operador; sin depósito configurado, el punto de referencia.</summary>
+    public static (double Latitud, double Longitud, string Descripcion) ObtenerOrigen()
+    {
+        var latitud = Preferences.Default.Get(PrefDepositoLatitud, double.NaN);
+        var longitud = Preferences.Default.Get(PrefDepositoLongitud, double.NaN);
+        if (!double.IsNaN(latitud) && !double.IsNaN(longitud))
+        {
+            var direccion = Preferences.Default.Get(PrefDepositoDireccion, string.Empty);
+            return (latitud, longitud, string.IsNullOrWhiteSpace(direccion) ? "Depósito del operador" : $"Depósito: {direccion}");
+        }
+
+        return (DefaultOrigenLatitud, DefaultOrigenLongitud, "Punto de partida de referencia (el operador no cargó su depósito)");
+    }
 
     // Velocidad urbana promedio de 25 km/h + 5 minutos operativos por parada
     private const double VelocidadUrbanaPromedioKmh = 25.0;
@@ -72,9 +106,9 @@ public class RutaOptimizationService : IRutaOptimizationService
                     AhorroMinutos: 0,
                     CantidadParadasPendientes: 0,
                     CantidadParadasInmutables: 0,
-                    LatitudOrigen: DefaultOrigenLatitud,
-                    LongitudOrigen: DefaultOrigenLongitud,
-                    DescripcionOrigen: "Base Operativa Montevideo",
+                    LatitudOrigen: ObtenerOrigen().Latitud,
+                    LongitudOrigen: ObtenerOrigen().Longitud,
+                    DescripcionOrigen: ObtenerOrigen().Descripcion,
                     ModificaOrdenActual: false,
                     ResumenFormateado: "No hay paradas disponibles para optimizar.");
             }
@@ -219,7 +253,7 @@ public class RutaOptimizationService : IRutaOptimizationService
             }
         }
 
-        return (DefaultOrigenLatitud, DefaultOrigenLongitud, "Punto de partida operativo (Zona Sur)");
+        return ObtenerOrigen();
     }
 
     private static bool EsCoordenadaValidaMontevideo(double lat, double lon)

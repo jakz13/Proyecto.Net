@@ -414,6 +414,7 @@ else if (Model.ErroresValidacion.Count > 0)
                         <label class="list-group-item d-flex align-items-start gap-2">
                             <input class="form-check-input mt-1 chk-retiro" type="checkbox" name="Formulario.RetirosSeleccionados" value="@retiro.Id"
                                    data-peso="@UltimaMilla.Backoffice.Formato.Dato(retiro.PesoTotal)" data-volumen="@UltimaMilla.Backoffice.Formato.Dato(retiro.VolumenTotal)"
+                                   data-codigo="@retiro.CodigoSeguimiento" data-contacto="@retiro.NombreContacto" data-direccion="@retiro.DireccionRetiro"
                                    checked="@Model.Formulario.RetirosSeleccionados.Contains(retiro.Id)" onchange="actualizarCalculosEnVivo()" />
                             <span>
                                 <span class="badge bg-light text-secondary border font-monospace">@retiro.CodigoSeguimiento</span>
@@ -654,6 +655,19 @@ else if (Model.ErroresValidacion.Count > 0)
             lista.innerHTML = '';
 
             var items = [];
+            // Los retiros también son paradas de la secuencia (junto a las entregas)
+            var retirosParaSecuencia = [];
+            document.querySelectorAll('.chk-retiro:checked').forEach(function (chk) {
+                retirosParaSecuencia.push({
+                    codigo: chk.getAttribute('data-codigo'),
+                    dest: chk.getAttribute('data-contacto'),
+                    dir: chk.getAttribute('data-direccion'),
+                    zona: '',
+                    turno: 'Todo el día',
+                    franja: 'Retiro',
+                    esRetiro: true
+                });
+            });
             checkboxes.forEach(function (chk) {
                 var fila = chk.closest('tr');
                 items.push({
@@ -665,6 +679,8 @@ else if (Model.ErroresValidacion.Count > 0)
                     franja: fila.getAttribute('data-franja')
                 });
             });
+
+            items = items.concat(retirosParaSecuencia);
 
             var criterio = 'FranjaHoraria';
             var radioFranja = document.getElementById('criterioFranja');
@@ -694,7 +710,7 @@ else if (Model.ErroresValidacion.Count > 0)
                 li.className = 'mb-1';
                 li.innerHTML = '<span class="fw-semibold text-dark">' + escaparHtmlTexto(it.dest) + '</span> ' +
                     '<span class="text-muted" style="font-size: 0.72rem;">(' + escaparHtmlTexto(it.dir) + ')</span> ' +
-                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.65rem;">' + escaparHtmlTexto(it.franja) + '</span>';
+                    '<span class="badge ' + (it.esRetiro ? 'bg-warning-subtle text-dark border border-warning-subtle' : 'bg-secondary-subtle text-secondary') + '" style="font-size: 0.65rem;">' + escaparHtmlTexto(it.franja) + '</span>';
                 lista.appendChild(li);
             });
         }

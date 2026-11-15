@@ -31,6 +31,8 @@ public class MockFuncionalidadesApi : IFuncionalidadesApi
         return Task.FromResult(valores);
     }
 
+    public Task<Guid> CrearOperadorAsync(CrearOperadorDto dto, CancellationToken cancelacion = default) => Task.FromResult(Guid.NewGuid());
+
     public Task CambiarAsync(Guid operadorId, string clave, bool habilitada, CancellationToken cancelacion = default)
     {
         _estado[(operadorId, clave)] = habilitada;

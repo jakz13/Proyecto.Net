@@ -1,0 +1,63 @@
+@page
+@model UltimaMilla.Backoffice.Pages.Plataforma.NuevoOperadorModel
+@{
+    ViewData["Title"] = "Nueva empresa de envíos";
+}
+
+<div class="mb-4">
+    <h1 class="h4 fw-bold mb-1">Nueva empresa de envíos</h1>
+    <p class="text-muted small mb-0">Se crea junto con su administrador inicial. Con esa cuenta la empresa entra al Backoffice y crea sus demás perfiles.</p>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.MensajeError))
+{
+    <div class="alert alert-danger small py-2" role="alert">@Model.MensajeError</div>
+}
+
+<form method="post" class="card border-0 shadow-sm rounded-3" style="max-width: 760px;">
+    <div class="card-body p-4">
+        <h2 class="h6 fw-bold mb-3">Empresa</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label asp-for="Operador.NombreComercial" class="form-label small fw-semibold">Nombre comercial</label>
+                <input asp-for="Operador.NombreComercial" class="form-control form-control-sm" maxlength="200" />
+                <span asp-validation-for="Operador.NombreComercial" class="text-danger small"></span>
+                <div class="form-text small">No puede repetirse con el de otra empresa.</div>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Operador.RazonSocial" class="form-label small fw-semibold">Razón social</label>
+                <input asp-for="Operador.RazonSocial" class="form-control form-control-sm" maxlength="200" />
+                <span asp-validation-for="Operador.RazonSocial" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <h2 class="h6 fw-bold mb-1">Administrador inicial <span class="text-danger">*</span></h2>
+        <p class="text-muted small">Obligatorio: es quien configura la empresa y da de alta a los demás usuarios.</p>
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label asp-for="Operador.AdministradorNombre" class="form-label small fw-semibold">Nombre completo</label>
+                <input asp-for="Operador.AdministradorNombre" class="form-control form-control-sm" maxlength="150" />
+                <span asp-validation-for="Operador.AdministradorNombre" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Operador.AdministradorEmail" class="form-label small fw-semibold">Correo (usuario de acceso)</label>
+                <input asp-for="Operador.AdministradorEmail" type="email" class="form-control form-control-sm" maxlength="200" autocomplete="off" />
+                <span asp-validation-for="Operador.AdministradorEmail" class="text-danger small"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Operador.AdministradorPassword" class="form-label small fw-semibold">Contraseña inicial</label>
+                <input asp-for="Operador.AdministradorPassword" type="password" class="form-control form-control-sm" autocomplete="new-password" />
+                <span asp-validation-for="Operador.AdministradorPassword" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+            <a asp-page="/Plataforma/Funcionalidades" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+            <button type="submit" class="btn btn-dark btn-sm px-3">Crear empresa y administrador</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
