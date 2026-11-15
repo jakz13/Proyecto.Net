@@ -10,5 +10,8 @@ public interface IFuncionalidadesApi
     /// <summary>Funcionalidades del operador del usuario autenticado (clave → habilitada). Sin dato, se asume habilitada.</summary>
     Task<IReadOnlyDictionary<string, bool>> ObtenerDelOperadorAsync(CancellationToken cancelacion = default);
 
+    /// <summary>Da de alta una empresa de envíos con su administrador inicial. Devuelve el identificador del nuevo operador.</summary>
+    Task<Guid> CrearOperadorAsync(CrearOperadorDto dto, CancellationToken cancelacion = default);
+
     Task CambiarAsync(Guid operadorId, string clave, bool habilitada, CancellationToken cancelacion = default);
 }

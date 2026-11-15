@@ -24,6 +24,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
     private readonly IFranjaHorariaRepository _franjaHorariaRepository;
     private readonly ICurrentTenant _currentTenant;
     private readonly IRetiroRepository? _retiroRepository;
+    private readonly IOperadorRepository? _operadorRepository;
 
     public ObtenerRutaActivaRepartidorQueryHandler(
         IRutaRepository rutaRepository,
@@ -34,8 +35,10 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
         IDireccionRepository direccionRepository,
         IFranjaHorariaRepository franjaHorariaRepository,
         ICurrentTenant currentTenant,
-        IRetiroRepository? retiroRepository = null)
+        IRetiroRepository? retiroRepository = null,
+        IOperadorRepository? operadorRepository = null)
     {
+        _operadorRepository = operadorRepository;
         _rutaRepository = rutaRepository ?? throw new ArgumentNullException(nameof(rutaRepository));
         _envioRepository = envioRepository ?? throw new ArgumentNullException(nameof(envioRepository));
         _repartidorRepository = repartidorRepository ?? throw new ArgumentNullException(nameof(repartidorRepository));
@@ -281,6 +284,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
 
         var numeroRuta = $"HR-{ruta.Fecha:yyyyMMdd}-01";
 
+        // El depósito lo configura el administrador del operador: la app arma la ruta desde ahí y no desde un punto fijo
+        var identidad = _operadorRepository is null ? null : await _operadorRepository.ObtenerIdentidadAsync(ruta.OperadorId, cancellationToken);
+
         return new RutaActivaRepartidorDto(
             HojaDeRutaId: ruta.Id,
             NumeroRuta: numeroRuta,
@@ -293,7 +299,10 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
             Paradas: paradasDto,
             MotivosNoEntrega: motivosDto,
             TipoPruebaEntregaExigida: tipoPruebaExigida,
-            MaxIntentosEntrega: maxIntentos
+            MaxIntentosEntrega: maxIntentos,
+            DepositoDireccion: identidad?.DireccionDeposito,
+            DepositoLatitud: identidad?.DepositoLatitud,
+            DepositoLongitud: identidad?.DepositoLongitud
         );
     }
 }

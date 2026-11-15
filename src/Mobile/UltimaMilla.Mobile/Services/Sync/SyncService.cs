@@ -10,6 +10,7 @@ using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Notifications;
+using UltimaMilla.Mobile.Services.Optimization;
 using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.ViewModels.Ruta;
@@ -367,6 +368,15 @@ public class SyncService : ISyncService, IDisposable
                 if (r.MaxIntentosEntrega.HasValue)
                 {
                     Preferences.Default.Set("ReglaOperativa_MaxIntentos", r.MaxIntentosEntrega.Value);
+                }
+                // El depósito del operador es el punto de partida de la ruta; si el administrador lo quitó, se olvida el anterior
+                if (r.DepositoLatitud.HasValue && r.DepositoLongitud.HasValue)
+                {
+                    RutaOptimizationService.GuardarDeposito(r.DepositoLatitud.Value, r.DepositoLongitud.Value, r.DepositoDireccion);
+                }
+                else
+                {
+                    RutaOptimizationService.OlvidarDeposito();
                 }
                 if (r.RepartidorId != Guid.Empty)
                 {

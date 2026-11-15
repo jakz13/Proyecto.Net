@@ -138,6 +138,17 @@ public class HttpDespachoApi : IDespachoApi
             CapacidadVolumenMaxM3 = resultadoApi.CapacidadVolumenM3,
             TieneRutaPendienteDeRendir = resultadoApi.TieneRutaPendienteDeRendir,
             NumeroRutaPendienteRendicion = resultadoApi.NumeroRutaPendienteRendicion,
+            ParadasRetiro = (resultadoApi.ParadasRetiro ?? new List<ParadaRetiroApiDto>()).Select(r => new ParadaRetiroVerificacionDto
+            {
+                Orden = r.Orden,
+                RetiroId = r.RetiroId,
+                CodigoSeguimiento = r.CodigoSeguimiento,
+                Contacto = r.Contacto,
+                Direccion = r.Direccion,
+                CantidadBultos = r.CantidadBultos,
+                PesoKg = r.PesoKg,
+                VolumenM3 = r.VolumenM3
+            }).ToList(),
             Bultos = (resultadoApi.Bultos ?? new List<BultoApiDto>()).Select(b => new BultoVerificacionDto
             {
                 BultoId = b.BultoId,
@@ -345,7 +356,11 @@ public class HttpDespachoApi : IDespachoApi
         bool TieneRutaPendienteDeRendir,
         string? NumeroRutaPendienteRendicion,
         bool PuedeDespachar,
-        List<BultoApiDto>? Bultos);
+        List<BultoApiDto>? Bultos,
+        List<ParadaRetiroApiDto>? ParadasRetiro = null);
+
+    private record ParadaRetiroApiDto(
+        int Orden, Guid RetiroId, string CodigoSeguimiento, string Contacto, string Direccion, int CantidadBultos, decimal PesoKg, decimal VolumenM3);
 
     private record BultoApiDto(
         Guid BultoId,

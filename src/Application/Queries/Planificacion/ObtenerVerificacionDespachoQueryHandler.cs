@@ -11,13 +11,16 @@ public class ObtenerVerificacionDespachoQueryHandler : IRequestHandler<ObtenerVe
     private readonly IEnvioRepository _envioRepository;
     private readonly IVehiculoRepository _vehiculoRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public ObtenerVerificacionDespachoQueryHandler(
         IRutaRepository rutaRepository,
         IEnvioRepository envioRepository,
         IVehiculoRepository vehiculoRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IRetiroRepository? retiroRepository = null)
     {
+        _retiroRepository = retiroRepository;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _vehiculoRepository = vehiculoRepository;
@@ -68,8 +71,28 @@ public class ObtenerVerificacionDespachoQueryHandler : IRequestHandler<ObtenerVe
             ? await _rutaRepository.GetRutaSinRendirAsync(ruta.RepartidorId.Value, ruta.Id, cancellationToken)
             : null;
 
-        // Se puede despachar solo con la carga registrada, algún bulto cargado y sin otra ruta del repartidor pendiente de rendir
-        var puedeDespachar = ruta.Estado == "EnCarga" && bultos.Any(b => b.CargadoEfectivo) && pendiente is null;
+        // Los retiros también son paradas de la ruta: se listan aunque no tengan bultos que cargar en el depósito
+        var paradasRetiro = new List<ParadaRetiroVerificacionDto>();
+        var paradasDeRetiro = ruta.Paradas.Where(p => p.EsRetiro && p.Estado != "Cancelada").OrderBy(p => p.Orden).ToList();
+        if (paradasDeRetiro.Count > 0 && _retiroRepository is not null)
+        {
+            var retiros = (await _retiroRepository.GetByIdsAsync(paradasDeRetiro.Select(p => p.RetiroId!.Value).Distinct().ToList(), cancellationToken))
+                .Where(r => r.OperadorId == _currentTenant.OperadorId)
+                .ToDictionary(r => r.Id);
+            foreach (var parada in paradasDeRetiro)
+            {
+                if (retiros.TryGetValue(parada.RetiroId!.Value, out var retiro))
+                    paradasRetiro.Add(new ParadaRetiroVerificacionDto(
+                        parada.Orden, retiro.Id, retiro.CodigoSeguimientoPublico, retiro.NombreContacto, retiro.DireccionRetiro,
+                        retiro.Bultos.Count, retiro.PesoTotal, retiro.VolumenTotal));
+            }
+        }
+
+        // Se puede despachar con la carga registrada y algún bulto cargado; una ruta con solo retiros no tiene nada que cargar y sale directamente.
+        // En ambos casos, sin otra ruta del repartidor pendiente de rendir.
+        var soloRetiros = paradasRetiro.Count > 0 && bultos.Count == 0;
+        var puedeDespachar = pendiente is null
+            && ((ruta.Estado == "EnCarga" && bultos.Any(b => b.CargadoEfectivo)) || (soloRetiros && ruta.Estado is "Liberada" or "EnCarga"));
 
         return new VerificacionDespachoDto(
             ruta.Id,
@@ -84,6 +107,7 @@ public class ObtenerVerificacionDespachoQueryHandler : IRequestHandler<ObtenerVe
             pendiente is not null,
             pendiente is null ? null : HojaDeRutaMapper.NumeroRuta(pendiente),
             puedeDespachar,
-            bultos);
+            bultos,
+            paradasRetiro);
     }
 }

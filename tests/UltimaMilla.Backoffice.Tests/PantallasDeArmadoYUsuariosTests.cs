@@ -64,4 +64,26 @@ public class PantallasDeArmadoYUsuariosTests : IClassFixture<WebApplicationFacto
         Assert.DoesNotContain("Comercio Cliente Asociado", html);
         Assert.Matches("id=\"bloqueComercioAsociado\"[^>]*display: none", html);
     }
+
+    [Fact]
+    public async Task ElMenuDelOperadorDiceIdentidad_YLaPantallaOfreceLaDireccionDelDeposito()
+    {
+        var menu = await PaginaComoAsync("Administrador", "/IdentidadVisual");
+
+        Assert.Contains("title=\"Identidad\"", menu);
+        Assert.DoesNotContain("Identidad Visual", menu);
+        Assert.Contains("Dirección del depósito", menu);
+        Assert.Contains("Guardar Identidad", menu);
+    }
+
+    [Fact]
+    public async Task LaPlataformaDaDeAltaEmpresasConAdministradorInicialObligatorio()
+    {
+        var html = await PaginaComoAsync("AdministradorPlataforma", "/Plataforma/NuevoOperador");
+
+        Assert.Contains("Nueva empresa de envíos", html);
+        Assert.Contains("Administrador inicial", html);
+        Assert.Contains("name=\"Operador.AdministradorEmail\"", html);
+        Assert.Contains("name=\"Operador.AdministradorPassword\"", html);
+    }
 }

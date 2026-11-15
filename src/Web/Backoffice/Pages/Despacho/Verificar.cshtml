@@ -238,6 +238,48 @@ else
                         </table>
                     </div>
                 </div>
+
+                @* Los retiros también son paradas de la ruta: no se cargan en el depósito, pero el despachador debe verlos antes de confirmar la salida *@
+                @if (control.ParadasRetiro.Count > 0)
+                {
+                    <div class="card border-0 shadow-sm rounded-3 mb-4" id="tarjetaRetirosDeLaRuta">
+                        <div class="card-header bg-white py-3 border-bottom">
+                            <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                                <span>Retiros en domicilio de esta ruta</span>
+                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle font-monospace">@control.ParadasRetiro.Count</span>
+                            </h2>
+                            <span class="text-muted small" style="font-size: 0.75rem;">
+                                El repartidor los retira en el domicilio durante el recorrido: no hay nada que cargar en el depósito.
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 8%;">Parada</th>
+                                        <th style="width: 18%;">Código</th>
+                                        <th>Contacto / Dirección</th>
+                                        <th class="text-end" style="width: 18%;">Bultos / Peso</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var retiro in control.ParadasRetiro)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@retiro.Orden</td>
+                                            <td><span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.725rem;">@retiro.CodigoSeguimiento</span></td>
+                                            <td>
+                                                <div class="fw-semibold text-dark small">@retiro.Contacto</div>
+                                                <div class="text-muted" style="font-size: 0.725rem;">@retiro.Direccion</div>
+                                            </td>
+                                            <td class="text-end small">@retiro.CantidadBultos bulto(s) · @UltimaMilla.Backoffice.Formato.N(retiro.PesoKg, 1) kg</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
             </div>
 
             <!-- =========================================================================
@@ -411,7 +453,9 @@ else
 
             // Habilitar/Deshabilitar botón de confirmar salida
             var btn = document.getElementById('btnConfirmarSalida');
-            if (cargados === 0) {
+            // Una ruta con solo retiros no tiene bultos que cargar y puede salir igual
+            var soloRetiros = totalBultos === 0 && document.getElementById('tarjetaRetirosDeLaRuta') !== null;
+            if (cargados === 0 && !soloRetiros) {
                 btn.disabled = true;
             } else {
                 btn.disabled = false;

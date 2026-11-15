@@ -41,6 +41,10 @@ public class FuncionalidadesModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? Estado { get; set; }
 
+    /// <summary>Solo al dar de alta una empresa (cambiar una bandera no muestra confirmación).</summary>
+    [TempData]
+    public string? MensajeEmpresaCreada { get; set; }
+
     [TempData]
     public string? MensajeError { get; set; }
 
