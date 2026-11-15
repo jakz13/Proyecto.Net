@@ -1,5 +1,9 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using UltimaMilla.Application.Ports;
 
 namespace UltimaMilla.Integration.Tests;
 
@@ -41,6 +45,52 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("RateLimit__LoginPorMinuto", "100000");
         // Sin salida a Internet no hay geocodificador: la regla de cobertura se prueba aparte, con un geocodificador falso (VerificadorCoberturaTests)
         Environment.SetEnvironmentVariable("Cobertura__Validar", "false");
+    }
+
+    /// <summary>
+    /// Las cuentas de prueba (admin, comercio, depósito, despachador...) las comparten todos los tests de una clase y el helper <see cref="UsuariosDePrueba"/>
+    /// vuelve a iniciar sesión como admin para crear las cuentas que faltan: con la política de sesión única activa eso expulsaba el token de admin que el propio test
+    /// ya tenía (401 SESION_DESPLAZADA, solo en una base limpia como la del pipeline). Por eso la fábrica ignora el registro de la sesión activa; los tests de la
+    /// propia política la activan con <c>Pruebas:SesionUnicaReal=true</c> y cuentas propias (<see cref="SesionUnicaActivaApiTests"/>).
+    /// </summary>
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureTestServices(servicios =>
+        {
+            var original = servicios.LastOrDefault(d => d.ServiceType == typeof(IDistributedCacheService));
+            if (original is null)
+                return;
+
+            servicios.Remove(original);
+            servicios.Add(ServiceDescriptor.Describe(typeof(IDistributedCacheService), proveedor =>
+            {
+                var real = (IDistributedCacheService)(original.ImplementationFactory?.Invoke(proveedor)
+                    ?? ActivatorUtilities.CreateInstance(proveedor, original.ImplementationType!));
+                var sesionUnicaReal = proveedor.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()["Pruebas:SesionUnicaReal"] == "true";
+                return sesionUnicaReal ? real : new CacheSinSesionUnica(real);
+            }, original.Lifetime));
+        });
+    }
+
+    /// <summary>Delega todo en el caché real salvo la clave de sesión activa por usuario, que no guarda ni devuelve nunca.</summary>
+    private sealed class CacheSinSesionUnica : IDistributedCacheService
+    {
+        private const string PrefijoSesionActiva = "sesion:activa:usuario:";
+        private readonly IDistributedCacheService _real;
+
+        public CacheSinSesionUnica(IDistributedCacheService real) => _real = real;
+
+        private static bool EsSesionActiva(string clave) => clave.StartsWith(PrefijoSesionActiva, StringComparison.Ordinal);
+
+        public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
+            => EsSesionActiva(key) ? Task.FromResult<T?>(default) : _real.GetAsync<T>(key, cancellationToken);
+
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
+            => EsSesionActiva(key) ? Task.CompletedTask : _real.SetAsync(key, value, expiration, cancellationToken);
+
+        public Task RemoveAsync(string key, CancellationToken cancellationToken = default)
+            => EsSesionActiva(key) ? Task.CompletedTask : _real.RemoveAsync(key, cancellationToken);
     }
 
     protected override void Dispose(bool disposing)
