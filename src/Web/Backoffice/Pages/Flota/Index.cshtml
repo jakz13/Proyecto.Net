@@ -405,7 +405,7 @@
                                 <label asp-for="NuevoRepartidor.Password" class="form-label small fw-semibold">
                                     Contraseña para App Móvil
                                 </label>
-                                <input asp-for="NuevoRepartidor.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 8 caracteres" minlength="8" required maxlength="100" />
+                                <input asp-for="NuevoRepartidor.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 10 caracteres" data-politica-password required maxlength="100" />
                                 <span class="text-muted small" style="font-size: 0.725rem;">Obligatoria. El repartidor la usa en su primer ingreso a la app.</span>
                                 <span asp-validation-for="NuevoRepartidor.Password" class="text-danger small"></span>
                             </div>
@@ -497,7 +497,7 @@
                                 <label asp-for="EdicionRepartidor.NuevaPassword" class="form-label small fw-semibold">
                                     Nueva Contraseña para App Móvil
                                 </label>
-                                <input asp-for="EdicionRepartidor.NuevaPassword" id="editRepartidorPassword" type="password" class="form-control form-control-sm" placeholder="Dejar en blanco para no modificar" maxlength="100" />
+                                <input asp-for="EdicionRepartidor.NuevaPassword" id="editRepartidorPassword" type="password" class="form-control form-control-sm" placeholder="Dejar en blanco para no modificar" data-politica-password data-politica-opcional maxlength="100" />
                                 <span class="text-muted small" style="font-size: 0.725rem;">Opcional. Ingrese un valor solo si desea cambiar el acceso.</span>
                             </div>
                             <div class="col-md-6">
@@ -693,7 +693,16 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/password-ui.js" asp-append-version="true"></script>
     <script>
+        // Tras un error del servidor se vuelve a abrir el panel donde se estaba trabajando, con lo escrito
+        @if (!string.IsNullOrEmpty(Model.PanelAbierto))
+        {
+            <text>document.addEventListener('DOMContentLoaded', function () {
+            var panelAbierto = document.getElementById('@Model.PanelAbierto');
+            if (panelAbierto) { panelAbierto.style.display = 'block'; panelAbierto.scrollIntoView({ block: 'nearest' }); }
+        });</text>
+        }
         // Oculta un panel por su identificador
         function ocultarPanel(idPanel) {
             var elemento = document.getElementById(idPanel);

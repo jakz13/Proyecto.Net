@@ -40,8 +40,12 @@ public class IndexModel : PageModel
     [TempData]
     public string? MensajeExito { get; set; }
 
-    [TempData]
+    /// <summary>Todo error se muestra en la misma respuesta (se vuelve a pintar la página, sin redirigir). No va por TempData: TempData conserva el valor para la
+    /// petición siguiente y el error reaparecía junto al aviso de éxito de la acción que sí funcionó.</summary>
     public string? MensajeError { get; set; }
+
+    /// <summary>Panel que debe seguir abierto al volver a pintar la página por un error: antes se cerraba y había que reabrirlo y volver a escribir todo.</summary>
+    public string? PanelAbierto { get; set; }
 
     public int VehiculosActivos => Vehiculos.Count(v => v.Activo);
     public decimal CapacidadPesoTotalKg => Vehiculos.Where(v => v.Activo).Sum(v => v.CapacidadPeso);
@@ -63,6 +67,7 @@ public class IndexModel : PageModel
         if (!TryValidateModel(NuevoVehiculo, nameof(NuevoVehiculo)))
         {
             MensajeError = "Por favor verifica los datos ingresados para el vehículo.";
+            PanelAbierto = "panelVehiculoNuevo";
             await CargarDatosAsync();
             return Page();
         }
@@ -76,12 +81,14 @@ public class IndexModel : PageModel
         catch (ApiExcepcion ex)
         {
             MensajeError = ex.Message;
+            PanelAbierto = "panelVehiculoNuevo";
             await CargarDatosAsync();
             return Page();
         }
         catch (Exception ex)
         {
             MensajeError = $"Error al registrar vehículo: {ex.Message}";
+            PanelAbierto = "panelVehiculoNuevo";
             await CargarDatosAsync();
             return Page();
         }
@@ -93,6 +100,7 @@ public class IndexModel : PageModel
         if (!TryValidateModel(EdicionVehiculo, nameof(EdicionVehiculo)))
         {
             MensajeError = "Por favor verifica los datos ingresados para actualizar el vehículo.";
+            PanelAbierto = "panelVehiculoEdicion";
             await CargarDatosAsync();
             return Page();
         }
@@ -106,12 +114,14 @@ public class IndexModel : PageModel
         catch (ApiExcepcion ex)
         {
             MensajeError = ex.Message;
+            PanelAbierto = "panelVehiculoEdicion";
             await CargarDatosAsync();
             return Page();
         }
         catch (Exception ex)
         {
             MensajeError = $"Error al actualizar vehículo: {ex.Message}";
+            PanelAbierto = "panelVehiculoEdicion";
             await CargarDatosAsync();
             return Page();
         }
@@ -149,6 +159,7 @@ public class IndexModel : PageModel
         if (!TryValidateModel(NuevoRepartidor, nameof(NuevoRepartidor)))
         {
             MensajeError = "Por favor verifica los campos obligatorios del repartidor.";
+            PanelAbierto = "panelRepartidorNuevo";
             await CargarDatosAsync();
             return Page();
         }
@@ -164,12 +175,14 @@ public class IndexModel : PageModel
         catch (ApiExcepcion ex)
         {
             MensajeError = ex.Message;
+            PanelAbierto = "panelRepartidorNuevo";
             await CargarDatosAsync();
             return Page();
         }
         catch (Exception ex)
         {
             MensajeError = $"Error al registrar repartidor: {ex.Message}";
+            PanelAbierto = "panelRepartidorNuevo";
             await CargarDatosAsync();
             return Page();
         }
@@ -181,6 +194,7 @@ public class IndexModel : PageModel
         if (!TryValidateModel(EdicionRepartidor, nameof(EdicionRepartidor)))
         {
             MensajeError = "Por favor verifica los datos al actualizar el repartidor.";
+            PanelAbierto = "panelRepartidorEdicion";
             await CargarDatosAsync();
             return Page();
         }
@@ -194,12 +208,14 @@ public class IndexModel : PageModel
         catch (ApiExcepcion ex)
         {
             MensajeError = ex.Message;
+            PanelAbierto = "panelRepartidorEdicion";
             await CargarDatosAsync();
             return Page();
         }
         catch (Exception ex)
         {
             MensajeError = $"Error al actualizar repartidor: {ex.Message}";
+            PanelAbierto = "panelRepartidorEdicion";
             await CargarDatosAsync();
             return Page();
         }
@@ -218,12 +234,14 @@ public class IndexModel : PageModel
         catch (ApiExcepcion ex)
         {
             MensajeError = ex.Message;
+            PanelAbierto = "panelAsignacionVehiculo";
             await CargarDatosAsync();
             return Page();
         }
         catch (Exception ex)
         {
             MensajeError = $"Error al modificar asignación de vehículo: {ex.Message}";
+            PanelAbierto = "panelAsignacionVehiculo";
             await CargarDatosAsync();
             return Page();
         }

@@ -39,6 +39,26 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task Flota_UnErrorMostradoUnaVez_NoReapareceJuntoAlSiguienteAvisoDeExito()
+    {
+        // El error de un alta fallida se guardaba en TempData y la página se pintaba sin redirigir: TempData lo conservaba para la petición siguiente
+        // y aparecía otra vez, junto al aviso de éxito de la acción que sí funcionaba ("alta correcta" y "error" a la vez).
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Flota")).Content.ReadAsStringAsync();
+        var token = Token.Match(html).Groups[1].Value;
+
+        var fallida = await cliente.PostAsync("/Flota?handler=CrearVehiculo", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["NuevoVehiculo.Patente"] = "",
+            ["__RequestVerificationToken"] = token
+        }));
+        Assert.Contains("Por favor verifica los datos ingresados para el vehículo", WebUtility.HtmlDecode(await fallida.Content.ReadAsStringAsync()));
+
+        var siguiente = await (await cliente.GetAsync("/Flota")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Por favor verifica los datos ingresados para el vehículo", WebUtility.HtmlDecode(siguiente));
+    }
+
+    [Fact]
     public async Task ZonaNueva_LasFranjasSugeridasSeMuestranEnFormato24Horas()
     {
         // Con el formato "hh" (12 horas) 13:00 se mostraba como 01:00 y la zona no se podía guardar sin corregir las franjas

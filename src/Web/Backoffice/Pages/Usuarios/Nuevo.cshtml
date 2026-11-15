@@ -58,7 +58,7 @@
                 </div>
                 <div class="col-md-6">
                     <label asp-for="NuevoUsuario.Password" class="form-label small fw-semibold">Contraseña Provisional *</label>
-                    <input asp-for="NuevoUsuario.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 8 caracteres" minlength="8" required />
+                    <input asp-for="NuevoUsuario.Password" type="password" class="form-control form-control-sm" placeholder="Mínimo 10 caracteres" data-politica-password required />
                     <span asp-validation-for="NuevoUsuario.Password" class="text-danger small"></span>
                 </div>
             </div>
@@ -144,6 +144,7 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/password-ui.js" asp-append-version="true"></script>
     <script>
         function actualizarCamposSegunRol() {
             const selectPerfil = document.getElementById('selectPerfilUsuario');
