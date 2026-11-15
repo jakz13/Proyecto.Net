@@ -1,28 +1,29 @@
 # API pública para comercios (opcional 7.4)
 
-Documentación navegable: `https://shippingbox.duckdns.org/swagger` → selector **"API pública para comercios (v1)"** (muestra solo las rutas de integración; la otra entrada es la API interna completa).
+Documentación navegable en Swagger: `https://shippingbox.duckdns.org/swagger` → selector **"API pública para comercios (v1)"** (muestra únicamente las rutas de integración; el otro selector corresponde a la API interna).
 
-## Cómo cumple cada punto del requerimiento
-| Requisito | Implementación |
+## 1. Cómo cumple cada requisito
+| Requisito | Cómo lo resolvimos |
 |---|---|
-| Documentada | Documento OpenAPI propio (`/swagger/integracion/swagger.json`) con autenticación, límites, idempotencia y versionado; prueba `ApiPublicaTests` |
-| Versionada | La versión va en la ruta: `/api/integracion/v1/...`. Un cambio incompatible sale como `v2` y `v1` sigue vigente |
-| Claves por comercio | Cada relación comercio-operador tiene su clave (`POST /api/comercio/clave-api`, se muestra una sola vez; en base queda solo su huella SHA-256). Regenerar invalida la anterior |
-| Ambiente de pruebas | Clave de pruebas por comercio (`GET /api/comercio/clave-api-pruebas`): valida el pedido y calcula la tarifa real **sin registrar ni publicar nada** (`sandbox: true`, código `SBX-…`). Es una firma HMAC de la relación, sin datos extra que guardar |
-| Limitación de tasa diferenciada | Cupo por clave: producción 120/min, pruebas 20/min, sin clave 30/min por IP (frena el intento de adivinar claves). Al superarlo, 429 |
+| Documentada | Documento OpenAPI propio (`/swagger/integracion/swagger.json`) que detalla autenticación, límites de tasa, idempotencia y versionado; validado con `ApiPublicaTests` |
+| Versionada | La versión va en la ruta (`/api/integracion/v1/...`). Si un cambio rompe compatibilidad se publica como `v2` sin retirar `v1` |
+| Claves por comercio | Cada relación comercio-operador tiene su clave (`POST /api/comercio/clave-api`). Se muestra una sola vez y en la base se guarda solo su huella SHA-256; regenerarla invalida la anterior |
+| Ambiente de pruebas | Clave de pruebas por comercio (`GET /api/comercio/clave-api-pruebas`): valida el pedido y calcula la tarifa real **sin guardar ni publicar nada** (`sandbox: true`, código `SBX-…`). Se genera con firma HMAC sin guardar datos extra |
+| Límite de tasa diferenciado | Cupo por clave: **120 pedidos/min** en producción, **20/min** en pruebas y **30/min por IP** sin clave (frena intentos de adivinar claves). Al superarlo responde `429` |
 
-## Uso
+## 2. Ejemplo de uso
 ```bash
-# Alta de un envío (idempotente con referenciaExterna)
+# Alta de un envío (idempotente mediante referenciaExterna)
 curl -X POST https://shippingbox.duckdns.org/api/integracion/v1/envios \
   -H "X-Api-Key: <clave>" -H "Content-Type: application/json" \
   -d '{"modalidadServicio":"Estandar","nombreDestinatario":"Ana","calle":"Av. Italia","numero":"100",
        "ciudad":"Montevideo","bultos":[{"peso":2,"alto":10,"ancho":10,"profundo":10}],"referenciaExterna":"PEDIDO-123"}'
 ```
-Respuestas: `201` creado, `200` reintento con la misma referencia (`duplicado: true`) o llamada de pruebas (`sandbox: true`), `400` validación, `401` clave inválida, `409` solicitud simultánea con la misma referencia (reintentar), `429` límite de tasa.
 
-Los avisos de cambio de estado llegan al comercio por webhook firmado (HMAC-SHA256 del cuerpo en la cabecera de firma) con reintentos y cola de fallidos; ver ADR-004.
+**Respuestas posibles:** `201` creado · `200` reintento con la misma referencia (`duplicado: true`) o llamada de prueba (`sandbox: true`) · `400` error de validación · `401` clave inválida · `409` solicitud simultánea con la misma referencia (reintentar sin riesgo de duplicar) · `429` límite de tasa superado.
 
-## Límites conocidos
-- El cupo se cuenta por instancia de la API: con dos instancias el cupo efectivo es el doble (explícito en el documento de cambios, 3.1).
-- La clave de pruebas se deriva del secreto de la plataforma: si se rota ese secreto, cambia (se vuelve a consultar).
+Los avisos de cambio de estado llegan al comercio por webhook firmado (`HMAC-SHA256` del cuerpo en la cabecera de firma), con reintentos automáticos y cola de fallidos (ver `ADR-004`).
+
+## 3. Limitaciones conocidas
+- El límite de tasa se cuenta por instancia de la API: con dos instancias corriendo (`api1` y `api2`), el cupo efectivo es el doble.
+- La clave de pruebas se deriva del secreto de la plataforma: si ese secreto se rota, el comercio solo tiene que volver a consultarla.

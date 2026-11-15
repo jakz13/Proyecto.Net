@@ -1,14 +1,16 @@
-# Geocercas: análisis del impacto en el consumo de batería (opcional 7.3)
+# Geocercas: análisis de consumo de batería (opcional 7.3)
 
-Qué se pide: detección automática de llegada y salida de parada, con el registro de eventos y **análisis del impacto sobre el consumo de batería**.
+Este documento explica cómo funcionan las geocercas en la app móvil (llegada y salida automática de parada) y por qué **ayudan a ahorrar batería** en lugar de gastarla.
 
-## 1. Cómo funcionan las geocercas en la app (y por qué casi no cuestan)
-- **No hay un servicio de geocercas del sistema operativo** (ni `GeofencingClient` de Android ni `CLCircularRegion` de iOS). La app evalúa las geocercas por software sobre las posiciones que **ya obtiene** el rastreo de la jornada (`GeolocalizacionTrackingService` → `GeofenceService.EvaluarPosicionAsync`). Por lo tanto las geocercas **no abren ningún sensor ni servicio adicional**: el GPS se enciende por el seguimiento de posición (requerimiento 23), con o sin geocercas.
-- Lo único que agregan es: una distancia de Haversine por parada pendiente en cada posición recibida, la histéresis (entrada a menos de 100 m, salida a más de 150 m) y, cuando hay un cruce, una escritura en SQLite y un evento encolado para sincronizar.
-- Se evalúan solo las paradas pendientes de la ruta activa, y se detiene con la ruta.
+## 1. Cómo funcionan en la app
+- **No abrimos un segundo servicio de GPS:** en vez de usar `GeofencingClient` de Android aparte, `GeofenceService.EvaluarPosicionAsync` aprovecha las mismas lecturas GPS que ya obtiene el seguimiento normal de la jornada (`GeolocalizacionTrackingService`).
+- Con cada lectura calcula la distancia Haversine contra las paradas pendientes y aplica doble umbral para evitar rebotes del GPS:
+  - **Entrada (`LLEGADA_GEOCERCA`):** distancia `< 100 m`.
+  - **Salida (`SALIDA_GEOCERCA`):** distancia `> 150 m` (luego de haber entrado), guardando también los segundos de permanencia.
+- Cuando se cruza un umbral, guarda el evento en SQLite y lo envía al backend. Al finalizar la ruta, la evaluación se detiene.
 
-## 2. Costo medido del cálculo
-Microbenchmark (Haversine, .NET 10, 200 000 posiciones, equipo de desarrollo; es una cota superior del trabajo del cálculo, no del teléfono):
+## 2. Costo del cálculo en CPU
+Medido con un microbenchmark en .NET 10 (200.000 posiciones en PC de desarrollo):
 
 | Paradas pendientes | Tiempo por posición GPS |
 |---|---|
@@ -16,50 +18,41 @@ Microbenchmark (Haversine, .NET 10, 200 000 posiciones, equipo de desarrollo; es
 | 30 | 0,67 µs |
 | 60 | 1,36 µs |
 
-Aun suponiendo un procesador de teléfono 50 veces más lento, 60 paradas cuestan menos de 0,1 ms por posición. Con una posición cada 8 s (el caso más frecuente) el cálculo ocupa menos de 0,0001 % del tiempo de CPU. **El cálculo de las geocercas es despreciable frente al consumo del GPS y de la radio.**
+Incluso en un celular 50 veces más lento, evaluar 60 paradas lleva menos de `0,1 ms` cada 8 segundos (< 0,0001 % de CPU). **El cálculo matemático es despreciable.**
 
-## 3. Dónde sí está el consumo: el muestreo del GPS, y cómo lo controlan las geocercas
-Lo que consume batería es la frecuencia y la precisión con que se pide la posición. La app usa **muestreo adaptativo guiado por la distancia a la parada más cercana**, que es información que producen las propias geocercas (`ActualizarPerfilMuestreoAdaptativo`):
+## 3. Cómo controlan el consumo real del GPS (muestreo adaptativo)
+Lo que realmente gasta batería es pedir ubicaciones muy seguido y con máxima precisión. Como la geocerca calcula a qué distancia está la próxima parada, `ActualizarPerfilMuestreoAdaptativo` ajusta el GPS automáticamente:
 
-| Perfil | Condición | Intervalo | Precisión | Posiciones por hora |
+| Perfil | Cuándo se activa | Cada cuánto mide | Precisión | Posiciones por hora |
 |---|---|---|---|---|
-| En puerta | parada a menos de 500 m | 8 s | Alta | 450 |
-| Aproximación | 500 m a 2000 m | 20 s | Media | 180 |
-| Tránsito lejano | más de 2000 m | 60 s | Baja | 60 |
-| Ahorro crítico | batería < 20 % o ahorro de energía activo | 60 s | Baja | 60 |
+| En puerta | Parada a `< 500 m` | 8 s | Alta | 450 |
+| Aproximación | Entre `500 m` y `2000 m` | 20 s | Media | 180 |
+| Tránsito lejano | A más de `2000 m` | 60 s | Baja | 60 |
+| Ahorro crítico | Batería `< 20 %` o modo ahorro | 60 s | Baja | 60 |
 
-Comparación con un seguimiento **sin** geocercas que muestree siempre en el peor caso (8 s, precisión alta) para no perder una llegada: 450 posiciones por hora. Con el muestreo adaptativo, una jornada típica reparte el tiempo entre los perfiles; si el 25 % del tiempo está "en puerta", el 35 % en "aproximación" y el 40 % en "tránsito", la media es 0,25·450 + 0,35·180 + 0,40·60 = **200 posiciones por hora (-56 %)**, y con precisión alta solo el 25 % del tiempo. Es decir: **las geocercas, lejos de aumentar el consumo, permiten bajarlo respecto de un rastreo ciego de alta frecuencia**, porque saben cuándo conviene muestrear poco.
+Si no tuviéramos este ajuste y midiéramos siempre cada 8 s en precisión alta, serían **450 posiciones/hora**. Con un reparto típico (25 % en puerta, 35 % aproximación, 40 % tránsito), el promedio baja a **200 posiciones/hora (−56 %)** y con precisión alta solo una cuarta parte del tiempo.
 
-Otras decisiones que cuidan la batería: la transmisión usa el mismo canal que la telemetría (no abre una conexión aparte), los eventos se sincronizan en lotes cuando hay red, y no hay evaluación cuando la ruta está finalizada.
-
-## 4. Lo que NO está medido
-El código de la app incluye valores de consumo por perfil (`_consumoEstimadoMahHora`: 42, 19 y 8 mAh/h) que son **estimaciones de diseño**, no mediciones en un dispositivo. No se midió el consumo real en un teléfono con y sin geocercas. Para cerrar ese punto con datos, el procedimiento es el siguiente.
-
-### Procedimiento de medición (30 minutos con un teléfono)
-1. Cargar la batería al 100 % y apagar otras aplicaciones. Hacer dos recorridos iguales (mismo trayecto, misma ruta de 10 paradas, mismo brillo y datos móviles):
-   - **A (sin geocercas)**: rastreo con intervalo fijo de 8 s y precisión alta.
-   - **B (con geocercas y muestreo adaptativo)**: la configuración normal de la app.
-2. La app ya envía el nivel de batería con cada posición (`BateriaPct` en `PosicionesVehiculo`). El descenso por hora se calcula con la consulta de abajo; no hace falta herramienta externa.
-3. Anotar los resultados en la tabla de la sección 5.
-
+## 4. Lo que falta medir en teléfono físico
+Los valores en mAh/h definidos en el código (`42`, `19` y `8 mAh/h`) son estimaciones de diseño, no mediciones reales en un teléfono. Para completar la tabla con un dispositivo real:
+1. Hacer dos recorridos iguales con batería al 100 %: **A** con intervalo fijo de 8 s en precisión alta, y **B** con geocercas y muestreo adaptativo.
+2. Consultar `PosicionesVehiculo` (que ya guarda `BateriaPct`) con esta consulta:
 ```sql
--- Consumo medio de batería por hora de un recorrido (puntos porcentuales por hora)
 SELECT "HojaDeRutaId",
        min("Timestamp") AS inicio, max("Timestamp") AS fin,
-       max("BateriaPct") - min("BateriaPct")                                   AS puntos_consumidos,
+       max("BateriaPct") - min("BateriaPct") AS puntos_consumidos,
        round(((max("BateriaPct") - min("BateriaPct")) /
               greatest(extract(epoch FROM (max("Timestamp") - min("Timestamp"))) / 3600.0, 0.01))::numeric, 1) AS puntos_por_hora,
-       count(*)                                                                 AS posiciones
+       count(*) AS posiciones
 FROM "PosicionesVehiculo"
-WHERE "HojaDeRutaId" = '<id de la hoja de ruta del recorrido>' AND "BateriaPct" IS NOT NULL
+WHERE "HojaDeRutaId" = '<id de la hoja de ruta>' AND "BateriaPct" IS NOT NULL
 GROUP BY "HojaDeRutaId";
 ```
 
-## 5. Resultados de la medición en dispositivo
+## 5. Tabla para completar en dispositivo real
 | Recorrido | Duración | Posiciones | Puntos de batería consumidos | Puntos por hora |
 |---|---|---|---|---|
-| A. Sin geocercas, 8 s fijo | | | | |
+| A. Sin geocercas (8 s fijo) | | | | |
 | B. Con geocercas y muestreo adaptativo | | | | |
 
 ## 6. Conclusión
-El impacto de las geocercas sobre la batería es **despreciable en cómputo** (microsegundos por posición) y **favorable en consumo total** porque habilitan el muestreo adaptativo (−56 % de posiciones por hora en la jornada típica del ejemplo). El único punto pendiente es completar la tabla de la sección 5 con la medición en el teléfono antes de la defensa.
+Las geocercas tienen un costo de CPU prácticamente nulo y **reducen el consumo total de batería** al habilitar el muestreo adaptativo (−56 % de lecturas GPS en el ejemplo típico). Solo queda pendiente completar la tabla de la sección 5 con la medición en teléfono físico.

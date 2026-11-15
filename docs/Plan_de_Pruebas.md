@@ -1,67 +1,62 @@
 # Plan de pruebas
 
-## 1. Estrategia
-Pirámide con pruebas automáticas que corren en cada push del pipeline (GitHub Actions), más pruebas de carga y de resiliencia sobre el ambiente desplegado.
+## 1. Estrategia general
+Combinamos pruebas automatizadas en cada cambio (unitarias, de arquitectura, de integración y de frontend) con pruebas de carga y de resiliencia sobre el ambiente desplegado.
 
-| Nivel | Proyecto | Qué verifica | Cantidad |
-|---|---|---|---|
-| Unitarias de dominio | `tests/UltimaMilla.Domain.Tests` | Máquinas de estado (envío, bulto, retiro), reglas de negocio, política de conflicto, capacidad a lo largo del recorrido | 174 |
-| Unitarias de aplicación | `tests/UltimaMilla.Application.Tests` | Casos de uso con repositorios simulados: caminos felices, errores, idempotencia | 724 |
-| Arquitectura | `tests/UltimaMilla.Architecture.Tests` | Regla de dependencias entre capas (NetArchTest); falla el pipeline si se viola | 10 |
-| Integración | `tests/UltimaMilla.Integration.Tests` | API completa contra Postgres real, con sesiones reales (JWT) por perfil | 109 |
-| Frontend | `tests/UltimaMilla.Frontend.Tests` | Componentes y clientes del frontend | 111 |
+| Nivel | Proyecto | Qué verifica |
+|---|---|---|
+| Unitarias de dominio | `tests/UltimaMilla.Domain.Tests` | Máquinas de estado (envío, bulto, retiro), reglas de negocio, conflictos y capacidad de ruta |
+| Unitarias de aplicación | `tests/UltimaMilla.Application.Tests` | Casos de uso con repositorios simulados: caminos felices, errores e idempotencia |
+| Arquitectura | `tests/UltimaMilla.Architecture.Tests` | Regla de dependencias entre capas (NetArchTest), compose y scripts; falla el pipeline si se viola |
+| Integración | `tests/UltimaMilla.Integration.Tests` | API completa contra PostgreSQL real, con sesiones reales (JWT) por perfil |
+| Backoffice | `tests/UltimaMilla.Backoffice.Tests` | Páginas, formularios, código de barras, sesiones y tiempo real del Backoffice |
+| Frontend | `tests/UltimaMilla.Frontend.Tests` | Componentes y clientes del frontend |
 
-## 2. Pruebas que respaldan los requerimientos obligatorios
-| Requerimiento | Prueba |
+En total la suite reúne **1.225 pruebas en backend** (0 fallas, ver `docs/auditoria/ESTADO.md`) y **111 en frontend**.
+
+## 2. Pruebas clave por requerimiento obligatorio
+| Requerimiento | Prueba que lo verifica |
 |---|---|
 | Aislamiento entre operadores (6.5) | `AislamientoMultitenantApiTests`, `ConcurrenciaYAislamientoApiTests` |
 | Aislamiento entre comercios del mismo operador | `AutorizacionPorPerfilApiTests.DosComerciosDelMismoOperador_*` |
-| Autorización por perfil (6.3) | `AutorizacionPorPerfilApiTests` (matriz de endpoints permitidos y denegados) |
+| Autorización por perfil (6.3) | `AutorizacionPorPerfilApiTests`, `PermisosPorPerfilApiTests` |
+| Sesión única de repartidores y tiempo real | `PoliticaSesionUnicaTests`, `SesionUnicaActivaApiTests`, `CambiosEnTiempoRealApiTests` |
 | Concurrencia optimista (6.4) | `ConcurrenciaYAislamientoApiTests` |
-| Persistencia de la entrega parcial entre instancias | `PersistenciaEntregaParcialTests` |
+| Entrega parcial entre instancias (2.1) | `PersistenciaEntregaParcialTests` |
 | Retiro en domicilio de punta a punta (2.2) | `RetiroEnDomicilioApiTests` |
 | Banderas de funcionalidad por operador | `FuncionalidadesPorOperadorApiTests` |
 | Máquina de estados declarativa (RF 11) | `MaquinaEstadosEnvioTests`, `RetiroDominioTests` |
 | Regla de dependencias (6.1) | `ReglasDeArquitecturaTests` |
-| Descarga directa de la app (OTA): montaje, rutas de Caddy, cabeceras y publicación segura | `DescargasDeLaAppTests` |
-| Etiquetas con Code 128 real (legible por la cámara) | `CodigoDeBarrasDeEtiquetasTests`, `CodigoDeBarrasEnLasVentanasTests` |
-| Contraseñas y paneles del Backoffice | `ContrasenasDelBackofficeTests`, `FormulariosDelBackofficeTests` |
 
-## 3. Ejecución
+## 3. Cómo correrlas localmente
 ```bash
 docker compose up -d postgres
 dotnet test UltimaMilla.Backend.slnf -c Release
 dotnet test tests/UltimaMilla.Frontend.Tests
 ```
-Las pruebas de integración se omiten (no fallan) si no hay Postgres. Comparten una base: cada una debe crear sus propios datos y no depender del estado de otras.
+*Nota:* si PostgreSQL no está levantado, las pruebas de integración se omiten. Como comparten una base, cada prueba crea sus propios datos para no depender de otras.
 
-## 4. Cobertura
-Medida con coverlet y publicada por el pipeline con ReportGenerator (artefacto `cobertura` y resumen en cada ejecución). Última medición (13/11/2026, local y en el pipeline) de dominio + aplicación: **89,4 % de líneas**, 73,2 % de ramas. El pipeline falla si baja del 70 %.
+## 4. Cobertura y seguridad en el pipeline
+- **Cobertura:** medida con Coverlet y publicada por ReportGenerator en `$GITHUB_STEP_SUMMARY` y en el artefacto `cobertura`. Medición actual sobre Dominio + Aplicación: **89,4 % de líneas y 73,2 % de ramas** (el pipeline falla si baja del 70 %).
 ```bash
 dotnet test UltimaMilla.Backend.slnf -c Release --collect:"XPlat Code Coverage" --results-directory ./resultados
 reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cobertura -assemblyfilters:"+UltimaMilla.Domain;+UltimaMilla.Application"
 ```
+- **Vulnerabilidades:** `dotnet list package --vulnerable --include-transitive` corre en el pipeline y falla ante vulnerabilidades altas o críticas.
 
-## 5. Seguridad
-`dotnet list package --vulnerable --include-transitive` corre en el pipeline y lo hace fallar ante vulnerabilidades altas o críticas.
-
-## 6. Escenarios de la defensa (letra 9.3)
+## 5. Escenarios de demostración para la defensa
 | Escenario | Cómo se prueba |
 |---|---|
-| Interrumpir una instancia de la API con tráfico | `docker stop shippingbox-api1-1` y consultar `/ready`: responde con la otra |
-| App móvil sin conexión y sincronización | Ver ADR-001 y la aplicación móvil |
-| Conflicto de sincronización | `RetiroEnDomicilioApiTests` (conflicto de retiro) y ADR-001 |
-| Dos operadores con configuración distinta | Cuentas `admin@gmail.com` y `admin2@gmail.com` (tarifas distintas) |
-| Modificar tarifa y regla en caliente | Backoffice → Tarifas / Reglas operativas |
-| Detener el receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
-| Destruir y reconstruir el ambiente (después hay que volver a publicar el APK con `scripts\desplegar.bat mobile`) | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 8 min medidos el 14/11, destrucción incluida ≈ 10 min) o `terraform destroy` / `apply` en `infra\terraform-azure` |
+| Caída de una instancia de la API | `docker stop shippingbox-api1-1` y consultar `/ready`: responde con `api2` |
+| App móvil sin conexión y conflictos | Ver `ADR-001` y `RetiroEnDomicilioApiTests` |
+| Dos operadores con distinta configuración | Cuentas `admin@gmail.com` y `admin2@gmail.com` |
+| Cambiar tarifa o regla en caliente | Backoffice → Tarifas / Reglas operativas |
+| Detener receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
+| Destruir y reconstruir el ambiente | `scripts\reconstruir.ps1` (`terraform destroy` + `apply` en `infra/terraform-azure/`, ≈ 8 min) |
 
-## 7. Carga, resiliencia y seguridad
-- **Carga:** `docs/Plan_de_Carga.md` (k6, SLO como umbrales, sincronización simultánea de repartidores). Medida en local; falta ejecutarla sobre el ambiente remoto.
-- **Resiliencia:** `docs/Pruebas_de_Resiliencia.md` (Redis, cola y base interrumpidos con tráfico real; esperado vs observado) y `ResilienciaCacheTests`.
-- **Seguridad:** `docs/Seguridad.md` y `SeguridadEndurecimientoTests`.
-- **API pública:** `docs/API_Publica.md` y `ApiPublicaTests`.
-
-## 8. Pendientes de este plan
-- Ejecutar la carga sobre el ambiente remoto en una ventana acordada, y repetir el corte de una instancia de producción.
-- **Extremo a extremo con navegador** (opcional): no implementadas.
+## 6. Otros documentos de pruebas y pendientes
+- **Carga:** `docs/Plan_de_Carga.md` (`seguimiento` y `sync` medidos en Azure; falta `alta` en remoto).
+- **Resiliencia:** `docs/Pruebas_de_Resiliencia.md` (Redis, RabbitMQ, PostgreSQL y caída de `api1` en producción medidos; falta probar en vivo el receptor externo).
+- **Seguridad:** `docs/Seguridad.md`.
+- **API pública:** `docs/API_Publica.md`.
+- **Extremo a extremo con navegador (Playwright):** no implementadas (opcional).

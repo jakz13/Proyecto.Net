@@ -1,26 +1,25 @@
-# ADR-004: Consistencia entre la persistencia y la publicación de eventos (outbox), idempotencia y avisos a comercios
+# ADR-004: Cómo aseguramos que los eventos no se pierdan ni se dupliquen (Outbox y avisos a comercios)
 
-**Estado:** aprobado · **Responsable:** Anthony Curbelo · **Requerimientos:** 6.8, 6.9, cambio 2.1 (RF 36) y 2.2 (RF 41)
+**Estado:** Aprobado · **Fecha:** 2026-11-05 · **Responsable:** Anthony Curbelo · **Requerimientos:** 6.8, 6.9, RF 36 y RF 41
 
-## 1. Contexto y restricciones
-Cada cambio de estado de un envío o de un retiro debe llegar al worker (notificación al destinatario, avisos HTTP a los comercios, indicadores) sin que pueda persistirse un cambio sin su evento ni publicarse un evento de un cambio que no se guardó. El broker puede estar caído, los mensajes pueden llegar dos veces y el receptor del comercio puede fallar. Los comercios ya reciben avisos con un formato que no se puede romper.
+## 1. Contexto y problema
+Cada vez que cambia el estado de un envío o de un retiro, hay que avisar al Worker para que envíe notificaciones al destinatario, mande avisos HTTP (webhooks) a los comercios y actualice indicadores.
+
+Si guardáramos en la base de datos y después publicáramos directo a RabbitMQ, un corte entre medio dejaría la base actualizada pero sin evento publicado (o al revés). Además, RabbitMQ puede entregar un mensaje más de una vez, los servidores de los comercios pueden estar caídos temporalmente y los comercios ya integrados esperan un formato de aviso que no podemos romper.
 
 ## 2. Decisión
-- **Patrón outbox transaccional.** El evento se escribe en la tabla `OutboxMessages` **en la misma transacción** que el cambio. Lo hace la propia unidad de trabajo (`EfUnitOfWork`): al guardar, por cada `EventoEnvio` o `EventoRetiro` nuevo agrega su mensaje. Ningún caso de uso publica a mano, por lo que un flujo nuevo no puede olvidarse de publicar.
-- **Publicador independiente:** un proceso lee el outbox y publica en RabbitMQ; un fallo del broker no pierde nada, el mensaje queda pendiente.
-- **Idempotencia en el consumidor:** el worker guarda una clave por mensaje (`ClavesIdempotenciaConsumidor`) en la misma transacción que sus efectos; reprocesar el mismo mensaje devuelve «duplicado» y no repite avisos ni notificaciones.
-- **Reintentos con espera creciente y cola de fallidos**, visible y reintentable desde el backoffice (UC-42).
-- **Avisos a comercios:** suscripción por comercio y tipo de evento, firma HMAC del cuerpo, reintentos con espera creciente, cola de fallidos y panel de historial con reenvío en el portal. Se entrega un receptor de prueba (`/api/testing/webhook-receiver`).
-- **Contrato versionado por suscripción.** `v1` conserva exactamente el formato original; `v2` agrega el detalle por bulto (entrega parcial) y **es el único que recibe los eventos de retiro**. Así los comercios que ya integraban `v1` no se ven afectados por funcionalidades nuevas.
+- **Patrón Outbox en la misma transacción:** cuando se guarda un cambio en `EfUnitOfWork`, por cada `EventoEnvio` o `EventoRetiro` nuevo se inserta automáticamente una fila en la tabla `OutboxMessages` dentro de la misma transacción de PostgreSQL. Así ningún caso de uso puede olvidarse de publicar.
+- **Publicador independiente en el Worker:** `OutboxPublisherBackgroundService` lee esa tabla cada 3 segundos y publica en RabbitMQ (`ultimamilla.eventos`). Si RabbitMQ está caído, los mensajes quedan guardados esperando hasta que vuelva.
+- **Consumidor idempotente:** antes de procesar un mensaje, el Worker guarda su identificador en `ClavesIdempotenciaConsumidor` dentro de la misma transacción que sus efectos. Si el mismo mensaje llega dos veces, se detecta como duplicado y no manda dos correos ni dos avisos.
+- **Reintentos y cola de fallidos:** si falla el procesamiento, RabbitMQ reintenta 3 veces con esperas crecientes (5 s, 20 s y 60 s). Si sigue fallando, pasa a `ultimamilla.eventos.fallidos` y se guarda en `MensajesFallidos` para verlo y reintentarlo desde el Backoffice.
+- **Avisos a comercios con versión de contrato:** cada comercio se suscribe por tipo de evento, recibe el mensaje firmado con HMAC, tiene hasta 4 intentos (esperas de 1, 5 y 15 minutos) y un panel para ver historial y reenviar. Mantenemos dos versiones de contrato: `v1` (formato original) y `v2` (agrega detalle por bulto y eventos de retiro), además de un receptor de prueba (`/api/testing/webhook-receiver`).
 
 ## 3. Alternativas consideradas
-- **Publicar directamente al broker tras guardar (doble escritura):** descartada; si el proceso cae entre ambas operaciones se pierde el evento.
-- **Transacción distribuida (2PC):** descartada; RabbitMQ no la soporta de forma práctica y agrega acoplamiento.
-- **Captura de cambios (CDC, p. ej. Debezium):** válida pero sobredimensionada para el entorno de una VM gratuita de 1 GB.
-- **Un solo contrato con campos nuevos opcionales:** descartada; cambia el cuerpo firmado y puede romper receptores estrictos.
+- **Publicar directo a RabbitMQ después de guardar en BD:** descartada, porque si se cae la red o el broker justo después del commit, el evento se pierde para siempre.
+- **Transacciones distribuidas (2PC):** descartada, porque RabbitMQ no las soporta de forma práctica y complica mucho la operación.
+- **Herramientas pesadas de captura de cambios (Debezium):** descartada por ser excesiva para los recursos de nuestra VM.
+- **Un único contrato de webhook cambiando campos:** descartada, porque cambiar el JSON firmado rompería la validación de los comercios que ya usan `v1`.
 
 ## 4. Consecuencias
-- La entrega es **al menos una vez**; la idempotencia del consumidor evita los efectos duplicados.
-- Existe una latencia de segundos entre el cambio y el aviso (el publicador sondea el outbox).
-- El outbox crece y hoy **no se purga** lo ya procesado: la limpieza periódica es una tarea pendiente (con el volumen de la demo no es un problema).
-- Mantener dos versiones de contrato cuesta código, pero es el precio de no romper integraciones existentes; una versión nueva requiere decidir qué eventos viaja en cuál.
+- **Ventajas:** garantía de entrega "al menos una vez" sin efectos duplicados, tolerancia a caídas de RabbitMQ o de comercios externos y compatibilidad con integraciones viejas.
+- **Desventajas y cómo se mitigan:** hay una demora pequeña (unos segundos) entre que se guarda el cambio y se envía el aviso, y la tabla `OutboxMessages` crece con el tiempo (como mejora futura conviene agregar una tarea de limpieza de filas viejas ya procesadas).

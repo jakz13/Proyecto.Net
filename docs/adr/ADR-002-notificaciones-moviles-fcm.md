@@ -1,44 +1,26 @@
-# ADR-002: Estrategia de Notificaciones Moviles y Descarte de Firebase Cloud Messaging (FCM)
+# ADR-002: Cómo enviamos notificaciones urgentes al celular sin usar Firebase
 
-## Estado
-Aprobado
+**Estado:** Aprobado · **Fecha:** 2026-11-05 · **Responsable:** Joaquín Bassini · **Requerimientos:** 6.11 y opcionales 7.3
 
-## Fecha
-2026-11-05
+## 1. Contexto y problema
+La letra planteaba recibir notificaciones urgentes en el celular cuando el despachador reasigna o cambia una ruta, incluso con la pantalla apagada o la app en segundo plano.
 
-## Contexto y Problematica
-El punto 5 de la auditoria tecnica (relacionado con el alcance del modulo movil y RNF 6.11) planteo la evaluacion de notificaciones push con la aplicacion cerrada para eventos de reasignacion urgente de paquetes o modificaciones de ruta dispuestas por el despachador.
+La opción clásica en Android es Firebase Cloud Messaging (FCM), pero integrarlo nos traía complicaciones concretas para un proyecto académico:
+1. Exige crear una cuenta externa en Google Firebase y depender de archivos y claves privadas (`google-services.json` y credenciales de servidor).
+2. No podíamos subir esas claves al repositorio por seguridad, y sin ese archivo el proyecto Android ni siquiera compila en la máquina de otro compañero o del docente que evalúa.
 
-Para implementar notificaciones push tradicionales en dispositivos Android cerrados se requiere integrar Google Firebase Cloud Messaging (FCM), lo cual introduce:
-1. Dependencia estricta de una cuenta corporativa externa de Google Firebase, exigiendo archivos de credenciales propietarias (`google-services.json`), claves de servidor / cuentas de servicio de Google Cloud, y configuraciones ajenas al control de despliegue local o autohospedado del evaluador.
-2. Compromiso de seguridad y portabilidad: subir credenciales reales al repositorio infringe las reglas de seguridad corporativas (OWASP y `rules/02-secretos-y-configuracion.md`), mientras que depender de un archivo inexistente provocaria fallos de compilacion nativa en el SDK de Android (`com.google.gms.google-services`).
-3. La letra de la especificacion (Seccion 7.3 - Funcionalidades Opcionales / Puntos Extra) establece una eleccion entre modulos opcionales para completar la calificacion maxima requerida.
+## 2. Decisión
+- **Descartar Firebase (FCM):** la app no incluye el SDK de Firebase ni pide archivos externos de Google para compilar o correr.
+- **Usar SignalR + servicio en primer plano de Android (`LocationForegroundService`):**
+  - Mientras el repartidor está en jornada, la app mantiene activo un servicio en primer plano (con una notificación fija de que está rastreando la ruta y un `WakeLock` parcial para que Android no la duerma).
+  - Gracias a ese servicio, la app mantiene abierta la conexión en tiempo real por SignalR (`OperacionHub`), con reconexión automática si cambia la red.
+  - Cuando el despachador reasigna o modifica la ruta, el servidor avisa por SignalR y la app dispara una notificación local de alta prioridad en el teléfono (con sonido y vibración), incluso con la pantalla bloqueada.
+- **Opcionales elegidos para el puntaje:** en lugar de las notificaciones push remotas con la app totalmente cerrada, priorizamos e implementamos **Geocercas con análisis de batería** y **Optimización del orden de paradas (2-opt)**.
 
-## Decision Arquitectonica
+## 3. Alternativas consideradas
+- **Integrar Firebase Cloud Messaging (FCM):** descartada por la dependencia de cuentas y secretos externos de Google que complican la portabilidad y compilación limpia del proyecto.
+- **Hacer consultas periódicas (polling) cada pocos segundos desde la app:** descartada porque consume más batería, genera tráfico innecesario y avisa más lento que SignalR.
 
-Se resuelve:
-1. **Descartar el acoplamiento a Firebase Cloud Messaging (FCM):**
-   No se incorpora el SDK externo de Firebase ni se exige `google-services.json`. Se preserva la portabilidad, compilacion limpia sin dependencias en la nube de terceros y cumplimiento estricto de gestion de secretos.
-
-2. **Cobertura de avisos urgentes mediante Canal Persistente SignalR + Foreground Service en Android:**
-   - Durante la jornada operativa de reparto en calle, la aplicacion mantiene en ejecucion continua el servicio nativo en primer plano (`LocationForegroundService`), calificado como `foregroundServiceType="location"` con notificacion persistente del sistema operativo y `WakeLock` parcial.
-   - Mientras este servicio esta activo, el proceso de la aplicacion MAUI se mantiene vivo y retiene la conexion duplex de SignalR (`OperacionHub`) con reconexion exponencial automatica ante variaciones de red celular.
-   - Cuando el despachador realiza una reasignacion, cancelacion o reprogramacion en el Backoffice, el evento se transmite por SignalR (`ReasignacionRecibida`, `RutaActualizada`) y el servicio de notificaciones locales de la app (`INotificacionLocalService`) dispara de forma inmediata una notificacion heads-up en el canal de alta prioridad del sistema operativo Android (`ultimamilla_alertas_urgentes`), emitiendo vibracion y alerta sonora para el repartidor aun con la pantalla bloqueada.
-
-3. **Alcance de Modulos Opcionales (Letra Seccion 7.3):**
-   Conforme a las opciones brindadas en la Seccion 7.3 de la letra del proyecto, se priorizo e implemento en su totalidad:
-   - **Modulo Opcional A: Deteccion de Geocercas con Analisis de Impacto en Bateria (3 Puntos):** Servicio `GeofenceService` que computa la proximidad Haversine al destino, transiciona automaticamente paradas a `EnSitio`, modula los intervalos de muestreo GPS para preservar autonomia y registra eventos analiticos de telemetria.
-   - **Modulo Opcional B: Optimizacion Heuristica de Secuencia de Paradas 2-Opt (2 Puntos):** Algoritmo local `RutaOptimizationService` que permite al repartidor reordenar dinamicamente la secuencia de entregas pendientes minimizando la distancia euclediana/geografica recorrida antes de iniciar o durante el trayecto.
-
-## Consecuencias
-
-### Positivas
-- Compilacion nativa reproducible y limpia para cualquier desarrollador o evaluador sin necesidad de registrar proyectos en consolas externas de Google.
-- Alertas en tiempo real efectivas y de latencia minima durante la ejecucion de la ruta en calle.
-- Cero exposicion de claves de API de servicios externos.
-- Cumplimiento integral del puntaje de funcionalidades avanzadas mediante Geocercas y Optimizacion 2-Opt.
-
-### Negativas / Mitigaciones
-- Si el repartidor mata intencionalmente el proceso de la aplicacion y detiene de forma manual el Servicio en Primer Plano, las notificaciones remotas no se reciben hasta que vuelva a abrir la app.
-- Mitigacion: Las reasignaciones quedan registradas en el backend e impactan de forma consistente al reabrir la aplicacion o al sincronizar la hoja de ruta mediante `GET /api/mobile/v1/rutas/activa`.
-
+## 4. Consecuencias
+- **Ventajas:** cualquier persona puede clonar y compilar la app móvil sin configurar cuentas de Google ni exponer claves privadas; además, durante la ruta activa los avisos llegan al instante.
+- **Desventajas y cómo se mitigan:** si el repartidor fuerza el cierre total de la app y detiene el servicio en primer plano, no recibirá avisos hasta volver a abrirla. Cuando la vuelve a abrir, la app sincroniza su hoja de ruta vigente desde `GET /api/mobile/v1/rutas/activa` y se pone al día.
