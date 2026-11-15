@@ -131,6 +131,59 @@ public class FuncionalidadesPorOperadorApiTests
     }
 
     [FactPostgres]
+    public async Task ElSeguimientoPublico_SeEnteraAlInstanteDeUnCambioDeBandera_YElBotonRigeSinEsperarLaCache()
+    {
+        var plataforma = await ClienteComoAsync("plataforma@gmail.com", "Plataforma.2026!");
+        var operador = DatabaseSeederSegundoOperador.OperadorId;
+        var codigo = DatabaseSeederSegundoOperador.CodigoEnvio1;
+        var ruta = $"/api/plataforma/operadores/{operador}/funcionalidades/reprogramacion-publica";
+        var anonimo = _factory.CreateClient();
+
+        async Task<bool> PermiteAsync() =>
+            (await anonimo.GetFromJsonAsync<JsonElement>($"/api/seguimiento/{codigo}")).GetProperty("permiteReprogramacion").GetBoolean();
+
+        await plataforma.PutAsJsonAsync(ruta, new { habilitada = true });
+        Assert.True(await PermiteAsync());   // queda en caché con el botón
+
+        // WebSockets sin negociación: una sola petición cuenta contra el límite por IP del seguimiento público (30 por minuto, compartido por todas las pruebas)
+        var hub = new HubConnectionBuilder()
+            .WithUrl(new Uri(_factory.Server.BaseAddress, "/hubs/seguimiento"), o =>
+            {
+                o.Transports = HttpTransportType.WebSockets;
+                o.SkipNegotiation = true;
+                o.WebSocketFactory = (contexto, ct) => new ValueTask<System.Net.WebSockets.WebSocket>(
+                    _factory.Server.CreateWebSocketClient().ConnectAsync(contexto.Uri, ct));
+            })
+            .Build();
+        var senales = new ConcurrentQueue<JsonElement>();
+        hub.On<JsonElement>("EnvioActualizado", a => senales.Enqueue(a));
+        await hub.StartAsync();
+        try
+        {
+            Assert.True(await hub.InvokeAsync<bool>("Seguir", codigo));
+
+            Assert.Equal(HttpStatusCode.OK, (await plataforma.PutAsJsonAsync(ruta, new { habilitada = false })).StatusCode);
+            for (var espera = 0; espera < 6000 && senales.IsEmpty; espera += 100)
+                await Task.Delay(100);
+
+            Assert.False(senales.IsEmpty, "El seguimiento público no recibió la señal del cambio de bandera.");
+            Assert.False(await PermiteAsync());   // sin esperar a que venza la caché de 5 minutos
+
+            while (senales.TryDequeue(out _)) { }
+            await plataforma.PutAsJsonAsync(ruta, new { habilitada = true });
+            for (var espera = 0; espera < 6000 && senales.IsEmpty; espera += 100)
+                await Task.Delay(100);
+            Assert.False(senales.IsEmpty);
+            Assert.True(await PermiteAsync());
+        }
+        finally
+        {
+            await plataforma.PutAsJsonAsync(ruta, new { habilitada = true });
+            await hub.DisposeAsync();
+        }
+    }
+
+    [FactPostgres]
     public async Task NoPuedenExistirDosOperadoresConElMismoNombreComercial()
     {
         using var alcance = _factory.Services.CreateScope();

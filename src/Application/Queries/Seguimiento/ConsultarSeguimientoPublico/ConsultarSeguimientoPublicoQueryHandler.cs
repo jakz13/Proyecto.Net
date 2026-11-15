@@ -53,9 +53,9 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         var claveCache = ClavesCache.SeguimientoPorCodigo(codigo);
         if (_cacheService is not null)
         {
-            var enCache = await _cacheService.GetAsync<SeguimientoPublicoDto>(claveCache, cancellationToken);
-            if (enCache is not null)
-                return enCache;
+            var enCache = await _cacheService.GetAsync<SeguimientoEnCache>(claveCache, cancellationToken);
+            if (enCache?.Seguimiento is not null)
+                return await AplicarBanderaAsync(enCache, cancellationToken);
         }
 
         // Un retiro se sigue por el mismo enlace; sin distinguir "no existe" de "código inválido", igual que con los envíos
@@ -102,14 +102,15 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             logoUrl = identidad?.LogoUrl;
         }
 
+        // Mismos estados que acepta el caso de uso: el botón no depende de que el envío ya esté reprogramado
+        var estadoPermite = envio.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito or EstadoEnvio.Reprogramado;
+
         var resultado = new SeguimientoPublicoDto(
             envio.CodigoSeguimientoPublico,
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
-            // Mismos estados que acepta el caso de uso: antes el botón solo aparecía con el envío ya reprogramado y nunca al estar admitido o en depósito
-            envio.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito or EstadoEnvio.Reprogramado
-                && (_funcionalidades is null || await _funcionalidades.EstaHabilitadaAsync(envio.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken)),
+            estadoPermite,
             hitos,
             totalBultos,
             bultosEntregados,
@@ -122,15 +123,30 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
         if (_cacheService is not null)
         {
-            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
+            // Se guarda lo que depende del envío; la bandera de reprogramación se evalúa en cada consulta para que un cambio de la plataforma rija al instante
+            var envoltorio = new SeguimientoEnCache(resultado, envio.OperadorId);
+            await _cacheService.SetAsync(claveCache, envoltorio, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
             await _cacheService.SetAsync(
                 ClavesCache.SeguimientoPorOperadorYCodigo(envio.OperadorId, envio.CodigoSeguimientoPublico),
-                resultado,
+                envoltorio,
                 ClavesCache.ExpiracionSeguimientoPublico,
                 cancellationToken);
         }
 
-        return resultado;
+        return await AplicarBanderaAsync(new SeguimientoEnCache(resultado, envio.OperadorId), cancellationToken);
+    }
+
+    /// <summary>Lo que se guarda en caché: el seguimiento según el estado del envío y el operador dueño, para evaluar sus banderas en cada consulta.</summary>
+    public sealed record SeguimientoEnCache(SeguimientoPublicoDto? Seguimiento, Guid OperadorId);
+
+    private async Task<SeguimientoPublicoDto> AplicarBanderaAsync(SeguimientoEnCache enCache, CancellationToken cancellationToken)
+    {
+        var dto = enCache.Seguimiento!;
+        if (!dto.PermiteReprogramacion || _funcionalidades is null || enCache.OperadorId == Guid.Empty)
+            return dto;
+
+        var habilitada = await _funcionalidades.EstaHabilitadaAsync(enCache.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken);
+        return habilitada ? dto : dto with { PermiteReprogramacion = false };
     }
 
     /// <summary>
@@ -177,10 +193,11 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
         if (_cacheService is not null)
         {
-            await _cacheService.SetAsync(claveCache, resultado, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
+            var envoltorio = new SeguimientoEnCache(resultado, Guid.Empty);
+            await _cacheService.SetAsync(claveCache, envoltorio, ClavesCache.ExpiracionSeguimientoPublico, cancellationToken);
             await _cacheService.SetAsync(
                 ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico),
-                resultado,
+                envoltorio,
                 ClavesCache.ExpiracionSeguimientoPublico,
                 cancellationToken);
         }

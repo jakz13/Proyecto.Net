@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Api.Hubs;
 
@@ -24,6 +26,13 @@ public class SeguimientoHub : Hub
     private static readonly Regex FormatoCodigo = new("^[A-Z0-9][A-Z0-9-]{4,39}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static string Grupo(string codigoNormalizado) => $"seguimiento_{codigoNormalizado}";
+
+    /// <summary>Quienes siguen un envío del operador: reciben la señal de que una funcionalidad del operador cambió (por ejemplo, el botón de reprogramar).</summary>
+    public static string GrupoOperador(Guid operadorId) => $"seguimiento_operador_{operadorId:N}";
+
+    private readonly AppDbContext _db;
+
+    public SeguimientoHub(AppDbContext db) => _db = db;
 
     public static string? Normalizar(string? codigo)
     {
@@ -50,6 +59,15 @@ public class SeguimientoHub : Hub
 
             suscritos.Add(normalizado);
             await Groups.AddToGroupAsync(Context.ConnectionId, Grupo(normalizado));
+
+            // Además del envío, se sigue a su operador para enterarse al instante de que una funcionalidad se habilitó o deshabilitó.
+            // Si el código no existe no pasa nada y la respuesta es la misma (no se revela si el envío existe).
+            var operadorId = await _db.Envios.IgnoreQueryFilters().AsNoTracking()
+                .Where(e => e.CodigoSeguimientoPublico == normalizado)
+                .Select(e => (Guid?)e.OperadorId)
+                .FirstOrDefaultAsync();
+            if (operadorId is { } operador && operador != Guid.Empty)
+                await Groups.AddToGroupAsync(Context.ConnectionId, GrupoOperador(operador));
         }
 
         return true;

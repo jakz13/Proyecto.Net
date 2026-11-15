@@ -70,6 +70,7 @@ public static class FuncionalidadesEndpoints
             [FromServices] IFuncionalidadesService funcionalidades,
             [FromServices] ICurrentTenant tenant,
             [FromServices] IHubContext<TableroHub> hub,
+            [FromServices] IHubContext<SeguimientoHub> hubSeguimiento,
             CancellationToken ct) =>
         {
             try
@@ -96,6 +97,17 @@ public static class FuncionalidadesEndpoints
                     catch
                     {
                         // Un fallo del transporte no deshace un cambio que ya se guardó: las pantallas lo verán en la próxima consulta
+                    }
+
+                    // El seguimiento público (sin sesión) vuelve a consultar y muestra u oculta el botón de reprogramar sin recargar
+                    try
+                    {
+                        await hubSeguimiento.Clients.Group(SeguimientoHub.GrupoOperador(operadorId)).SendAsync(
+                            UltimaMilla.Api.Services.SignalRTableroNotifier.EventoSeguimientoActualizado, new { timestamp = DateTime.UtcNow }, CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // Idem: no deshace el cambio
                     }
                 }
 

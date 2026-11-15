@@ -167,6 +167,57 @@ public class ConsultasEnvioQueryHandlerTests
     }
 
     [Fact]
+    public async Task Seguimiento_UnCambioDeBanderaRigeAunqueElResultadoEstéEnCaché()
+    {
+        // Antes la caché (5 minutos) guardaba el botón ya resuelto: habilitar o deshabilitar la bandera no se veía hasta que vencía
+        CrearEnvio(codigo: "TRK-CACHE-BANDERA");
+        var cache = new CacheEnMemoria();
+        var banderas = new BanderasFalsas { Habilitada = false };
+        var handler = new ConsultarSeguimientoPublicoQueryHandler(_envios, _franjas, cache, null, banderas);
+        var consulta = new ConsultarSeguimientoPublicoQuery("TRK-CACHE-BANDERA");
+
+        Assert.False((await handler.Handle(consulta, default))!.PermiteReprogramacion);
+        Assert.True(cache.Almacen.Count > 0, "El resultado debía quedar en caché para que la prueba sea válida.");
+
+        banderas.Habilitada = true;
+        Assert.True((await handler.Handle(consulta, default))!.PermiteReprogramacion);
+
+        banderas.Habilitada = false;
+        Assert.False((await handler.Handle(consulta, default))!.PermiteReprogramacion);
+    }
+
+    private sealed class BanderasFalsas : UltimaMilla.Application.Ports.IFuncionalidadesService
+    {
+        public bool Habilitada { get; set; } = true;
+        public Task<bool> EstaHabilitadaAsync(Guid operadorId, string clave, CancellationToken cancellationToken = default) => Task.FromResult(Habilitada);
+        public Task<IReadOnlyDictionary<string, bool>> ObtenerDelOperadorAsync(Guid operadorId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> EstablecerAsync(Guid operadorId, string clave, bool habilitada, Guid? usuarioId, string? usuarioNombre, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<HistorialBandera>> HistorialAsync(Guid operadorId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class CacheEnMemoria : UltimaMilla.Application.Ports.IDistributedCacheService
+    {
+        public Dictionary<string, string> Almacen { get; } = new();
+
+        public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Almacen.TryGetValue(key, out var json) ? System.Text.Json.JsonSerializer.Deserialize<T>(json) : default);
+
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
+        {
+            Almacen[key] = System.Text.Json.JsonSerializer.Serialize(value);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(string key, CancellationToken cancellationToken = default)
+        {
+            Almacen.Remove(key);
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(Almacen.ContainsKey(key));
+    }
+
+    [Fact]
     public async Task Seguimiento_ConFranjaComprometida_InformaLaVentanaEstimada()
     {
         var franja = new FranjaHoraria(Guid.NewGuid(), Guid.NewGuid(), DayOfWeek.Friday, new TimeOnly(9, 0), new TimeOnly(12, 30));
