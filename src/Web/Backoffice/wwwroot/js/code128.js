@@ -57,7 +57,8 @@
         var rects = datos.barras.map(function (b) {
             return '<rect x="' + b.x + '" y="4" width="' + b.ancho + '" height="' + altoBarra + '" fill="#0f172a"/>';
         }).join('');
-        return '<svg viewBox="0 0 ' + datos.ancho + ' ' + (alto || 54) + '" width="100%" height="' + (alto || 54) + '" role="img" aria-label="Código de barras ' +
+        // Sin alto fijo en píxeles: el SVG se escala con el ancho del contenedor, así cada módulo mide varios píxeles y la cámara del teléfono lo lee desde la pantalla
+        return '<svg viewBox="0 0 ' + datos.ancho + ' ' + (alto || 54) + '" width="100%" style="height: auto; max-height: 120px;" role="img" aria-label="Código de barras ' +
             escapar(texto) + '" class="border rounded bg-white p-1" preserveAspectRatio="xMidYMid meet">' + rects + '</svg>';
     }
 

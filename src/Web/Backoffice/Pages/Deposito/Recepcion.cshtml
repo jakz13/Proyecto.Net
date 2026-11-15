@@ -207,7 +207,7 @@ else
                                             }
                                             <div>@bulto.Identificacion</div>
                                             <div class="mt-1" style="max-width: 180px;">
-                                                <svg viewBox="0 0 @GeneradorDocumentoEtiquetas.AnchoTotal(patronBarrasRec) 36" width="100%" height="32" role="img" aria-label="Código de barras @bulto.Identificacion" class="border rounded bg-white p-1">
+                                                <svg viewBox="0 0 @GeneradorDocumentoEtiquetas.AnchoTotal(patronBarrasRec) 36" width="100%" style="height: auto; max-height: 110px;" role="img" aria-label="Código de barras @bulto.Identificacion" class="border rounded bg-white p-1">
                                                     @foreach (var barra in patronBarrasRec)
                                                     {
                                                         <rect x="@barra.PosicionX" y="2" width="@barra.Ancho" height="32" fill="#0f172a" />
