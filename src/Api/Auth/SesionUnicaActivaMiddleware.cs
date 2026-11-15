@@ -31,7 +31,8 @@ public sealed class SesionUnicaActivaMiddleware
     public async Task InvokeAsync(HttpContext contexto)
     {
         if (!EsRutaExenta(contexto.Request.Path)
-            && contexto.User.Identity?.IsAuthenticated == true)
+            && contexto.User.Identity?.IsAuthenticated == true
+            && PoliticaSesionUnica.AplicaA(contexto.User))
         {
             var usuarioId = ResolverUsuarioId(contexto);
             var sidToken = contexto.User.FindFirst("sid")?.Value

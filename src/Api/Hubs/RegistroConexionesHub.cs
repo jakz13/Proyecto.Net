@@ -68,6 +68,11 @@ public static class RegistroConexionesHub
                      ?? principal?.FindFirstValue("sub");
 
         var usuarioId = Guid.TryParse(rawUserId, out var parsed) ? parsed : Guid.Empty;
+
+        // Sesión única activa solo para repartidores: para el resto no hay identidad que registrar ni validar
+        if (!PoliticaSesionUnica.AplicaA(principal))
+            return (Guid.Empty, null);
+
         var sid = principal?.FindFirstValue("sid")
                ?? principal?.FindFirstValue("jti");
 

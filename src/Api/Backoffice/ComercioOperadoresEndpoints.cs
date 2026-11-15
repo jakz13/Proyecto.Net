@@ -90,13 +90,18 @@ public static class ComercioOperadoresEndpoints
                 operadorId: operadorId,
                 sessionId: sessionId);
 
-            await cache.SetAsync(
-                ClavesCache.SesionActivaUsuario(usuario.Id),
-                sessionId,
-                ClavesCache.ExpiracionSesionActiva,
-                ct);
+            // Sesión única activa: solo repartidores; un usuario de comercio puede tener varias sesiones a la vez
+            var aplicaSesionUnica = UltimaMilla.Application.Common.PoliticaSesionUnica.AplicaAlPerfil(perfil?.Nombre);
+            if (aplicaSesionUnica)
+            {
+                await cache.SetAsync(
+                    ClavesCache.SesionActivaUsuario(usuario.Id),
+                    sessionId,
+                    ClavesCache.ExpiracionSesionActiva,
+                    ct);
+            }
 
-            if (sesionNotifier is not null)
+            if (aplicaSesionUnica && sesionNotifier is not null)
             {
                 try
                 {

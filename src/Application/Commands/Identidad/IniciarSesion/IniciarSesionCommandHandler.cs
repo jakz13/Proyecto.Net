@@ -144,7 +144,10 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
             comercioOperadorId: comercioOperadorId,
             sessionId: sessionId);
 
-        if (_cache is not null)
+        // Sesión única activa: solo para repartidores (app móvil en un único dispositivo). Los demás perfiles pueden tener varias sesiones a la vez.
+        var aplicaSesionUnica = PoliticaSesionUnica.AplicaAlPerfil(nombrePerfil);
+
+        if (aplicaSesionUnica && _cache is not null)
         {
             await _cache.SetAsync(
                 ClavesCache.SesionActivaUsuario(usuario.Id),
@@ -153,7 +156,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
                 cancellationToken);
         }
 
-        if (_sesionNotifier is not null)
+        if (aplicaSesionUnica && _sesionNotifier is not null)
         {
             try
             {

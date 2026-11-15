@@ -400,6 +400,22 @@ public class IniciarSesionCommandHandlerTests
         Assert.Equal(tokens.UltimoSessionId, await cache.GetAsync<string>(UltimaMilla.Application.Common.ClavesCache.SesionActivaUsuario(res3.UsuarioId)));
     }
 
+    [Fact]
+    public async Task IniciarSesion_ConUnPerfilQueNoEsRepartidor_NoRegistraSesionUnicaNiDesplazaSesionesAnteriores()
+    {
+        // Administrador, despachador, operario y comercio pueden tener varias sesiones a la vez con la misma cuenta
+        var cache = new FakeSesionCacheService();
+        var tokens = new FakeTokenJwtService();
+        var notifier = new FakeSesionRealtimeNotifier();
+        var handler = new IniciarSesionCommandHandler(_usuarioRepository, _passwordHasher, tokens, _clock, _unitOfWork, cache: cache, sesionNotifier: notifier);
+
+        var primera = await handler.Handle(new IniciarSesionCommand("admin@gmail.com", "Password.123!"), CancellationToken.None);
+        await handler.Handle(new IniciarSesionCommand("admin@gmail.com", "Password.123!"), CancellationToken.None);
+
+        Assert.Null(await cache.GetAsync<string>(UltimaMilla.Application.Common.ClavesCache.SesionActivaUsuario(primera.UsuarioId)));
+        Assert.Empty(notifier.Notificaciones);
+    }
+
     private sealed class FakeSesionRealtimeNotifier : ISesionRealtimeNotifier
     {
         public bool DebeFallar { get; init; }

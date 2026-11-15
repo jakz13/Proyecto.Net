@@ -122,6 +122,25 @@
         }
     }
 
+    // Un selector que otra sesión hizo cambiar (por ejemplo un vehículo nuevo en la lista de un formulario abierto): se actualizan sus opciones y se conserva lo elegido.
+    // Lo que la persona está eligiendo nunca se pisa: si su valor sigue existiendo, queda seleccionado.
+    function sincronizarOpciones(viejo, nuevo) {
+        var delServidor = Array.prototype.slice.call(nuevo.options || []);
+        var actuales = Array.prototype.slice.call(viejo.options);
+        var igual = delServidor.length === actuales.length && delServidor.every(function (o, i) {
+            return o.value === actuales[i].value && o.textContent === actuales[i].textContent;
+        });
+        if (igual || (nuevo.tagName !== 'SELECT')) return;
+
+        var elegido = viejo.value;
+        var estabaEnFoco = document.activeElement === viejo;
+        while (viejo.options.length) viejo.remove(0);
+        delServidor.forEach(function (o) { viejo.add(document.importNode(o, true)); });
+        var sigueExistiendo = Array.prototype.some.call(viejo.options, function (o) { return o.value === elegido; });
+        viejo.value = sigueExistiendo ? elegido : (delServidor.filter(function (o) { return o.selected; })[0] || { value: '' }).value;
+        if (estabaEnFoco) viejo.focus();
+    }
+
     function comparar(viejo, nuevo) {
         if (viejo.nodeType !== nuevo.nodeType || (viejo.nodeType === 1 && viejo.tagName !== nuevo.tagName)) {
             if (viejo.nodeType === 1 && esIntocable(viejo)) return;
@@ -135,6 +154,7 @@
         }
 
         if (viejo.nodeType !== 1) return;
+        if (viejo.tagName === 'SELECT') { sincronizarOpciones(viejo, nuevo); return; }
         if (esIntocable(viejo) || esControlDeFormulario(viejo)) return;
 
         sincronizarAtributos(viejo, nuevo);
@@ -292,6 +312,10 @@
             conexion.on('RetiroCambioEstado', alRecibirCambioRetiro);
             conexion.on('IncidenciaCambio', alRecibirCambioIncidencia);
             conexion.on('CambioRuta', alRecibirCambioRuta);
+            // Cualquier alta, modificación o baja que otra sesión del operador haya hecho (vehículos, repartidores, zonas, tarifas, usuarios...): la pantalla se pone al día sola
+            conexion.on('DatosCambiaron', function () {
+                if (paginaPideTiempoReal()) programarActualizacion();
+            });
             conexion.on('PosicionVehiculo', function (datos) {
                 escuchasPosicion.forEach(function (fn) {
                     try { fn(datos); } catch (e) { /* una escucha defectuosa no debe frenar a las demás */ }

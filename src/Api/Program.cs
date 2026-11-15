@@ -391,6 +391,8 @@ app.UseRateLimiter();
 app.UseAuthorization();
 app.UseMiddleware<UltimaMilla.Api.Auth.UsuarioActivoMiddleware>();
 app.UseMiddleware<UltimaMilla.Api.Auth.ComercioActivoMiddleware>();
+// Toda escritura aceptada se avisa en tiempo real a las demás sesiones del operador (Backoffice y portal se actualizan solos)
+app.UseMiddleware<UltimaMilla.Api.Services.CambiosEnTiempoRealMiddleware>();
 
 // Auto-migrate database on startup with resilience retry and idempotent seed data
 await ApplyMigrationsAsync(app);

@@ -476,7 +476,8 @@ Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por seman
 
 ## Cambios posteriores a la auditoría (15/11), segunda tanda
 - **Sesión única activa (commit de un compañero) y las pruebas de integración:** el helper `UsuariosDePrueba`, en una base limpia (como la del pipeline), volvía a iniciar sesión como admin para crear las cuentas que faltaban y expulsaba el token de admin que el propio test ya tenía (401 SESION_DESPLAZADA): 5 pruebas fallaban y el pipeline estaba en rojo, así que nada se desplegaba. La fábrica de integración ahora ignora el registro de la sesión activa y la política tiene sus propias pruebas con la política real (`SesionUnicaActivaApiTests`).
-- **Efecto en producción de esa política:** el navegador desplazado recibía un HTTP 500 en el Backoffice. Ahora cierra la sesión local y vuelve al login con el motivo (`SesionDesplazadaMiddleware`). Sigue vigente que dos personas con la misma cuenta se expulsan entre sí (también las cuentas de demostración).
+- **Efecto en producción de esa política:** el navegador desplazado recibía un HTTP 500 en el Backoffice. Ahora cierra la sesión local y vuelve al login con el motivo (`SesionDesplazadaMiddleware`).
+- **La sesión única ahora aplica solo a repartidores** (`PoliticaSesionUnica`): antes alcanzaba a todas las cuentas y, con cuentas compartidas, las personas se expulsaban entre sí. Para que varias sesiones de la misma cuenta se mantengan al día, la API avisa en tiempo real de **toda** escritura aceptada (`DatosCambiaron`) y todas las pantallas del Backoffice y del portal la escuchan (antes solo 11 de 42 pantallas, y solo ante cambios de estado de envíos y rutas); los selectores abiertos también reciben las opciones nuevas.
 
 ## Hipótesis abiertas
 1. **Receptor de prueba apagado en producción (6.9, escenario 6).** `/api/testing/webhook-receiver` da 404; confirmar con qué receptor se demuestra la caída y recuperación de avisos.

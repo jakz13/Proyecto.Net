@@ -6,13 +6,15 @@ using System.Text.Json;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Política de sesión única activa por usuario: un nuevo inicio de sesión con la misma cuenta deja sin efecto los tokens anteriores (401 SESION_DESPLAZADA).
+/// Política de sesión única activa: SOLO para repartidores (app móvil en un único dispositivo). Un nuevo inicio de sesión de un repartidor deja sin efecto sus tokens
+/// anteriores (401 SESION_DESPLAZADA); el resto de los perfiles puede tener varias sesiones a la vez con la misma cuenta (dos navegadores, cuentas de demostración).
 /// La fábrica de integración la desactiva por defecto (las cuentas de prueba son compartidas); estas pruebas la activan con <c>Pruebas:SesionUnicaReal=true</c>.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]
 public class SesionUnicaActivaApiTests
 {
     private const string RutaDeAdministracion = "/api/v1/flota/vehiculos";
+    private const string RutaDelRepartidor = "/api/mobile/v1/rutas";
     private readonly ApiFactory _factory;
 
     public SesionUnicaActivaApiTests(ApiFactory factory) => _factory = factory;
@@ -34,45 +36,95 @@ public class SesionUnicaActivaApiTests
     private HttpClient ClienteConPoliticaReal()
         => _factory.WithWebHostBuilder(b => b.UseSetting("Pruebas:SesionUnicaReal", "true")).CreateClient();
 
-    [FactPostgres]
-    public async Task UnNuevoInicioDeSesionDeLaMismaCuenta_DejaSinEfectoElTokenAnterior()
+    /// <summary>Un repartidor propio (los tests comparten la base), creado por el administrador.</summary>
+    private static async Task<string> CrearRepartidorAsync(HttpClient cliente)
     {
-        var cliente = ClienteConPoliticaReal();
-
-        var primero = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
-        Assert.Equal(HttpStatusCode.OK, (await ConsultarAsync(cliente, primero, RutaDeAdministracion)).StatusCode);
-
-        var segundo = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
-
-        var desplazada = await ConsultarAsync(cliente, primero, RutaDeAdministracion);
-        Assert.Equal(HttpStatusCode.Unauthorized, desplazada.StatusCode);
-        var cuerpo = await desplazada.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("SESION_DESPLAZADA", cuerpo.GetProperty("codigo").GetString());
-        Assert.Equal(HttpStatusCode.OK, (await ConsultarAsync(cliente, segundo, RutaDeAdministracion)).StatusCode);
+        var admin = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
+        var email = $"sesion.{Guid.NewGuid().ToString("N")[..10]}@ultimamilla.com.uy";
+        using var solicitud = new HttpRequestMessage(HttpMethod.Post, "/api/v1/flota/repartidores")
+        {
+            Content = JsonContent.Create(new { nombreCompleto = "Repartidor sesion", email, documento = "4.111.222-3", telefono = "099000222", password = "Repartidor.2026!" })
+        };
+        solicitud.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
+        var alta = await cliente.SendAsync(solicitud);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        return email;
     }
 
     [FactPostgres]
-    public async Task LaSesionDeUnaCuenta_NoAfectaALaDeOtraCuenta()
+    public async Task UnNuevoInicioDeSesionDeUnRepartidor_DejaSinEfectoElTokenAnterior()
     {
         var cliente = ClienteConPoliticaReal();
+        var email = await CrearRepartidorAsync(cliente);
+
+        var primero = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
+        var segundo = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
+
+        var desplazada = await ConsultarAsync(cliente, primero, RutaDelRepartidor);
+        Assert.Equal(HttpStatusCode.Unauthorized, desplazada.StatusCode);
+        var cuerpo = await desplazada.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("SESION_DESPLAZADA", cuerpo.GetProperty("codigo").GetString());
+        Assert.NotEqual(HttpStatusCode.Unauthorized, (await ConsultarAsync(cliente, segundo, RutaDelRepartidor)).StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task LaSesionDeUnRepartidor_NoAfectaALaDeOtroRepartidorNiALaDeAdministracion()
+    {
+        var cliente = ClienteConPoliticaReal();
+        var uno = await CrearRepartidorAsync(cliente);
+        var otro = await CrearRepartidorAsync(cliente);
 
         var admin = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
-        _ = await IniciarSesionAsync(cliente, "deposito@gmail.com", "Deposito.2026!");
-        _ = await IniciarSesionAsync(cliente, "deposito@gmail.com", "Deposito.2026!");
+        var tokenUno = await IniciarSesionAsync(cliente, uno, "Repartidor.2026!");
+        _ = await IniciarSesionAsync(cliente, otro, "Repartidor.2026!");
+        _ = await IniciarSesionAsync(cliente, otro, "Repartidor.2026!");
 
+        Assert.NotEqual(HttpStatusCode.Unauthorized, (await ConsultarAsync(cliente, tokenUno, RutaDelRepartidor)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await ConsultarAsync(cliente, admin, RutaDeAdministracion)).StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task LosDemasPerfiles_PuedenTenerVariasSesionesALaVezConLaMismaCuenta()
+    {
+        var cuentas = new[]
+        {
+            ("admin@gmail.com", "Admin.2026!", RutaDeAdministracion),
+            ("deposito@gmail.com", "Deposito.2026!", "/api/deposito/envios"),
+            ("comercio@gmail.com", "Comercio.2026!", "/api/envios")
+        };
+
+        foreach (var (email, password, ruta) in cuentas)
+        {
+            var cliente = ClienteConPoliticaReal();
+            var tokens = new[]
+            {
+                await IniciarSesionAsync(cliente, email, password),
+                await IniciarSesionAsync(cliente, email, password),
+                await IniciarSesionAsync(cliente, email, password)
+            };
+
+            // Ningún token queda desplazado: el middleware corre antes del enrutado, así que un 401 por sesión se vería aunque la ruta no exista
+            foreach (var token in tokens)
+            {
+                var respuesta = await ConsultarAsync(cliente, token, ruta);
+                var texto = await respuesta.Content.ReadAsStringAsync();
+                Assert.False(texto.Contains("SESION_DESPLAZADA"), $"{email}: una sesión anterior quedó desplazada.");
+                Assert.NotEqual(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+            }
+        }
     }
 
     [FactPostgres]
     public async Task ElInicioDeSesionYLaSaludNoSeBloquean_AunqueHayaUnaSesionMasNueva()
     {
         var cliente = ClienteConPoliticaReal();
-        var viejo = await IniciarSesionAsync(cliente, "comercio@gmail.com", "Comercio.2026!");
-        _ = await IniciarSesionAsync(cliente, "comercio@gmail.com", "Comercio.2026!");
+        var email = await CrearRepartidorAsync(cliente);
+        var viejo = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
+        _ = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
 
-        // /ready y el login están exentos: un cliente desplazado puede volver a iniciar sesión sin quedar bloqueado
+        // /ready y el login están exentos: un repartidor desplazado puede volver a iniciar sesión sin quedar bloqueado
         Assert.Equal(HttpStatusCode.OK, (await ConsultarAsync(cliente, viejo, "/ready")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await cliente.PostAsJsonAsync("/api/v1/auth/login", new { email = "comercio@gmail.com", password = "Comercio.2026!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await cliente.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Repartidor.2026!" })).StatusCode);
     }
 
     [FactPostgres]
@@ -80,10 +132,11 @@ public class SesionUnicaActivaApiTests
     {
         // Es lo que permite que las cuentas compartidas de los tests de integración convivan
         var cliente = _factory.CreateClient();
+        var email = await CrearRepartidorAsync(cliente);
 
-        var primero = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
-        _ = await IniciarSesionAsync(cliente, "admin@gmail.com", "Admin.2026!");
+        var primero = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
+        _ = await IniciarSesionAsync(cliente, email, "Repartidor.2026!");
 
-        Assert.Equal(HttpStatusCode.OK, (await ConsultarAsync(cliente, primero, RutaDeAdministracion)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, (await ConsultarAsync(cliente, primero, RutaDelRepartidor)).StatusCode);
     }
 }

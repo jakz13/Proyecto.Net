@@ -26,6 +26,11 @@
                 referencia.invokeMethodAsync('AlCambiarEstado', cambio.codigoSeguimiento || '', cambio.estado || '');
             });
 
+            // Otra sesión de la misma cuenta (o el operador) cambió datos del comercio: la lista se pone al día sola, sin aviso de estado
+            conexion.on('DatosCambiaron', function () {
+                referencia.invokeMethodAsync('AlCambiarEstado', '', '');
+            });
+
             // El comercio se vinculó (o se desvinculó) de un operador: el selector del encabezado se actualiza sin recargar
             conexion.on('OperadoresDelComercioCambiaron', function () {
                 referencia.invokeMethodAsync('AlCambiarOperadores');

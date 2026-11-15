@@ -28,7 +28,15 @@
         }
     </script>
 </head>
-<body data-tiempo-real-envios="@(ViewData["TiempoRealEnvios"] is true ? "true" : "false")">
+@{
+    // Todas las pantallas se actualizan solas ante cualquier cambio de datos (otra sesión de la misma cuenta, otro usuario del operador), salvo las de alta o edición
+    // (Nuevo, Nueva, NuevaVersion, Editar) y las de acceso: ahí hay formularios armados con JavaScript que una actualización automática podría pisar.
+    // Una página puede forzarlo con ViewData["TiempoRealEnvios"] = true | false.
+    var paginaActual = ViewContext.RouteData.Values["page"] as string ?? string.Empty;
+    var esPaginaDeFormulario = System.Text.RegularExpressions.Regex.IsMatch(paginaActual, "/(Nuevo|Nueva|NuevaVersion|Editar|Login|Logout|Error|AccesoDenegado)$");
+    var tiempoRealActivo = ViewData["TiempoRealEnvios"] is bool forzado ? forzado : !esPaginaDeFormulario;
+}
+<body data-tiempo-real-envios="@(tiempoRealActivo ? "true" : "false")">
     <!-- Componente de Barra Lateral Anclada y Colapsable -->
     <partial name="_Sidebar" />
 

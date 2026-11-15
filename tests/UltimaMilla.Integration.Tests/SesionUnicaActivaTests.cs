@@ -50,7 +50,8 @@ public class SesionUnicaActivaTests
         Guid usuarioId,
         string sid,
         string ruta,
-        IDistributedCacheService cache)
+        IDistributedCacheService cache,
+        string rol = "Repartidor")
     {
         var services = new ServiceCollection()
             .AddSingleton<IDistributedCacheService>(cache)
@@ -60,7 +61,8 @@ public class SesionUnicaActivaTests
         {
             new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()),
             new Claim("sub", usuarioId.ToString()),
-            new Claim("sid", sid)
+            new Claim("sid", sid),
+            new Claim(ClaimTypes.Role, rol)
         };
         var identidad = new ClaimsIdentity(claims, "Bearer");
 
@@ -103,6 +105,49 @@ public class SesionUnicaActivaTests
         Assert.Equal(
             "Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo.",
             doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Despachador")]
+    [InlineData("Operario")]
+    [InlineData("Comercio")]
+    [InlineData("AdministradorPlataforma")]
+    public async Task Middleware_ParaLosPerfilesQueNoSonRepartidor_NuncaDesplazaAunqueRedisTengaOtroSid(string rol)
+    {
+        // La sesión única es solo para repartidores: dos sesiones de la misma cuenta de administración, despacho, depósito o comercio conviven
+        var usuarioId = Guid.NewGuid();
+        var cache = new FakeCacheMemoria();
+        cache.Datos[ClavesCache.SesionActivaUsuario(usuarioId)] = "sid_de_otra_sesion";
+
+        var siguienteInvocado = false;
+        var middleware = new SesionUnicaActivaMiddleware(
+            _ => { siguienteInvocado = true; return Task.CompletedTask; },
+            NullLogger<SesionUnicaActivaMiddleware>.Instance);
+
+        var contexto = CrearHttpContextAutenticado(usuarioId, "sid_de_esta_sesion", "/api/v1/flota/vehiculos", cache, rol);
+
+        await middleware.InvokeAsync(contexto);
+
+        Assert.True(siguienteInvocado);
+        Assert.NotEqual((int)HttpStatusCode.Unauthorized, contexto.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RegistroConexionesHub_ParaLosPerfilesQueNoSonRepartidor_NoHayIdentidadQueRegistrarNiValidar()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("sub", Guid.NewGuid().ToString()), new Claim("sid", "sid_A"), new Claim(ClaimTypes.Role, "Administrador")
+        }, "Bearer"));
+
+        var (usuarioId, sid) = RegistroConexionesHub.ExtraerIdentidadYSid(principal);
+        var cache = new FakeCacheMemoria();
+
+        Assert.Equal(Guid.Empty, usuarioId);
+        Assert.Null(sid);
+        Assert.True(await RegistroConexionesHub.ValidarYRegistrarSesionAsync(cache, usuarioId, sid));
+        Assert.Empty(cache.Datos);   // ni siquiera se registra una sesión para ellos
     }
 
     [Fact]

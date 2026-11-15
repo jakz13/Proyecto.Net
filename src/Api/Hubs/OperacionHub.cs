@@ -295,6 +295,9 @@ public class OperacionHub : Hub
 
     private async Task<bool> ValidarSesionUnicaAlConectarAsync()
     {
+        if (!PoliticaSesionUnica.AplicaA(Context.User))
+            return true;
+
         var usuarioId = ExtraerUsuarioIdDelContexto();
         if (!usuarioId.HasValue)
         {
@@ -345,6 +348,9 @@ public class OperacionHub : Hub
 
     private async Task ValidarSesionUnicaEnHubAsync()
     {
+        if (!PoliticaSesionUnica.AplicaA(Context.User))
+            return;
+
         var usuarioId = ExtraerUsuarioIdDelContexto();
         if (!usuarioId.HasValue)
         {
