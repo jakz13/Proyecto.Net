@@ -165,13 +165,9 @@ public class LocationForegroundService : Service
                             }
 
                             var syncService = services.GetService<ISyncService>();
-                            if (syncService is not null)
+                            if (syncService is not null && await syncService.ObtenerCantidadPendientesAsync() > 0)
                             {
-                                if (await syncService.ObtenerCantidadPendientesAsync() > 0)
-                                    await syncService.SincronizarOperacionesPendientesAsync(ct);
-
-                                if (!authService.EsOperarioODeposito)
-                                    await syncService.DescargarYActualizarRutasDelServidorAsync(ct);
+                                await syncService.SincronizarOperacionesPendientesAsync(ct);
                             }
                         }
                     }

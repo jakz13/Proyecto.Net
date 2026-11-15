@@ -1,17 +1,19 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
+using UltimaMilla.Mobile.Views.Components;
 using UltimaMilla.Mobile.Views.Entrega;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
 
 [QueryProperty(nameof(Parada), "Parada")]
-public partial class DetalleParadaViewModel : ObservableObject
+public partial class DetalleParadaViewModel : ObservableObject, ICorporateAvisoModalHost
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
@@ -60,21 +62,21 @@ public partial class DetalleParadaViewModel : ObservableObject
 
     public bool RutaActivaEnCalle => EstadoHojaDeRuta is "Despachada" or "EnTransito";
 
-    public bool PuedeAccionar => Parada?.Estado == "Pendiente" && RutaActivaEnCalle && !IsBusy;
+    public bool PuedeAccionar => Parada?.Estado == "Pendiente" && (EsRetiro || RutaActivaEnCalle) && !IsBusy;
 
     public bool PuedeConfirmarEntrega =>
         Parada?.Estado == "Pendiente" &&
-        RutaActivaEnCalle &&
+        (EsRetiro || RutaActivaEnCalle) &&
         !IsBusy;
 
     public bool MostrarAvisoBloqueo =>
-        Parada?.Estado == "Pendiente" && !RutaActivaEnCalle;
+        Parada?.Estado == "Pendiente" && !EsRetiro && !RutaActivaEnCalle;
 
     public string MensajeBloqueoEntrega
     {
         get
         {
-            if (!RutaActivaEnCalle)
+            if (!EsRetiro && !RutaActivaEnCalle)
                 return "La hoja de ruta todavía no está en calle. Escanee y confirme la carga, y espere el despacho del depósito.";
             return string.Empty;
         }
@@ -189,6 +191,41 @@ public partial class DetalleParadaViewModel : ObservableObject
         }
     }
 
+    [ObservableProperty]
+    private bool _mostrarModalAviso;
+
+    [ObservableProperty]
+    private string _tituloModalAviso = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneSubtituloModalAviso))]
+    private string _subtituloModalAviso = string.Empty;
+
+    [ObservableProperty]
+    private string _mensajeModalAviso = string.Empty;
+
+    [ObservableProperty]
+    private string _textoBotonModalAviso = "Entendido";
+
+    public bool TieneSubtituloModalAviso => !string.IsNullOrWhiteSpace(SubtituloModalAviso);
+
+    ICommand ICorporateAvisoModalHost.CerrarModalAvisoCommand => CerrarModalAvisoCommand;
+
+    [RelayCommand]
+    private void CerrarModalAviso()
+    {
+        MostrarModalAviso = false;
+    }
+
+    private void MostrarAvisoModal(string titulo, string mensaje, string subtitulo = "Validación de ruta")
+    {
+        TituloModalAviso = titulo;
+        SubtituloModalAviso = subtitulo;
+        MensajeModalAviso = mensaje;
+        TextoBotonModalAviso = "Entendido";
+        MostrarModalAviso = true;
+    }
+
     [RelayCommand]
     private async Task IrAConfirmarEntregaAsync()
     {
@@ -197,13 +234,7 @@ public partial class DetalleParadaViewModel : ObservableObject
 
         if (!PuedeConfirmarEntrega)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Entrega bloqueada",
-                    MensajeBloqueoEntrega,
-                    "Entendido");
-            }
+            MostrarAvisoModal("Entrega bloqueada", MensajeBloqueoEntrega);
             return;
         }
 
@@ -221,14 +252,14 @@ public partial class DetalleParadaViewModel : ObservableObject
 
         if (!PuedeConfirmarEntrega)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Retiro bloqueado",
-                    MensajeBloqueoEntrega,
-                    "Entendido");
-            }
+            MostrarAvisoModal("Retiro bloqueado", MensajeBloqueoEntrega);
             return;
+        }
+
+        if (_localDatabaseService is not null && Parada.HojaDeRutaId != Guid.Empty && EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Despachada")
+        {
+            EstadoHojaDeRuta = "EnTransito";
+            await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(Parada.HojaDeRutaId, "EnTransito");
         }
 
         await Shell.Current.GoToAsync(nameof(RegistroRetiroPage), new Dictionary<string, object>

@@ -2,13 +2,17 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Entrega.IntentoFallidoPage"
              x:DataType="vm:IntentoFallidoViewModel"
              Title="Registrar Intento Fallido"
              BackgroundColor="{StaticResource PageBackground}">
 
-    <ScrollView>
-        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingFormulario}">
+    <Grid RowDefinitions="2, *">
+        <BoxView Grid.Row="0" HeightRequest="2" Color="{DynamicResource SecondaryColor}" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingFormulario}">
 
             <!-- ========================================================= -->
             <!-- 1. BANNER DE PROTOCOLO Y RESUMEN DE LA PARADA             -->
@@ -65,11 +69,36 @@
                     <Label Text="Seleccione la causa principal por la que no se pudo concretar:"
                            Style="{StaticResource CaptionLabel}" />
 
-                    <!-- Selector con contenedor nativo -->
-                    <Border Style="{StaticResource InputContainer}">
-                        <Picker Title="Seleccione un motivo..."
-                                ItemsSource="{Binding MotivosNoEntrega}"
-                                SelectedItem="{Binding MotivoSeleccionado}" />
+                    <!-- Selector corporativo de motivo -->
+                    <Border BackgroundColor="#F8FAFC"
+                            Stroke="{DynamicResource CardBorderColor}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 10"
+                            Padding="14,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AbrirSelectorMotivoCommand}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                            <Label Grid.Column="0"
+                                   Text="{Binding MotivoSelectorTexto}"
+                                   FontSize="13.5"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center" />
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{DynamicResource PrimaryLight}"
+                                    Stroke="{DynamicResource PrimaryColor}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 6"
+                                    Padding="8,4"
+                                    VerticalOptions="Center">
+                                <Label Text="Elegir"
+                                       FontSize="10.5"
+                                       FontAttributes="Bold"
+                                       TextColor="{DynamicResource PrimaryColor}" />
+                            </Border>
+                        </Grid>
                     </Border>
                 </VerticalStackLayout>
             </Border>
@@ -152,7 +181,12 @@
                     Margin="0,8,0,16"
                     Command="{Binding RegistrarIncidenciaCommand}" />
 
-        </VerticalStackLayout>
-    </ScrollView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <components:EvidenciaModalesOverlay Grid.Row="0"
+                                            Grid.RowSpan="2"
+                                            ZIndex="999" />
+    </Grid>
 
 </ContentPage>

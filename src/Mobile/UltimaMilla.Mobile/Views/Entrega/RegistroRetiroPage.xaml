@@ -2,13 +2,17 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Entrega.RegistroRetiroPage"
              x:DataType="vm:RegistroRetiroViewModel"
              Title="Registrar Retiro"
              BackgroundColor="{StaticResource PageBackground}">
 
-    <ScrollView>
-        <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
+    <Grid RowDefinitions="2, *">
+        <BoxView Grid.Row="0" HeightRequest="2" Color="{DynamicResource SecondaryColor}" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="{DynamicResource EspaciadoSecciones}" Padding="{DynamicResource PaddingPagina}">
 
             <!-- Resumen del retiro -->
             <Border Style="{StaticResource CardView}">
@@ -185,7 +189,7 @@
             </Border>
 
             <!-- Acción principal -->
-            <Button Text="Registrar retiro"
+            <Button Text="Marcar como retirado"
                     Style="{StaticResource SuccessButton}"
                     Command="{Binding GuardarRetiroCommand}"
                     IsEnabled="{Binding IsNotBusy}"
@@ -193,7 +197,7 @@
                     FontSize="16" />
 
             <!-- Si no se pudo retirar -->
-            <Button Text="No se pudo realizar el retiro"
+            <Button Text="No se pudo retirar"
                     Style="{StaticResource DangerOutlineButton}"
                     Command="{Binding AlternarNoRealizadoCommand}"
                     IsVisible="{Binding NoMostrarNoRealizado}"
@@ -202,10 +206,35 @@
             <Border Style="{StaticResource CardView}" IsVisible="{Binding MostrarNoRealizado}">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Motivo por el que no se pudo retirar *" Style="{StaticResource H3Label}" />
-                    <Border Style="{StaticResource InputContainer}">
-                        <Picker ItemsSource="{Binding MotivosNoRetiro}"
-                                SelectedItem="{Binding MotivoSeleccionado, Mode=TwoWay}"
-                                Title="Seleccione el motivo" />
+                    <Border BackgroundColor="#F8FAFC"
+                            Stroke="{DynamicResource CardBorderColor}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 10"
+                            Padding="14,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AbrirSelectorMotivoCommand}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                            <Label Grid.Column="0"
+                                   Text="{Binding MotivoSelectorTexto}"
+                                   FontSize="13.5"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center" />
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{DynamicResource PrimaryLight}"
+                                    Stroke="{DynamicResource PrimaryColor}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 6"
+                                    Padding="8,4"
+                                    VerticalOptions="Center">
+                                <Label Text="Elegir"
+                                       FontSize="10.5"
+                                       FontAttributes="Bold"
+                                       TextColor="{DynamicResource PrimaryColor}" />
+                            </Border>
+                        </Grid>
                     </Border>
                     <Border Style="{StaticResource InputContainer}">
                         <Entry Text="{Binding ObservacionesNoRealizado}"
@@ -225,7 +254,12 @@
             </Border>
 
             <BoxView HeightRequest="16" Color="Transparent" />
-        </VerticalStackLayout>
-    </ScrollView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <components:EvidenciaModalesOverlay Grid.Row="0"
+                                            Grid.RowSpan="2"
+                                            ZIndex="999" />
+    </Grid>
 
 </ContentPage>

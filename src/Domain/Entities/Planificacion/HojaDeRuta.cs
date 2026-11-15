@@ -182,18 +182,39 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     /// <summary>
     /// Inicia el recorrido de la hoja de ruta en calle.
-    /// Requiere que la ruta esté en estado 'Despachada'. Pasa a 'EnTransito'.
+    /// Requiere que la ruta esté en estado 'Despachada' (o 'Liberada' si contiene únicamente retiros). Pasa a 'EnTransito'.
     /// </summary>
     public void IniciarRecorrido()
     {
         if (Estado == "EnTransito")
             return;
 
-        if (Estado != "Despachada")
+        var paradasVigentes = _paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
+
+        if (Estado != "Despachada" && !(Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"Solo se puede iniciar el recorrido de una hoja de ruta en estado 'Despachada' (Estado actual: '{Estado}').");
 
+        FechaDespacho ??= DateTime.UtcNow;
         Estado = "EnTransito";
         SelloModificacion = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Si la hoja de ruta está liberada, en carga o despachada y el repartidor opera un retiro en calle
+    /// (por ejemplo en una ruta de solo retiros o ruta mixta), pasa automáticamente a EnTransito.
+    /// </summary>
+    public bool AsegurarEnTransitoParaOperacionEnCalle()
+    {
+        if (Estado is "Liberada" or "EnCarga" or "Despachada")
+        {
+            FechaDespacho ??= DateTime.UtcNow;
+            Estado = "EnTransito";
+            SelloModificacion = Guid.NewGuid();
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -205,7 +226,10 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         if (Estado == "Rendida")
             throw new DomainValidationException("La hoja de ruta ya fue rendida.");
 
-        if (Estado is not ("Despachada" or "EnTransito" or "Finalizada"))
+        var paradasVigentes = _paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
+
+        if (Estado is not ("Despachada" or "EnTransito" or "Finalizada") && !(Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"Solo se puede rendir una hoja de ruta despachada (estado actual: '{Estado}').");
 
         foreach (var parada in _paradas)
@@ -221,12 +245,15 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     public Parada IniciarNavegacionHaciaParada(Guid paradaId)
     {
-        if (Estado != "EnTransito" && Estado != "Despachada")
-            throw new DomainValidationException($"Precondición no cumplida: El vehículo debe estar cargado y la ruta en tránsito (Estado actual: '{Estado}').");
-
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId);
         if (parada is null)
             throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        if (parada.EsRetiro && Estado is "Liberada" or "EnCarga" or "Despachada")
+            AsegurarEnTransitoParaOperacionEnCalle();
+
+        if (Estado != "EnTransito" && Estado != "Despachada")
+            throw new DomainValidationException($"Precondición no cumplida: El vehículo debe estar cargado y la ruta en tránsito (Estado actual: '{Estado}').");
 
         foreach (var p in _paradas.Where(p => p.Id != paradaId && p.Estado == "EnCamino"))
         {
@@ -240,12 +267,15 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     public Parada RegistrarArriboAParada(Guid paradaId)
     {
-        if (Estado != "EnTransito" && Estado != "Despachada")
-            throw new DomainValidationException("No se puede registrar arribo si la ruta no está en tránsito.");
-
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId);
         if (parada is null)
             throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
+
+        if (parada.EsRetiro && Estado is "Liberada" or "EnCarga" or "Despachada")
+            AsegurarEnTransitoParaOperacionEnCalle();
+
+        if (Estado != "EnTransito" && Estado != "Despachada")
+            throw new DomainValidationException("No se puede registrar arribo si la ruta no está en tránsito.");
 
         parada.RegistrarArribo();
         SelloModificacion = Guid.NewGuid();
@@ -254,10 +284,13 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
 
     public void DesasignarEnvioFaltante(Guid envioId)
     {
+        if (envioId == Guid.Empty)
+            return;
+
         var asignacion = _asignaciones.FirstOrDefault(a => a.EnvioId == envioId && a.Vigente);
         asignacion?.Desactivar();
 
-        var parada = _paradas.FirstOrDefault(p => p.EnvioId == envioId);
+        var parada = _paradas.FirstOrDefault(p => !p.EsRetiro && p.EnvioId == envioId);
         if (parada is not null)
         {
             parada.CancelarPorFaltante("Bulto faltante durante escaneo de carga en depósito.");

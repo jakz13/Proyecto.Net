@@ -117,22 +117,25 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
 
             var grupoRepartidor = OperacionHub.GrupoRepartidor(info.RepartidorId.Value);
             var codigoRuta = $"HR-{info.Fecha:yyyyMMdd}-01";
+            var detalleTexto = !string.IsNullOrWhiteSpace(detalle)
+                ? detalle.Trim()
+                : estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase)
+                    ? "reprogramación de horario en una parada"
+                    : "actualización desde central operativa";
+
             var payload = new
             {
                 hojaDeRutaId,
                 codigoRuta,
                 estado,
                 totalParadas = info.TotalParadas,
-                detalleCambio = !string.IsNullOrWhiteSpace(detalle)
-                    ? detalle
-                    : estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase)
-                        ? "reprogramacion de horario en una parada"
-                        : "actualizacion desde central operativa",
+                detalleCambio = detalleTexto,
                 timestamp = DateTime.UtcNow
             };
 
             var clientes = _operacionHub.Clients.Group(grupoRepartidor);
             await clientes.SendAsync("CambioEstadoRuta", payload, ct);
+            await clientes.SendAsync("RutaActualizada", payload, ct);
 
             if (estado is "Liberada" or "EnCarga" or "Asignada")
             {
@@ -143,9 +146,14 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
             {
                 await clientes.SendAsync("RutaDespachada", payload, ct);
             }
-            else if (estado.Equals("EnTransito", StringComparison.OrdinalIgnoreCase) || estado.Equals("Reprogramada", StringComparison.OrdinalIgnoreCase))
+
+            if (!string.IsNullOrWhiteSpace(detalle)
+                && (detalle.Contains("reasign", StringComparison.OrdinalIgnoreCase)
+                    || detalle.Contains("retir", StringComparison.OrdinalIgnoreCase)
+                    || detalle.Contains("removi", StringComparison.OrdinalIgnoreCase)
+                    || detalle.Contains("sac", StringComparison.OrdinalIgnoreCase)))
             {
-                await clientes.SendAsync("RutaActualizada", payload, ct);
+                await clientes.SendAsync("ReasignacionRecibida", $"Ruta {codigoRuta}: {detalleTexto}", ct);
             }
         }
         catch (Exception ex)

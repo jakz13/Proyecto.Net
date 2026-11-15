@@ -56,7 +56,14 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
                 "La hoja de ruta ya se encontraba en tránsito (operación idempotente).");
         }
 
-        if (ruta.Estado != "Despachada")
+        var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
+
+        if (ruta.Estado == "Liberada" && soloRetiros)
+        {
+            ruta.Despachar();
+        }
+        else if (ruta.Estado != "Despachada")
         {
             throw new DomainValidationException($"Solo se puede iniciar el recorrido de una hoja de ruta en estado 'Despachada' (Estado actual: '{ruta.Estado}').");
         }

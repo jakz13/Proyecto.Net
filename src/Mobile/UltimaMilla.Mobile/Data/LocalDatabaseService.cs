@@ -32,7 +32,7 @@ public interface ILocalDatabaseService
     Task<int> ObtenerCantidadPendientesAsync();
 
     // Persistencia y consulta de hoja de ruta local
-    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null, DateTime? fechaRuta = null);
+    Task GuardarRutaDescargadaAsync(Guid hojaDeRutaId, List<ParadaNavegacionDto> paradas, List<MotivoNoEntregaLocal>? motivos = null, string? estadoRuta = null, string? numeroRuta = null, DateTime? fechaRuta = null, string? patenteVehiculo = null);
     Task<RutaActivaLocalDto?> ObtenerRutaActivaLocalAsync(Guid? hojaDeRutaId = null);
     Task<HojaDeRutaLocal?> ObtenerHojaDeRutaLocalPorIdAsync(Guid hojaDeRutaId);
     Task<List<ParadaLocal>> ObtenerParadasLocalesPorRutaAsync(Guid hojaDeRutaId);
@@ -40,6 +40,7 @@ public interface ILocalDatabaseService
     void GuardarFirmaContenidoRutaEnPreferencias(Guid hojaDeRutaId, string firma);
     string? ObtenerFirmaContenidoRutaDePreferencias(Guid hojaDeRutaId);
     Task<List<HojaDeRutaLocal>> ListarHojasDeRutaLocalesAsync();
+    Task<List<HojaDeRutaSelectorItem>> ListarHojasDeRutaParaSelectorAsync(Guid? seleccionadaId = null);
     Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId);
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
     Task MarcarEntregaParcialLocalAsync(Guid paradaId, IReadOnlyCollection<string> codigosEntregados);
@@ -486,7 +487,8 @@ public class LocalDatabaseService : ILocalDatabaseService
         List<MotivoNoEntregaLocal>? motivos = null,
         string? estadoRuta = null,
         string? numeroRuta = null,
-        DateTime? fechaRuta = null)
+        DateTime? fechaRuta = null,
+        string? patenteVehiculo = null)
     {
         if (hojaDeRutaId == Guid.Empty)
             throw new ArgumentException("La hoja de ruta descargada no trae identificador.", nameof(hojaDeRutaId));
@@ -506,6 +508,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                     Estado = !string.IsNullOrWhiteSpace(estadoRuta) ? estadoRuta : "Liberada",
                     NumeroRuta = !string.IsNullOrWhiteSpace(numeroRuta) ? numeroRuta : $"HR-{(fechaRuta ?? DateTime.Today):yyyyMMdd}-01",
                     TotalParadas = paradas.Count,
+                    PatenteVehiculo = string.IsNullOrWhiteSpace(patenteVehiculo) ? null : patenteVehiculo.Trim(),
                     FechaDescargaUtc = DateTime.UtcNow
                 };
                 conn.Insert(ruta);
@@ -522,6 +525,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                     ruta.NumeroRuta = numeroRuta;
                 if (fechaRuta.HasValue)
                     ruta.Fecha = fechaRuta.Value;
+                if (!string.IsNullOrWhiteSpace(patenteVehiculo))
+                    ruta.PatenteVehiculo = patenteVehiculo.Trim();
                 ruta.TotalParadas = paradas.Count;
                 ruta.FechaDescargaUtc = DateTime.UtcNow;
                 conn.Update(ruta);
@@ -757,6 +762,23 @@ public class LocalDatabaseService : ILocalDatabaseService
             .ToList();
     }
 
+    public async Task<List<HojaDeRutaSelectorItem>> ListarHojasDeRutaParaSelectorAsync(Guid? seleccionadaId = null)
+    {
+        var rutasLocales = await ListarHojasDeRutaLocalesAsync();
+        var resultado = new List<HojaDeRutaSelectorItem>(rutasLocales.Count);
+
+        foreach (var ruta in rutasLocales)
+        {
+            var paradas = await ObtenerParadasLocalesPorRutaAsync(ruta.Id);
+            resultado.Add(HojaDeRutaSelectorItem.Crear(
+                ruta,
+                paradas,
+                esSeleccionada: seleccionadaId.HasValue && ruta.Id == seleccionadaId.Value));
+        }
+
+        return resultado;
+    }
+
     public async Task<HojaDeRutaLocal?> ObtenerHojaDeRutaLocalPorIdAsync(Guid hojaDeRutaId)
     {
         if (hojaDeRutaId == Guid.Empty)
@@ -943,7 +965,10 @@ public class LocalDatabaseService : ILocalDatabaseService
                 .Where(b => b.ParadaId == p.Id)
                 .ToListAsync();
 
-            bool bultoDebeEstarCargado = rutaYaDespachada || p.Estado is "Entregado" or "Fallido" or "EnDevolucion";
+            bool esRetiro = string.Equals(p.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
+                || (p.RetiroId.HasValue && p.RetiroId.Value != Guid.Empty);
+
+            bool bultoDebeEstarCargado = !esRetiro && (rutaYaDespachada || p.Estado is "Entregado" or "Fallido" or "EnDevolucion");
 
             foreach (var b in bultos)
             {
@@ -972,7 +997,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 Id = p.Id,
                 HojaDeRutaId = ruta.Id,
                 EnvioId = p.EnvioId,
-                Tipo = string.IsNullOrWhiteSpace(p.Tipo) ? "Entrega" : p.Tipo,
+                Tipo = esRetiro ? "Retiro" : (string.IsNullOrWhiteSpace(p.Tipo) ? "Entrega" : p.Tipo),
                 RetiroId = p.RetiroId,
                 Orden = p.Orden,
                 Direccion = p.Direccion,
@@ -981,7 +1006,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 Telefono = p.DestinatarioTelefono ?? string.Empty,
                 CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
                 Estado = p.Estado,
-                EnPrecarga = enPrecarga,
+                EnPrecarga = !esRetiro && enPrecarga,
                 HoraEstimada = p.HoraEstimada,
                 VentanaHoraria = !string.IsNullOrWhiteSpace(p.VentanaHoraria) ? p.VentanaHoraria : "Sin franja asignada",
                 CodigoSeguimiento = p.CodigoSeguimiento,
@@ -1032,7 +1057,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 await Db.UpdateAsync(envio);
             }
 
-            // Al confirmarse la entrega, se consideran implícitamente entregados todos los bultos asociados
+            // Al confirmarse la entrega o retiro, se consideran implícitamente verificados todos los bultos asociados
             if (parada.Estado == "Entregado")
             {
                 var bultos = await Db.Table<BultoLocal>()
@@ -1043,6 +1068,18 @@ public class LocalDatabaseService : ILocalDatabaseService
                 {
                     b.VerificadoEnEntrega = true;
                     await Db.UpdateAsync(b);
+                }
+            }
+
+            bool esRetiroParada = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
+                || (parada.RetiroId.HasValue && parada.RetiroId.Value != Guid.Empty);
+            if (esRetiroParada && parada.HojaDeRutaId != Guid.Empty)
+            {
+                var rutaLocal = await Db.FindAsync<HojaDeRutaLocal>(parada.HojaDeRutaId);
+                if (rutaLocal != null && rutaLocal.Estado is "Liberada" or "EnCarga" or "Despachada")
+                {
+                    rutaLocal.Estado = "EnTransito";
+                    await Db.UpdateAsync(rutaLocal);
                 }
             }
 
@@ -1153,32 +1190,37 @@ public class LocalDatabaseService : ILocalDatabaseService
 
         foreach (var parada in paradas)
         {
+            var esRetiro = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
+                || (parada.RetiroId.HasValue && parada.RetiroId.Value != Guid.Empty);
+
             var bultosParada = await Db.Table<BultoLocal>()
                 .Where(b => b.ParadaId == parada.Id)
                 .OrderByDescending(b => b.VerificadoEnCarga)
                 .ToListAsync();
 
-            foreach (var b in bultosParada)
+            if (!esRetiro)
             {
-                var idx = codigosRestantes.FindIndex(c =>
-                    string.Equals(c, b.Codigo?.Trim(), StringComparison.OrdinalIgnoreCase));
+                foreach (var b in bultosParada)
+                {
+                    var idx = codigosRestantes.FindIndex(c =>
+                        string.Equals(c, b.Codigo?.Trim(), StringComparison.OrdinalIgnoreCase));
 
-                if (idx >= 0)
-                {
-                    codigosRestantes.RemoveAt(idx);
-                    b.VerificadoEnCarga = true;
-                    b.Cargado = true;
-                    await Db.UpdateAsync(b);
-                }
-                else
-                {
-                    b.VerificadoEnCarga = false;
-                    b.Cargado = false;
-                    await Db.UpdateAsync(b);
+                    if (idx >= 0)
+                    {
+                        codigosRestantes.RemoveAt(idx);
+                        b.VerificadoEnCarga = true;
+                        b.Cargado = true;
+                        await Db.UpdateAsync(b);
+                    }
+                    else
+                    {
+                        b.VerificadoEnCarga = false;
+                        b.Cargado = false;
+                        await Db.UpdateAsync(b);
+                    }
                 }
             }
 
-            var esRetiro = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
             var todosCargados = esRetiro || (bultosParada.Count > 0 && bultosParada.All(b => b.VerificadoEnCarga));
             estadoBultosPorParada.Add((parada, bultosParada, todosCargados));
         }
@@ -1301,8 +1343,8 @@ public class LocalDatabaseService : ILocalDatabaseService
     {
         return estado switch
         {
-            "Completada" or "Entregada" or "Entregado" => "Entregado",
-            "Fallida" or "Fallido" or "NoEntregado" => "Fallido",
+            "Completada" or "Entregada" or "Entregado" or "Retirada" or "Retirado" => "Entregado",
+            "Fallida" or "Fallido" or "NoEntregado" or "NoRetirada" or "NoRetirado" => "Fallido",
             "Reprogramado" => "Fallido",
             "EnDevolucion" or "EnRetornoADeposito" => "EnDevolucion",
             "Cancelada" or "Cancelado" or "Reasignado" => "Cancelada",

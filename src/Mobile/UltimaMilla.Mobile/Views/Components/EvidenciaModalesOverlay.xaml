@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vmEntrega="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             xmlns:models="clr-namespace:UltimaMilla.Mobile.Models.Local"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
+             x:Class="UltimaMilla.Mobile.Views.Components.EvidenciaModalesOverlay"
+             x:Name="EvidenciaModalesRoot"
+             x:DataType="vmEntrega:EvidenciaViewModelBase"
+             IsVisible="{Binding TieneAlgunModalAbierto}">
+
+    <Grid>
+        <!-- ========================================================= -->
+        <!-- 1. MODAL CORPORATIVO SELECTOR DE MOTIVOS                  -->
+        <!-- ========================================================= -->
+        <Grid IsVisible="{Binding MostrarModalMotivos}"
+              BackgroundColor="#990F172A"
+              Padding="20"
+              ZIndex="10">
+            <BoxView Color="Transparent">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CerrarMotivoModalCommand}" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border VerticalOptions="Center"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="440"
+                    MaximumHeightRequest="560"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="{DynamicResource CardBorderColor}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 20">
+                <Border.Shadow>
+                    <Shadow Brush="#0F172A" Offset="0,10" Radius="24" Opacity="0.25" />
+                </Border.Shadow>
+
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <Border Grid.Row="0"
+                            BackgroundColor="{DynamicResource PrimaryColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20,20,0,0"
+                            Padding="18,16">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding TituloModalMotivos}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF" />
+                            <Label Text="{Binding SubtituloModalMotivos}"
+                                   FontSize="11.5"
+                                   TextColor="#E2E8F0" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <ScrollView Grid.Row="1" Padding="14,14">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding MotivosModalOpciones}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:OpcionSeleccionableItem">
+                                    <Border BackgroundColor="#FFFFFF"
+                                            Stroke="#E2E8F0"
+                                            StrokeThickness="1.5"
+                                            StrokeShape="RoundRectangle 12"
+                                            Padding="14,12">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding EsSeleccionada}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryLight}" />
+                                                <Setter Property="Stroke" Value="{DynamicResource PrimaryColor}" />
+                                                <Setter Property="StrokeThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference EvidenciaModalesRoot}, Path=BindingContext.SeleccionarMotivoModalCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+
+                                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding Texto}"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#0F172A"
+                                                   VerticalOptions="Center" />
+                                            <Border Grid.Column="1"
+                                                    IsVisible="{Binding EsSeleccionada}"
+                                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                                    StrokeThickness="0"
+                                                    StrokeShape="RoundRectangle 6"
+                                                    Padding="8,3"
+                                                    VerticalOptions="Center">
+                                                <Label Text="Seleccionado"
+                                                       FontSize="9.5"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#FFFFFF" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </ScrollView>
+
+                    <VerticalStackLayout Grid.Row="2" BackgroundColor="#F8FAFC" Spacing="0">
+                        <BoxView HeightRequest="1" Color="#E2E8F0" />
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10" Padding="14,12">
+                            <Button Grid.Column="0"
+                                    Text="Cancelar"
+                                    Command="{Binding CerrarMotivoModalCommand}"
+                                    BackgroundColor="#FFFFFF"
+                                    TextColor="#475569"
+                                    BorderColor="#CBD5E1"
+                                    BorderWidth="1"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    HeightRequest="42"
+                                    CornerRadius="10" />
+                            <Button Grid.Column="1"
+                                    Text="Confirmar"
+                                    Command="{Binding ConfirmarMotivoModalCommand}"
+                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                    TextColor="#FFFFFF"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    HeightRequest="42"
+                                    CornerRadius="10" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ========================================================= -->
+        <!-- 2. MODAL CORPORATIVO CONFIRMACIÓN DE GALERÍA              -->
+        <!-- ========================================================= -->
+        <Grid IsVisible="{Binding MostrarModalGaleriaFallback}"
+              BackgroundColor="#990F172A"
+              Padding="22"
+              ZIndex="20">
+            <Border VerticalOptions="Center"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="420"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="{DynamicResource CardBorderColor}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 20">
+                <Border.Shadow>
+                    <Shadow Brush="#0F172A" Offset="0,10" Radius="24" Opacity="0.25" />
+                </Border.Shadow>
+
+                <VerticalStackLayout Spacing="0">
+                    <Border BackgroundColor="{DynamicResource PrimaryColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20,20,0,0"
+                            Padding="18,16">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Cámara no disponible"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF" />
+                            <Label Text="Evidencia fotográfica alternativa"
+                                   FontSize="11.5"
+                                   TextColor="#E2E8F0" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <VerticalStackLayout Padding="18,16" Spacing="16">
+                        <Label Text="{Binding MensajeModalGaleriaFallback}"
+                               FontSize="13.5"
+                               TextColor="#334155"
+                               LineHeight="1.35" />
+
+                        <VerticalStackLayout Spacing="8">
+                            <Button Text="Seleccionar de la galería"
+                                    Command="{Binding ConfirmarGaleriaFallbackCommand}"
+                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                    TextColor="#FFFFFF"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    HeightRequest="44"
+                                    CornerRadius="10" />
+                            <Button Text="Cancelar"
+                                    Command="{Binding CancelarGaleriaFallbackCommand}"
+                                    BackgroundColor="#FFFFFF"
+                                    TextColor="#475569"
+                                    BorderColor="#CBD5E1"
+                                    BorderWidth="1"
+                                    FontAttributes="Bold"
+                                    FontSize="12.5"
+                                    HeightRequest="40"
+                                    CornerRadius="10" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- ========================================================= -->
+        <!-- 3. MODAL CORPORATIVO INGRESO MANUAL DE CÓDIGO             -->
+        <!-- ========================================================= -->
+        <Grid IsVisible="{Binding MostrarModalCodigoManual}"
+              BackgroundColor="#990F172A"
+              Padding="22"
+              ZIndex="25">
+            <Border VerticalOptions="Center"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="420"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="{DynamicResource CardBorderColor}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 20">
+                <Border.Shadow>
+                    <Shadow Brush="#0F172A" Offset="0,10" Radius="24" Opacity="0.25" />
+                </Border.Shadow>
+
+                <VerticalStackLayout Spacing="0">
+                    <Border BackgroundColor="{DynamicResource PrimaryColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20,20,0,0"
+                            Padding="18,16">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding TituloModalCodigoManual}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF" />
+                            <Label Text="{Binding SubtituloModalCodigoManual}"
+                                   FontSize="11.5"
+                                   TextColor="#E2E8F0" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <VerticalStackLayout Padding="18,16" Spacing="14">
+                        <Border Stroke="#CBD5E1"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 10"
+                                BackgroundColor="#F8FAFC"
+                                Padding="12,4">
+                            <Entry Text="{Binding CodigoManualModalInput, Mode=TwoWay}"
+                                   Placeholder="{Binding PlaceholderCodigoManual}"
+                                   PlaceholderColor="#94A3B8"
+                                   TextColor="#0F172A"
+                                   FontSize="14"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                            <Button Grid.Column="0"
+                                    Text="Cancelar"
+                                    Command="{Binding CancelarCodigoManualModalCommand}"
+                                    BackgroundColor="#FFFFFF"
+                                    TextColor="#475569"
+                                    BorderColor="#CBD5E1"
+                                    BorderWidth="1"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    HeightRequest="42"
+                                    CornerRadius="10" />
+                            <Button Grid.Column="1"
+                                    Text="Validar"
+                                    Command="{Binding ConfirmarCodigoManualModalCommand}"
+                                    BackgroundColor="{DynamicResource PrimaryColor}"
+                                    TextColor="#FFFFFF"
+                                    FontAttributes="Bold"
+                                    FontSize="13"
+                                    HeightRequest="42"
+                                    CornerRadius="10" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- ========================================================= -->
+        <!-- 4. MODAL CORPORATIVO DE AVISOS / RESULTADOS               -->
+        <!-- ========================================================= -->
+        <components:CorporateAvisoModalView ZIndex="30" />
+    </Grid>
+
+</ContentView>

@@ -67,10 +67,11 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
     private string _textoEtiquetaDocumento = "DOCUMENTO / C.I. (Obligatorio según regla del operador) *";
 
     [ObservableProperty]
-    private string _motivoSeleccionado = string.Empty;
-
-    [ObservableProperty]
     private string _observacionesPendientes = string.Empty;
+
+    protected override IEnumerable<string> ObtenerOpcionesMotivoModal() => MotivosNoEntrega;
+    protected override string TituloSelectorMotivo => "Motivo de bultos no entregados";
+    protected override string SubtituloSelectorMotivo => "Seleccione la causa para los bultos pendientes";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
@@ -200,7 +201,10 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
             }
             else
             {
-                codigo = await Shell.Current.DisplayPromptAsync("Ingreso manual", "Ingrese el código del bulto:", "Validar", "Cancelar", "Código del bulto");
+                codigo = await SolicitarCodigoManualAsync(
+                    "Ingreso manual",
+                    "Ingrese el código del bulto:",
+                    "Código del bulto");
             }
 
             if (string.IsNullOrWhiteSpace(codigo))
@@ -219,37 +223,6 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
         {
             System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Error al escanear: {ex.Message}");
             await AvisarAsync("Escaneo no disponible", "No fue posible abrir el lector. Marque los bultos manualmente en la lista.");
-        }
-    }
-
-    // =========================================================================
-    // MODAL CORPORATIVO DE RESULTADO / RECHAZO DE CENTRAL (REEMPLAZA POPUPS NATIVOS)
-    // =========================================================================
-    [ObservableProperty]
-    private bool _mostrarModalResultado;
-
-    [ObservableProperty]
-    private string _tituloModalResultado = string.Empty;
-
-    [ObservableProperty]
-    private string _subtituloModalResultado = string.Empty;
-
-    [ObservableProperty]
-    private string _mensajeModalResultado = string.Empty;
-
-    [ObservableProperty]
-    private string _botonModalResultadoTexto = "Finalizar";
-
-    [ObservableProperty]
-    private Color _headerModalResultadoColor = Color.FromArgb("#16A34A");
-
-    [RelayCommand]
-    private async Task ConfirmarSalidaModalResultadoAsync()
-    {
-        MostrarModalResultado = false;
-        if (Shell.Current is not null)
-        {
-            await Shell.Current.GoToAsync("//RutaDiaPage");
         }
     }
 
@@ -440,12 +413,12 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
             if (syncExitoso == false && !string.IsNullOrWhiteSpace(motivoRechazoServidor))
             {
-                HeaderModalResultadoColor = Color.FromArgb("#DC2626");
-                TituloModalResultado = "Observación del Servidor";
-                SubtituloModalResultado = "La central no aceptó la operación";
-                MensajeModalResultado = motivoRechazoServidor;
-                BotonModalResultadoTexto = "Entendido";
-                MostrarModalResultado = true;
+                await AvisarAsync(
+                    "Observación del Servidor",
+                    motivoRechazoServidor,
+                    subtitulo: "La central no aceptó la operación",
+                    textoBoton: "Entendido",
+                    navegarAlCerrarRuta: "//RutaDiaPage");
             }
             else
             {
@@ -459,12 +432,12 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                     ? $"Se entregaron {BultosMarcados} de {Bultos.Count} bulto(s) a {NombreReceptor.Trim()}. El resto queda pendiente según la política del operador."
                     : $"Entrega registrada para {NombreReceptor.Trim()}.";
 
-                HeaderModalResultadoColor = Color.FromArgb("#16A34A");
-                TituloModalResultado = titulo;
-                SubtituloModalResultado = syncExitoso == true ? "Confirmada en central" : "Respaldo local cifrado";
-                MensajeModalResultado = $"{detalle}\n\n{infoRed}";
-                BotonModalResultadoTexto = "Volver a la Ruta";
-                MostrarModalResultado = true;
+                await AvisarAsync(
+                    titulo,
+                    $"{detalle}\n\n{infoRed}",
+                    subtitulo: syncExitoso == true ? "Confirmada en central" : "Respaldo local cifrado",
+                    textoBoton: "Volver a la Ruta",
+                    navegarAlCerrarRuta: "//RutaDiaPage");
             }
         }
         finally

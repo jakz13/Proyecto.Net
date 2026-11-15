@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Entrega.RegistroEntregaPage"
              x:DataType="vm:RegistroEntregaViewModel"
              Title="Confirmar Entrega"
@@ -109,10 +110,35 @@
                                        FontSize="11"
                                        FontAttributes="Bold"
                                        TextColor="#475569" />
-                                <Border Style="{StaticResource InputContainer}">
-                                    <Picker ItemsSource="{Binding MotivosNoEntrega}"
-                                            SelectedItem="{Binding MotivoSeleccionado, Mode=TwoWay}"
-                                            Title="Seleccione el motivo" />
+                                <Border BackgroundColor="#F8FAFC"
+                                        Stroke="{DynamicResource CardBorderColor}"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 10"
+                                        Padding="14,12">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding AbrirSelectorMotivoCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding MotivoSelectorTexto}"
+                                               FontSize="13.5"
+                                               FontAttributes="Bold"
+                                               TextColor="#0F172A"
+                                               LineBreakMode="TailTruncation"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="1"
+                                                BackgroundColor="{DynamicResource PrimaryLight}"
+                                                Stroke="{DynamicResource PrimaryColor}"
+                                                StrokeThickness="1"
+                                                StrokeShape="RoundRectangle 6"
+                                                Padding="8,4"
+                                                VerticalOptions="Center">
+                                            <Label Text="Elegir"
+                                                   FontSize="10.5"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{DynamicResource PrimaryColor}" />
+                                        </Border>
+                                    </Grid>
                                 </Border>
                                 <Border Style="{StaticResource InputContainer}">
                                     <Entry Text="{Binding ObservacionesPendientes}"
@@ -403,54 +429,11 @@
         </ScrollView>
 
         <!-- ========================================================= -->
-        <!-- MODAL CORPORATIVO DE RESULTADO DE ENTREGA                 -->
+        <!-- MODALES CORPORATIVOS COMPARTIDOS DE EVIDENCIA Y RESULTADO -->
         <!-- ========================================================= -->
-        <Grid Grid.Row="0"
-              Grid.RowSpan="2"
-              IsVisible="{Binding MostrarModalResultado}"
-              BackgroundColor="#800F172A"
-              ZIndex="999">
-            <Border BackgroundColor="#FFFFFF"
-                    Stroke="{DynamicResource CardBorderColor}"
-                    StrokeThickness="1"
-                    StrokeShape="RoundRectangle 12"
-                    VerticalOptions="Center"
-                    HorizontalOptions="Center"
-                    Margin="20"
-                    MaximumWidthRequest="440"
-                    Padding="0">
-                <VerticalStackLayout Spacing="0">
-                    <Border BackgroundColor="{Binding HeaderModalResultadoColor}"
-                            StrokeThickness="0"
-                            StrokeShape="RoundRectangle 12,12,0,0"
-                            Padding="18,14">
-                        <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding TituloModalResultado}"
-                                   FontSize="16"
-                                   FontAttributes="Bold"
-                                   TextColor="#FFFFFF" />
-                            <Label Text="{Binding SubtituloModalResultado}"
-                                   FontSize="12"
-                                   TextColor="#E2E8F0" />
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <VerticalStackLayout Spacing="16" Padding="18,16">
-                        <Label Text="{Binding MensajeModalResultado}"
-                               FontSize="13.5"
-                               TextColor="#1E293B"
-                               LineHeight="1.35" />
-
-                        <Button Text="{Binding BotonModalResultadoTexto}"
-                                Style="{StaticResource PrimaryButton}"
-                                Command="{Binding ConfirmarSalidaModalResultadoCommand}"
-                                CornerRadius="8"
-                                HeightRequest="44"
-                                FontAttributes="Bold" />
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-        </Grid>
+        <components:EvidenciaModalesOverlay Grid.Row="0"
+                                            Grid.RowSpan="2"
+                                            ZIndex="999" />
     </Grid>
 
 </ContentPage>

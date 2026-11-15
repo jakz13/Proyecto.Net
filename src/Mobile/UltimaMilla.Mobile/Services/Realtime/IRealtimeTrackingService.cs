@@ -36,6 +36,11 @@ public interface IRealtimeTrackingService : IAsyncDisposable
     event EventHandler<bool>? ConnectionStateChanged;
 
     /// <summary>
+    /// Evento disparado inmediatamente cuando llega un evento SignalR de asignación, actualización o reasignación de ruta y se refrescó la base local.
+    /// </summary>
+    event EventHandler? RutaActualizadaEnTiempoReal;
+
+    /// <summary>
     /// Inicia la conexión con el Hub de SignalR de forma asíncrona y segura.
     /// </summary>
     Task StartAsync(CancellationToken cancellationToken = default);

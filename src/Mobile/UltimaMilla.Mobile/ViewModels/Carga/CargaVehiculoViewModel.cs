@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
@@ -8,12 +9,14 @@ using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Security;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Carga;
+using UltimaMilla.Mobile.Views.Components;
 
 namespace UltimaMilla.Mobile.ViewModels.Carga;
 
@@ -118,10 +121,8 @@ public partial class BultoCargaItemViewModel : ObservableObject
     }
 }
 
-public partial class CargaVehiculoViewModel : ObservableObject
+public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaModalHost, ICorporateAvisoModalHost
 {
-    private static readonly TimeSpan IntervaloVigilanciaDespacho = TimeSpan.FromSeconds(15);
-
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
     private readonly IHttpClientFactory? _httpClientFactory;
@@ -129,7 +130,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
     private readonly IOperadorThemeService? _themeService;
     private readonly IGeolocalizacionTrackingService? _trackingService;
     private readonly IAuthService? _authService;
-    private IDispatcherTimer? _vigilanciaDespacho;
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
+    private readonly SemaphoreSlim _realtimeRefreshLock = new(1, 1);
+    private bool _escuchaTiempoRealActiva;
     private bool _actualizandoSelectorRuta;
 
     public bool EscaneandoConCamara { get; private set; }
@@ -186,20 +189,121 @@ public partial class CargaVehiculoViewModel : ObservableObject
     [ObservableProperty]
     private HojaDeRutaSelectorItem? _hojaDeRutaSeleccionada;
 
+    [ObservableProperty]
+    private bool _mostrarModalSelectorRuta;
+
+    [ObservableProperty]
+    private bool _mostrarModalAviso;
+
+    [ObservableProperty]
+    private string _tituloModalAviso = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneSubtituloModalAviso))]
+    private string _subtituloModalAviso = string.Empty;
+
+    [ObservableProperty]
+    private string _mensajeModalAviso = string.Empty;
+
+    [ObservableProperty]
+    private string _textoBotonModalAviso = "Entendido";
+
+    public bool TieneSubtituloModalAviso => !string.IsNullOrWhiteSpace(SubtituloModalAviso);
+
     public ObservableCollection<HojaDeRutaSelectorItem> HojasDeRutaDisponibles { get; } = new();
+
+    ICommand ISelectorRutaModalHost.AbrirSelectorRutaCommand => AbrirSelectorRutaCommand;
+    ICommand ISelectorRutaModalHost.CerrarSelectorRutaCommand => CerrarSelectorRutaCommand;
+    ICommand ISelectorRutaModalHost.SeleccionarRutaDelModalCommand => SeleccionarRutaDelModalCommand;
+    ICommand ICorporateAvisoModalHost.CerrarModalAvisoCommand => CerrarModalAvisoCommand;
 
     async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
     {
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, value?.Id);
+
         if (value != null && !IsBusy && !_actualizandoSelectorRuta)
         {
             await CargarBultosDeRutaAsync(value.Id);
         }
     }
 
+    [RelayCommand]
+    private void AbrirSelectorRuta()
+    {
+        if (HojasDeRutaDisponibles.Count == 0 || IsBusy)
+            return;
+
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, HojaDeRutaSeleccionada?.Id);
+        MostrarModalSelectorRuta = true;
+    }
+
+    [RelayCommand]
+    private void CerrarSelectorRuta()
+    {
+        MostrarModalSelectorRuta = false;
+    }
+
+    [RelayCommand]
+    private async Task SeleccionarRutaDelModalAsync(HojaDeRutaSelectorItem? ruta)
+    {
+        MostrarModalSelectorRuta = false;
+        if (ruta == null || IsBusy)
+            return;
+
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, ruta.Id);
+        if (HojaDeRutaSeleccionada?.Id != ruta.Id)
+        {
+            HojaDeRutaSeleccionada = ruta;
+        }
+        else
+        {
+            await CargarBultosDeRutaAsync(ruta.Id);
+        }
+    }
+
+    [RelayCommand]
+    private void CerrarModalAviso()
+    {
+        MostrarModalAviso = false;
+    }
+
+    private void MostrarAvisoModal(string titulo, string mensaje, string subtitulo = "", string textoBoton = "Entendido")
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            TituloModalAviso = titulo;
+            SubtituloModalAviso = subtitulo;
+            MensajeModalAviso = mensaje;
+            TextoBotonModalAviso = textoBoton;
+            MostrarModalAviso = true;
+        });
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneDiscrepancias))]
     [NotifyPropertyChangedFor(nameof(ResumenEstadoTexto))]
     private string _mensajeDiscrepancia = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumenEstadoTexto))]
+    [NotifyPropertyChangedFor(nameof(MensajeEstadoDespacho))]
+    [NotifyPropertyChangedFor(nameof(EsRutaLiberada))]
+    [NotifyPropertyChangedFor(nameof(EsRutaDespachada))]
+    [NotifyPropertyChangedFor(nameof(PuedeConfirmarCarga))]
+    [NotifyPropertyChangedFor(nameof(PuedeIniciarRecorrido))]
+    [NotifyPropertyChangedFor(nameof(ResumenProgresoCargaTexto))]
+    [NotifyPropertyChangedFor(nameof(TieneParadasRetiroMixta))]
+    private bool _esRutaSoloRetiros;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneParadasRetiroMixta))]
+    [NotifyPropertyChangedFor(nameof(AvisoRetirosMixtaTexto))]
+    private int _cantidadRetirosRuta;
+
+    public bool TieneParadasRetiroMixta => !EsRutaSoloRetiros && CantidadRetirosRuta > 0;
+    public string AvisoRetirosMixtaTexto => CantidadRetirosRuta == 1
+        ? "Esta hoja de ruta incluye 1 retiro en domicilio. Los retiros no pasan por carga en depósito y están habilitados directamente en la ruta."
+        : $"Esta hoja de ruta incluye {CantidadRetirosRuta} retiros en domicilio. Los retiros no pasan por carga en depósito y están habilitados directamente en la ruta.";
 
     public bool HayRuta => HojaDeRutaId != Guid.Empty;
     public bool NoHayRuta => !HayRuta;
@@ -214,32 +318,36 @@ public partial class CargaVehiculoViewModel : ObservableObject
     public int BultosPendientesCount => BultosPendientes.Count;
     public int BultosTotales => BultosPendientes.Count + BultosCargadosLista.Count;
     public int TotalBultosCount => BultosTotales;
-    public double ProgresoEscaneo => BultosTotales > 0 ? (double)BultosCargados / BultosTotales : 0.0;
+    public double ProgresoEscaneo => EsRutaSoloRetiros ? 1.0 : (BultosTotales > 0 ? (double)BultosCargados / BultosTotales : 0.0);
     public double ProgresoCarga => ProgresoEscaneo;
-    public string ResumenProgresoCargaTexto => BultosTotales > 0
-        ? $"{BultosCargados} de {BultosTotales} bultos cargados"
-        : $"{BultosCargados} bultos cargados";
+    public string ResumenProgresoCargaTexto => EsRutaSoloRetiros
+        ? "Sin carga en depósito (solo retiros en domicilio)"
+        : (BultosTotales > 0
+            ? $"{BultosCargados} de {BultosTotales} bultos de entrega cargados"
+            : $"{BultosCargados} bultos cargados");
 
-    /// <summary>La carga se escanea y se confirma mientras la ruta espera ser cargada o esté en proceso de carga (antes de ser despachada).</summary>
-    public bool EsRutaLiberada => EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador" || BultosPendientes.Count > 0;
+    /// <summary>La carga se escanea y se confirma mientras la ruta tenga envíos pendientes de carga (nunca aplica a rutas de solo retiros).</summary>
+    public bool EsRutaLiberada => !EsRutaSoloRetiros && (EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador" || BultosPendientes.Count > 0);
 
     /// <summary>La carga ya se informó: el despachador del depósito debe verificarla y despachar la ruta.</summary>
-    public bool EsperandoDespacho => EstadoHojaDeRuta == "EnCarga" && BultosPendientes.Count == 0;
+    public bool EsperandoDespacho => !EsRutaSoloRetiros && EstadoHojaDeRuta == "EnCarga" && BultosPendientes.Count == 0;
 
-    /// <summary>Solo el servidor despacha la ruta; la app lo sabe cuando descarga la ruta con ese estado.</summary>
-    public bool EsRutaDespachada => EstadoHojaDeRuta is "Despachada" or "EnTransito";
+    /// <summary>Habilita el inicio de recorrido cuando el depósito despachó la ruta o cuando es una ruta de solo retiros.</summary>
+    public bool EsRutaDespachada => EstadoHojaDeRuta is "Despachada" or "EnTransito" || (EsRutaSoloRetiros && EstadoHojaDeRuta is "Liberada" or "EnCarga");
 
-    public bool PuedeConfirmarCarga => HayRuta && EsRutaLiberada && BultosCargadosLista.Count > 0 && !IsBusy;
-    public bool PuedeIniciarRecorrido => EstadoHojaDeRuta == "Despachada" && !IsBusy;
+    public bool PuedeConfirmarCarga => HayRuta && !EsRutaSoloRetiros && EsRutaLiberada && BultosCargadosLista.Count > 0 && !IsBusy;
+    public bool PuedeIniciarRecorrido => (EstadoHojaDeRuta == "Despachada" || (EsRutaSoloRetiros && EstadoHojaDeRuta is "Liberada" or "EnCarga")) && !IsBusy;
 
-    public string MensajeEstadoDespacho => EstadoHojaDeRuta switch
-    {
-        "EnCarga" => "Carga informada al depósito. Esperando que el despachador verifique y despache la ruta. Esta pantalla se actualiza sola.",
-        "Despachada" => "Ruta despachada por el depósito. Ya puede iniciar el recorrido.",
-        "EnTransito" => "Recorrido en curso.",
-        "Finalizada" => "La hoja de ruta ya fue finalizada.",
-        _ => string.Empty
-    };
+    public string MensajeEstadoDespacho => EsRutaSoloRetiros
+        ? "Esta ruta contiene únicamente retiros en domicilio y no requiere carga en depósito."
+        : EstadoHojaDeRuta switch
+        {
+            "EnCarga" => "Carga informada al depósito. Esperando que el despachador verifique y despache la ruta. Esta pantalla se actualiza sola.",
+            "Despachada" => "Ruta despachada por el depósito. Ya puede iniciar el recorrido.",
+            "EnTransito" => "Recorrido en curso.",
+            "Finalizada" => "La hoja de ruta ya fue finalizada.",
+            _ => string.Empty
+        };
 
     // =========================================================================
     // BANNER / TOAST CORPORATIVO DE AVISO RÁPIDO
@@ -328,8 +436,28 @@ public partial class CargaVehiculoViewModel : ObservableObject
         "Rechazado en Carga"
     };
 
+    public ObservableCollection<OpcionSeleccionableItem> MotivosDiscrepanciaChips { get; } = new()
+    {
+        new("Bulto Faltante en Andén", true),
+        new("Empaque Dañado", false),
+        new("Rechazado en Carga", false)
+    };
+
     [ObservableProperty]
     private string _motivoDiscrepanciaSeleccionado = "Bulto Faltante en Andén";
+
+    [RelayCommand]
+    private void SeleccionarMotivoDiscrepancia(OpcionSeleccionableItem? opcion)
+    {
+        if (opcion == null)
+            return;
+
+        MotivoDiscrepanciaSeleccionado = opcion.Texto;
+        foreach (var item in MotivosDiscrepanciaChips)
+        {
+            item.EsSeleccionada = item.Texto == opcion.Texto;
+        }
+    }
 
     [ObservableProperty]
     private string _detalleDocumentalDiscrepanciaInput = string.Empty;
@@ -340,6 +468,8 @@ public partial class CargaVehiculoViewModel : ObservableObject
         {
             if (!HayRuta)
                 return "No hay una hoja de ruta descargada. Conéctese y toque Actualizar para descargarla.";
+            if (EsRutaSoloRetiros)
+                return "Esta ruta contiene únicamente retiros en domicilio y no requiere carga en depósito.";
             if (TieneSobrantes)
                 return $"Discrepancia detectada: {BultosSobrantes.Count} bulto(s) sobrante(s).";
             if (TieneBultosPendientes && TieneBultosCargados)
@@ -352,7 +482,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         }
     }
 
-    public CargaVehiculoViewModel() : this(null, null, null, null, null, null, null)
+    public CargaVehiculoViewModel() : this(null, null, null, null, null, null, null, null)
     {
     }
 
@@ -363,7 +493,8 @@ public partial class CargaVehiculoViewModel : ObservableObject
         IBiometricAuthService? biometricAuthService = null,
         IOperadorThemeService? themeService = null,
         IGeolocalizacionTrackingService? trackingService = null,
-        IAuthService? authService = null)
+        IAuthService? authService = null,
+        IRealtimeTrackingService? realtimeTrackingService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
@@ -372,6 +503,7 @@ public partial class CargaVehiculoViewModel : ObservableObject
         _themeService = themeService;
         _trackingService = trackingService;
         _authService = authService;
+        _realtimeTrackingService = realtimeTrackingService;
     }
 
     /// <summary>Carga la ruta guardada en el dispositivo. Si todavía no hay ninguna, la pantalla lo informa en lugar de inventar datos.</summary>
@@ -425,28 +557,12 @@ public partial class CargaVehiculoViewModel : ObservableObject
             return;
         }
 
-        var rutasLocales = await _localDatabaseService.ListarHojasDeRutaLocalesAsync();
+        var itemsSelector = await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(HojaDeRutaSeleccionada?.Id);
         HojasDeRutaDisponibles.Clear();
 
-        foreach (var r in rutasLocales)
+        foreach (var item in itemsSelector)
         {
-            string descEstado = r.Estado switch
-            {
-                "EnTransito" => "En Tránsito",
-                "Despachada" => "Despachada",
-                "EnCarga" => "En Carga",
-                "Liberada" => "Liberada",
-                "Finalizada" => "Finalizada",
-                _ => r.Estado
-            };
-
-            HojasDeRutaDisponibles.Add(new HojaDeRutaSelectorItem(
-                r.Id,
-                r.NumeroRuta,
-                r.Estado,
-                r.TotalParadas,
-                $"{r.NumeroRuta} - {descEstado} ({r.TotalParadas} paradas)"
-            ));
+            HojasDeRutaDisponibles.Add(item);
         }
 
         TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
@@ -502,6 +618,8 @@ public partial class CargaVehiculoViewModel : ObservableObject
             HojaDeRutaId = Guid.Empty;
             NumeroRuta = "Sin hoja de ruta";
             EstadoHojaDeRuta = "Sin ruta";
+            EsRutaSoloRetiros = false;
+            CantidadRetirosRuta = 0;
             ActualizarConteos();
             return;
         }
@@ -517,9 +635,15 @@ public partial class CargaVehiculoViewModel : ObservableObject
             VehiculoTipo = string.IsNullOrWhiteSpace(ultima.TipoVehiculo) ? "Sin datos" : ultima.TipoVehiculo;
         }
 
-        // Solo los bultos de las paradas de entrega y de retiro que siguen en la ruta
-        var bultos = (rutaLocal.Paradas ?? [])
-            .OrderBy(p => p.Orden)
+        var paradasRuta = rutaLocal.Paradas ?? [];
+        var paradasEntrega = paradasRuta.Where(p => !p.EsRetiro).OrderBy(p => p.Orden).ToList();
+        var paradasRetiro = paradasRuta.Where(p => p.EsRetiro).ToList();
+
+        CantidadRetirosRuta = paradasRetiro.Count;
+        EsRutaSoloRetiros = paradasRuta.Count > 0 && paradasEntrega.Count == 0 && paradasRetiro.Count > 0;
+
+        // Exclusivamente los bultos de paradas de entrega (los retiros se buscan en el domicilio del cliente, jamás se cargan en depósito)
+        var bultos = paradasEntrega
             .SelectMany(p => (p.Bultos ?? []).Select(b => new BultoCargaItemViewModel
             {
                 Id = b.Id,
@@ -549,33 +673,91 @@ public partial class CargaVehiculoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Mientras la ruta espera el despacho del depósito, consulta al servidor cada pocos segundos: apenas el despachador la despacha,
-    /// la pantalla habilita el inicio del recorrido sin que el repartidor tenga que hacer nada.
+    /// Suscribe la pantalla a actualizaciones en tiempo real de SignalR y sincronización para habilitar
+    /// el inicio del recorrido al instante apenas el depósito despacha o modifica la ruta (0 ms de espera).
     /// </summary>
-    public void IniciarVigilanciaDespacho()
+    public void IniciarEscuchaTiempoReal()
     {
-        DetenerVigilanciaDespacho();
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null)
+        if (_escuchaTiempoRealActiva)
             return;
 
-        _vigilanciaDespacho = dispatcher.CreateTimer();
-        _vigilanciaDespacho.Interval = IntervaloVigilanciaDespacho;
-        _vigilanciaDespacho.Tick += async (_, _) =>
+        if (_syncService is not null)
         {
-            if (EsperandoDespacho && !IsBusy && !EscaneandoConCamara)
-                await ActualizarDesdeServidorAsync(silencioso: true);
-        };
-        _vigilanciaDespacho.Start();
+            _syncService.OnSyncStateChanged += OnSyncStateChangedHandler;
+        }
+
+        if (_realtimeTrackingService is not null)
+        {
+            _realtimeTrackingService.RutaActualizadaEnTiempoReal += OnRutaActualizadaEnTiempoRealHandler;
+        }
+
+        _escuchaTiempoRealActiva = true;
     }
 
-    public void DetenerVigilanciaDespacho()
+    public void DetenerEscuchaTiempoReal()
     {
-        if (_vigilanciaDespacho is null)
+        if (!_escuchaTiempoRealActiva)
             return;
 
-        _vigilanciaDespacho.Stop();
-        _vigilanciaDespacho = null;
+        if (_syncService is not null)
+        {
+            _syncService.OnSyncStateChanged -= OnSyncStateChangedHandler;
+        }
+
+        if (_realtimeTrackingService is not null)
+        {
+            _realtimeTrackingService.RutaActualizadaEnTiempoReal -= OnRutaActualizadaEnTiempoRealHandler;
+        }
+
+        _escuchaTiempoRealActiva = false;
+    }
+
+    private void OnSyncStateChangedHandler(object? sender, SyncStateChangedEventArgs e)
+    {
+        if (!e.IsSyncing && e.Mensaje?.Contains("ruta", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            RefrescarCargaDesdeTiempoRealAsync();
+        }
+    }
+
+    private void OnRutaActualizadaEnTiempoRealHandler(object? sender, EventArgs e)
+    {
+        RefrescarCargaDesdeTiempoRealAsync();
+    }
+
+    private void RefrescarCargaDesdeTiempoRealAsync()
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            if (IsBusy || EscaneandoConCamara)
+                return;
+
+            if (!await _realtimeRefreshLock.WaitAsync(0))
+                return;
+
+            try
+            {
+                var rutaAnteriorId = HojaDeRutaId;
+                await CargarRutasDesdeSQLiteAsync();
+
+                if (rutaAnteriorId != Guid.Empty && HojasDeRutaDisponibles.Any(r => r.Id == rutaAnteriorId))
+                {
+                    var rutaActualizada = HojasDeRutaDisponibles.First(r => r.Id == rutaAnteriorId);
+                    if (HojaDeRutaSeleccionada?.Id != rutaActualizada.Id)
+                    {
+                        HojaDeRutaSeleccionada = rutaActualizada;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Error al refrescar en tiempo real: {ex.Message}");
+            }
+            finally
+            {
+                _realtimeRefreshLock.Release();
+            }
+        });
     }
 
     [RelayCommand]
@@ -589,12 +771,11 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
         if (!_syncService.IsOnline)
         {
-            if (!silencioso && Shell.Current is not null)
+            if (!silencioso)
             {
-                await Shell.Current.DisplayAlertAsync(
+                MostrarAvisoModal(
                     "Sin conexión",
-                    "No hay conexión con el servidor. Se mostrará lo guardado en el dispositivo y se actualizará al recuperar la señal.",
-                    "Entendido");
+                    "No hay conexión con el servidor. Se mostrará lo guardado en el dispositivo y se actualizará al recuperar la señal.");
             }
             return;
         }
@@ -613,9 +794,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] No se pudo actualizar desde el servidor: {ex.Message}");
-            if (!silencioso && Shell.Current is not null)
+            if (!silencioso)
             {
-                await Shell.Current.DisplayAlertAsync("No se pudo actualizar", "Intente nuevamente en unos segundos.", "Entendido");
+                MostrarAvisoModal("No se pudo actualizar", "Intente nuevamente en unos segundos.");
             }
         }
     }
@@ -703,13 +884,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
         if (!HayRuta)
         {
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "Sin Hoja de Ruta",
-                    "No hay una hoja de ruta activa cargada en el dispositivo. Toque Actualizar para sincronizar con el servidor.",
-                    "Entendido");
-            }
+            MostrarAvisoModal(
+                "Sin hoja de ruta",
+                "No hay una hoja de ruta activa cargada en el dispositivo. Toque Actualizar para sincronizar con el servidor.");
             return;
         }
 
@@ -782,10 +959,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
 
             if (status != PermissionStatus.Granted)
             {
-                await Shell.Current.DisplayAlertAsync(
-                    "Permiso Requerido",
-                    "Permiso de cámara denegado. Habilítelo en la configuración del dispositivo o utilice el ingreso manual.",
-                    "Entendido");
+                MostrarAvisoModal(
+                    "Permiso requerido",
+                    "Permiso de cámara denegado. Habilítelo en la configuración del dispositivo o utilice el ingreso manual.");
                 return;
             }
 
@@ -805,10 +981,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Fallo al iniciar cámara: {ex.Message}");
-            await Shell.Current.DisplayAlertAsync(
-                "Cámara No Disponible",
-                "El lector de cámara no está disponible en este dispositivo. Puede utilizar el lector láser o ingresar el código manualmente.",
-                "Entendido");
+            MostrarAvisoModal(
+                "Cámara no disponible",
+                "El lector de cámara no está disponible en este dispositivo. Puede utilizar el lector láser o ingresar el código manualmente.");
         }
         finally
         {
@@ -851,6 +1026,9 @@ public partial class CargaVehiculoViewModel : ObservableObject
         OnPropertyChanged(nameof(EsRutaLiberada));
         OnPropertyChanged(nameof(EsRutaDespachada));
         OnPropertyChanged(nameof(EsperandoDespacho));
+        OnPropertyChanged(nameof(EsRutaSoloRetiros));
+        OnPropertyChanged(nameof(TieneParadasRetiroMixta));
+        OnPropertyChanged(nameof(AvisoRetirosMixtaTexto));
         OnPropertyChanged(nameof(ResumenEstadoTexto));
         OnPropertyChanged(nameof(MensajeEstadoDespacho));
     }
@@ -989,6 +1167,12 @@ public partial class CargaVehiculoViewModel : ObservableObject
     {
         if (IsBusy)
             return;
+
+        if (EsRutaSoloRetiros)
+        {
+            _ = IniciarRecorridoAsync();
+            return;
+        }
 
         if (BultosCargadosLista.Count == 0 && BultosSobrantes.Count == 0)
         {

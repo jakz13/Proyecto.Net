@@ -9,6 +9,7 @@ using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual
 using UltimaMilla.Application.Commands.Planificacion.ArmarHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 using UltimaMilla.Application.Commands.Planificacion.ReasignarEnvio;
+using UltimaMilla.Application.Commands.Retiros.GestionRetiros;
 using UltimaMilla.Application.Commands.Seguimiento.SolicitarReprogramacion;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
@@ -16,7 +17,9 @@ using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Planificacion;
+using UltimaMilla.Domain.Entities.Retiros;
 using UltimaMilla.Domain.Enums;
+using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Tests;
 
@@ -523,6 +526,87 @@ public class TableroRealtimeNotificationHandlerTests
         Assert.Equal(destino.Id, envio.HojaDeRutaId);
     }
 
+    [Fact]
+    public async Task ReasignarEnvio_EnRutaLiberadaRetirar_NotificaCambioRutaDespuesDeGuardar()
+    {
+        var envio1 = CrearEnvioClasificado();
+        var envio2 = CrearEnvioClasificado();
+        var origen = CrearRutaEnEstado("Liberada", envio1, envio2);
+        var handler = new ReasignarEnvioCommandHandler(
+            _rutas, _envios, _vehiculos, _franjas, _outbox, _uow, _tenant, _clock, _notifier);
+
+        var resultado = await handler.Handle(
+            new ReasignarEnvioCommand(origen.Id, envio1.Id, "Retirar", null, null, null, "Ajuste operativo antes de despacho"),
+            CancellationToken.None);
+
+        Assert.Equal("Retirar", resultado.Accion);
+        var notif = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notif.OperadorId);
+        Assert.Equal(origen.Id, notif.HojaDeRutaId);
+        Assert.Equal("Liberada", notif.Estado);
+        Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+    }
+
+    [Fact]
+    public async Task SacarRetiroDeRuta_EnRutaLiberada_NotificaCambioRutaDespuesDeGuardarYToleraFalloHub()
+    {
+        var envio = CrearEnvioClasificado();
+        var ruta = CrearRutaEnEstado("Liberada", envio);
+        var direccionId = Guid.NewGuid();
+        var comercioOperadorId = _tenant.ComercioOperadorId ?? Guid.NewGuid();
+        var retiro = new Retiro(
+            Guid.NewGuid(),
+            _tenant.OperadorId,
+            comercioOperadorId,
+            "RET-NOTIF001",
+            "Lucía Gómez",
+            direccionId,
+            "Bvar. Artigas 1500",
+            "Retiro programado",
+            franjaHorariaId: Guid.NewGuid());
+        retiro.AgregarBulto("Caja mediana", 2m, 20m, 20m, 20m);
+        retiro.AsignarARuta(ruta.Id, _tenant.UsuarioId);
+        ruta.AgregarParadaRetiro(retiro.Id, ruta.SiguienteOrden, direccionId);
+
+        var retirosRepo = new FakeRetiroRepository();
+        retirosRepo.Retiros.Add(retiro);
+
+        var handler = new SacarRetiroDeRutaCommandHandler(retirosRepo, _rutas, _uow, _tenant, _notifier);
+
+        await Assert.ThrowsAsync<DomainValidationException>(() =>
+            handler.Handle(new SacarRetiroDeRutaCommand(Guid.Empty), CancellationToken.None));
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new SacarRetiroDeRutaCommand(Guid.NewGuid()), CancellationToken.None));
+
+        var dto = await handler.Handle(new SacarRetiroDeRutaCommand(retiro.Id), CancellationToken.None);
+        Assert.Equal(EstadoRetiro.Solicitado.ToString(), dto.Resumen.Estado);
+        var notif = Assert.Single(_notifier.CambiosRuta);
+        Assert.Equal(_tenant.OperadorId, notif.OperadorId);
+        Assert.Equal(ruta.Id, notif.HojaDeRutaId);
+        Assert.Equal("Liberada", notif.Estado);
+        Assert.Equal(1, notif.ConfirmacionesEnMomentoDeNotificar);
+
+        var retiroFalloHub = new Retiro(
+            Guid.NewGuid(),
+            _tenant.OperadorId,
+            comercioOperadorId,
+            "RET-NOTIF002",
+            "Carlos Pérez",
+            direccionId,
+            "Av. Italia 2200",
+            "Segundo retiro",
+            franjaHorariaId: Guid.NewGuid());
+        retiroFalloHub.AgregarBulto("Sobre", 1m, 10m, 10m, 10m);
+        retiroFalloHub.AsignarARuta(ruta.Id, _tenant.UsuarioId);
+        ruta.AgregarParadaRetiro(retiroFalloHub.Id, ruta.SiguienteOrden, direccionId);
+        retirosRepo.Retiros.Add(retiroFalloHub);
+        _notifier.LanzarExcepcion = true;
+
+        var dtoConFalloHub = await handler.Handle(new SacarRetiroDeRutaCommand(retiroFalloHub.Id), CancellationToken.None);
+        Assert.Equal(EstadoRetiro.Solicitado.ToString(), dtoConFalloHub.Resumen.Estado);
+        Assert.Equal(2, _uow.Confirmaciones);
+    }
+
     // ---- SolicitarReprogramacionCommandHandler ----
 
     [Fact]
@@ -647,5 +731,43 @@ public class TableroRealtimeNotificationHandlerTests
             HitosParada.Add((operadorId, hojaDeRutaId, paradaId, estadoParada, _uow.Confirmaciones));
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeRetiroRepository : IRetiroRepository
+    {
+        public List<Retiro> Retiros { get; } = new();
+
+        public Task AddAsync(Retiro retiro, CancellationToken cancellationToken = default)
+        {
+            Retiros.Add(retiro);
+            return Task.CompletedTask;
+        }
+
+        public Task<Retiro?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.FirstOrDefault(r => r.Id == id));
+
+        public Task<List<Retiro>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.Where(r => ids.Contains(r.Id)).ToList());
+
+        public Task<Retiro?> GetByCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.FirstOrDefault(r => r.CodigoSeguimientoPublico == codigoSeguimiento));
+
+        public Task<bool> ExisteCodigoSeguimientoAsync(string codigoSeguimiento, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.Any(r => r.CodigoSeguimientoPublico == codigoSeguimiento));
+
+        public Task<Retiro?> GetByReferenciaExternaAsync(Guid comercioOperadorId, string referenciaExterna, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.FirstOrDefault(r => r.ComercioOperadorId == comercioOperadorId && r.ReferenciaExterna == referenciaExterna));
+
+        public Task<(List<Retiro> Items, int Total)> BuscarPorComercioAsync(Guid operadorId, Guid comercioOperadorId, EstadoRetiro? estado, int pagina, int tamanoPagina, CancellationToken cancellationToken = default) =>
+            Task.FromResult((new List<Retiro>(), 0));
+
+        public Task<List<Retiro>> ListarPorOperadorAsync(Guid operadorId, EstadoRetiro? estado, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Retiros.Where(r => r.OperadorId == operadorId && (!estado.HasValue || r.EstadoActual == estado)).ToList());
+
+        public Task<IReadOnlyDictionary<EstadoRetiro, int>> ContarPorEstadoAsync(Guid operadorId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<EstadoRetiro, int>>(new Dictionary<EstadoRetiro, int>());
+
+        public Task UpdateAsync(Retiro retiro, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

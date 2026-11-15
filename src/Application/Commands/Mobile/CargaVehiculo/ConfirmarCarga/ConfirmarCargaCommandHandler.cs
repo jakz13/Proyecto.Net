@@ -77,14 +77,51 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
             .Select(c => c.Trim().ToUpperInvariant())
             .ToHashSet();
 
-        if (codigos.Count == 0)
-            throw new DomainValidationException("Debe ingresar al menos un bulto cargado.");
+        var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
 
         var envios = await _envioRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
         var bultosDeLaRuta = envios
             .SelectMany(e => e.Bultos)
             .Where(b => b.EstaDisponibleParaRuta)
             .ToList();
+
+        if (soloRetiros && bultosDeLaRuta.Count == 0)
+        {
+            if (ruta.Estado == "Liberada")
+                ruta.Despachar();
+
+            if (request.DespacharAutomaticamente || ruta.Estado == "Despachada")
+                ruta.IniciarRecorrido();
+
+            await _rutaRepository.UpdateAsync(ruta, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (_tableroNotifier is not null)
+            {
+                try
+                {
+                    await _tableroNotifier.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
+                }
+                catch
+                {
+                    // Silente ante fallo de WebSocket
+                }
+            }
+
+            return new ConfirmarCargaResultDto(
+                ruta.Id,
+                ruta.Estado,
+                0,
+                0,
+                0,
+                false,
+                "Esta ruta contiene únicamente retiros en domicilio y no requiere carga en depósito.",
+                0,
+                Array.Empty<Guid>());
+        }
+
+        if (codigos.Count == 0)
+            throw new DomainValidationException("Debe ingresar al menos un bulto cargado.");
 
         var cargados = bultosDeLaRuta.Where(b => codigos.Contains(b.Identificacion)).ToList();
         var codigosSobrantes = codigos.Where(c => bultosDeLaRuta.All(b => b.Identificacion != c)).ToList();
