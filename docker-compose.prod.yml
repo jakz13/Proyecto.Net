@@ -296,6 +296,8 @@ services:
       - "443:443/udp"
     volumes:
       - ./docker/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      # APK firmado y version.json de la app del repartidor (los copia scripts/publicar-apk.ps1): Caddy los sirve en /descargas sin pasar por la API
+      - ./descargas:/srv/descargas:ro
       - caddy_data:/data
       - caddy_config:/config
     mem_limit: 64m

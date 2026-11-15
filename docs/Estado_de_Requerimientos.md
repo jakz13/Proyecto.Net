@@ -23,6 +23,7 @@ Leyenda: **Cumplido** (con evidencia en código y pruebas) · **Parcial** (exist
 | 6.9 Avisos a comercios | Cumplido | Firma, reintentos, fallidos, panel y receptor de prueba |
 | 6.10 Tiempo real con SignalR en varias instancias | Cumplido | Respaldo en Redis |
 | 6.11 Aplicación móvil | **Parcial** | Notificaciones con la app **cerrada**: ADR-002 descarta FCM y usa un servicio en primer plano, que no cubre la app cerrada del todo. Riesgo de calificación |
+| 6.11 (nota) Distribución de la app | Hecho en el servidor; falta el lado de la app | Descarga directa del APK firmado y `version.json` en `/descargas` (Caddy, ADR-007). **No sustituye las notificaciones push**: la app cerrada sigue sin cubrirse y no suma los 3 puntos opcionales de push. La app aún no consulta ni instala actualizaciones (`docs/Pendientes_Mobile.md`) |
 | 6.12 Observabilidad | Cumplido con una salvedad | La app móvil aún no envía `X-Correlation-Id` |
 | 6.13 Escalabilidad y balanceo | Cumplido | Dos instancias con Caddy y chequeos de salud |
 | 6.14 Despliegue e IaC | Cumplido | El ambiente de producción lo crea y gestiona el Terraform de Azure (`infra/terraform-azure`, 8 recursos); reconstrucción con un comando medida el 14/11 en ≈ 8 min (destrucción ≈ 2 min 20 s; ensayo y defectos corregidos en `docs/auditoria/INFORME.md`); CI/CD funcionando (imágenes en `ghcr.io`, despliegue con cada push a `main`). Salvedad: el `terraform.tfstate` está solo en la PC desde la que se aplica |

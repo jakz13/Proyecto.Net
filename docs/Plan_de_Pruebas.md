@@ -23,6 +23,9 @@ Pirámide con pruebas automáticas que corren en cada push del pipeline (GitHub 
 | Banderas de funcionalidad por operador | `FuncionalidadesPorOperadorApiTests` |
 | Máquina de estados declarativa (RF 11) | `MaquinaEstadosEnvioTests`, `RetiroDominioTests` |
 | Regla de dependencias (6.1) | `ReglasDeArquitecturaTests` |
+| Descarga directa de la app (OTA): montaje, rutas de Caddy, cabeceras y publicación segura | `DescargasDeLaAppTests` |
+| Etiquetas con Code 128 real (legible por la cámara) | `CodigoDeBarrasDeEtiquetasTests`, `CodigoDeBarrasEnLasVentanasTests` |
+| Contraseñas y paneles del Backoffice | `ContrasenasDelBackofficeTests`, `FormulariosDelBackofficeTests` |
 
 ## 3. Ejecución
 ```bash
@@ -51,7 +54,7 @@ reportgenerator -reports:"resultados/**/coverage.cobertura.xml" -targetdir:cober
 | Dos operadores con configuración distinta | Cuentas `admin@gmail.com` y `admin2@gmail.com` (tarifas distintas) |
 | Modificar tarifa y regla en caliente | Backoffice → Tarifas / Reglas operativas |
 | Detener el receptor de avisos y recuperar | Receptor de prueba `/api/testing/webhook-receiver` y panel de avisos |
-| Destruir y reconstruir el ambiente | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 8 min medidos el 14/11, destrucción incluida ≈ 10 min) o `terraform destroy` / `apply` en `infra\terraform-azure` |
+| Destruir y reconstruir el ambiente (después hay que volver a publicar el APK con `scripts\desplegar.bat mobile`) | `scripts\reconstruir.ps1` (`terraform apply` + DNS + despliegue; ≈ 8 min medidos el 14/11, destrucción incluida ≈ 10 min) o `terraform destroy` / `apply` en `infra\terraform-azure` |
 
 ## 7. Carga, resiliencia y seguridad
 - **Carga:** `docs/Plan_de_Carga.md` (k6, SLO como umbrales, sincronización simultánea de repartidores). Medida en local; falta ejecutarla sobre el ambiente remoto.

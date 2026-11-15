@@ -469,6 +469,11 @@ Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por seman
 - **Estado:** corregido (`1cbfa3f`), desplegado el 14/11 y verificado en producción desde dos IP distintas (R2-06); la suplantación de `X-Forwarded-For` a través de Caddy no evade el límite (R2-07).
 - **Limitación que se mantiene (OBS-02):** el contador es por instancia, así que el tope efectivo por IP es el doble (60/min en seguimiento, 20/min en login) con dos instancias. Ya estaba declarada en el estado de requerimientos; la solución sería un limitador con estado compartido en Redis.
 
+## Cambios posteriores a la auditoría (15/11)
+- **Etiquetas de bultos:** el "código de barras" era un patrón inventado que ningún lector podía decodificar (se encontró al escanear con la app). Ahora es un Code 128 real, generado en C# y en la ventana de etiquetas del Backoffice (`code128.js`); las pruebas lo decodifican con ZXing. La app también dejó de elegir "el primer bulto" cuando el código escaneado era el del envío.
+- **Backoffice, Flota:** un error de alta se guardaba en `TempData` sin redirigir y reaparecía junto al aviso de éxito siguiente; el panel se cerraba con el error. Corregido (la contraseña se mide al escribirla y no deja enviar; el panel sigue abierto). El mismo patrón sigue en Identidad visual, Motivos de no entrega y Depósito > Rendición.
+- **Descarga directa de la app (OTA):** Caddy sirve `/descargas/*` (APK firmado y `version.json`) desde `~/shippingbox/descargas`; se publica con `scripts\desplegar.bat mobile`. Montar la carpeta recreó el contenedor de Caddy: se respaldó el volumen `caddy_data` y se comprobó que los 4 certificados conservan su número de serie. La carpeta no sobrevive a una reconstrucción (escenario 7).
+
 ## Hipótesis abiertas
 1. **Receptor de prueba apagado en producción (6.9, escenario 6).** `/api/testing/webhook-receiver` da 404; confirmar con qué receptor se demuestra la caída y recuperación de avisos.
 

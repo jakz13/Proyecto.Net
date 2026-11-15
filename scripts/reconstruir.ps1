@@ -101,3 +101,4 @@ for ($i = 1; $i -le 30; $i++) {
     Start-Sleep -Seconds 10
 }
 if ($ok) { Write-Host "Ambiente reconstruido y operativo: https://$Dominio" -ForegroundColor Green } else { throw "https://$Dominio/ready no respondió 200 (¿el certificado tarda?)" }
+if ($ok) { Write-Host 'Recordatorio: la carpeta de descargas de la VM nueva esta vacia. Para que la app del repartidor pueda actualizarse, volve a publicar el APK: scripts\desplegar.bat mobile' -ForegroundColor Yellow }

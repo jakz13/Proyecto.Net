@@ -17,13 +17,14 @@
     .\scripts\desplegar.ps1 -Servicios backoffice
     .\scripts\desplegar.ps1 -Servicios portal
     .\scripts\desplegar.ps1 -Servicios seguimiento
+    .\scripts\desplegar.ps1 mobile              # publica el APK firmado para la actualizacion OTA (solo si se pide; ver scripts\publicar-apk.ps1)
 #>
 param(
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
-    [ValidateSet('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel')]
+    [ValidateSet('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel', 'mobile')]
     [string[]]$Servicios = @('api', 'worker', 'backoffice', 'portal', 'seguimiento', 'panel'),
 
-    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.57.234' }),
+    [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.63.70' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
     [string]$DominioComercio = 'shippingbox-comercio.duckdns.org',
@@ -43,6 +44,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location $raiz
+
+# "mobile" publica el APK y nada mas (no toca ningun contenedor). Es explicito: un despliegue normal nunca publica un APK que haya quedado en artifacts\
+if ($Servicios -contains 'mobile') {
+    if ($Servicios.Count -gt 1) { throw "'mobile' se ejecuta solo: .\scripts\desplegar.ps1 mobile" }
+    & (Join-Path $PSScriptRoot 'publicar-apk.ps1') -Vm $Vm -Clave $Clave -Dominio $Dominio
+    return
+}
 
 function Paso($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Verificar($descripcion) { if ($LASTEXITCODE -ne 0) { throw "Falló: $descripcion (código $LASTEXITCODE)" } }
@@ -126,7 +134,8 @@ finally {
 
 # ---------------------------------------------------------------- Envío
 Paso 'Enviando archivos de configuración a la VM'
-ssh @opcionesSsh $destino 'mkdir -p ~/shippingbox/docker'; Verificar 'ssh mkdir'
+# descargas/ la monta Caddy: si no existe, Docker la crea como root y scripts\publicar-apk.ps1 no podria escribir en ella
+ssh @opcionesSsh $destino 'mkdir -p ~/shippingbox/docker ~/shippingbox/descargas'; Verificar 'ssh mkdir'
 scp @opcionesSsh docker-compose.prod.yml "${destino}:shippingbox/docker-compose.prod.yml"; Verificar 'scp compose'
 scp @opcionesSsh docker/Caddyfile.prod "${destino}:shippingbox/docker/Caddyfile.prod"; Verificar 'scp Caddyfile'
 # Configuración de observabilidad y del plugin de métricas de RabbitMQ

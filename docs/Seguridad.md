@@ -46,6 +46,14 @@ Se revisó el proyecto como lo haría alguien que lo ataca. Cada punto tiene su 
 | `docker-compose.yml` de desarrollo publicaba Postgres, Redis y RabbitMQ con credenciales por defecto en todas las interfaces | Los puertos se publican solo en `127.0.0.1` |
 | Archivos sueltos en la raíz (copias de la letra, `dotnet-install.ps1`), página de privacidad de plantilla, `.vscode/` | Eliminados o ignorados; la letra queda una sola vez en `docs/` |
 
+## Ruta pública de descargas de la app (15/11)
+`https://shippingbox.duckdns.org/descargas/*` entrega el APK firmado y `version.json` **sin autenticación**, igual que una tienda de aplicaciones. Qué se hizo y qué se acepta:
+- Caddy sirve solo esa carpeta, montada en solo lectura y sin listado de directorio; la API, la base y el resto del sitio no intervienen. `version.json` se entrega con `Cache-Control: no-store`.
+- El APK no contiene secretos del servidor (el JWT y las claves viven en `.env.prod`). Android solo instala una actualización firmada con la misma clave que la app instalada.
+- `version.json` incluye `sha256` y tamaño para que la app verifique la descarga antes de instalarla (pendiente en la app).
+- **Riesgo aceptado:** cualquiera con la URL puede descargar el APK y consumir ancho de banda de salida (costo en Azure). No hay límite de tasa en esta ruta.
+- **Pendiente:** las contraseñas del keystore de firma están escritas en `UltimaMilla.Mobile.csproj` (contra la regla 6 de `CLAUDE.md`). Hay que pasarlas por variable de entorno y cambiarlas; con la clave de firma y sus contraseñas, quien tenga acceso al repositorio puede firmar APK que Android aceptaría como actualización.
+
 ## Riesgos aceptados (decirlos antes de que los encuentren)
 1. **Límite de tasa por instancia**: con 2 instancias el límite real es el doble (aclarado en el documento de cambios, 3.1).
 2. **`AllowedHosts: *` y sin Content-Security-Policy en el Backoffice y los portales** (la API sí la tiene): el tráfico externo pasa siempre por Caddy, que solo atiende los dominios configurados. Una política CSP estricta exige probar cada pantalla (mapas, gráficos, Blazor) en un navegador; queda como mejora.

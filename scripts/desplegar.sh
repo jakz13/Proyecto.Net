@@ -51,7 +51,7 @@ if [ -z "$DESDE_REGISTRO" ] && [ ${#construir[@]} -gt 0 ]; then
 fi
 
 paso "Enviando archivos de configuración a la VM"
-ssh "${SSH_OPC[@]}" "$DESTINO" 'mkdir -p ~/shippingbox/docker'
+ssh "${SSH_OPC[@]}" "$DESTINO" 'mkdir -p ~/shippingbox/docker ~/shippingbox/descargas'
 scp "${SSH_OPC[@]}" docker-compose.prod.yml "$DESTINO:shippingbox/docker-compose.prod.yml"
 scp "${SSH_OPC[@]}" docker/Caddyfile.prod "$DESTINO:shippingbox/docker/Caddyfile.prod"
 for carpeta in prometheus grafana rabbitmq; do

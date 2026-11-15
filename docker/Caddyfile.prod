@@ -13,6 +13,20 @@
 	}
 }
 
+# Descarga directa de la app del repartidor (actualizacion OTA): Caddy sirve los archivos que copia scripts/publicar-apk.ps1 a ~/shippingbox/descargas
+# (montados en /srv/descargas, solo lectura). Sin listado de carpeta. version.json nunca se cachea para que la app siempre lea la version vigente.
+(descargas) {
+	handle /descargas/* {
+		root * /srv
+		@version path /descargas/version.json
+		header @version Cache-Control "no-store, no-cache, must-revalidate"
+		@apk path *.apk
+		header @apk Content-Type "application/vnd.android.package-archive"
+		header @apk Content-Disposition "attachment"
+		file_server
+	}
+}
+
 # Interno (sin publicar): balanceador que usa el backoffice para llegar a la API.
 :8081 {
 	reverse_proxy api1:8080 api2:8080 {
@@ -28,6 +42,7 @@
 {$DOMINIO} {
 	import seguridad
 	encode gzip
+	import descargas
 
 	# La API (REST, SignalR y salud) se reparte entre las dos instancias.
 	# lb_policy cookie mantiene a cada cliente en la misma instancia (necesario para SignalR).
