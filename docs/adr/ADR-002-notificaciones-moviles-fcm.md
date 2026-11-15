@@ -1,26 +1,43 @@
 # ADR-002: Cómo enviamos notificaciones urgentes al celular sin usar Firebase
 
-**Estado:** Aprobado · **Fecha:** 2026-11-05 · **Responsable:** Joaquín Bassini · **Requerimientos:** 6.11 y opcionales 7.3
+- **Estado:** Aceptado
+- **Fecha:** 2026-11-05
+- **Responsable:** Joaquín Bassini
 
-## 1. Contexto y problema
-La letra planteaba recibir notificaciones urgentes en el celular cuando el despachador reasigna o cambia una ruta, incluso con la pantalla apagada o la app en segundo plano.
+## Contexto y restricciones
 
-La opción clásica en Android es Firebase Cloud Messaging (FCM), pero integrarlo nos traía complicaciones concretas para un proyecto académico:
-1. Exige crear una cuenta externa en Google Firebase y depender de archivos y claves privadas (`google-services.json` y credenciales de servidor).
-2. No podíamos subir esas claves al repositorio por seguridad, y sin ese archivo el proyecto Android ni siquiera compila en la máquina de otro compañero o del docente que evalúa.
+El alcance del módulo móvil (requerimiento 6.11) contempla recibir notificaciones urgentes en el teléfono cuando el despachador reasigna o modifica una ruta en curso, incluso con la pantalla apagada o la aplicación en segundo plano.
 
-## 2. Decisión
-- **Descartar Firebase (FCM):** la app no incluye el SDK de Firebase ni pide archivos externos de Google para compilar o correr.
-- **Usar SignalR + servicio en primer plano de Android (`LocationForegroundService`):**
-  - Mientras el repartidor está en jornada, la app mantiene activo un servicio en primer plano (con una notificación fija de que está rastreando la ruta y un `WakeLock` parcial para que Android no la duerma).
-  - Gracias a ese servicio, la app mantiene abierta la conexión en tiempo real por SignalR (`OperacionHub`), con reconexión automática si cambia la red.
-  - Cuando el despachador reasigna o modifica la ruta, el servidor avisa por SignalR y la app dispara una notificación local de alta prioridad en el teléfono (con sonido y vibración), incluso con la pantalla bloqueada.
-- **Opcionales elegidos para el puntaje:** en lugar de las notificaciones push remotas con la app totalmente cerrada, priorizamos e implementamos **Geocercas con análisis de batería** y **Optimización del orden de paradas (2-opt)**.
+La alternativa estándar en Android es Firebase Cloud Messaging (FCM), pero su adopción impone restricciones operativas y de portabilidad:
+1. Obliga a crear una cuenta externa en Google Firebase y depender de archivos propietarios (`google-services.json`) y credenciales de servidor fuera del control del entorno autohospedado de evaluación.
+2. Por política de seguridad no se pueden subir claves reales al repositorio (`.agents/rules/02-secretos-y-configuracion.md`), y sin `google-services.json` la compilación nativa Android falla al integrar el plugin de Google Services.
+3. La sección 7.3 permite elegir módulos opcionales alternativos para completar la funcionalidad avanzada evaluada.
 
-## 3. Alternativas consideradas
-- **Integrar Firebase Cloud Messaging (FCM):** descartada por la dependencia de cuentas y secretos externos de Google que complican la portabilidad y compilación limpia del proyecto.
-- **Hacer consultas periódicas (polling) cada pocos segundos desde la app:** descartada porque consume más batería, genera tráfico innecesario y avisa más lento que SignalR.
+## Decisión adoptada
 
-## 4. Consecuencias
-- **Ventajas:** cualquier persona puede clonar y compilar la app móvil sin configurar cuentas de Google ni exponer claves privadas; además, durante la ruta activa los avisos llegan al instante.
-- **Desventajas y cómo se mitigan:** si el repartidor fuerza el cierre total de la app y detiene el servicio en primer plano, no recibirá avisos hasta volver a abrirla. Cuando la vuelve a abrir, la app sincroniza su hoja de ruta vigente desde `GET /api/mobile/v1/rutas/activa` y se pone al día.
+- **Descartar Firebase Cloud Messaging (FCM):** la app no incorpora el SDK de Firebase ni depende de archivos o cuentas externas de Google para compilar ni ejecutarse.
+- **Usar canal dúplex SignalR + Servicio en Primer Plano de Android (`LocationForegroundService`):**
+  - Durante toda la jornada operativa, la app mantiene activo `LocationForegroundService` (con notificación persistente de rastreo y `WakeLock` parcial para que Android no suspenda el proceso al apagar la pantalla).
+  - Mientras el servicio está activo, la aplicación conserva conectada la sesión en tiempo real contra `OperacionHub` (`RealtimeTrackingService`), con reconexión automática incremental frente a cambios de red celular.
+  - Cuando el despachador reasigna o altera la ruta, el servidor notifica por SignalR (`ReasignacionRecibida`, `CambioEstadoRuta`) y `NotificacionLocalService` (`INotificacionLocalService`) dispara de inmediato una notificación local de alta prioridad en el canal Android (`ultimamilla_alertas_operativas`), con sonido y vibración incluso con pantalla bloqueada.
+- **Módulos opcionales elegidos en reemplazo (sección 7.3):** en lugar de push con el proceso totalmente terminado, se priorizaron e implementaron **Geocercas con análisis de impacto en batería** (`GeofenceService`) y **Optimización heurística del orden de paradas 2-Opt** (`RutaOptimizationService`).
+
+## Alternativas consideradas y motivo de su descarte
+
+- **Firebase Cloud Messaging (FCM):** Descartado porque corresponde a un requerimiento opcional no elegido (reemplazado por Geocercas y análisis de batería) y obliga a depender de una cuenta externa de Google y de credenciales privadas (`google-services.json` y clave de servicio) que no pueden subirse al repositorio sin comprometer la reproducibilidad del entorno.
+- **Azure Notification Hubs / OneSignal:** Descartado porque para Android siguen requiriendo configurar FCM como transporte subyacente, manteniendo la dependencia de credenciales externas.
+- **Sondeo periódico con Android WorkManager sin ForegroundService:** Descartado porque el intervalo mínimo de ejecución de WorkManager es de 15 minutos y el modo Doze de Android difiere los trabajos con pantalla apagada, impidiendo recibir avisos urgentes en tiempo real.
+
+## Consecuencias
+
+### Ventajas
+- Compilación y despliegue totalmente reproducibles en cualquier equipo o pipeline de CI sin registrar proyectos externos en Google ni exponer secretos.
+- Avisos operativos instantáneos durante toda la jornada en ruta aprovechando la conexión SignalR ya abierta.
+
+### Desventajas y mitigaciones
+- Si el repartidor fuerza el cierre completo de la aplicación y detiene manualmente el servicio en primer plano, no recibirá avisos mientras el proceso siga cerrado; como mitigación, al reabrir la aplicación sincroniza de inmediato la ruta vigente mediante `GET /api/mobile/v1/rutas/activa` y `GET /api/mobile/v1/rutas/activas`.
+
+### Qué dificulta a futuro
+- **Mensajería push silenciosa con la app totalmente cerrada o fuera de turno:** al no integrar un canal push nativo gestionado por el sistema operativo (FCM / APNs), si en el futuro se exigiera despertar el teléfono cuando el repartidor aún no inició jornada o tras un cierre forzado, habrá que incorporar un proveedor push nativo y gestionar el registro de tokens por dispositivo.
+- **Portabilidad hacia iOS bajo políticas estrictas de segundo plano:** a diferencia del `ForegroundService` de Android durante la jornada, iOS restringe la ejecución prolongada en segundo plano, por lo que una eventual versión productiva iOS requerirá adoptar APNs.
+- **Adaptación continua a restricciones energéticas de futuras versiones de Android:** endurecimientos adicionales de Doze y permisos de servicios en primer plano (Android 14/15+) exigirán mantener explícitos los permisos de ubicación y notificación persistente para evitar que el sistema suspenda la conexión.
