@@ -20,7 +20,8 @@ public record RetiroResumenDto(
     DateOnly? FechaSolicitada,
     Guid? HojaDeRutaId,
     Guid ComercioOperadorId,
-    string? ReferenciaExterna);
+    string? ReferenciaExterna,
+    decimal VolumenTotal = 0);
 
 public record RetiroDetalleDto(
     RetiroResumenDto Resumen,
@@ -60,7 +61,8 @@ public static class RetiroMapper
         r.FechaSolicitada,
         r.HojaDeRutaId,
         r.ComercioOperadorId,
-        r.ReferenciaExterna);
+        r.ReferenciaExterna,
+        r.VolumenTotal);
 
     public static RetiroDetalleDto Detallar(Retiro r) => new(
         Resumir(r),

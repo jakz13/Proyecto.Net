@@ -604,6 +604,12 @@
             window.location.reload();
         });
 
+        // Un comercio solicitó un retiro: el despachador lo ve aunque esté en el Tablero
+        conexion.on('RetiroCambioEstado', function (cambio) {
+            if (window.TiempoRealEnvios && window.TiempoRealEnvios.avisarRetiroSolicitado)
+                window.TiempoRealEnvios.avisarRetiroSolicitado(cambio);
+        });
+
         conexion.on('CambioRuta', function () {
             programarActualizacionTablero();
         });

@@ -177,10 +177,10 @@
                                 <div class="text-muted" style="font-size: 0.68rem;">paradas</div>
                             </td>
                             <td>
-                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1")kg / @ruta.CapacidadPesoMaxKg.ToString("N0")kg</span>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY)kg / @ruta.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY)kg</span>
                             </td>
                             <td>
-                                <span class="small text-dark fw-semibold font-monospace">@ruta.VolumenTotalM3.ToString("N2")m³ / @ruta.CapacidadVolumenMaxM3.ToString("N1")m³</span>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.VolumenTotalM3.ToString("N2", UltimaMilla.Backoffice.Formato.UY)m³ / @ruta.CapacidadVolumenMaxM3.ToString("N1", UltimaMilla.Backoffice.Formato.UY)m³</span>
                             </td>
                             <td class="text-center">
                                 @if (ruta.Estado == "Finalizada" || ruta.Estado == "Completada")

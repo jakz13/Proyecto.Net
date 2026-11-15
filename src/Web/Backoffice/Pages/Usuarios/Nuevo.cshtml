@@ -103,7 +103,7 @@
                             @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
                             {
                                 <option value="@vehiculo.Id">
-                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
+                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg / @vehiculo.CapacidadVolumen.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
                                 </option>
                             }
                         </select>
@@ -114,18 +114,18 @@
                 </div>
             </div>
 
-            <!-- Fila 4: Asociación a comercio cliente (opcional) -->
-            <div class="mb-4" id="bloqueComercioAsociado">
-                <label asp-for="NuevoUsuario.ComercioId" class="form-label small fw-semibold">Comercio Cliente Asociado (Opcional)</label>
+            <!-- Fila 4: comercio asociado: solo para el perfil Administrador de comercio -->
+            <div class="mb-4" id="bloqueComercioAsociado" style="display: none;">
+                <label asp-for="NuevoUsuario.ComercioId" class="form-label small fw-semibold">Comercio Asociado</label>
                 <select asp-for="NuevoUsuario.ComercioId" id="selectComercioAsociado" class="form-select form-select-sm">
-                    <option value="">-- Ninguno (Usuario interno del Operador) --</option>
+                    <option value="">-- Seleccione el comercio --</option>
                     @foreach (var comercio in Model.Comercios)
                     {
                         <option value="@comercio.Id">Comercio: @comercio.NombreFantasia (@comercio.RazonSocial)</option>
                     }
                 </select>
                 <div class="form-text small" style="font-size: 0.725rem;">
-                    Seleccione un comercio cliente si el usuario administra una tienda externa. Déjelo sin seleccionar para miembros del operador logístico.
+                    El administrador de comercio gestiona los envíos y retiros de este comercio.
                 </div>
             </div>
 
@@ -152,6 +152,8 @@
             const opcion = selectPerfil.options[selectPerfil.selectedIndex];
             const nombreRol = (opcion ? (opcion.getAttribute('data-nombre-rol') || opcion.text) : '').trim().toLowerCase();
             const esRepartidor = nombreRol === 'repartidor';
+            // El nombre del perfil en el sistema es "Comercio"; la pantalla lo muestra como "Administrador de Comercio"
+            const esAdminComercio = nombreRol === 'comercio' || nombreRol === 'administrador de comercio';
 
             const bloqueRepartidor = document.getElementById('bloqueDatosRepartidor');
             const inputDoc = document.getElementById('inputDocumentoRepartidor');
@@ -168,10 +170,12 @@
             if (inputTel) {
                 inputTel.required = esRepartidor;
             }
+            // Solo el administrador de comercio se asocia a un comercio: en cualquier otro perfil el campo no existe
             if (bloqueComercio) {
-                bloqueComercio.style.display = esRepartidor ? 'none' : 'block';
-                if (esRepartidor && selectComercio) {
-                    selectComercio.value = '';
+                bloqueComercio.style.display = esAdminComercio ? 'block' : 'none';
+                if (selectComercio) {
+                    selectComercio.required = esAdminComercio;
+                    if (!esAdminComercio) selectComercio.value = '';
                 }
             }
         }

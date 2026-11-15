@@ -9,7 +9,8 @@ public record ArmarHojaDeRutaDto
     public Guid VehiculoId { get; init; }
     public DateOnly Fecha { get; init; }
     public int ViajeNumero { get; init; } = 1;
-    public string Turno { get; init; } = "Mañana";
+    /// <summary>Turno de la jornada (Mañana, Tarde, Jornada Completa). Sin turno informado no se valida la hora.</summary>
+    public string? Turno { get; init; }
     public string CriterioOrdenamiento { get; init; } = "FranjaHoraria"; // "FranjaHoraria", "OptimoGeografico", "Manual"
     public List<Guid> EnviosIds { get; init; } = new();
 

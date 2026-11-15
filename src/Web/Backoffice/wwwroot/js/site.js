@@ -122,3 +122,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
+/**
+ * Formato único de números para pantalla, a la uruguaya: coma decimal y punto de miles (8.500 kg, 5,5 m³).
+ * Solo es para mostrar: los cálculos y los atributos de datos siguen usando números con punto decimal.
+ */
+window.fmtNum = function (valor, decimales) {
+    var n = Number(valor);
+    if (!isFinite(n)) n = 0;
+    var d = decimales || 0;
+    return n.toLocaleString('es-UY', { minimumFractionDigits: d, maximumFractionDigits: d });
+};

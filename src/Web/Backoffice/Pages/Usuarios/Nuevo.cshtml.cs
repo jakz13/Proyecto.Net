@@ -51,6 +51,14 @@ public class NuevoModel : PageModel
                 ModelState.AddModelError("NuevoUsuario.Telefono", "El teléfono celular es obligatorio para el rol Repartidor.");
         }
 
+        // El comercio asociado solo corresponde al perfil Administrador de comercio (perfil "Comercio"): en los demás se descarta
+        var esAdminComercio = string.Equals(perfilSeleccionado?.Nombre, "Comercio", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(perfilSeleccionado?.Nombre, "Administrador de Comercio", StringComparison.OrdinalIgnoreCase);
+        if (!esAdminComercio)
+            NuevoUsuario.ComercioId = null;
+        else if (NuevoUsuario.ComercioId is null || NuevoUsuario.ComercioId == Guid.Empty)
+            ModelState.AddModelError("NuevoUsuario.ComercioId", "Seleccione el comercio asociado al administrador de comercio.");
+
         if (!ModelState.IsValid)
         {
             return Page();

@@ -14,6 +14,11 @@ public class IdentidadVisual : Entity, IMustHaveTenant
     public string? SitioWeb { get; private set; }
     public string? MensajeComunicaciones { get; private set; }
 
+    /// <summary>Dirección del depósito del operador, escrita por el administrador: de ahí salen las rutas y es el punto de partida de la flota sin posición reportada.</summary>
+    public string? DireccionDeposito { get; private set; }
+    public double? DepositoLatitud { get; private set; }
+    public double? DepositoLongitud { get; private set; }
+
     protected IdentidadVisual() { }
 
     public IdentidadVisual(
@@ -83,6 +88,32 @@ public class IdentidadVisual : Entity, IMustHaveTenant
 
         SitioWeb = string.IsNullOrWhiteSpace(sitioWeb) ? null : sitioWeb.Trim();
         MensajeComunicaciones = string.IsNullOrWhiteSpace(mensajeComunicaciones) ? null : mensajeComunicaciones.Trim();
+    }
+
+    /// <summary>Cambia la dirección del depósito y su ubicación (latitud y longitud van juntas o ninguna). Sin dirección se limpia todo.</summary>
+    public void ActualizarDeposito(string? direccion, double? latitud, double? longitud)
+    {
+        var texto = string.IsNullOrWhiteSpace(direccion) ? null : direccion.Trim();
+        if (texto is { Length: > 300 })
+            throw new DomainValidationException("La dirección del depósito no puede superar los 300 caracteres.");
+
+        if (texto is null)
+        {
+            DireccionDeposito = null;
+            DepositoLatitud = null;
+            DepositoLongitud = null;
+            return;
+        }
+
+        if (latitud.HasValue != longitud.HasValue)
+            throw new DomainValidationException("La ubicación del depósito necesita latitud y longitud.");
+
+        if (latitud is < -90 or > 90 || longitud is < -180 or > 180)
+            throw new DomainValidationException("La ubicación del depósito está fuera de rango.");
+
+        DireccionDeposito = texto;
+        DepositoLatitud = latitud;
+        DepositoLongitud = longitud;
     }
 
     public void ActualizarLogo(string? logoUrl)

@@ -190,7 +190,7 @@
                             <div class="small text-dark fw-semibold text-truncate">@item.NombreDestinatario</div>
                             <div class="small text-secondary text-truncate" style="font-size: 0.75rem;">@item.DireccionDestino</div>
                             <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top border-light" style="font-size: 0.7rem;">
-                                <span class="text-muted font-monospace">@item.CantidadBultos bulto(s) · @item.PesoTotal.ToString("N1") kg</span>
+                                <span class="text-muted font-monospace">@item.CantidadBultos bulto(s) · @item.PesoTotal.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</span>
                                 <span class="text-secondary">@item.ModalidadServicio</span>
                             </div>
                         </a>
@@ -315,7 +315,7 @@
                                                     }
                                                 </div>
                                                 <div class="text-muted small" style="font-size: 0.72rem;">
-                                                    @bulto.Peso.ToString("N1") kg · @bulto.EstadoBulto
+                                                    @bulto.Peso.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg · @bulto.EstadoBulto
                                                 </div>
                                                 @{
                                                     var patronBarrasClasif = GeneradorDocumentoEtiquetas.CalcularPatronBarras(bulto.CodigoBulto);

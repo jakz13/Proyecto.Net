@@ -45,6 +45,7 @@ public record RetiroResumenDto
     public string Motivo { get; init; } = string.Empty;
     public int CantidadBultos { get; init; }
     public decimal PesoTotal { get; init; }
+    public decimal VolumenTotal { get; init; }
     public decimal Tarifa { get; init; }
     public DateTime FechaSolicitud { get; init; }
     public Guid? HojaDeRutaId { get; init; }

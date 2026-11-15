@@ -280,9 +280,30 @@
         }
     }
 
+    // Un retiro recién solicitado por un comercio le corresponde planificarlo al despachador: aviso destacado con el acceso directo a armar la hoja de ruta
+    function avisarRetiroSolicitado(cambio) {
+        if (!window.SistemaNotificaciones || !cambio) return false;
+        if (!document.body || document.body.getAttribute('data-despachador') !== 'true') return false;
+        if (String(cambio.estado || '') !== 'Solicitado') return false;
+
+        var codigo = cambio.codigoSeguimiento || 'Un retiro';
+        window.SistemaNotificaciones.mostrar({
+            tipo: 'alerta',
+            titulo: 'Nuevo retiro solicitado',
+            mensajeBreve: codigo + ': un comercio pidió un retiro en domicilio. Armá la hoja de ruta para asignarlo.',
+            detalleHtml: '<p>' + codigo + ' espera ser asignado a una hoja de ruta.</p><a class="btn btn-dark btn-sm" href="/Rutas/Armar">Armar hoja de ruta</a>',
+            duracionMs: 15000
+        });
+        return true;
+    }
+
     // Un retiro no es un envío: no se avisa a las escuchas de envíos, solo se pone al día la página
     function alRecibirCambioRetiro(cambio) {
         if (!paginaPideTiempoReal()) return;
+        if (avisarRetiroSolicitado(cambio)) {
+            programarActualizacion();
+            return;
+        }
 
         if (window.SistemaNotificaciones && cambio) {
             window.SistemaNotificaciones.mostrar({
@@ -376,6 +397,8 @@
         alCambiarPosicion: function (fn) {
             if (typeof fn === 'function') escuchasPosicion.push(fn);
         },
+        /** Aviso al despachador de un retiro recién solicitado (también lo usa el Tablero, que tiene su propia conexión). */
+        avisarRetiroSolicitado: avisarRetiroSolicitado,
         /** Fuerza una actualización inmediata de los datos de la página. */
         actualizarAhora: actualizarPagina,
         ultimoCambio: function () { return ultimoCambio; }

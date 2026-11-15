@@ -40,25 +40,36 @@ public class ArmarModel : PageModel
     {
         await CargarCatalogosAsync();
 
-        // Valores por defecto
+        // Valores por defecto: la fecha es la de hoy en la hora local de la operación (no la UTC)
         if (Formulario.Fecha == default)
         {
-            Formulario.Fecha = DateOnly.FromDateTime(DateTime.UtcNow);
+            Formulario.Fecha = FechaDeHoy;
         }
 
-        // Si hay un repartidor que ya tiene un vehículo habitual, sugerirlo
-        var primerRepartidor = RepartidoresDisponibles.FirstOrDefault(r => r.VehiculoAsignadoId.HasValue);
+        // Se sugiere un repartidor con vehículo asignado: la hoja de ruta siempre usa el vehículo del repartidor
+        var primerRepartidor = RepartidoresDisponibles.FirstOrDefault(r => r.VehiculoAsignadoId.HasValue) ?? RepartidoresDisponibles.FirstOrDefault();
         if (primerRepartidor != null)
         {
             Formulario.RepartidorId = primerRepartidor.Id;
-            Formulario.VehiculoId = primerRepartidor.VehiculoAsignadoId!.Value;
-        }
-        else if (RepartidoresDisponibles.Count > 0 && VehiculosDisponibles.Count > 0)
-        {
-            Formulario.RepartidorId = RepartidoresDisponibles[0].Id;
-            Formulario.VehiculoId = VehiculosDisponibles[0].Id;
+            Formulario.VehiculoId = primerRepartidor.VehiculoAsignadoId ?? Guid.Empty;
         }
     }
+
+    /// <summary>Fecha de hoy en la hora local de la operación.</summary>
+    public static DateOnly FechaDeHoy => UltimaMilla.Application.Queries.Tablero.ZonaHorariaOperacion.FechaLocalDe(DateTime.UtcNow);
+
+    /// <summary>Minutos transcurridos del día en la hora local de la operación (la pantalla deshabilita los turnos que ya terminaron).</summary>
+    public static int MinutosLocalesDelDia
+    {
+        get
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, UltimaMilla.Application.Queries.Tablero.ZonaHorariaOperacion.Zona);
+            return local.Hour * 60 + local.Minute;
+        }
+    }
+
+    /// <summary>Hora de fin de cada turno, en minutos del día (debe coincidir con la regla del servidor).</summary>
+    public static int FinDelTurnoEnMinutos(string? turno) => turno switch { "Mañana" => 13 * 60, _ => 18 * 60 };
 
     public async Task<IActionResult> OnPostConfirmarAsync()
     {
@@ -67,6 +78,28 @@ public class ArmarModel : PageModel
         if (Formulario.EnviosSeleccionados.Count == 0 && Formulario.RetirosSeleccionados.Count == 0)
         {
             ModelState.AddModelError("", "Debe seleccionar al menos un envío o un retiro para incluir en la hoja de ruta.");
+            return Page();
+        }
+
+        // El vehículo no se elige: es el que tiene asignado el repartidor (no se confía en lo que traiga el formulario)
+        var repartidor = RepartidoresDisponibles.FirstOrDefault(r => r.Id == Formulario.RepartidorId);
+        if (repartidor is null)
+        {
+            ModelState.AddModelError("", "Seleccione un repartidor disponible.");
+            return Page();
+        }
+
+        if (!repartidor.VehiculoAsignadoId.HasValue)
+        {
+            ModelState.AddModelError("", $"{repartidor.NombreCompleto} no tiene un vehículo asignado: asígnele uno en Repartidores y Vehículos antes de armar su hoja de ruta.");
+            return Page();
+        }
+
+        Formulario.VehiculoId = repartidor.VehiculoAsignadoId.Value;
+
+        if (Formulario.Fecha == FechaDeHoy && MinutosLocalesDelDia >= FinDelTurnoEnMinutos(Formulario.Turno))
+        {
+            ModelState.AddModelError("", "No es posible crear una hoja de ruta para una franja horaria anterior a la hora actual.");
             return Page();
         }
 

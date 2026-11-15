@@ -27,6 +27,10 @@ public class Perfil : AggregateRoot
     /// El perfil de plataforma administra a todos los operadores (activa funcionalidades por operador): lo gestiona la plataforma, nunca
     /// el administrador de un operador, que de otro modo podría darse acceso a los demás inquilinos.
     /// </summary>
+    /// <summary>El perfil del portal del comercio (en la base se llama "Administrador de Comercio"; en versiones anteriores, "Comercio"): el único que se asocia a un comercio.</summary>
+    public bool EsAdministradorDeComercio =>
+        Nombre.Equals("Administrador de Comercio", StringComparison.OrdinalIgnoreCase) || Nombre.Equals("Comercio", StringComparison.OrdinalIgnoreCase);
+
     public bool EsDePlataforma => Nombre.Equals("AdministradorPlataforma", StringComparison.OrdinalIgnoreCase);
 
     public Perfil(Guid id, string nombre, string descripcion) : base(id)

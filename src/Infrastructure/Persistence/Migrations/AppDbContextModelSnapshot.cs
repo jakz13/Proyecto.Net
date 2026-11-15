@@ -1296,6 +1296,16 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<double?>("DepositoLatitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("DepositoLongitud")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("DireccionDeposito")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<string>("EmailContacto")
                         .IsRequired()
                         .HasMaxLength(200)

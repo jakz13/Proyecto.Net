@@ -83,7 +83,7 @@ else if (Model.ErroresValidacion.Count > 0)
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Fecha de Despacho</label>
-                            <input type="date" asp-for="Formulario.Fecha" class="form-control" id="inputFecha" required />
+                            <input type="date" asp-for="Formulario.Fecha" class="form-control" id="inputFecha" required onchange="actualizarCalculosEnVivo()" data-hoy="@ArmarModel.FechaDeHoy.ToString("yyyy-MM-dd")" data-minutos-ahora="@ArmarModel.MinutosLocalesDelDia" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Viaje de la Jornada</label>
@@ -99,38 +99,41 @@ else if (Model.ErroresValidacion.Count > 0)
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold">Turno / Franja Operativa</label>
                             <select asp-for="Formulario.Turno" class="form-select" id="selectTurno" onchange="actualizarCalculosEnVivo()">
-                                <option value="Mañana">Mañana (09:00 - 13:00)</option>
-                                <option value="Tarde">Tarde (14:00 - 18:00)</option>
-                                <option value="Jornada Completa">Jornada Completa (09:00 - 18:00)</option>
+                                <option value="Mañana" data-fin="@(13 * 60)">Mañana (09:00 - 13:00)</option>
+                                <option value="Tarde" data-fin="@(18 * 60)">Tarde (14:00 - 18:00)</option>
+                                <option value="Jornada Completa" data-fin="@(18 * 60)">Jornada Completa (09:00 - 18:00)</option>
                             </select>
+                            <div class="form-text small text-danger" id="avisoTurnoTerminado" style="display: none; font-size: 0.72rem;">
+                                No es posible crear una hoja de ruta para una franja horaria anterior a la hora actual.
+                            </div>
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold">Repartidor Asignado</label>
-                            <select asp-for="Formulario.RepartidorId" class="form-select" id="selectRepartidor" onchange="seleccionarVehiculoHabitual(this.value)">
+                            <select asp-for="Formulario.RepartidorId" class="form-select" id="selectRepartidor" onchange="mostrarVehiculoDelRepartidor()">
                                 @foreach (var rep in Model.RepartidoresDisponibles)
                                 {
-                                    <option value="@rep.Id" data-vehiculo="@(rep.VehiculoAsignadoId?.ToString() ?? "")">
-                                        @rep.NombreCompleto (@(rep.VehiculoPatente != null ? "Vehículo: " + rep.VehiculoPatente : "Sin vehículo asignado"))
+                                    var vehiculoDelRepartidor = Model.VehiculosDisponibles.FirstOrDefault(v => v.Id == rep.VehiculoAsignadoId);
+                                    <option value="@rep.Id"
+                                            data-vehiculo="@(rep.VehiculoAsignadoId?.ToString() ?? "")"
+                                            data-patente="@(vehiculoDelRepartidor?.Patente ?? rep.VehiculoPatente ?? "")"
+                                            data-tipo="@(vehiculoDelRepartidor?.Tipo ?? rep.VehiculoTipo ?? "")"
+                                            data-pesomax="@(vehiculoDelRepartidor is null ? "0" : UltimaMilla.Backoffice.Formato.Dato(vehiculoDelRepartidor.CapacidadPeso))"
+                                            data-volumenmax="@(vehiculoDelRepartidor is null ? "0" : UltimaMilla.Backoffice.Formato.Dato(vehiculoDelRepartidor.CapacidadVolumen))">
+                                        @rep.NombreCompleto
                                     </option>
                                 }
                             </select>
                         </div>
 
+                        @* El vehículo es el que el repartidor tiene asignado: se muestra, no se elige *@
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Vehículo de la Flota</label>
-                            <select asp-for="Formulario.VehiculoId" class="form-select" id="selectVehiculo" onchange="actualizarCapacidadesVehiculo()">
-                                @foreach (var veh in Model.VehiculosDisponibles)
-                                {
-                                    <option value="@veh.Id" 
-                                            data-pesomax="@veh.CapacidadPeso" 
-                                            data-volumenmax="@veh.CapacidadVolumen"
-                                            data-matricula="@veh.Patente"
-                                            data-modelo="@veh.Tipo">
-                                        @veh.Patente — @veh.Tipo (Máx: @veh.CapacidadPeso kg / @veh.CapacidadVolumen m³)
-                                    </option>
-                                }
-                            </select>
+                            <label class="form-label small fw-semibold">Vehículo asignado</label>
+                            <input type="hidden" asp-for="Formulario.VehiculoId" id="inputVehiculoId" />
+                            <div class="border rounded-3 bg-light px-3 py-2" id="panelVehiculo">
+                                <div class="fw-semibold small text-dark" id="txtVehiculoDetalle">—</div>
+                                <div class="text-muted" style="font-size: 0.75rem;" id="txtVehiculoCapacidad"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -271,8 +274,8 @@ else if (Model.ErroresValidacion.Count > 0)
                                             }
                                         </td>
                                         <td class="text-end">
-                                            <div class="small fw-semibold text-dark">@envio.PesoKg.ToString("N1") kg</div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">@envio.VolumenM3.ToString("N3") m³</div>
+                                            <div class="small fw-semibold text-dark">@envio.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">@envio.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.68rem;">
@@ -370,7 +373,7 @@ else if (Model.ErroresValidacion.Count > 0)
                         <label class="form-label small fw-semibold text-dark mb-1">Secuencia Estimada de Paradas:</label>
                         <div class="border rounded p-2 bg-light" style="max-height: 160px; overflow-y: auto;" id="contenedorPrevisualizacionParadas">
                             <div class="text-muted text-center py-3 small" id="txtSecuenciaVacia">
-                                Selecciona envíos para previsualizar el recorrido.
+                                Selecciona envíos o retiros para previsualizar el recorrido.
                             </div>
                             <ol class="ps-3 mb-0 small" id="listaParadasPrevisualizadas" style="display: none;"></ol>
                         </div>
@@ -396,8 +399,8 @@ else if (Model.ErroresValidacion.Count > 0)
         <div class="card-header bg-white fw-bold">Retiros en domicilio pendientes (@Model.RetirosPendientes.Count)</div>
         <div class="card-body">
             <p class="small text-muted mb-3">
-                Los retiros se suman a la ruta como paradas de retiro. La capacidad del vehículo se valida a lo largo del recorrido:
-                los bultos retirados ocupan lugar desde la parada en que se suben.
+                Los retiros se suman a la ruta como paradas de retiro y pueden armar una hoja de ruta por sí solos. La capacidad del vehículo se valida a lo largo del recorrido:
+                los bultos retirados ocupan lugar desde la parada en que se suben, además de lo que ya lleva cargado.
             </p>
             @if (Model.RetirosPendientes.Count == 0)
             {
@@ -409,12 +412,13 @@ else if (Model.ErroresValidacion.Count > 0)
                     @foreach (var retiro in Model.RetirosPendientes)
                     {
                         <label class="list-group-item d-flex align-items-start gap-2">
-                            <input class="form-check-input mt-1" type="checkbox" name="Formulario.RetirosSeleccionados" value="@retiro.Id"
-                                   checked="@Model.Formulario.RetirosSeleccionados.Contains(retiro.Id)" />
+                            <input class="form-check-input mt-1 chk-retiro" type="checkbox" name="Formulario.RetirosSeleccionados" value="@retiro.Id"
+                                   data-peso="@UltimaMilla.Backoffice.Formato.Dato(retiro.PesoTotal)" data-volumen="@UltimaMilla.Backoffice.Formato.Dato(retiro.VolumenTotal)"
+                                   checked="@Model.Formulario.RetirosSeleccionados.Contains(retiro.Id)" onchange="actualizarCalculosEnVivo()" />
                             <span>
                                 <span class="badge bg-light text-secondary border font-monospace">@retiro.CodigoSeguimiento</span>
                                 <span class="fw-semibold small ms-1">@retiro.NombreContacto</span>
-                                <span class="d-block text-muted small">@retiro.DireccionRetiro · @retiro.CantidadBultos bulto(s), @retiro.PesoTotal kg · @retiro.Motivo</span>
+                                <span class="d-block text-muted small">@retiro.DireccionRetiro · @retiro.CantidadBultos bulto(s), @UltimaMilla.Backoffice.Formato.N(retiro.PesoTotal, 1) kg, @UltimaMilla.Backoffice.Formato.N(retiro.VolumenTotal, 3) m³ · @retiro.Motivo</span>
                             </span>
                         </label>
                     }
@@ -430,37 +434,51 @@ else if (Model.ErroresValidacion.Count > 0)
         var capacidadPesoMax = 650;
         var capacidadVolumenMax = 3.3;
 
+        var repartidorSinVehiculo = false;
+
         document.addEventListener('DOMContentLoaded', function () {
-            actualizarCapacidadesVehiculo();
-            actualizarCalculosEnVivo();
+            mostrarVehiculoDelRepartidor();
         });
 
-        function seleccionarVehiculoHabitual(repartidorId) {
+        // El vehículo es el que el repartidor tiene asignado: aquí solo se muestra (con sus capacidades) y se manda en un campo oculto
+        function mostrarVehiculoDelRepartidor() {
             var repSelect = document.getElementById('selectRepartidor');
-            var selectedOpt = repSelect.options[repSelect.selectedIndex];
-            var vehId = selectedOpt.getAttribute('data-vehiculo');
-            
-            if (vehId) {
-                var vehSelect = document.getElementById('selectVehiculo');
-                for (var i = 0; i < vehSelect.options.length; i++) {
-                    if (vehSelect.options[i].value === vehId) {
-                        vehSelect.selectedIndex = i;
-                        break;
-                    }
-                }
+            var detalle = document.getElementById('txtVehiculoDetalle');
+            var capacidad = document.getElementById('txtVehiculoCapacidad');
+            if (!repSelect || repSelect.selectedIndex < 0) {
+                repartidorSinVehiculo = true;
+                actualizarCalculosEnVivo();
+                return;
             }
-            actualizarCapacidadesVehiculo();
-        }
 
-        function actualizarCapacidadesVehiculo() {
-            var vehSelect = document.getElementById('selectVehiculo');
-            if (!vehSelect || vehSelect.selectedIndex < 0) return;
+            var opt = repSelect.options[repSelect.selectedIndex];
+            var vehiculoId = opt.getAttribute('data-vehiculo') || '';
+            repartidorSinVehiculo = !vehiculoId;
+            document.getElementById('inputVehiculoId').value = vehiculoId || '00000000-0000-0000-0000-000000000000';
 
-            var opt = vehSelect.options[vehSelect.selectedIndex];
-            capacidadPesoMax = parseFloat(opt.getAttribute('data-pesomax') || '650');
-            capacidadVolumenMax = parseFloat(opt.getAttribute('data-volumenmax') || '3.3');
+            if (repartidorSinVehiculo) {
+                detalle.textContent = 'Sin vehículo asignado';
+                capacidad.textContent = 'Asignale uno en Repartidores y Vehículos para poder armar su hoja de ruta.';
+                capacidadPesoMax = 0;
+                capacidadVolumenMax = 0;
+            } else {
+                capacidadPesoMax = parseFloat(opt.getAttribute('data-pesomax') || '0');
+                capacidadVolumenMax = parseFloat(opt.getAttribute('data-volumenmax') || '0');
+                detalle.textContent = opt.getAttribute('data-patente') + ' — ' + opt.getAttribute('data-tipo');
+                capacidad.textContent = 'Capacidad: ' + window.fmtNum(capacidadPesoMax, 0) + ' kg / ' + window.fmtNum(capacidadVolumenMax, 1) + ' m³';
+            }
 
             actualizarCalculosEnVivo();
+        }
+
+        // Con la fecha de hoy, los turnos que ya terminaron no se pueden usar
+        function turnoYaTerminado() {
+            var fecha = document.getElementById('inputFecha');
+            var turno = document.getElementById('selectTurno');
+            if (!fecha || !turno || turno.selectedIndex < 0) return false;
+            if (fecha.value !== fecha.getAttribute('data-hoy')) return false;
+            var fin = parseInt(turno.options[turno.selectedIndex].getAttribute('data-fin') || '0', 10);
+            return parseInt(fecha.getAttribute('data-minutos-ahora') || '0', 10) >= fin;
         }
 
         function onCambioSeleccionFila(chk) {
@@ -518,9 +536,16 @@ else if (Model.ErroresValidacion.Count > 0)
 
         function actualizarCalculosEnVivo() {
             var checkboxes = document.querySelectorAll('.chk-envio:checked');
-            var cantidad = checkboxes.length;
+            var retirosMarcados = document.querySelectorAll('.chk-retiro:checked');
+            var cantidad = checkboxes.length + retirosMarcados.length;
             var pesoTotal = 0;
             var volumenTotal = 0;
+
+            // Los retiros también ocupan lugar en el vehículo (el servidor valida el recorrido parada por parada)
+            retirosMarcados.forEach(function (chk) {
+                pesoTotal += parseFloat(chk.getAttribute('data-peso') || '0');
+                volumenTotal += parseFloat(chk.getAttribute('data-volumen') || '0');
+            });
             var turnoSeleccionado = document.getElementById('selectTurno').value;
             var hayIncompatibilidad = false;
             var paquetesIncompatibles = [];
@@ -557,13 +582,13 @@ else if (Model.ErroresValidacion.Count > 0)
             var pctPeso = capacidadPesoMax > 0 ? Math.round((pesoTotal / capacidadPesoMax) * 100) : 0;
             var barraPeso = document.getElementById('barraProgresoPeso');
             barraPeso.style.width = Math.min(pctPeso, 100) + '%';
-            document.getElementById('lblTextoPeso').textContent = pesoTotal.toFixed(1) + ' / ' + capacidadPesoMax + ' kg (' + pctPeso + '%)';
+            document.getElementById('lblTextoPeso').textContent = window.fmtNum(pesoTotal, 1) + ' / ' + window.fmtNum(capacidadPesoMax, 0) + ' kg (' + pctPeso + '%)';
 
             var alertaPeso = document.getElementById('alertaExcesoPeso');
             if (pesoTotal > capacidadPesoMax) {
                 barraPeso.className = 'progress-bar bg-danger';
                 alertaPeso.style.display = 'block';
-                alertaPeso.textContent = '⚠️ Exceso de peso: +' + (pesoTotal - capacidadPesoMax).toFixed(1) + ' kg';
+                alertaPeso.textContent = '⚠️ Exceso de peso: +' + window.fmtNum(pesoTotal - capacidadPesoMax, 1) + ' kg';
             } else if (pctPeso >= 85) {
                 barraPeso.className = 'progress-bar bg-warning';
                 alertaPeso.style.display = 'none';
@@ -576,13 +601,13 @@ else if (Model.ErroresValidacion.Count > 0)
             var pctVol = capacidadVolumenMax > 0 ? Math.round((volumenTotal / capacidadVolumenMax) * 100) : 0;
             var barraVol = document.getElementById('barraProgresoVolumen');
             barraVol.style.width = Math.min(pctVol, 100) + '%';
-            document.getElementById('lblTextoVolumen').textContent = volumenTotal.toFixed(2) + ' / ' + capacidadVolumenMax.toFixed(1) + ' m³ (' + pctVol + '%)';
+            document.getElementById('lblTextoVolumen').textContent = window.fmtNum(volumenTotal, 2) + ' / ' + window.fmtNum(capacidadVolumenMax, 1) + ' m³ (' + pctVol + '%)';
 
             var alertaVol = document.getElementById('alertaExcesoVolumen');
             if (volumenTotal > capacidadVolumenMax) {
                 barraVol.className = 'progress-bar bg-danger';
                 alertaVol.style.display = 'block';
-                alertaVol.textContent = '⚠️ Exceso de volumen: +' + (volumenTotal - capacidadVolumenMax).toFixed(2) + ' m³';
+                alertaVol.textContent = '⚠️ Exceso de volumen: +' + window.fmtNum(volumenTotal - capacidadVolumenMax, 2) + ' m³';
             } else if (pctVol >= 85) {
                 barraVol.className = 'progress-bar bg-warning';
                 alertaVol.style.display = 'none';
@@ -602,22 +627,22 @@ else if (Model.ErroresValidacion.Count > 0)
             }
 
             // Habilitar o deshabilitar botón confirmar
+            // Confirmar exige al menos un envío O un retiro (una hoja de ruta puede ser solo de retiros), un repartidor con vehículo y un turno que no haya terminado
+            var terminado = turnoYaTerminado();
+            document.getElementById('avisoTurnoTerminado').style.display = terminado ? 'block' : 'none';
             var btnConfirmar = document.getElementById('btnConfirmarRuta');
-            if (cantidad === 0) {
-                btnConfirmar.disabled = true;
-            } else {
-                btnConfirmar.disabled = false;
-            }
+            btnConfirmar.disabled = cantidad === 0 || repartidorSinVehiculo || terminado;
 
             actualizarSecuenciaPrevisualizada();
         }
 
         function actualizarSecuenciaPrevisualizada() {
             var checkboxes = document.querySelectorAll('.chk-envio:checked');
+            var hayRetiros = document.querySelectorAll('.chk-retiro:checked').length > 0;
             var lista = document.getElementById('listaParadasPrevisualizadas');
             var txtVacio = document.getElementById('txtSecuenciaVacia');
 
-            if (checkboxes.length === 0) {
+            if (checkboxes.length === 0 && !hayRetiros) {
                 lista.style.display = 'none';
                 lista.innerHTML = '';
                 txtVacio.style.display = 'block';

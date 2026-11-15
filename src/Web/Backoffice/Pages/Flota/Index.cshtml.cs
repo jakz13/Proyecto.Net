@@ -75,7 +75,7 @@ public class IndexModel : PageModel
         try
         {
             var creado = await _flotaApi.CrearVehiculoAsync(NuevoVehiculo);
-            MensajeExito = $"Vehículo con patente '{creado.Patente}' dado de alta exitosamente con capacidad de {creado.CapacidadPeso:N0} kg y {creado.CapacidadVolumen:N1} m³.";
+            MensajeExito = $"Vehículo con patente '{creado.Patente}' dado de alta exitosamente con capacidad de {UltimaMilla.Backoffice.Formato.N(creado.CapacidadPeso, 0)} kg y {UltimaMilla.Backoffice.Formato.N(creado.CapacidadVolumen, 1)} m³.";
             return RedirectToPage();
         }
         catch (ApiExcepcion ex)

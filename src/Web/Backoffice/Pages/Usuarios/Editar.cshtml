@@ -97,7 +97,7 @@
                             @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
                             {
                                 <option value="@vehiculo.Id" selected="@(Model.Usuario.VehiculoAsignadoId == vehiculo.Id)">
-                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³)
+                                    @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg / @vehiculo.CapacidadVolumen.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³)
                                 </option>
                             }
                         </select>

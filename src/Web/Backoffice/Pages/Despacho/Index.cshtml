@@ -59,8 +59,8 @@
     <div class="col-12 col-sm-6 col-xl-4">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Carga Total Estimada</span>
-            <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.PesoTotalKg).ToString("N1") <span class="fs-6 text-muted font-monospace">kg</span></div>
-            <div class="text-muted small mt-1">Volumen: @Model.RutasPendientes.Sum(r => r.VolumenTotalM3).ToString("N2") m³</div>
+            <div class="h3 fw-bold mb-0 text-dark">@Model.RutasPendientes.Sum(r => r.PesoTotalKg).ToString("N1", UltimaMilla.Backoffice.Formato.UY) <span class="fs-6 text-muted font-monospace">kg</span></div>
+            <div class="text-muted small mt-1">Volumen: @Model.RutasPendientes.Sum(r => r.VolumenTotalM3).ToString("N2", UltimaMilla.Backoffice.Formato.UY) m³</div>
         </div>
     </div>
 </div>
@@ -133,7 +133,7 @@
                                 <div class="text-muted small" style="font-size: 0.725rem;">bultos escaneados</div>
                             </td>
                             <td>
-                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1")kg / @ruta.CapacidadPesoMaxKg.ToString("N0")kg</span>
+                                <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY)kg / @ruta.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY)kg</span>
                             </td>
                             <td class="text-end">
                                 <a asp-page="/Despacho/Verificar" asp-route-id="@ruta.Id" class="btn btn-dark btn-sm d-inline-flex align-items-center gap-1 shadow-sm px-3 py-1">

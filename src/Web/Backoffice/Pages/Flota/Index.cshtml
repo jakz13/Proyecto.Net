@@ -77,7 +77,7 @@
     <div class="col-sm-6 col-md-3">
         <partial name="_TarjetaMetrica" model='new TarjetaMetricaViewModel(
             "Capacidad Flota",
-            $"{Model.CapacidadPesoTotalKg:N0} kg",
+            $"{UltimaMilla.Backoffice.Formato.N(Model.CapacidadPesoTotalKg, 0)} kg",
             "Carga total máxima admisible en peso de las unidades activas.",
             "text-dark",
             "Nuevo Vehículo →",
@@ -295,10 +295,10 @@
                                     </td>
                                     <td class="fw-semibold text-dark">@vehiculo.Tipo</td>
                                     <td>
-                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadPeso.ToString("N0")</span> <span class="small text-muted">kg</span>
+                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY)</span> <span class="small text-muted">kg</span>
                                     </td>
                                     <td>
-                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadVolumen.ToString("N1")</span> <span class="small text-muted">m³</span>
+                                        <span class="fw-bold font-monospace text-dark">@vehiculo.CapacidadVolumen.ToString("N1", UltimaMilla.Backoffice.Formato.UY)</span> <span class="small text-muted">m³</span>
                                     </td>
                                     <td>
                                         @if (vehiculo.Activo)
@@ -418,7 +418,7 @@
                                     @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
                                     {
                                         <option value="@vehiculo.Id">
-                                            @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
+                                            @vehiculo.Patente - @vehiculo.Tipo (@vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg / @vehiculo.CapacidadVolumen.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[Reasignará desde {vehiculo.RepartidorAsignadoNombre}]" : "[Disponible]")
                                         </option>
                                     }
                                 </select>
@@ -509,7 +509,7 @@
                                     @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
                                     {
                                         <option value="@vehiculo.Id">
-                                            @vehiculo.Patente (@vehiculo.Tipo - @vehiculo.CapacidadPeso.ToString("N0") kg)
+                                            @vehiculo.Patente (@vehiculo.Tipo - @vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg)
                                         </option>
                                     }
                                 </select>
@@ -549,7 +549,7 @@
                                 @foreach (var vehiculo in Model.Vehiculos.Where(v => v.Activo))
                                 {
                                     <option value="@vehiculo.Id">
-                                        @vehiculo.Patente - @vehiculo.Tipo (Carga: @vehiculo.CapacidadPeso.ToString("N0") kg / @vehiculo.CapacidadVolumen.ToString("N1") m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[En uso por {vehiculo.RepartidorAsignadoNombre}]" : "[Libre]")
+                                        @vehiculo.Patente - @vehiculo.Tipo (Carga: @vehiculo.CapacidadPeso.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg / @vehiculo.CapacidadVolumen.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³) @(vehiculo.RepartidorAsignadoId.HasValue ? $"[En uso por {vehiculo.RepartidorAsignadoNombre}]" : "[Libre]")
                                     </option>
                                 }
                             </select>

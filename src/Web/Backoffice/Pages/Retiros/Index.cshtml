@@ -83,7 +83,7 @@ else
                         <td><div class="fw-semibold small">@r.NombreContacto</div><div class="text-muted small">@r.DireccionRetiro</div></td>
                         <td class="small">@r.Motivo</td>
                         <td class="text-end">@r.CantidadBultos <span class="text-muted small">(@r.PesoTotal kg)</span></td>
-                        <td class="text-end">$ @r.Tarifa.ToString("N2")</td>
+                        <td class="text-end">$ @r.Tarifa.ToString("N2", UltimaMilla.Backoffice.Formato.UY)</td>
                         <td><span class="badge border @Clase(r.Estado)">@r.Estado</span></td>
                         <td>
                             <form method="post" class="d-flex flex-wrap gap-1">

@@ -470,4 +470,56 @@ public class ArmarHojaDeRutaCommandHandlerTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Ejecutar(Comando(new[] { a })));
     }
+
+    [Theory]
+    [InlineData("Mañana", false)]            // son las 15:30 locales: el turno de la mañana (hasta las 13:00) ya terminó
+    [InlineData("Tarde", true)]              // el de la tarde (hasta las 18:00) sigue vigente
+    [InlineData("Jornada Completa", true)]
+    [InlineData(null, true)]
+    public async Task ElTurnoQueYaTerminoHoyNoPermiteArmarLaRuta(string? turno, bool permitido)
+    {
+        _clock.UtcNow = new DateTime(2026, 10, 16, 18, 30, 0, DateTimeKind.Utc);   // 15:30 en Montevideo
+        var envio = CrearEnvioListo();
+        var comando = Comando(new[] { envio }, Viernes) with { Turno = turno };
+
+        if (permitido)
+        {
+            Assert.Equal("Liberada", (await Ejecutar(comando)).Estado);
+        }
+        else
+        {
+            var ex = await Assert.ThrowsAsync<DomainValidationException>(() => Ejecutar(comando));
+            Assert.Contains("franja horaria anterior a la hora actual", ex.Message);
+            AssertNadaPersistido();
+        }
+    }
+
+    [Fact]
+    public async Task UnTurnoDeOtroDiaNoSeBloqueaAunqueSuHoraYaHayaPasadoHoy()
+    {
+        _clock.UtcNow = new DateTime(2026, 10, 15, 22, 0, 0, DateTimeKind.Utc);   // jueves 19:00 locales; la ruta es del viernes
+        var envio = CrearEnvioListo();
+
+        var resultado = await Ejecutar(Comando(new[] { envio }, Viernes) with { Turno = "Mañana" });
+
+        Assert.Equal("Liberada", resultado.Estado);
+    }
+
+    [Fact]
+    public async Task LaRutaUsaElVehiculoAsignadoAlRepartidor_NoSeAceptaOtro()
+    {
+        var otro = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB9999", "Camioneta", capacidadPeso: 900m, capacidadVolumen: 10000m);
+        _vehiculos.Vehiculos.Add(otro);
+        _repartidor.AsignarVehiculo(_vehiculo.Id);
+        var envio = CrearEnvioListo();
+
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(() =>
+            Ejecutar(new ArmarHojaDeRutaCommand(_repartidor.Id, otro.Id, Viernes, new[] { envio.Id })));
+
+        Assert.Contains("vehículo asignado al repartidor", ex.Message);
+        AssertNadaPersistido();
+
+        // Con el suyo, se arma sin problema
+        Assert.Equal("Liberada", (await Ejecutar(Comando(new[] { envio }))).Estado);
+    }
 }

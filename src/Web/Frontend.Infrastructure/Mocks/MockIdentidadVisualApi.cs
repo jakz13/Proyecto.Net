@@ -58,6 +58,7 @@ public class MockIdentidadVisualApi : IIdentidadVisualApi
             EmailContacto = dto.EmailContacto.Trim().ToLowerInvariant(),
             TelefonoContacto = dto.TelefonoContacto.Trim(),
             SitioWeb = string.IsNullOrWhiteSpace(dto.SitioWeb) ? null : dto.SitioWeb.Trim(),
+            DireccionDeposito = string.IsNullOrWhiteSpace(dto.DireccionDeposito) ? null : dto.DireccionDeposito.Trim(),
             MensajeComunicaciones = string.IsNullOrWhiteSpace(dto.MensajeComunicaciones) ? null : dto.MensajeComunicaciones.Trim()
         };
 

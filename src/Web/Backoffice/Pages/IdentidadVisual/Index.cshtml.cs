@@ -86,7 +86,8 @@ public class IndexModel : PageModel
             EmailContacto = IdentidadActual.EmailContacto ?? "contacto@operador.uy",
             TelefonoContacto = IdentidadActual.TelefonoContacto ?? "+598 2900 0000",
             SitioWeb = IdentidadActual.SitioWeb ?? "https://translogistica.uy",
-            MensajeComunicaciones = IdentidadActual.MensajeComunicaciones ?? $"Gracias por elegir {IdentidadActual.NombreComercial}. Tu paquete está en camino."
+            MensajeComunicaciones = IdentidadActual.MensajeComunicaciones ?? $"Gracias por elegir {IdentidadActual.NombreComercial}. Tu paquete está en camino.",
+            DireccionDeposito = IdentidadActual.DireccionDeposito
         };
     }
 

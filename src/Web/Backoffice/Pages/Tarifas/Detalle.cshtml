@@ -85,11 +85,11 @@
                         </td>
                         <td class="small font-monospace">@regla.PesoDesde a @regla.PesoHasta kg</td>
                         <td class="small font-monospace">@regla.VolumenDesde a @regla.VolumenHasta m³</td>
-                        <td class="text-end font-monospace small">$@regla.PrecioBase.ToString("N0")</td>
-                        <td class="text-end font-monospace small text-danger">@(regla.Recargo > 0 ? $"+${regla.Recargo:N0}" : "-")</td>
-                        <td class="text-end font-monospace small text-success">@(regla.Bonificacion > 0 ? $"-${regla.Bonificacion:N0}" : "-")</td>
+                        <td class="text-end font-monospace small">$@regla.PrecioBase.ToString("N0", UltimaMilla.Backoffice.Formato.UY)</td>
+                        <td class="text-end font-monospace small text-danger">@(regla.Recargo > 0 ? $"+${UltimaMilla.Backoffice.Formato.N(regla.Recargo, 0)}" : "-")</td>
+                        <td class="text-end font-monospace small text-success">@(regla.Bonificacion > 0 ? $"-${UltimaMilla.Backoffice.Formato.N(regla.Bonificacion, 0)}" : "-")</td>
                         <td class="text-end font-monospace fw-bold text-dark">
-                            $@regla.PrecioFinal.ToString("N0")
+                            $@regla.PrecioFinal.ToString("N0", UltimaMilla.Backoffice.Formato.UY)
                         </td>
                     </tr>
                 }

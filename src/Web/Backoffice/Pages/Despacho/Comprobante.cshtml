@@ -89,7 +89,7 @@ else
                 Envíos Efectivamente Cargados (En Tránsito)
             </h2>
             <span class="badge bg-light text-secondary border font-monospace">
-                @ruta.Paradas.Count paradas · @ruta.PesoTotalKg.ToString("N1") kg · @ruta.VolumenTotalM3.ToString("N3") m³
+                @ruta.Paradas.Count paradas · @ruta.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg · @ruta.VolumenTotalM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³
             </span>
         </div>
 
@@ -149,8 +149,8 @@ else
                                 </span>
                             </td>
                             <td class="text-end">
-                                <div class="small fw-semibold text-dark">@parada.PesoKg.ToString("N1") kg</div>
-                                <div class="text-muted" style="font-size: 0.68rem;">@parada.VolumenM3.ToString("N3") m³</div>
+                                <div class="small fw-semibold text-dark">@parada.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
+                                <div class="text-muted" style="font-size: 0.68rem;">@parada.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.725rem;">

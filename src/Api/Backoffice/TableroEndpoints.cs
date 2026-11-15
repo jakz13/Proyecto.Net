@@ -102,6 +102,14 @@ internal static class ConstructorTablero
     public static async Task<List<VehiculoEnVivoDto>> ConstruirAsync(
         AppDbContext db, Guid operadorId, DateTime ahora, Guid? hojaDeRutaId, CancellationToken ct)
     {
+        // Sin posición reportada, la unidad se muestra en el depósito del operador (si lo configuró); si no, en un punto de referencia de Montevideo
+        var deposito = await db.IdentidadesVisuales.IgnoreQueryFilters().AsNoTracking()
+            .Where(i => i.OperadorId == operadorId)
+            .Select(i => new { i.DepositoLatitud, i.DepositoLongitud })
+            .FirstOrDefaultAsync(ct);
+        var latitudBase = deposito?.DepositoLatitud ?? -34.9011;
+        var longitudBase = deposito?.DepositoLongitud ?? -56.1645;
+
         var estados = EstadosRutaEnEjecucion.ToList();
         var rutas = await db.HojasDeRuta.AsNoTracking()
             .Where(h => h.OperadorId == operadorId && estados.Contains(h.Estado) && (hojaDeRutaId == null || h.Id == hojaDeRutaId))
@@ -283,8 +291,8 @@ internal static class ConstructorTablero
                             RepartidorNombre = repartidor is null ? string.Empty : nombres.GetValueOrDefault(repartidor.UsuarioId) ?? string.Empty,
                             RepartidorTelefono = repartidor?.Telefono ?? string.Empty,
                             VehiculoMatricula = vehiculo?.Patente ?? string.Empty,
-                            Latitud = posicion?.Latitud ?? direccion?.Latitud ?? -34.9011,
-                            Longitud = posicion?.Longitud ?? direccion?.Longitud ?? -56.1645
+                            Latitud = posicion?.Latitud ?? direccion?.Latitud ?? latitudBase,
+                            Longitud = posicion?.Longitud ?? direccion?.Longitud ?? longitudBase
                         });
                     }
                 }
@@ -296,8 +304,8 @@ internal static class ConstructorTablero
                     Orden = parada.Orden,
                     Destinatario = envio?.NombreDestinatario ?? string.Empty,
                     Direccion = envio?.DireccionDestino ?? FormatearDireccion(direccion) ?? string.Empty,
-                    Latitud = direccion?.Latitud ?? -34.9011,
-                    Longitud = direccion?.Longitud ?? -56.1645,
+                    Latitud = direccion?.Latitud ?? latitudBase,
+                    Longitud = direccion?.Longitud ?? longitudBase,
                     FranjaHoraria = textoFranja,
                     Estado = EstadoParada(parada.Estado),
                     EnRiesgo = riesgo is not null,
@@ -326,8 +334,8 @@ internal static class ConstructorTablero
                 VehiculoId = ruta.VehiculoId ?? Guid.Empty,
                 VehiculoMatricula = vehiculo?.Patente ?? string.Empty,
                 VehiculoModelo = vehiculo?.Tipo ?? string.Empty,
-                Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? -34.9011,
-                Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? -56.1645,
+                Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? latitudBase,
+                Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? longitudBase,
                 DireccionAproximada = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
                 ZonaActual = zonaActual,
                 NivelBateriaPct = bateriaEfectiva,
@@ -416,8 +424,8 @@ internal static class ConstructorTablero
                     VehiculoId = vehiculo.Id,
                     VehiculoMatricula = vehiculo.Patente,
                     VehiculoModelo = vehiculo.Tipo,
-                    Latitud = pos?.Latitud ?? -34.9011,
-                    Longitud = pos?.Longitud ?? -56.1645,
+                    Latitud = pos?.Latitud ?? latitudBase,
+                    Longitud = pos?.Longitud ?? longitudBase,
                     DireccionAproximada = pos is not null ? "En línea / Posición GPS reportada" : "Base operativa / Unidad lista para despacho",
                     ZonaActual = "Sin zona",
                     NivelBateriaPct = bateriaFlota,

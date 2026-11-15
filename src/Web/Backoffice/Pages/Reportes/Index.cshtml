@@ -219,14 +219,14 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Peso Total Transportado</span>
-                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.PesoTotalKg).ToString("N1") <span class="fs-6 text-muted">kg</span></div>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.PesoTotalKg).ToString("N1", UltimaMilla.Backoffice.Formato.UY) <span class="fs-6 text-muted">kg</span></div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Carga pesada en depósito</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Volumen Cúbico Total</span>
-                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.VolumenTotalM3).ToString("N2") <span class="fs-6 text-muted">m³</span></div>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.VolumenTotalM3).ToString("N2", UltimaMilla.Backoffice.Formato.UY) <span class="fs-6 text-muted">m³</span></div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Capacidad de estiba ocupada</div>
             </div>
         </div>
@@ -250,14 +250,14 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Subtotal Neto</span>
-                <div class="h3 fw-bold mb-0 text-dark font-monospace">$@Model.Reporte.ItemsLiquidacion.Sum(l => l.Subtotal).ToString("N2")</div>
+                <div class="h3 fw-bold mb-0 text-dark font-monospace">$@Model.Reporte.ItemsLiquidacion.Sum(l => l.Subtotal).ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Base + recargos - bonificaciones</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-success border-4">
                 <span class="text-secondary small fw-semibold mb-1">Total Facturación (c/IVA)</span>
-                <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.TotalFacturadoLiquidacion.ToString("N2")</div>
+                <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.TotalFacturadoLiquidacion.ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Total final en pesos uruguayos</div>
             </div>
         </div>
@@ -432,7 +432,7 @@
                             <td class="text-end">@fila.EntregadosAlComercio</td>
                             <td class="text-end">@fila.Cancelados</td>
                             <td class="text-end">@fila.EnCurso</td>
-                            <td class="text-end">$ @fila.TotalFacturado.ToString("N2")</td>
+                            <td class="text-end">$ @fila.TotalFacturado.ToString("N2", UltimaMilla.Backoffice.Formato.UY)</td>
                         </tr>
                     }
                 </tbody>
@@ -468,10 +468,10 @@
                                 </span>
                             </td>
                             <td class="text-end font-monospace text-dark">
-                                @v.PesoTotalKg.ToString("N1") kg
+                                @v.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg
                             </td>
                             <td class="text-end font-monospace text-dark">
-                                @v.VolumenTotalM3.ToString("N2") m³
+                                @v.VolumenTotalM3.ToString("N2", UltimaMilla.Backoffice.Formato.UY) m³
                             </td>
                             <td class="text-center">
                                 <span class="small text-secondary fw-semibold">
@@ -511,16 +511,16 @@
                                 <span class="fw-bold text-dark font-monospace">@l.CantidadEnviosLiquidados</span>
                             </td>
                             <td class="text-end font-monospace text-dark small">
-                                $@l.TarifaBaseTotal.ToString("N2")
+                                $@l.TarifaBaseTotal.ToString("N2", UltimaMilla.Backoffice.Formato.UY)
                             </td>
                             <td class="text-end font-monospace text-secondary small">
-                                +$@l.RecargoPesoTotal.ToString("N2")
+                                +$@l.RecargoPesoTotal.ToString("N2", UltimaMilla.Backoffice.Formato.UY)
                             </td>
                             <td class="text-end font-monospace text-dark fw-semibold small">
-                                $@l.Subtotal.ToString("N2")
+                                $@l.Subtotal.ToString("N2", UltimaMilla.Backoffice.Formato.UY)
                             </td>
                             <td class="text-end font-monospace text-success fw-bold">
-                                $@l.TotalFacturado.ToString("N2")
+                                $@l.TotalFacturado.ToString("N2", UltimaMilla.Backoffice.Formato.UY)
                             </td>
                         </tr>
                     }

@@ -131,7 +131,7 @@ else
             <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
                 <div class="text-secondary small fw-semibold mb-1">Balance de Ocupación</div>
                 <div class="d-flex justify-content-between align-items-center mb-1 small text-dark">
-                    <span>Peso: <strong>@ruta.PesoTotalKg.ToString("N1")</strong> / @ruta.CapacidadPesoMaxKg.ToString("N0") kg</span>
+                    <span>Peso: <strong>@ruta.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY)</strong> / @ruta.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg</span>
                     <span class="fw-bold @(ruta.PorcentajeOcupacionPeso > 90 ? "text-danger" : "text-success")">@ruta.PorcentajeOcupacionPeso%</span>
                 </div>
                 <div class="progress mb-2" style="height: 6px;">
@@ -139,7 +139,7 @@ else
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-1 small text-dark">
-                    <span>Volumen: <strong>@ruta.VolumenTotalM3.ToString("N2")</strong> / @ruta.CapacidadVolumenMaxM3.ToString("N1") m³</span>
+                    <span>Volumen: <strong>@ruta.VolumenTotalM3.ToString("N2", UltimaMilla.Backoffice.Formato.UY)</strong> / @ruta.CapacidadVolumenMaxM3.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³</span>
                     <span class="fw-bold text-info">@ruta.PorcentajeOcupacionVolumen%</span>
                 </div>
                 <div class="progress" style="height: 6px;">
@@ -271,8 +271,8 @@ else
                                     </span>
                                 </td>
                                 <td class="text-end">
-                                    <div class="small fw-semibold text-dark">@p.PesoKg.ToString("N1") kg</div>
-                                    <div class="text-secondary" style="font-size: 0.68rem;">@p.VolumenM3.ToString("N3") m³</div>
+                                    <div class="small fw-semibold text-dark">@p.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
+                                    <div class="text-secondary" style="font-size: 0.68rem;">@p.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                 </td>
                                 <td class="text-center">
                                     @if (p.Estado == "NoEntregado")
@@ -333,8 +333,8 @@ else
                                                     data-destinatario="@p.Destinatario"
                                                     data-direccion="@p.Direccion"
                                                     data-franja="@p.FranjaHoraria"
-                                                    data-peso="@p.PesoKg.ToString("N1")"
-                                                    data-volumen="@p.VolumenM3.ToString("N3")">
+                                                    data-peso="@UltimaMilla.Backoffice.Formato.Dato(p.PesoKg)"
+                                                    data-volumen="@UltimaMilla.Backoffice.Formato.Dato(p.VolumenM3)">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <polyline points="23 4 23 10 17 10"></polyline>
                                                     <polyline points="1 20 1 14 7 14"></polyline>
@@ -593,7 +593,7 @@ else
                                                 @foreach (var rDestino in Model.OtrasRutasActivas)
                                                 {
                                                     <option value="@rDestino.Id">
-                                                        @rDestino.NumeroRuta - @rDestino.RepartidorNombre (@rDestino.VehiculoMatricula) · Ocupación: @rDestino.PesoTotalKg.ToString("N1")/@rDestino.CapacidadPesoMaxKg.ToString("N0") kg (@rDestino.PorcentajeOcupacionPeso%)
+                                                        @rDestino.NumeroRuta - @rDestino.RepartidorNombre (@rDestino.VehiculoMatricula) · Ocupación: @rDestino.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY)/@rDestino.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg (@rDestino.PorcentajeOcupacionPeso%)
                                                     </option>
                                                 }
                                             </select>
@@ -795,7 +795,7 @@ else
             document.getElementById('txtModalDestinatario').innerText = destinatario;
             document.getElementById('txtModalDireccion').innerText = direccion;
             document.getElementById('txtModalFranja').innerText = franja;
-            document.getElementById('txtModalPesoVolumen').innerText = peso + ' kg · ' + volumen + ' m³';
+            document.getElementById('txtModalPesoVolumen').innerText = window.fmtNum(peso, 1) + ' kg · ' + window.fmtNum(volumen, 3) + ' m³';
 
             actualizarOpcionesAccion();
 

@@ -120,7 +120,8 @@ public static partial class IdentidadVisualEndpoints
             ICurrentTenant tenant,
             CancellationToken ct,
             ITableroRealtimeNotifier? notifier = null,
-            IDistributedCacheService? cache = null) => RespuestasBackoffice.Ejecutar(async () =>
+            IDistributedCacheService? cache = null,
+            IGeocodificador? geocodificador = null) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var nombre = (dto.NombreComercial ?? string.Empty).Trim();
             if (nombre.Length == 0)
@@ -173,6 +174,30 @@ public static partial class IdentidadVisualEndpoints
             }
 
             identidad.ActualizarComunicaciones(dto.SitioWeb, dto.MensajeComunicaciones);
+
+            // Dirección del depósito: se ubica en el mapa solo si cambió. Si no se encuentra se rechaza (no se guarda una dirección que no existe);
+            // si el servicio de mapas no responde se guarda el texto y la ubicación queda pendiente.
+            var direccionDeposito = string.IsNullOrWhiteSpace(dto.DireccionDeposito) ? null : dto.DireccionDeposito.Trim();
+            if (!string.Equals(direccionDeposito, identidad.DireccionDeposito, StringComparison.Ordinal))
+            {
+                double? latitud = null, longitud = null;
+                if (direccionDeposito is not null && geocodificador is not null)
+                {
+                    try
+                    {
+                        var ubicacion = await geocodificador.GeocodificarAsync(direccionDeposito, string.Empty, "Uruguay", ct);
+                        if (ubicacion is null)
+                            return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "No se pudo ubicar la dirección del depósito en el mapa. Revise la calle, el número y la ciudad.");
+                        (latitud, longitud) = (ubicacion.Value.Latitud, ubicacion.Value.Longitud);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // Servicio de mapas no disponible: se guarda la dirección sin ubicación
+                    }
+                }
+
+                identidad.ActualizarDeposito(direccionDeposito, latitud, longitud);
+            }
 
             var correlationId = ContextoCorrelacion.NormalizarOGenerar(ContextoCorrelacion.CorrelationIdActual);
             var eventoWorker = new EventoIdentidadVisualActualizada(
@@ -291,7 +316,10 @@ public static partial class IdentidadVisualEndpoints
             EmailContacto = identidad?.EmailContacto,
             TelefonoContacto = identidad?.TelefonoContacto,
             SitioWeb = identidad?.SitioWeb,
-            MensajeComunicaciones = identidad?.MensajeComunicaciones
+            MensajeComunicaciones = identidad?.MensajeComunicaciones,
+            DireccionDeposito = identidad?.DireccionDeposito,
+            DepositoLatitud = identidad?.DepositoLatitud,
+            DepositoLongitud = identidad?.DepositoLongitud
         };
     }
 }

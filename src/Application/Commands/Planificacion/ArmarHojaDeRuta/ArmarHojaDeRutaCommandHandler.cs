@@ -94,6 +94,12 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
         if (request.Fecha < hoy.AddDays(-1))
             throw new DomainValidationException("La fecha de la hoja de ruta no puede estar en el pasado.");
 
+        // No tiene sentido armar una ruta para un turno que ya terminó: todo se entregaría tarde
+        var ahoraLocal = TimeZoneInfo.ConvertTimeFromUtc(_clock.UtcNow, Queries.Tablero.ZonaHorariaOperacion.Zona);
+        if (request.Fecha == DateOnly.FromDateTime(ahoraLocal) && FinDelTurno(request.Turno) is { } finDelTurno && TimeOnly.FromDateTime(ahoraLocal) >= finDelTurno)
+            throw new DomainValidationException(
+                $"No es posible crear una hoja de ruta para una franja horaria anterior a la hora actual: el turno {request.Turno} terminó a las {finDelTurno.ToString("HH':'mm")} y son las {ahoraLocal.ToString("HH':'mm")}.");
+
         var despachadorId = _currentTenant.UsuarioId
             ?? throw new UnauthorizedAccessException("Acceso denegado: no se pudo identificar al despachador.");
         var operadorId = _currentTenant.OperadorId;
@@ -111,6 +117,10 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
             throw new UnauthorizedAccessException("Acceso denegado: el vehículo no corresponde al operador actual.");
         if (!vehiculo.Activo)
             throw new DomainValidationException($"El vehículo {vehiculo.Patente} no está disponible.");
+
+        // La ruta usa el vehículo que el repartidor tiene asignado: no se elige otro al armarla
+        if (repartidor.VehiculoAsignadoId.HasValue && repartidor.VehiculoAsignadoId.Value != vehiculo.Id)
+            throw new DomainValidationException("La hoja de ruta se arma con el vehículo asignado al repartidor; para usar otro, cámbielo antes en Repartidores y Vehículos.");
 
         var regla = await _envioRepository.GetReglaOperativaVigenteAsync(operadorId, cancellationToken)
             ?? throw new DomainValidationException("El operador no tiene reglas operativas vigentes.");
@@ -269,6 +279,14 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
             perfil.PicoPeso,
             perfil.PicoVolumen);
     }
+
+    /// <summary>Hora local en que termina cada turno que ofrece la pantalla de armado (Mañana 09-13, Tarde 14-18, Jornada Completa 09-18). Sin turno informado no hay límite.</summary>
+    private static TimeOnly? FinDelTurno(string? turno) => turno?.Trim().ToLowerInvariant() switch
+    {
+        "mañana" or "manana" => new TimeOnly(13, 0),
+        "tarde" or "jornada completa" => new TimeOnly(18, 0),
+        _ => null
+    };
 
     private static ParadaArmadaDto ParadaDe(int orden, Guid paradaId, Candidato c) => c.EsRetiro
         ? new ParadaArmadaDto(orden, paradaId, Guid.Empty, c.Codigo, Parada.TipoRetiro, c.Retiro!.Id)

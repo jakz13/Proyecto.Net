@@ -12,7 +12,8 @@ public record ArmarHojaDeRutaCommand(
     DateOnly Fecha,
     IReadOnlyList<Guid> EnviosIds,
     bool SoloValidar = false,
-    IReadOnlyList<Guid>? RetirosIds = null
+    IReadOnlyList<Guid>? RetirosIds = null,
+    string? Turno = null
 ) : IRequest<ArmarHojaDeRutaResultDto>;
 
 public record ArmarHojaDeRutaResultDto(

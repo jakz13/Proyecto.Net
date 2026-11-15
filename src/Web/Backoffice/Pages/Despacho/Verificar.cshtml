@@ -107,7 +107,7 @@ else
                     <span class="h6 fw-bold mb-0 text-dark">@control.VehiculoModelo</span>
                 </div>
                 <div class="text-muted small mt-2">
-                    Capacidad máxima: <strong class="text-dark">@control.CapacidadPesoMaxKg.ToString("N0") kg</strong> · <strong class="text-dark">@control.CapacidadVolumenMaxM3.ToString("N1") m³</strong>
+                    Capacidad máxima: <strong class="text-dark">@control.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY) kg</strong> · <strong class="text-dark">@control.CapacidadVolumenMaxM3.ToString("N1", UltimaMilla.Backoffice.Formato.UY) m³</strong>
                 </div>
             </div>
         </div>
@@ -198,8 +198,8 @@ else
                                             </span>
                                         </td>
                                         <td class="text-end">
-                                            <div class="small fw-semibold text-dark">@bulto.PesoKg.ToString("N1") kg</div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">@bulto.VolumenM3.ToString("N3") m³</div>
+                                            <div class="small fw-semibold text-dark">@bulto.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">@bulto.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-switch d-inline-flex align-items-center gap-2 mb-1">
@@ -396,8 +396,8 @@ else
             document.getElementById('lblTotalCargados').textContent = cargados + ' / ' + totalBultos;
             document.getElementById('txtConteoEnTransito').textContent = cargados + ' cargados';
             document.getElementById('txtConteoReintegrados').textContent = noCargados + ' devueltos';
-            document.getElementById('lblPesoEfectivo').textContent = pesoTotal.toFixed(1) + ' kg';
-            document.getElementById('lblVolumenEfectivo').textContent = volumenTotal.toFixed(2) + ' m³';
+            document.getElementById('lblPesoEfectivo').textContent = window.fmtNum(pesoTotal, 1) + ' kg';
+            document.getElementById('lblVolumenEfectivo').textContent = window.fmtNum(volumenTotal, 2) + ' m³';
 
             // Alerta si hay discrepancia
             var alerta = document.getElementById('alertaDiscrepanciaDespachador');

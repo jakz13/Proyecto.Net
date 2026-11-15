@@ -106,7 +106,7 @@ else
                 <span class="text-secondary small">· Estado actual: Admitido · @envio.ModalidadServicio</span>
             </div>
             <div class="text-secondary small mt-1">
-                Destinatario: <strong>@envio.NombreDestinatario</strong> · Destino: @envio.DireccionDestino · Peso total: @envio.PesoTotal.ToString("N1") kg
+                Destinatario: <strong>@envio.NombreDestinatario</strong> · Destino: @envio.DireccionDestino · Peso total: @envio.PesoTotal.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg
             </div>
         </div>
         <a asp-page="/Deposito/Index" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
@@ -216,7 +216,7 @@ else
                                             </div>
                                         </td>
                                         <td class="small text-secondary font-monospace">
-                                            @bulto.Peso.ToString("N1") kg
+                                            @bulto.Peso.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg
                                             @if (bulto.Alto > 0)
                                             {
                                                 <span class="text-muted">(@bulto.Alto x @bulto.Ancho x @bulto.Profundo cm)</span>

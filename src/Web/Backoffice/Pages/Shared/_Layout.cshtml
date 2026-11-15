@@ -36,7 +36,7 @@
     var esPaginaDeFormulario = System.Text.RegularExpressions.Regex.IsMatch(paginaActual, "/(Nuevo|Nueva|NuevaVersion|Editar|Login|Logout|Error|AccesoDenegado)$");
     var tiempoRealActivo = ViewData["TiempoRealEnvios"] is bool forzado ? forzado : !esPaginaDeFormulario;
 }
-<body data-tiempo-real-envios="@(tiempoRealActivo ? "true" : "false")">
+<body data-tiempo-real-envios="@(tiempoRealActivo ? "true" : "false")" data-despachador="@(User.IsInRole("Despachador") ? "true" : "false")">
     <!-- Componente de Barra Lateral Anclada y Colapsable -->
     <partial name="_Sidebar" />
 

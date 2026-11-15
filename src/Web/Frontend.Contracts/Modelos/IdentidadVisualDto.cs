@@ -18,6 +18,11 @@ public record IdentidadVisualDto
     public string? SitioWeb { get; init; }
     public string? MensajeComunicaciones { get; init; }
 
+    /// <summary>Dirección del depósito del operador (la configura el administrador); vacía hasta que la cargue.</summary>
+    public string? DireccionDeposito { get; init; }
+    public double? DepositoLatitud { get; init; }
+    public double? DepositoLongitud { get; init; }
+
     /// <summary>
     /// Retorna el color de texto con contraste óptimo para el color primario (#FFFFFF o #0F172A).
     /// </summary>

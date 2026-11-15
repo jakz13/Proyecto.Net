@@ -70,6 +70,14 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
         if (perfil.EsDePlataforma)
             throw new DomainValidationException("El perfil de plataforma no se asigna desde un operador.");
 
+        // Solo el administrador de comercio se asocia a un comercio: un repartidor, despachador u operario son personal del operador
+        var esAdministradorDeComercio = perfil.EsAdministradorDeComercio;
+        var traeComercio = solicitud.ComercioId.HasValue && solicitud.ComercioId.Value != Guid.Empty;
+        if (traeComercio && !esAdministradorDeComercio)
+            throw new DomainValidationException("Solo un usuario con perfil Administrador de comercio se asocia a un comercio.");
+        if (esAdministradorDeComercio && !traeComercio)
+            throw new DomainValidationException("Seleccione el comercio asociado al administrador de comercio.");
+
         string? nombreComercio = null;
         if (solicitud.ComercioId.HasValue && solicitud.ComercioId.Value != Guid.Empty)
         {

@@ -30,7 +30,8 @@ public static class PlanificacionEndpoints
                     request.VehiculoId,
                     request.Fecha,
                     request.EnviosIds ?? new List<Guid>(),
-                    RetirosIds: request.RetirosIds);
+                    RetirosIds: request.RetirosIds,
+                    Turno: request.Turno);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Created($"/api/planificacion/hojas-de-ruta/{resultado.HojaDeRutaId}", resultado);
@@ -72,7 +73,7 @@ public static class PlanificacionEndpoints
             {
                 var command = new ArmarHojaDeRutaCommand(
                     request.RepartidorId, request.VehiculoId, request.Fecha, request.EnviosIds ?? new List<Guid>(), SoloValidar: true,
-                    RetirosIds: request.RetirosIds);
+                    RetirosIds: request.RetirosIds, Turno: request.Turno);
                 return Results.Ok(await mediator.Send(command, ct));
             }
             catch (DomainValidationException ex)
@@ -296,4 +297,5 @@ public record ArmarHojaDeRutaRequest(
     Guid VehiculoId,
     DateOnly Fecha,
     List<Guid>? EnviosIds,
-    List<Guid>? RetirosIds = null);
+    List<Guid>? RetirosIds = null,
+    string? Turno = null);

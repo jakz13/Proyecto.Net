@@ -48,5 +48,8 @@ public class ActualizarIdentidadVisualDto
     /// <summary>
     /// Indica si se debe eliminar explícitamente el logotipo actual (por ejemplo, al restablecer valores predeterminados).
     /// </summary>
+    [StringLength(300, ErrorMessage = "La dirección del depósito no puede exceder 300 caracteres.")]
+    public string? DireccionDeposito { get; set; }
+
     public bool EliminarLogo { get; set; }
 }

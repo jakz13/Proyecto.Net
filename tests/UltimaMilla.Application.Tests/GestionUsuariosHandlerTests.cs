@@ -1,4 +1,4 @@
-﻿using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
+using UltimaMilla.Application.Commands.Operador.GestionUsuarios;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Queries.Operador.GestionUsuarios;
 using UltimaMilla.Application.Tests.Fakes;
@@ -21,6 +21,7 @@ public class GestionUsuariosHandlerTests
 
     private readonly Perfil _perfilAdmin;
     private readonly Perfil _perfilOperador;
+    private readonly Perfil _perfilComercio;
 
     public GestionUsuariosHandlerTests()
     {
@@ -29,7 +30,9 @@ public class GestionUsuariosHandlerTests
         _perfilAdmin = new Perfil(Guid.NewGuid(), "Administrador", "Acceso total");
         _perfilOperador = new Perfil(Guid.NewGuid(), "Operador", "Gestión operativa");
 
-        _usuarioRepositorio.Perfiles.AddRange(new[] { _perfilAdmin, _perfilOperador });
+        _perfilComercio = new Perfil(Guid.NewGuid(), "Comercio", "Administrador de comercio");
+
+        _usuarioRepositorio.Perfiles.AddRange(new[] { _perfilAdmin, _perfilOperador, _perfilComercio });
     }
 
     // ==========================================
@@ -93,7 +96,7 @@ public class GestionUsuariosHandlerTests
             "Usuario Comercio",
             "comercio@test.com",
             "Clave.Segura123",
-            _perfilOperador.Id,
+            _perfilComercio.Id,
             comercio.Id);
 
         // Act
@@ -102,6 +105,35 @@ public class GestionUsuariosHandlerTests
         // Assert
         Assert.Equal(comercio.Id, resultado.ComercioId);
         Assert.Equal("Comercio Uno", resultado.NombreComercio);
+    }
+
+    [Fact]
+    public async Task CrearUsuario_ConComercioPeroPerfilQueNoEsAdministradorDeComercio_SeRechaza()
+    {
+        // Un repartidor, despachador u operario es personal del operador: no se le puede asignar un comercio
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Uno", "123456789012", "c1@test.com", "099");
+        _comercioRepositorio.Comercios.Add(comercio);
+        _comercioOperadorRepositorio.Relaciones.Add(new ComercioOperador(Guid.NewGuid(), comercio.Id, _inquilinoActual.OperadorId, "clave"));
+
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio, _comercioRepositorio, _comercioOperadorRepositorio, _hasheadorContrasena, _inquilinoActual, _unidadDeTrabajo);
+
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(
+            new CrearUsuarioCommand("Repartidor", "rep@test.com", "Clave.Segura123", _perfilOperador.Id, comercio.Id), CancellationToken.None));
+
+        Assert.Contains("Administrador de comercio", ex.Message);
+    }
+
+    [Fact]
+    public async Task CrearUsuario_AdministradorDeComercioSinComercio_SeRechaza()
+    {
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio, _comercioRepositorio, _comercioOperadorRepositorio, _hasheadorContrasena, _inquilinoActual, _unidadDeTrabajo);
+
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(
+            new CrearUsuarioCommand("Admin comercio", "ac@test.com", "Clave.Segura123", _perfilComercio.Id), CancellationToken.None));
+
+        Assert.Contains("comercio asociado", ex.Message);
     }
 
     [Fact]
@@ -127,7 +159,7 @@ public class GestionUsuariosHandlerTests
             "Usuario",
             "u@test.com",
             "Clave.Segura123",
-            _perfilOperador.Id,
+            _perfilComercio.Id,
             comercio.Id);
 
         // Act & Assert
@@ -454,7 +486,7 @@ public class GestionUsuariosHandlerTests
         var handler = new ListarPerfilesQueryHandler(_usuarioRepositorio);
         var resultado = await handler.Handle(new ListarPerfilesQuery(), CancellationToken.None);
 
-        Assert.Equal(2, resultado.Count);
+        Assert.Equal(3, resultado.Count);
         Assert.Contains(resultado, p => p.Nombre == "Administrador");
         Assert.Contains(resultado, p => p.Nombre == "Operador");
     }

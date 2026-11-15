@@ -554,6 +554,7 @@ public class AppDbContext : DbContext
             builder.Property(i => i.LogoUrl);
             builder.Property(i => i.SitioWeb).HasMaxLength(300);
             builder.Property(i => i.MensajeComunicaciones).HasMaxLength(500);
+            builder.Property(i => i.DireccionDeposito).HasMaxLength(300);
         });
 
         modelBuilder.Entity<Usuario>(builder =>

@@ -29,7 +29,7 @@ public record CrearUsuarioDto
     /// <summary>
     /// Opcional: Si el usuario pertenece a un comercio cliente puntual en lugar del operador.
     /// </summary>
-    public Guid? ComercioId { get; init; }
+    public Guid? ComercioId { get; set; }
 
     /// <summary>
     /// Cédula o documento de identidad cuando el rol asignado es Repartidor.
