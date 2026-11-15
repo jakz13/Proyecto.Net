@@ -54,6 +54,9 @@ Se revisó el proyecto como lo haría alguien que lo ataca. Cada punto tiene su 
 - **Riesgo aceptado:** cualquiera con la URL puede descargar el APK y consumir ancho de banda de salida (costo en Azure). No hay límite de tasa en esta ruta.
 - **Pendiente:** las contraseñas del keystore de firma están escritas en `UltimaMilla.Mobile.csproj` (contra la regla 6 de `CLAUDE.md`). Hay que pasarlas por variable de entorno y cambiarlas; con la clave de firma y sus contraseñas, quien tenga acceso al repositorio puede firmar APK que Android aceptaría como actualización.
 
+## Sesión única activa por usuario (15/11)
+Un nuevo inicio de sesión con la misma cuenta deja sin efecto los tokens anteriores: la API responde 401 con código `SESION_DESPLAZADA` (middleware y hub de operación). Aplica a **todas** las cuentas, no solo a repartidores. Consecuencias a tener presentes: en la defensa, dos personas que usen la misma cuenta de demostración se expulsan entre sí; el Backoffice cierra la sesión local y vuelve al login con un aviso (`SesionDesplazadaMiddleware`); la app móvil la trata aparte. Si Redis no está disponible la política se degrada y no bloquea. Las pruebas de integración la desactivan en su fábrica y la prueban con cuentas propias.
+
 ## Riesgos aceptados (decirlos antes de que los encuentren)
 1. **Límite de tasa por instancia**: con 2 instancias el límite real es el doble (aclarado en el documento de cambios, 3.1).
 2. **`AllowedHosts: *` y sin Content-Security-Policy en el Backoffice y los portales** (la API sí la tiene): el tráfico externo pasa siempre por Caddy, que solo atiende los dominios configurados. Una política CSP estricta exige probar cada pantalla (mapas, gráficos, Blazor) en un navegador; queda como mejora.

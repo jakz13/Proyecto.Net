@@ -474,6 +474,10 @@ Riesgo para la defensa (OBS-21): Let's Encrypt limita a 5 certificados por seman
 - **Backoffice, Flota:** un error de alta se guardaba en `TempData` sin redirigir y reaparecía junto al aviso de éxito siguiente; el panel se cerraba con el error. Corregido (la contraseña se mide al escribirla y no deja enviar; el panel sigue abierto). El mismo patrón sigue en Identidad visual, Motivos de no entrega y Depósito > Rendición.
 - **Descarga directa de la app (OTA):** Caddy sirve `/descargas/*` (APK firmado y `version.json`) desde `~/shippingbox/descargas`; se publica con `scripts\desplegar.bat mobile`. Montar la carpeta recreó el contenedor de Caddy: se respaldó el volumen `caddy_data` y se comprobó que los 4 certificados conservan su número de serie. La carpeta no sobrevive a una reconstrucción (escenario 7).
 
+## Cambios posteriores a la auditoría (15/11), segunda tanda
+- **Sesión única activa (commit de un compañero) y las pruebas de integración:** el helper `UsuariosDePrueba`, en una base limpia (como la del pipeline), volvía a iniciar sesión como admin para crear las cuentas que faltaban y expulsaba el token de admin que el propio test ya tenía (401 SESION_DESPLAZADA): 5 pruebas fallaban y el pipeline estaba en rojo, así que nada se desplegaba. La fábrica de integración ahora ignora el registro de la sesión activa y la política tiene sus propias pruebas con la política real (`SesionUnicaActivaApiTests`).
+- **Efecto en producción de esa política:** el navegador desplazado recibía un HTTP 500 en el Backoffice. Ahora cierra la sesión local y vuelve al login con el motivo (`SesionDesplazadaMiddleware`). Sigue vigente que dos personas con la misma cuenta se expulsan entre sí (también las cuentas de demostración).
+
 ## Hipótesis abiertas
 1. **Receptor de prueba apagado en producción (6.9, escenario 6).** `/api/testing/webhook-receiver` da 404; confirmar con qué receptor se demuestra la caída y recuperación de avisos.
 
@@ -496,4 +500,8 @@ Precios de la lista pública de Azure (`prices.azure.com`, consultada el 14/11/2
 - Los precios son de lista; el saldo real descontado puede diferir. El tamaño de la VM (2 vCPU) es la causa de la latencia alta bajo 60 usuarios concurrentes ya anotada el 13/11.
 
 ## Limpieza de datos de prueba
-(se completa al final)
+Hecha el 15/11 sobre la base de producción (en una transacción, primero en simulación con `ROLLBACK` y luego con `COMMIT`). Se borró **solo lo creado por la auditoría**; la actividad de las personas (por ejemplo la asignación de ruta de `ENV-2026-00111`, la entrega de `00108` o la recepción de `00112`) quedó intacta:
+- Los 2 envíos de auditoría que sobrevivieron a la reconstrucción (`TRK-7564F784C6` y `TRK-5360988706`, destinatarios `AUDIT-corr` y `AUDIT-clasif`) con sus bultos, eventos, destinatarios y direcciones.
+- 14 mensajes del outbox y 4 claves de idempotencia del consumidor ligados a ellos, y 3 eventos de re-guardado de clasificación que la auditoría dejó en `ENV-2026-00112` (su bulto volvió a la fecha de clasificación original).
+- Las versiones 2 y 3 del cuadro tarifario y de las reglas operativas del operador 1 publicadas durante las pruebas (se volvió a la versión 1 vigente).
+Comprobado después: ninguna fila con la marca `AUDIT` en toda la base (se escaneó cada columna de texto), el seguimiento público de esos códigos responde 404 y la tarifa vigente es la original. Quedan solo los registros de los contenedores (`docker logs`), que rotan solos.
