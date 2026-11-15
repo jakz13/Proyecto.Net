@@ -9,6 +9,7 @@ public class AuthDelegatingHandler : DelegatingHandler
 {
     public const string AuthTokenKey = "auth_token";
     public const string CabeceraCorrelacion = "X-Correlation-Id";
+    public static readonly HttpRequestOptionsKey<bool> OpcionValidacionBiometrica = new("EsValidacionBiometrica");
 
     private readonly IServiceProvider? _serviceProvider;
 
@@ -71,46 +72,28 @@ public class AuthDelegatingHandler : DelegatingHandler
         {
             var ruta = request.RequestUri?.AbsolutePath ?? string.Empty;
             bool esRutaLogin = ruta.EndsWith("/auth/login", StringComparison.OrdinalIgnoreCase);
+            bool esValidacionBiometrica = request.Options.TryGetValue(OpcionValidacionBiometrica, out var omitir) && omitir;
 
-            if (!esRutaLogin)
+            if (!esRutaLogin &&
+                !esValidacionBiometrica &&
+                (string.IsNullOrWhiteSpace(CurrentTokenInMemory) ||
+                 string.Equals(tokenEnviado, CurrentTokenInMemory, StringComparison.Ordinal)))
             {
-                bool esSesionDesplazada = false;
-                try
+                CurrentTokenInMemory = null;
+                _ = Task.Run(async () =>
                 {
-                    var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(body) &&
-                        body.Contains("SESION_DESPLAZADA", StringComparison.OrdinalIgnoreCase))
+                    try
                     {
-                        esSesionDesplazada = true;
+                        var authService = _serviceProvider?.GetService<IAuthService>();
+                        if (authService is not null)
+                        {
+                            await authService.ManejarSesionDesplazadaAsync();
+                        }
                     }
-                }
-                catch
-                {
-                    // Ignorar error de lectura del cuerpo
-                }
-
-                // Solo disparar el cierre de sesión activo si el servidor notificó SESION_DESPLAZADA
-                // y el token rechazado coincide con la sesión activa actual en memoria
-                if (esSesionDesplazada &&
-                    !string.IsNullOrWhiteSpace(CurrentTokenInMemory) &&
-                    string.Equals(tokenEnviado, CurrentTokenInMemory, StringComparison.Ordinal))
-                {
-                    CurrentTokenInMemory = null;
-                    _ = Task.Run(async () =>
+                    catch
                     {
-                        try
-                        {
-                            var authService = _serviceProvider?.GetService<IAuthService>();
-                            if (authService is not null)
-                            {
-                                await authService.ManejarSesionDesplazadaAsync();
-                            }
-                        }
-                        catch
-                        {
-                        }
-                    });
-                }
+                    }
+                });
             }
         }
 

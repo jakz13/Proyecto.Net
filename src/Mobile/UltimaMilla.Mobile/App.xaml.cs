@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using UltimaMilla.Mobile.Responsive;
+using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Theme;
 
 namespace UltimaMilla.Mobile;
@@ -9,6 +10,7 @@ public partial class App : Application
     private readonly IServiceProvider _serviceProvider;
     private readonly IOperadorThemeService? _themeService;
     private AppShell? _appShell;
+    private DateTimeOffset _ultimaValidacionResumeUtc = DateTimeOffset.MinValue;
 
     public App(IServiceProvider serviceProvider, IOperadorThemeService? themeService = null)
     {
@@ -30,6 +32,7 @@ public partial class App : Application
 
             AplicarTokensSegunDisplay();
             window.SizeChanged += (_, _) => TokensResponsive.Aplicar(this, window.Width);
+            window.Resumed += (_, _) => _ = ValidarSesionAlReanudarAsync();
             window.Created += async (_, _) =>
             {
                 try
@@ -51,6 +54,37 @@ public partial class App : Application
         {
             System.Diagnostics.Debug.WriteLine($"[App] Error crítico en CreateWindow: {ex}");
             return CrearVentanaErrorRecuperacion(ex);
+        }
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+        _ = ValidarSesionAlReanudarAsync();
+    }
+
+    private async Task ValidarSesionAlReanudarAsync()
+    {
+        var ahora = DateTimeOffset.UtcNow;
+        if ((ahora - _ultimaValidacionResumeUtc) < TimeSpan.FromSeconds(2))
+            return;
+
+        _ultimaValidacionResumeUtc = ahora;
+
+        try
+        {
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                return;
+
+            var authService = _serviceProvider.GetService<IAuthService>();
+            if (authService is not null)
+            {
+                await authService.ValidarSesionVigenteEnServidorAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[App] Error no bloqueante al validar sesión en OnResume: {ex.Message}");
         }
     }
 

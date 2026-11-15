@@ -225,6 +225,15 @@
                             CornerRadius="8"
                             HeightRequest="44" />
 
+                        <Label
+                            Text="{Binding CorreoBiometriaGuardado, StringFormat='Huella vinculada a: {0}'}"
+                            IsVisible="{Binding MostrarCorreoBiometriaGuardado}"
+                            FontSize="11"
+                            TextColor="{DynamicResource TextSecondaryColor}"
+                            HorizontalTextAlignment="Center"
+                            LineBreakMode="TailTruncation"
+                            Margin="4,0,4,0" />
+
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>

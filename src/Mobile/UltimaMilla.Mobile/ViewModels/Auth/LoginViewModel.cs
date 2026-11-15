@@ -32,7 +32,15 @@ public partial class LoginViewModel : ObservableObject
     public bool IsNotBusy => !IsBusy;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarCorreoBiometriaGuardado))]
     private bool _puedeUsarBiometria;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarCorreoBiometriaGuardado))]
+    private string? _correoBiometriaGuardado;
+
+    public bool MostrarCorreoBiometriaGuardado =>
+        PuedeUsarBiometria && !string.IsNullOrWhiteSpace(CorreoBiometriaGuardado);
 
     [ObservableProperty]
     private string _usuario = string.Empty;
@@ -176,10 +184,10 @@ public partial class LoginViewModel : ObservableObject
             ActualizarIdentidadVisual(_themeService.IdentidadActual);
         }
 
+        var tieneSesionBio = _authService is not null && await _authService.TieneSesionBiometricaGuardadaAsync();
         if (_biometricAuthService is not null)
         {
             var soporta = await _biometricAuthService.DispositivoSoportaBiometriaAsync();
-            var tieneSesionBio = _authService is not null && await _authService.TieneSesionBiometricaGuardadaAsync();
             PuedeUsarBiometria = soporta || tieneSesionBio;
         }
         else
@@ -187,13 +195,18 @@ public partial class LoginViewModel : ObservableObject
             PuedeUsarBiometria = false;
         }
 
-        if (_authService is not null && string.IsNullOrWhiteSpace(Usuario))
+        if (_authService is not null && tieneSesionBio)
         {
             var emailGuardado = await _authService.ObtenerEmailBiometricoGuardadoAsync();
-            if (!string.IsNullOrWhiteSpace(emailGuardado))
+            CorreoBiometriaGuardado = string.IsNullOrWhiteSpace(emailGuardado) ? null : emailGuardado.Trim();
+            if (string.IsNullOrWhiteSpace(Usuario) && !string.IsNullOrWhiteSpace(CorreoBiometriaGuardado))
             {
-                Usuario = emailGuardado;
+                Usuario = CorreoBiometriaGuardado;
             }
+        }
+        else
+        {
+            CorreoBiometriaGuardado = null;
         }
 
         _ = VerificarActualizacionSilenciosaAsync();
@@ -336,6 +349,7 @@ public partial class LoginViewModel : ObservableObject
             }
 
             PuedeUsarBiometria = true;
+            CorreoBiometriaGuardado = Usuario.Trim();
             StatusMessage = "Descargando hoja de ruta asignada...";
 
             if (_syncService is not null)
@@ -418,7 +432,21 @@ public partial class LoginViewModel : ObservableObject
         var tieneSesionBiometrica = await _authService.TieneSesionBiometricaGuardadaAsync();
         if (!tieneSesionBiometrica)
         {
+            CorreoBiometriaGuardado = null;
             ErrorMessage = "No hay una sesión guardada en este dispositivo. Ingresa primero con tu correo electrónico y contraseña para vincular tu huella.";
+            return;
+        }
+
+        // 1b. Validar estrictamente que el correo ingresado coincida con el vínculo biométrico guardado
+        var correoGuardado = await _authService.ObtenerEmailBiometricoGuardadoAsync();
+        CorreoBiometriaGuardado = string.IsNullOrWhiteSpace(correoGuardado) ? null : correoGuardado.Trim();
+        var correoIngresado = Usuario?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(correoIngresado)
+            && !string.IsNullOrWhiteSpace(correoGuardado)
+            && !string.Equals(correoIngresado, correoGuardado.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            ErrorMessage = $"La biometría de este dispositivo está vinculada a {correoGuardado.Trim()}. Ingresa con tu contraseña para iniciar sesión con esta cuenta.";
             return;
         }
 
@@ -449,6 +477,10 @@ public partial class LoginViewModel : ObservableObject
             {
                 StatusMessage = null;
                 ErrorMessage = resultado.Mensaje;
+                if (!await _authService.TieneSesionBiometricaGuardadaAsync())
+                {
+                    CorreoBiometriaGuardado = null;
+                }
                 return;
             }
 

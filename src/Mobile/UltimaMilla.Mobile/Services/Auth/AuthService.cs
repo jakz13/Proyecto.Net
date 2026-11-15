@@ -45,6 +45,7 @@ public interface IAuthService
     Task RevocarVinculoBiometricoAsync();
     Task CerrarSesionAsync();
     Task ManejarSesionDesplazadaAsync(string? motivo = null);
+    Task<bool> ValidarSesionVigenteEnServidorAsync(CancellationToken cancellationToken = default);
     Task ActualizarRepartidorIdAsync(Guid repartidorId);
 }
 
@@ -434,23 +435,17 @@ public class AuthService : IAuthService
             }
             else
             {
-                // Validar el JWT guardado contra el endpoint de operador si hay red disponible
-                var validacionServidor = await ValidarTokenGuardadoContraServidorAsync(tokenGuardado, cancellationToken);
+                // Validar el JWT guardado contra el servidor si hay red disponible
+                var validacionServidor = await ValidarTokenGuardadoContraServidorAsync(
+                    tokenGuardado,
+                    omitirManejoDesplazamientoEnHandler: true,
+                    cancellationToken);
                 if (validacionServidor == EstadoValidacionTokenRemoto.NoAutorizado)
                 {
-                    if (!string.IsNullOrWhiteSpace(emailGuardado) && !string.IsNullOrWhiteSpace(credencialGuardada))
-                    {
-                        var renovacion = await IntentarRenovarTokenConServidorAsync(emailGuardado, credencialGuardada, cancellationToken);
-                        if (renovacion.Resultado is { Exitoso: true })
-                        {
-                            return renovacion.Resultado;
-                        }
-                    }
-
-                    await RevocarVinculoBiometricoAsync();
+                    await DeshabilitarBiometriaPorDesplazamientoAsync();
                     return new ResultadoLogin(
                         false,
-                        "La sesión biométrica fue revocada por el servidor (401). Ingresa con tu correo electrónico y contraseña para vincular nuevamente tu huella.");
+                        "Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo. Ingresa con tu correo electrónico y contraseña para vincular nuevamente tu huella.");
                 }
             }
         }
@@ -541,7 +536,10 @@ public class AuthService : IAuthService
         IndeterminadoOffline
     }
 
-    private async Task<EstadoValidacionTokenRemoto> ValidarTokenGuardadoContraServidorAsync(string token, CancellationToken cancellationToken)
+    private async Task<EstadoValidacionTokenRemoto> ValidarTokenGuardadoContraServidorAsync(
+        string token,
+        bool omitirManejoDesplazamientoEnHandler,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -551,10 +549,27 @@ public class AuthService : IAuthService
             var client = _httpClientFactory.CreateClient("BackendApi");
             client.BaseAddress = new Uri(ApiEndpoints.BaseUrl);
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/mobile/v1/operador/identidad-visual");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await EnviarPingValidacionAsync(
+                client,
+                "/api/mobile/v1/ping",
+                token,
+                omitirManejoDesplazamientoEnHandler,
+                cts.Token);
 
-            using var response = await client.SendAsync(request, cts.Token);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                using var fallbackResponse = await EnviarPingValidacionAsync(
+                    client,
+                    "/api/mobile/v1/operador/identidad-visual",
+                    token,
+                    omitirManejoDesplazamientoEnHandler,
+                    cts.Token);
+
+                return fallbackResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    ? EstadoValidacionTokenRemoto.NoAutorizado
+                    : EstadoValidacionTokenRemoto.Valido;
+            }
+
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 return EstadoValidacionTokenRemoto.NoAutorizado;
@@ -566,6 +581,23 @@ public class AuthService : IAuthService
         {
             return EstadoValidacionTokenRemoto.IndeterminadoOffline;
         }
+    }
+
+    private static Task<HttpResponseMessage> EnviarPingValidacionAsync(
+        HttpClient client,
+        string ruta,
+        string token,
+        bool omitirManejoDesplazamientoEnHandler,
+        CancellationToken cancellationToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, ruta);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (omitirManejoDesplazamientoEnHandler)
+        {
+            request.Options.Set(AuthDelegatingHandler.OpcionValidacionBiometrica, true);
+        }
+
+        return client.SendAsync(request, cancellationToken);
     }
 
     private async Task<(ResultadoLogin? Resultado, bool NoAutorizadoPorServidor)> IntentarRenovarTokenConServidorAsync(
@@ -611,6 +643,18 @@ public class AuthService : IAuthService
     public Task RevocarVinculoBiometricoAsync()
     {
         EliminarDeSecureStorage(BiometriaHabilitadaKey);
+        LimpiarClavesBiometricasEnSecureStorage();
+        return Task.CompletedTask;
+    }
+
+    private async Task DeshabilitarBiometriaPorDesplazamientoAsync()
+    {
+        await GuardarEnSecureStorageAsync(BiometriaHabilitadaKey, "false");
+        LimpiarClavesBiometricasEnSecureStorage();
+    }
+
+    private static void LimpiarClavesBiometricasEnSecureStorage()
+    {
         EliminarDeSecureStorage(BiometriaUsuarioEmailKey);
         EliminarDeSecureStorage(BiometriaTokenSesionKey);
         EliminarDeSecureStorage(BiometriaRefreshTokenKey);
@@ -622,7 +666,28 @@ public class AuthService : IAuthService
         EliminarDeSecureStorage(BiometriaExpiraUtcKey);
         EliminarDeSecureStorage(BiometriaPasswordHashKey);
         EliminarDeSecureStorage(BiometriaCredencialKey);
-        return Task.CompletedTask;
+    }
+
+    public async Task<bool> ValidarSesionVigenteEnServidorAsync(CancellationToken cancellationToken = default)
+    {
+        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            return true;
+
+        if (!await EstaAutenticadoAsync() || string.IsNullOrWhiteSpace(AccessToken))
+            return false;
+
+        var estado = await ValidarTokenGuardadoContraServidorAsync(
+            AccessToken,
+            omitirManejoDesplazamientoEnHandler: false,
+            cancellationToken);
+
+        if (estado == EstadoValidacionTokenRemoto.NoAutorizado)
+        {
+            await ManejarSesionDesplazadaAsync();
+            return false;
+        }
+
+        return true;
     }
 
     public async Task<bool> EstaAutenticadoAsync()
@@ -772,8 +837,10 @@ public class AuthService : IAuthService
             // 1. Detener inmediatamente el servicio de geolocalización en segundo plano y cerrar SignalR
             await DetenerServiciosActivosDeRutaAsync();
 
-            // 2. Limpiar únicamente el token activo en memoria/sesión sin borrar la cola local de operaciones pendientes en SQLCipher
+            // 2. Limpiar el token activo en memoria/sesión e invalidar el vínculo biométrico
+            // desplazado (biometria_habilitada = "false" y tokens/credenciales eliminados), sin borrar SQLCipher
             await LimpiarCredencialesAsync();
+            await DeshabilitarBiometriaPorDesplazamientoAsync();
 
             // 3. Navegar limpiamente en el hilo principal hacia LoginPage y mostrar alerta corporativa
             MainThread.BeginInvokeOnMainThread(async () =>

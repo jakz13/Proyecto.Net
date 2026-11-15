@@ -361,6 +361,8 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         if (_isDisposed)
             return;
 
+        bool sesionNoAutorizada = false;
+
         await _connectionLock.WaitAsync(cancellationToken);
         try
         {
@@ -386,6 +388,12 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             _logger.LogInformation("SignalR: Conexión establecida con éxito.");
             ConnectionStateChanged?.Invoke(this, true);
         }
+        catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            sesionNoAutorizada = true;
+            _logger.LogWarning(httpEx, "SignalR: Negociación rechazada con HTTP 401 por sesión desplazada o revocada.");
+            ConnectionStateChanged?.Invoke(this, false);
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalR: No se pudo conectar al Hub (la aplicación operará en modo offline/degradado).");
@@ -394,6 +402,15 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         finally
         {
             _connectionLock.Release();
+        }
+
+        if (sesionNoAutorizada)
+        {
+            var auth = _serviceProvider?.GetService<IAuthService>();
+            if (auth is not null)
+            {
+                await auth.ManejarSesionDesplazadaAsync();
+            }
         }
     }
 
