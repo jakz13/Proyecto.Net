@@ -111,6 +111,9 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Sesión desplazada por un inicio de sesión de la misma cuenta en otro lugar: cierra la sesión local y vuelve al login en vez de un 500
+app.UseMiddleware<UltimaMilla.Backoffice.SesionDesplazadaMiddleware>();
+
 app.MapRazorPages();
 
 app.Run();

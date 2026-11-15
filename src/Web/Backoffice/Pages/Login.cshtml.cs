@@ -57,9 +57,13 @@ public class LoginModel : PageModel
     public static bool ModoDemoActivo(IConfiguration configuracion, IHostEnvironment entorno) =>
         configuracion.GetValue<bool?>("Auth:PermitirModoDemo") ?? entorno.IsDevelopment();
 
-    public void OnGet(string? returnUrl = null)
+    public void OnGet(string? returnUrl = null, string? motivo = null)
     {
         ReturnUrl = returnUrl;
+
+        // Llegó aquí porque otra sesión con la misma cuenta desplazó a esta (SesionDesplazadaMiddleware)
+        if (string.Equals(motivo, SesionDesplazadaMiddleware.MotivoEnLaUrl, StringComparison.Ordinal))
+            Error = SesionDesplazadaMiddleware.MensajeParaLaPersona;
     }
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
