@@ -37,42 +37,67 @@ public record ResultadoGeneracionEtiquetasDto(
 /// </summary>
 public static class GeneradorDocumentoEtiquetas
 {
+    // Code 128 (conjunto B): cada símbolo son 6 anchos alternados barra/espacio que suman 11 módulos; el de parada tiene 7 anchos (13 módulos).
+    // Índice = valor del símbolo (0 a 105) y, al final, la parada.
+    private static readonly string[] PatronesCode128 =
+    {
+        "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+        "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+        "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+        "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+        "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+        "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+        "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+        "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+        "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+        "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+        "114131","311141","411131","211412","211214","211232","2331112"
+    };
+
+    private const int InicioCode128B = 104;
+    private const int ParadaCode128 = 106;
+    private const int ZonaSilencioModulos = 10;
+
     /// <summary>
-    /// Calcula las posiciones y anchos de barras determinísticas a partir del identificador del bulto.
+    /// Calcula las barras de un código de barras Code 128 (conjunto B) real, legible por cualquier lector (incluido ZXing de la app móvil).
+    /// Las unidades son módulos: un módulo es el ancho de la barra más fina. Incluye la zona de silencio de 10 módulos a cada lado.
+    /// Los caracteres fuera de ASCII imprimible se sustituyen por '-' (los identificadores de bulto son ASCII en mayúsculas).
     /// </summary>
     public static IReadOnlyList<(int PosicionX, int Ancho)> CalcularPatronBarras(string codigo)
     {
         var texto = string.IsNullOrWhiteSpace(codigo) ? "TRK-0000" : codigo.Trim().ToUpperInvariant();
-        var barras = new List<(int PosicionX, int Ancho)>();
-        var cursorX = 8;
-
-        // Guarda de inicio
-        barras.Add((cursorX, 3));
-        cursorX += 5;
-        barras.Add((cursorX, 1));
-        cursorX += 4;
-
+        var simbolos = new List<int> { InicioCode128B };
         foreach (var caracter in texto)
+            simbolos.Add(caracter is >= ' ' and <= '~' ? caracter - ' ' : '-' - ' ');
+
+        var suma = simbolos[0];
+        for (var i = 1; i < simbolos.Count; i++)
+            suma += simbolos[i] * i;
+        simbolos.Add(suma % 103);
+        simbolos.Add(ParadaCode128);
+
+        var barras = new List<(int PosicionX, int Ancho)>();
+        var cursorX = ZonaSilencioModulos;
+        foreach (var simbolo in simbolos)
         {
-            var valor = (int)caracter;
-            var ancho1 = (valor % 3) + 1;
-            var espacio1 = ((valor / 3) % 2) + 2;
-            var ancho2 = ((valor / 7) % 3) + 1;
-            var espacio2 = ((valor / 11) % 2) + 2;
-
-            barras.Add((cursorX, ancho1));
-            cursorX += ancho1 + espacio1;
-
-            barras.Add((cursorX, ancho2));
-            cursorX += ancho2 + espacio2;
+            var patron = PatronesCode128[simbolo];
+            for (var i = 0; i < patron.Length; i++)
+            {
+                var ancho = patron[i] - '0';
+                if (i % 2 == 0)
+                    barras.Add((cursorX, ancho));
+                cursorX += ancho;
+            }
         }
 
-        // Guarda de cierre
-        barras.Add((cursorX, 2));
-        cursorX += 4;
-        barras.Add((cursorX, 3));
-
         return barras;
+    }
+
+    /// <summary>Ancho total en módulos del código (con la zona de silencio final), para el <c>viewBox</c> del SVG.</summary>
+    public static int AnchoTotal(IReadOnlyList<(int PosicionX, int Ancho)> barras)
+    {
+        ArgumentNullException.ThrowIfNull(barras);
+        return barras.Count == 0 ? 2 * ZonaSilencioModulos : barras[^1].PosicionX + barras[^1].Ancho + ZonaSilencioModulos;
     }
 
     /// <summary>
@@ -126,7 +151,7 @@ public static class GeneradorDocumentoEtiquetas
             var esExpress = string.Equals(et.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase);
             var claseModalidad = esExpress ? "modalidad-texto modalidad-express" : "modalidad-texto modalidad-estandar";
             var barras = CalcularPatronBarras(et.IdentificacionBulto);
-            var anchoSvg = barras.Count > 0 ? barras[^1].PosicionX + barras[^1].Ancho + 8 : 260;
+            var anchoSvg = AnchoTotal(barras);
 
             sb.AppendLine("    <div class=\"etiqueta-fisica\">");
             sb.AppendLine("      <div>");

@@ -653,33 +653,32 @@ public partial class CargaVehiculoViewModel : ObservableObject
         if (exacto != null)
             return exacto;
 
-        // 2. Coincidencia exacta por CodigoSeguimiento del envío asociado
-        var porSeguimiento = lista.FirstOrDefault(b =>
+        // 2. Coincidencia exacta por CodigoSeguimiento del envío asociado. Todos los bultos de un envío comparten ese código: solo vale si
+        //    identifica a un único bulto; con varios es ambiguo y elegir "el primero" mostraba un bulto distinto al escaneado.
+        var porSeguimiento = lista.Where(b =>
             !string.IsNullOrWhiteSpace(b.CodigoSeguimiento) &&
-            string.Equals(NormalizarCodigoEscaneado(b.CodigoSeguimiento), codigoLimpio, StringComparison.OrdinalIgnoreCase));
-        if (porSeguimiento != null)
-            return porSeguimiento;
+            string.Equals(NormalizarCodigoEscaneado(b.CodigoSeguimiento), codigoLimpio, StringComparison.OrdinalIgnoreCase)).Take(2).ToList();
+        if (porSeguimiento.Count == 1)
+            return porSeguimiento[0];
+        if (porSeguimiento.Count > 1)
+            return null;
 
-        // 3. Coincidencia compuesta o sufijo (ej. TRK-XXXX-BLT-001 vs BLT-001)
+        // 3. Coincidencia compuesta o por sufijo con límite de guion (ej. TRK-XXXX-BLT-001 vs BLT-001), también solo si es única
         if (codigoLimpio.Length >= 4)
         {
-            var parcial = lista.FirstOrDefault(b =>
+            var parciales = lista.Where(b =>
             {
                 var codBulto = NormalizarCodigoEscaneado(b.CodigoBulto);
                 var codSeg = NormalizarCodigoEscaneado(b.CodigoSeguimiento);
-                if (!string.IsNullOrEmpty(codBulto))
-                {
-                    if (string.Equals($"{codSeg}-{codBulto}", codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
-                        codBulto.EndsWith(codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
-                        codigoLimpio.EndsWith(codBulto, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            });
-            if (parcial != null)
-                return parcial;
+                if (string.IsNullOrEmpty(codBulto))
+                    return false;
+
+                return string.Equals($"{codSeg}-{codBulto}", codigoLimpio, StringComparison.OrdinalIgnoreCase) ||
+                       codigoLimpio.EndsWith("-" + codBulto, StringComparison.OrdinalIgnoreCase) ||
+                       codBulto.EndsWith("-" + codigoLimpio, StringComparison.OrdinalIgnoreCase);
+            }).Take(2).ToList();
+            if (parciales.Count == 1)
+                return parciales[0];
         }
 
         return null;
