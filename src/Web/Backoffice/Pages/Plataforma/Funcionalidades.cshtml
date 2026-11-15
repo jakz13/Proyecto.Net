@@ -12,10 +12,6 @@
     </div>
 </div>
 
-@if (!string.IsNullOrEmpty(Model.MensajeExito))
-{
-    <div class="alert alert-success small py-2" role="status">@Model.MensajeExito</div>
-}
 @if (!string.IsNullOrEmpty(Model.MensajeError))
 {
     <div class="alert alert-danger small py-2" role="alert">@Model.MensajeError</div>

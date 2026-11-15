@@ -42,9 +42,6 @@ public class FuncionalidadesModel : PageModel
     public string? Estado { get; set; }
 
     [TempData]
-    public string? MensajeExito { get; set; }
-
-    [TempData]
     public string? MensajeError { get; set; }
 
     public async Task OnGetAsync() => await CargarAsync();
@@ -54,7 +51,6 @@ public class FuncionalidadesModel : PageModel
         try
         {
             await _api.CambiarAsync(operadorId, clave, habilitada);
-            MensajeExito = habilitada ? "Funcionalidad habilitada. El cambio rige de inmediato." : "Funcionalidad deshabilitada. El cambio rige de inmediato.";
         }
         catch (ApiExcepcion ex)
         {
