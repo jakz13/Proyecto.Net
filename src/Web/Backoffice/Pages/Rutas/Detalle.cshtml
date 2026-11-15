@@ -696,6 +696,7 @@ else
 }
 
 @section Scripts {
+    <script src="~/js/code128.js" asp-append-version="true"></script>
     @* Los datos van en un bloque propio: el tiempo real los vuelve a evaluar sin recargar la página *@
     <script data-tiempo-real-datos>
         var datosHojaDeRuta = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ruta));
@@ -864,24 +865,7 @@ else
         }
 
         function calcularSvgBarrasRuta(codigo) {
-            var texto = (codigo || 'SIN-CODIGO').trim().toUpperCase();
-            var rects = '<rect x="6" y="4" width="2" height="46" fill="#0f172a"/><rect x="10" y="4" width="1" height="46" fill="#0f172a"/><rect x="13" y="4" width="3" height="46" fill="#0f172a"/>';
-            var x = 18;
-            for (var i = 0; i < texto.length && x < 240; i++) {
-                var valor = texto.charCodeAt(i);
-                var a1 = (valor % 3) + 1;
-                var e1 = ((valor >> 2) % 2) + 1;
-                var a2 = ((valor >> 3) % 3) + 1;
-                var e2 = ((valor >> 5) % 2) + 1;
-                rects += '<rect x="' + x + '" y="4" width="' + a1 + '" height="46" fill="#0f172a"/>';
-                x += a1 + e1;
-                if (x < 244) {
-                    rects += '<rect x="' + x + '" y="4" width="' + a2 + '" height="46" fill="#0f172a"/>';
-                    x += a2 + e2;
-                }
-            }
-            rects += '<rect x="246" y="4" width="2" height="46" fill="#0f172a"/><rect x="250" y="4" width="3" height="46" fill="#0f172a"/>';
-            return '<svg viewBox="0 0 260 54" width="100%" height="54" role="img" aria-label="Código de barras ' + escaparHtmlRuta(texto) + '" class="border rounded bg-white p-1">' + rects + '</svg>';
+            return Code128.svg(codigo, 54);
         }
 
         function abrirModalEtiquetasRuta(idRuta, idEnvio, tituloSub) {
