@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using UltimaMilla.Infrastructure.Persistence;
 
 namespace UltimaMilla.Integration.Tests;
 
@@ -92,5 +95,48 @@ public class RutaDeOtroRepartidorApiTests
         Assert.Equal(HttpStatusCode.OK, (await duenio.Sesion.PostAsJsonAsync($"{baseRuta}/carga/confirmar",
             new { codigosBultosCargados = new[] { bulto }, idempotencyKey = Guid.NewGuid().ToString() })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await duenio.Sesion.GetAsync($"{baseRuta}/paradas")).StatusCode);
+    }
+
+    [FactPostgres]
+    public async Task LaRutaDelRepartidorTraeElDepositoDelOperador_ParaQueLaAppParta_DeAhi()
+    {
+        var admin = await ClienteComoAsync("admin@gmail.com", "Admin.2026!");
+        var comercio = await ClienteComoAsync("comercio@gmail.com", "Comercio.2026!");
+        var deposito = await ClienteComoAsync("deposito@gmail.com", "Deposito.2026!");
+        var despachador = await UsuariosDePrueba.DespachadorAsync(_factory);
+        var dotacion = await NuevaDotacionAsync(admin);
+
+        // El administrador cargó el depósito (directo en la base: ubicarlo en el mapa depende de un servicio externo)
+        using (var alcance = _factory.Services.CreateScope())
+        {
+            var db = alcance.ServiceProvider.GetRequiredService<UltimaMilla.Infrastructure.Persistence.AppDbContext>();
+            using var _ = db.HabilitarEscrituraAdministrativa();
+            var identidad = await db.IdentidadesVisuales.IgnoreQueryFilters().FirstAsync(i => i.OperadorId == DatabaseSeeder.DefaultOperadorId);
+            identidad.ActualizarDeposito("Av. Italia 3456, Montevideo", -34.8941, -56.1389);
+            await db.SaveChangesAsync();
+        }
+
+        var alta = await comercio.PostAsJsonAsync("/api/envios", new
+        {
+            modalidadServicio = "Estandar", nombreDestinatario = "Cliente " + Sufijo(), calle = "Av. Rivera", numero = "2500", ciudad = "Montevideo",
+            bultos = new[] { new { peso = 2, alto = 10, ancho = 10, profundo = 10 } }
+        });
+        var envio = await alta.Content.ReadFromJsonAsync<JsonElement>();
+        var envioId = envio.GetProperty("id").GetGuid();
+        var bulto = envio.GetProperty("bultos")[0].GetString()!;
+        await deposito.PostAsJsonAsync($"/api/deposito/envios/{envioId}/recepcion", new { codigosBultosEscaneados = new[] { bulto } });
+        await deposito.PostAsJsonAsync($"/api/deposito/envios/{envioId}/clasificacion", new { bultos = new[] { new { codigoBulto = bulto, prioridad = "Normal" } } });
+        var armada = await despachador.PostAsJsonAsync("/api/planificacion/hojas-de-ruta", new
+        {
+            repartidorId = dotacion.RepartidorId, vehiculoId = dotacion.VehiculoId, fecha = DateOnly.FromDateTime(DateTime.UtcNow),
+            enviosIds = new[] { envioId }, retirosIds = Array.Empty<Guid>()
+        });
+        Assert.Equal(HttpStatusCode.Created, armada.StatusCode);
+
+        var activas = await dotacion.Sesion.GetFromJsonAsync<JsonElement>("/api/mobile/v1/rutas/activas");
+        var ruta = activas.EnumerateArray().First();
+        Assert.Equal("Av. Italia 3456, Montevideo", ruta.GetProperty("depositoDireccion").GetString());
+        Assert.Equal(-34.8941, ruta.GetProperty("depositoLatitud").GetDouble(), 4);
+        Assert.Equal(-56.1389, ruta.GetProperty("depositoLongitud").GetDouble(), 4);
     }
 }
