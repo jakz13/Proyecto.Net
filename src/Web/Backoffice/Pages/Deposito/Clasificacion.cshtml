@@ -287,8 +287,8 @@
                                     <tr>
                                         <th class="ps-3" style="width: 22%;">Bulto</th>
                                         <th style="width: 30%;">Zona de Cobertura *</th>
-                                        <th style="width: 24%;">Prioridad</th>
-                                        <th style="width: 24%;">Tipo Operativo</th>
+                                        <th style="width: 24%;">Prioridad <span class="text-muted fw-normal text-lowercase">(opcional, por defecto Normal)</span></th>
+                                        <th style="width: 24%;">Tipo Operativo <span class="text-muted fw-normal text-lowercase">(opcional, por defecto Estándar)</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -334,6 +334,7 @@
                                                 <select asp-for="Formulario.Bultos[i].ZonaCoberturaId"
                                                         class="form-select form-select-sm sel-zona @(Model.ErroresValidacion.Count > 0 && sinZona ? "is-invalid" : "")"
                                                         id="sel_zona_@i"
+                                                        required
                                                         onchange="alCambiarZona(@i)">
                                                     <option value="">-- Sin zona asignada --</option>
                                                     @foreach (var z in Model.ZonasDisponibles)
