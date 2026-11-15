@@ -4,6 +4,7 @@ using UltimaMilla.Application.Queries.Seguimiento.ListarFranjasDisponibles;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
+using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Entities.Seguimiento;
 using UltimaMilla.Domain.Enums;
 
@@ -99,22 +100,83 @@ public class ReprogramacionDestinatarioHandlerTests
         Assert.Contains("ya tiene asignada", resultado.Motivo);
     }
 
-    [Theory]
-    [InlineData(EstadoEnvio.AsignadoARuta)]
-    [InlineData(EstadoEnvio.EnTransito)]
-    public async Task Solicitar_EnvioEnPreparacionParaReparto_SeRechazaSinTocarlo(EstadoEnvio estado)
+    private readonly FakeRutaRepository _rutas = new();
+
+    private SolicitarReprogramacionCommandHandler SolicitarConRutas() =>
+        new(_envios, _direcciones, _franjas, _solicitudes, _outbox, _clock, _uow, rutaRepository: _rutas);
+
+    /// <summary>Envío con su parada en una hoja de ruta, liberada o ya despachada (en la calle).</summary>
+    private (Envio Envio, HojaDeRuta Ruta) EnvioEnRuta(bool enLaCalle)
     {
         var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-RUTA0001", _envio.DireccionEntregaId, _manana.Id, operadorId: _operadorId);
-        envio.TransicionarEstado(EstadoEnvio.EnDeposito, "RecepcionEnDeposito");
-        envio.TransicionarEstado(EstadoEnvio.AsignadoARuta, "AsignacionARuta");
-        if (estado == EstadoEnvio.EnTransito)
-            envio.TransicionarEstado(EstadoEnvio.EnTransito, "Despacho");
+        envio.AgregarBulto("TRK-RUTA0001-B1", 2m, 10m, 10m, 10m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-RUTA0001-B1" }, null, null, Guid.NewGuid());
         _envios.Envios.Add(envio);
 
-        var resultado = await Solicitar().Handle(new SolicitarReprogramacionCommand("TRK-RUTA0001", _tarde.Id), default);
+        var ruta = new HojaDeRuta(Guid.NewGuid(), _operadorId, DateOnly.FromDateTime(DateTime.UtcNow));
+        ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
+        ruta.AgregarParada(envio.Id, 1, envio.DireccionEntregaId!.Value);
+        ruta.RegistrarAsignacion(envio.Id, Guid.NewGuid());
+        envio.AsignarRuta(ruta.Id);
+        ruta.Liberar();
+        if (enLaCalle)
+        {
+            ruta.RegistrarCargaEscaneada(envio.Bultos.Select(x => x.Id));
+            ruta.Despachar();
+            envio.DespacharEnRuta(ruta.Id, Guid.NewGuid());
+        }
 
-        Assert.False(resultado.Aceptada);
-        Assert.Equal(_manana.Id, envio.FranjaHorariaComprometidaId);
+        _rutas.Rutas.Add(ruta);
+        return (envio, ruta);
+    }
+
+    [Fact]
+    public async Task Solicitar_EnvioAsignadoARutaSinSalir_SeAceptaVuelveADepositoYSaleDeLaRuta()
+    {
+        var (envio, ruta) = EnvioEnRuta(enLaCalle: false);
+
+        var resultado = await SolicitarConRutas().Handle(new SolicitarReprogramacionCommand("TRK-RUTA0001", _tarde.Id), default);
+
+        Assert.True(resultado.Aceptada);
+        Assert.Equal(EstadoEnvio.EnDeposito, envio.EstadoActual);
+        Assert.Null(envio.HojaDeRutaId);
+        Assert.Equal(_tarde.Id, envio.FranjaHorariaComprometidaId);
+        Assert.Equal("Cancelada", ruta.Paradas.Single().Estado);
+        Assert.Contains(_outbox.Mensajes, m => m.TipoEvento == "EnvioRetiradoDeRutaIntegrationEvent");
+    }
+
+    [Fact]
+    public async Task Solicitar_EnvioEnLaCalle_QuedaReprogramadoLaParadaSeCancelaYElDestinatarioNoVeElPasoIntermedio()
+    {
+        var (envio, ruta) = EnvioEnRuta(enLaCalle: true);
+        Assert.Equal(EstadoEnvio.EnTransito, envio.EstadoActual);
+
+        var resultado = await SolicitarConRutas().Handle(new SolicitarReprogramacionCommand("TRK-RUTA0001", _tarde.Id), default);
+
+        Assert.True(resultado.Aceptada);
+        Assert.Equal(EstadoEnvio.Reprogramado, envio.EstadoActual);
+        Assert.Equal(_tarde.Id, envio.FranjaHorariaComprometidaId);
+        Assert.Equal("Cancelada", ruta.Paradas.Single().Estado);
+        Assert.Contains(_outbox.Mensajes, m => m.TipoEvento == "EnvioRetiradoDeRutaIntegrationEvent");
+
+        // El hito "no entregado" es solo técnico: la línea de tiempo pública cuenta una sola reprogramación
+        var publico = await new UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico.ConsultarSeguimientoPublicoQueryHandler(_envios, _franjas)
+            .Handle(new UltimaMilla.Application.Queries.Seguimiento.ConsultarSeguimientoPublico.ConsultarSeguimientoPublicoQuery("TRK-RUTA0001"), default);
+        Assert.Contains(publico!.HistorialEventos, h => h.DescripcionPublica == "Entrega reprogramada a pedido del destinatario");
+        Assert.DoesNotContain(publico.HistorialEventos, h => h.Estado == EstadoEnvio.NoEntregado);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ListarFranjas_EnvioEnRutaOEnLaCalle_OfreceLasFranjasAlternativas(bool enLaCalle)
+    {
+        EnvioEnRuta(enLaCalle);
+
+        var franjas = await Listar().Handle(new ListarFranjasDisponiblesQuery("TRK-RUTA0001"), default);
+
+        Assert.True(franjas!.PuedeReprogramar);
+        Assert.Contains(franjas.Franjas, f => f.Id == _tarde.Id);
     }
 
     [Fact]

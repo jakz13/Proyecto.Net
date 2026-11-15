@@ -35,7 +35,7 @@ public class ListarFranjasDisponiblesQueryHandler : IRequestHandler<ListarFranja
         if (envio is null)
             return null;
 
-        var pendiente = envio.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.Reprogramado;
+        var pendiente = envio.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito or EstadoEnvio.Reprogramado;
         if (!pendiente || !envio.DireccionEntregaId.HasValue)
             return new FranjasDisponiblesDto(false, Array.Empty<FranjaDisponibleDto>());
 

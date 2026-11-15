@@ -245,6 +245,8 @@ public class AppDbContext : DbContext
             builder.Property(o => o.RazonSocial).IsRequired().HasMaxLength(200);
             builder.Property(o => o.NombreComercial).IsRequired().HasMaxLength(200);
             builder.Property(o => o.Estado).IsRequired().HasMaxLength(50);
+            // La unicidad del nombre (sin distinguir mayúsculas ni espacios de los bordes) la garantiza el índice IX_Operadores_NombreComercial_Unico,
+            // creado por SQL en la migración NombreComercialDeOperadorUnico porque EF no expresa índices sobre expresiones
         });
 
         modelBuilder.Entity<Comercio>(builder =>

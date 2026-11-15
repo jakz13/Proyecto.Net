@@ -17,6 +17,27 @@
 
     var ESPERA_AGRUPAR_MS = 800;
     var URL_TOKEN = '/tiempo-real/token';
+    var CLAVE_AVISO_FUNCIONALIDAD = 'um_aviso_funcionalidad';
+
+    // Aviso pendiente de una funcionalidad habilitada o deshabilitada por la plataforma (se guardó antes de recargar la página)
+    function mostrarAvisoDeFuncionalidadPendiente() {
+        var aviso = null;
+        try {
+            aviso = JSON.parse(window.sessionStorage.getItem(CLAVE_AVISO_FUNCIONALIDAD) || 'null');
+            window.sessionStorage.removeItem(CLAVE_AVISO_FUNCIONALIDAD);
+        } catch (e) { return; }
+        if (!aviso || !window.SistemaNotificaciones) return;
+
+        window.SistemaNotificaciones.mostrar({
+            tipo: aviso.habilitada ? 'info' : 'alerta',
+            titulo: aviso.habilitada ? 'Funcionalidad habilitada' : 'Funcionalidad bloqueada',
+            mensajeBreve: aviso.habilitada
+                ? aviso.nombre + ' volvió a estar disponible para su operador.'
+                : aviso.nombre + ' fue deshabilitada por la plataforma para su operador: ya no puede usarla.',
+            duracionMs: 10000
+        });
+    }
+
 
     // Clases que maneja JavaScript (Bootstrap y la propia página): se conservan las del elemento en pantalla, no las del servidor
     var CLASES_DE_ESTADO_UI = ['show', 'active', 'collapsed', 'collapsing', 'open', 'selected', 'is-open', 'is-invalid', 'is-valid', 'was-validated', 'modal-open'];
@@ -316,6 +337,15 @@
             conexion.on('DatosCambiaron', function () {
                 if (paginaPideTiempoReal()) programarActualizacion();
             });
+            // La plataforma habilitó o deshabilitó una funcionalidad de este operador: se recarga YA (menú y pantalla quedan bloqueados o liberados) y el aviso
+            // se muestra al volver a cargar, porque la recarga borraría uno mostrado antes. Esta conexión solo existe en pantallas sin formularios en edición.
+            conexion.on('FuncionalidadesCambiaron', function (cambio) {
+                if (!cambio) return;
+                try {
+                    window.sessionStorage.setItem(CLAVE_AVISO_FUNCIONALIDAD, JSON.stringify({ nombre: cambio.nombre || cambio.clave, habilitada: !!cambio.habilitada }));
+                } catch (e) { /* sin almacenamiento: la pantalla igual se actualiza */ }
+                window.location.reload();
+            });
             conexion.on('PosicionVehiculo', function (datos) {
                 escuchasPosicion.forEach(function (fn) {
                     try { fn(datos); } catch (e) { /* una escucha defectuosa no debe frenar a las demás */ }
@@ -352,6 +382,8 @@
     };
 
     document.addEventListener('DOMContentLoaded', function () {
+        mostrarAvisoDeFuncionalidadPendiente();
+
         // El Tablero abre su propia conexión (más eventos: rutas, paradas, posiciones)
         if (window.TableroTiempoReal) return;
         if (!paginaPideTiempoReal()) return;

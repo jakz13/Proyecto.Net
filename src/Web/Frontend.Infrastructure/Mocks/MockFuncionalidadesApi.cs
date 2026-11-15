@@ -25,6 +25,12 @@ public class MockFuncionalidadesApi : IFuncionalidadesApi
         return Task.FromResult(lista);
     }
 
+    public Task<IReadOnlyDictionary<string, bool>> ObtenerDelOperadorAsync(CancellationToken cancelacion = default)
+    {
+        IReadOnlyDictionary<string, bool> valores = Catalogo.ToDictionary(c => c.Clave, c => _estado.GetValueOrDefault((OperadorDemo, c.Clave), true));
+        return Task.FromResult(valores);
+    }
+
     public Task CambiarAsync(Guid operadorId, string clave, bool habilitada, CancellationToken cancelacion = default)
     {
         _estado[(operadorId, clave)] = habilitada;

@@ -595,6 +595,15 @@
             .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
             .build();
 
+        // La plataforma habilitó o deshabilitó una funcionalidad: se guarda el aviso para mostrarlo al recargar (ver tiempo-real-envios.js) y se recarga ya
+        conexion.on('FuncionalidadesCambiaron', function (cambio) {
+            if (!cambio) return;
+            try {
+                window.sessionStorage.setItem('um_aviso_funcionalidad', JSON.stringify({ nombre: cambio.nombre || cambio.clave, habilitada: !!cambio.habilitada }));
+            } catch (e) { /* sin almacenamiento: la pantalla igual se actualiza */ }
+            window.location.reload();
+        });
+
         conexion.on('CambioRuta', function () {
             programarActualizacionTablero();
         });

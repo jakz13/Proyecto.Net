@@ -53,7 +53,8 @@ public class ConsultasEnvioQueryHandlerTests
         Assert.NotNull(resultado);
         Assert.Equal("TRK-SEGUIM001", resultado!.CodigoSeguimiento);
         Assert.Equal(EstadoEnvio.EnTransito, resultado.EstadoActual);
-        Assert.False(resultado.PermiteReprogramacion);
+        // Aunque el envío esté en la calle, el destinatario puede pedir que vuelva más tarde (por si no está en su casa)
+        Assert.True(resultado.PermiteReprogramacion);
         Assert.Equal(new[] { EstadoEnvio.Admitido, EstadoEnvio.EnDeposito, EstadoEnvio.AsignadoARuta, EstadoEnvio.EnTransito },
             resultado.HistorialEventos.Select(h => h.Estado));
         Assert.Equal("El envío salió a reparto", resultado.HistorialEventos.Last().DescripcionPublica);
@@ -144,6 +145,25 @@ public class ConsultasEnvioQueryHandlerTests
         Assert.True(resultado.PermiteReprogramacion);
         Assert.Contains(resultado.HistorialEventos, h => h.DescripcionPublica == "Entrega reprogramada para un nuevo intento");
         Assert.DoesNotContain("Nadie atendió", System.Text.Json.JsonSerializer.Serialize(resultado));
+    }
+
+    [Fact]
+    public async Task Seguimiento_EnvioPendienteOEnLaCalle_OfreceElBotonDeReprogramar_YEntregadoNo()
+    {
+        // Antes solo aparecía con el envío ya reprogramado: el destinatario nunca veía cómo elegir otra franja
+        var admitido = CrearEnvio(codigo: "TRK-REPRO-ADM");
+        Assert.True((await HandlerSeguimiento().Handle(new ConsultarSeguimientoPublicoQuery("TRK-REPRO-ADM"), default))!.PermiteReprogramacion);
+
+        admitido.RecepcionarEnDeposito(new[] { admitido.Bultos.Single().Identificacion }, null, null, Guid.NewGuid());
+        var enDeposito = await HandlerSeguimiento().Handle(new ConsultarSeguimientoPublicoQuery("TRK-REPRO-ADM"), default);
+        Assert.Equal(EstadoEnvio.EnDeposito, enDeposito!.EstadoActual);
+        Assert.True(enDeposito.PermiteReprogramacion);
+
+        var enCalle = LlevarAEnTransito(CrearEnvio(codigo: "TRK-REPRO-RUTA"));
+        Assert.True((await HandlerSeguimiento().Handle(new ConsultarSeguimientoPublicoQuery("TRK-REPRO-RUTA"), default))!.PermiteReprogramacion);
+
+        enCalle.TransicionarEstado(EstadoEnvio.Entregado, "EntregaExitosa");
+        Assert.False((await HandlerSeguimiento().Handle(new ConsultarSeguimientoPublicoQuery("TRK-REPRO-RUTA"), default))!.PermiteReprogramacion);
     }
 
     [Fact]

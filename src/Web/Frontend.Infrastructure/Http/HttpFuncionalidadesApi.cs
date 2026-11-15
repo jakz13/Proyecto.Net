@@ -22,6 +22,15 @@ public class HttpFuncionalidadesApi : IFuncionalidadesApi
         return lista ?? new List<OperadorFuncionalidadesDto>();
     }
 
+    public async Task<IReadOnlyDictionary<string, bool>> ObtenerDelOperadorAsync(CancellationToken cancelacion = default)
+    {
+        var respuesta = await _http.GetAsync("api/funcionalidades", cancelacion);
+        if (!respuesta.IsSuccessStatusCode)
+            throw new ApiExcepcion(respuesta.StatusCode, $"No se pudieron consultar las funcionalidades ({(int)respuesta.StatusCode}).");
+
+        return await respuesta.Content.ReadFromJsonAsync<Dictionary<string, bool>>(cancellationToken: cancelacion) ?? new Dictionary<string, bool>();
+    }
+
     public async Task CambiarAsync(Guid operadorId, string clave, bool habilitada, CancellationToken cancelacion = default)
     {
         var respuesta = await _http.PutAsJsonAsync($"api/plataforma/operadores/{operadorId}/funcionalidades/{Uri.EscapeDataString(clave)}", new { habilitada }, cancelacion);

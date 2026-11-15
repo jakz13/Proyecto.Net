@@ -35,6 +35,19 @@
     <div class="alert alert-danger alert-dismissible fade show" role="alert">@Model.MensajeError<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button></div>
 }
 
+@if (!Model.Habilitado)
+{
+    <div class="card border-0 shadow-sm rounded-3 text-center p-5 my-4" role="alert" data-funcionalidad-bloqueada="retiro-en-domicilio">
+        <h2 class="h5 fw-bold text-secondary mb-2">Retiros en domicilio deshabilitados</h2>
+        <p class="text-muted mb-0" style="max-width: 520px; margin: 0 auto;">
+            La plataforma deshabilitó esta funcionalidad para su operador. Los retiros ya registrados se conservan y esta pantalla se habilita sola
+            apenas la plataforma vuelva a activarla.
+        </p>
+    </div>
+}
+else
+{
+
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Total</div><div class="h3 mb-0">@Model.Resumen.Total</div></div></div></div>
     <div class="col-6 col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">En curso</div><div class="h3 mb-0">@Model.Resumen.EnCurso</div></div></div></div>
@@ -105,3 +118,4 @@
         </table>
     </div>
 </div>
+}

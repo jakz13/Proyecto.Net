@@ -189,6 +189,9 @@ public static class FlotaEndpoints
             if (await db.Usuarios.AnyAsync(u => u.Email == email, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe un usuario registrado con ese correo electrónico.");
 
+            if (await CedulaYaRegistradaAsync(db, tenant.OperadorId, dto.Documento, null, ct))
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe un repartidor con esa cédula.");
+
             var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, null, confirmar, ct);
             if (errorVehiculo is not null)
                 return RespuestasBackoffice.Error(errorVehiculo.Value.Estado, errorVehiculo.Value.Mensaje);
@@ -244,6 +247,9 @@ public static class FlotaEndpoints
             var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
             if (usuario is not null && await db.Usuarios.AnyAsync(u => u.Email == email && u.Id != usuario.Id, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe otro usuario con ese correo electrónico.");
+
+            if (await CedulaYaRegistradaAsync(db, tenant.OperadorId, dto.Documento, repartidor.Id, ct))
+                return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe otro repartidor con esa cédula.");
 
             var errorVehiculo = await ValidarVehiculoAsync(db, tenant.OperadorId, dto.VehiculoAsignadoId, repartidor.Id, confirmar, ct);
             if (errorVehiculo is not null)
@@ -388,6 +394,21 @@ public static class FlotaEndpoints
     /// Valida el vehículo a asignar. Si otro repartidor ya lo tiene, la asignación no se hace en silencio: se responde 409 con el nombre
     /// de quien lo tiene y solo se reasigna cuando el pedido llega con confirmar=true (el Backoffice lo pide en un panel de confirmación).
     /// </summary>
+    /// <summary>La cédula identifica a la persona: dos repartidores del mismo operador no pueden compartirla (se comparan solo los dígitos, sin puntos ni guiones).</summary>
+    private static async Task<bool> CedulaYaRegistradaAsync(AppDbContext db, Guid operadorId, string? documento, Guid? excluirRepartidorId, CancellationToken ct)
+    {
+        var digitos = new string((documento ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digitos.Length == 0)
+            return false;
+
+        var existentes = await db.Repartidores.AsNoTracking()
+            .Where(r => r.OperadorId == operadorId && r.Id != excluirRepartidorId)
+            .Select(r => r.Documento)
+            .ToListAsync(ct);
+
+        return existentes.Any(d => new string(d.Where(char.IsDigit).ToArray()) == digitos);
+    }
+
     private static async Task<(int Estado, string Mensaje)?> ValidarVehiculoAsync(AppDbContext db, Guid operadorId, Guid? vehiculoId, Guid? repartidorId, bool confirmar, CancellationToken ct)
     {
         if (!vehiculoId.HasValue)

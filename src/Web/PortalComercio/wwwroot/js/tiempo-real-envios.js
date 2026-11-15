@@ -31,6 +31,11 @@
                 referencia.invokeMethodAsync('AlCambiarEstado', '', '');
             });
 
+            // La plataforma cambió una funcionalidad del operador (por ejemplo los retiros): las listas se piden de nuevo y muestran el aviso del servidor
+            conexion.on('FuncionalidadesCambiaron', function () {
+                referencia.invokeMethodAsync('AlCambiarEstado', '', '');
+            });
+
             // El comercio se vinculó (o se desvinculó) de un operador: el selector del encabezado se actualiza sin recargar
             conexion.on('OperadoresDelComercioCambiaron', function () {
                 referencia.invokeMethodAsync('AlCambiarOperadores');

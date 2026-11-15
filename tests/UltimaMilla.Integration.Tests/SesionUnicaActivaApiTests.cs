@@ -43,7 +43,7 @@ public class SesionUnicaActivaApiTests
         var email = $"sesion.{Guid.NewGuid().ToString("N")[..10]}@ultimamilla.com.uy";
         using var solicitud = new HttpRequestMessage(HttpMethod.Post, "/api/v1/flota/repartidores")
         {
-            Content = JsonContent.Create(new { nombreCompleto = "Repartidor sesion", email, documento = "4.111.222-3", telefono = "099000222", password = "Repartidor.2026!" })
+            Content = JsonContent.Create(new { nombreCompleto = "Repartidor sesion", email, documento = CedulaDePrueba.Nueva(), telefono = "099000222", password = "Repartidor.2026!" })
         };
         solicitud.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
         var alta = await cliente.SendAsync(solicitud);

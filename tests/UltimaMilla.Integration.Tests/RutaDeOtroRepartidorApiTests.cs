@@ -37,7 +37,7 @@ public class RutaDeOtroRepartidorApiTests
         var email = $"ajena.{sufijo}@ultimamilla.com.uy";
         var repartidor = await admin.PostAsJsonAsync("/api/v1/flota/repartidores", new
         {
-            nombreCompleto = "Repartidor " + sufijo, email, documento = "4.111.222-3", telefono = "099000222", password = "Repartidor.2026!"
+            nombreCompleto = "Repartidor " + sufijo, email, documento = CedulaDePrueba.Nueva(), telefono = "099000222", password = "Repartidor.2026!"
         });
         Assert.Equal(HttpStatusCode.Created, repartidor.StatusCode);
         var vehiculo = await admin.PostAsJsonAsync("/api/v1/flota/vehiculos", new { patente = "A" + sufijo.ToUpperInvariant(), tipo = "Furgón", capacidadPeso = 500, capacidadVolumen = 5 });

@@ -410,6 +410,38 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             "ReprogramacionSolicitadaPorDestinatario", null, "SeguimientoPublico", $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.");
     }
 
+    /// <summary>
+    /// El destinatario pide reprogramar cuando el envío ya está asignado a una hoja de ruta o en la calle (por ejemplo, no va a estar en su casa).
+    /// Asignado a ruta: vuelve a depósito y conserva su clasificación. En la calle: queda reprogramado y vuelve a depósito cuando el repartidor rinde la ruta.
+    /// Quien invoca retira la parada de la hoja de ruta. La franja elegida queda comprometida para el próximo intento.
+    /// </summary>
+    public void ReprogramarFranjaPorDestinatarioEnRuta(Guid franjaHorariaId)
+    {
+        if (franjaHorariaId == Guid.Empty)
+            throw new DomainValidationException("El identificador de la franja horaria no puede ser vacío.");
+
+        if (EstadoActual is not (EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito))
+            throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está asignado a una ruta ni en la calle (estado '{EstadoActual}').");
+
+        var anterior = FranjaHorariaComprometidaId;
+        FranjaHorariaComprometidaId = franjaHorariaId;
+        var detalle = $"Franja anterior: {anterior?.ToString() ?? "ninguna"}. Franja nueva: {franjaHorariaId}.";
+
+        if (EstadoActual == EstadoEnvio.AsignadoARuta)
+        {
+            HojaDeRutaId = null;
+            TransicionarEstado(EstadoEnvio.EnDeposito, "ReprogramadoPorDestinatario", null, "SeguimientoPublico", payload: detalle);
+            return;
+        }
+
+        // En la calle: el paso por "no entregado" cumple la máquina de estados y no se muestra al destinatario (ver TipoEventoIntermedioReprogramacion)
+        TransicionarEstado(EstadoEnvio.NoEntregado, TipoEventoIntermedioReprogramacion, null, "SeguimientoPublico", payload: "El destinatario pidió reprogramar con el envío en la calle.");
+        TransicionarEstado(EstadoEnvio.Reprogramado, "ReprogramadoPorDestinatario", null, "SeguimientoPublico", payload: detalle);
+    }
+
+    /// <summary>Evento interno de la reprogramación en la calle: no es un hito del seguimiento público.</summary>
+    public const string TipoEventoIntermedioReprogramacion = "ReprogramacionEnCalleSolicitada";
+
     private void VolverADeposito(string tipoEvento, Guid responsableUsuarioId, string detalle)
     {
         HojaDeRutaId = null;

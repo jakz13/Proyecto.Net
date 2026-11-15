@@ -107,7 +107,8 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             envio.EstadoActual,
             await ObtenerVentanaAsync(envio, cancellationToken),
             ultimaActualizacion,
-            envio.EstadoActual == EstadoEnvio.Reprogramado
+            // Mismos estados que acepta el caso de uso: antes el botón solo aparecía con el envío ya reprogramado y nunca al estar admitido o en depósito
+            envio.EstadoActual is EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito or EstadoEnvio.Reprogramado
                 && (_funcionalidades is null || await _funcionalidades.EstaHabilitadaAsync(envio.OperadorId, Domain.Entities.Operador.Funcionalidad.ReprogramacionPublica, cancellationToken)),
             hitos,
             totalBultos,
@@ -216,9 +217,10 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
 
     /// <summary>Solo los cambios de estado, entregas parciales y geocercas forman parte de la línea de tiempo pública.</summary>
     private static bool EsHitoPublico(EventoEnvio evento) =>
-        evento.EstadoAnterior is null
+        evento.TipoEvento != Envio.TipoEventoIntermedioReprogramacion
+        && (evento.EstadoAnterior is null
         || evento.EstadoAnterior != evento.EstadoNuevo
-        || evento.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "EntregaParcial";
+        || evento.TipoEvento is "LlegadaGeocerca" or "SalidaGeocerca" or "EntregaParcial");
 
     private async Task<string?> ObtenerVentanaAsync(Envio envio, CancellationToken cancellationToken)
     {
@@ -241,6 +243,7 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
         "EntregaExitosa" => "Envío entregado",
         "EntregaParcial" => $"Entrega parcial registrada ({bultosEntregados} de {totalBultos} bultos entregados)",
         "IntentoEntregaFallido" => "No se pudo concretar la entrega",
+        "ReprogramadoPorDestinatario" => "Entrega reprogramada a pedido del destinatario",
         "ResolucionReglaOperativa_Reprogramado" => "Entrega reprogramada para un nuevo intento",
         "ResolucionReglaOperativa_EnDevolucion" => "El envío será devuelto al comercio",
         "LlegadaGeocerca" => !string.IsNullOrWhiteSpace(evento.Payload)

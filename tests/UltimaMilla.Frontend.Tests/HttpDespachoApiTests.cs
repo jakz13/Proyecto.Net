@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using UltimaMilla.Frontend.Contracts.Modelos.Despacho;
 using UltimaMilla.Frontend.Infrastructure.Excepciones;
 using UltimaMilla.Frontend.Infrastructure.Http;
@@ -107,7 +107,14 @@ public class HttpDespachoApiTests
         }
         """;
 
-        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.OK, jsonRespuesta);
+        // El cliente también pide el catálogo de repartidores para mostrar el nombre: cada URL responde lo suyo
+        var manejador = new ManejadorMensajesHttpMock(peticion => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                peticion.RequestUri!.AbsolutePath.Contains("/flota/repartidores") ? "[]" : jsonRespuesta,
+                System.Text.Encoding.UTF8,
+                "application/json")
+        }));
         var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
         var api = new HttpDespachoApi(clienteHttp);
 
@@ -147,10 +154,11 @@ public class HttpDespachoApiTests
             "hojaDeRutaId": "{{rutaId}}",
             "numeroRuta": "HDR-2026-0001",
             "estado": "Despachada",
-            "enviosDespachados": 4,
-            "enviosDevueltosADeposito": 1,
-            "fechaDespacho": "2026-10-22T10:00:00Z",
-            "selloModificacion": "99999999-8888-7777-6666-555555555555"
+            "enviosEnTransito": 4,
+            "enviosRetirados": [ { "envioId": "11111111-0000-0000-0000-000000000009", "codigoSeguimiento": "UY-009", "motivo": "Bulto no cargado" } ],
+            "idempotente": false,
+            "mensaje": "",
+            "fechaDespacho": "2026-10-22T10:00:00Z"
         }
         """;
 
@@ -176,18 +184,16 @@ public class HttpDespachoApiTests
     }
 
     [Fact]
-    public async Task ConfirmarDespacho_CuandoHayConflictoDeConcurrencia_LanzaApiExcepcionConflicto()
+    public async Task ConfirmarDespacho_CuandoHayConflictoDeConcurrencia_DevuelveResultadoFallidoConElMensaje()
     {
-        // Arrange
-        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Conflict, "La ruta ya fue despachada");
+        // La pantalla de despacho muestra el motivo al operario: el conflicto se devuelve como resultado, no como excepción
+        var manejador = ManejadorMensajesHttpMock.ConRespuesta(HttpStatusCode.Conflict, "{\"error\":\"La ruta ya fue despachada\"}");
         var clienteHttp = new HttpClient(manejador) { BaseAddress = new Uri(UrlBase) };
         var api = new HttpDespachoApi(clienteHttp);
 
-        var dto = new ConfirmarDespachoDto { HojaDeRutaId = Guid.NewGuid() };
+        var resultado = await api.ConfirmarDespachoAsync(new ConfirmarDespachoDto { HojaDeRutaId = Guid.NewGuid() }, "operario1");
 
-        // Act & Assert
-        var excepcion = await Assert.ThrowsAsync<ApiExcepcion>(() => api.ConfirmarDespachoAsync(dto, "operario1"));
-        Assert.True(excepcion.EsConflictoConcurrencia);
-        Assert.Equal(HttpStatusCode.Conflict, excepcion.CodigoEstado);
+        Assert.False(resultado.Exitoso);
+        Assert.Contains("ya fue despachada", resultado.Mensaje);
     }
 }

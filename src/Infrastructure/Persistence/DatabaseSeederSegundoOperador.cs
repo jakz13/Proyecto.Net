@@ -46,7 +46,7 @@ public static class DatabaseSeederSegundoOperador
         if (!await context.Operadores.AnyAsync(o => o.Id == OperadorId, cancellationToken))
         {
             await context.Operadores.AddAsync(
-                new Operador(OperadorId, "TransLogística Express S.R.L.", "TransLogística Express", "Activo"), cancellationToken);
+                new Operador(OperadorId, "TransLogística Express S.R.L.", "TransLogística Express Norte", "Activo"), cancellationToken);
         }
 
         if (!await context.Comercios.AnyAsync(c => c.Id == ComercioId, cancellationToken))

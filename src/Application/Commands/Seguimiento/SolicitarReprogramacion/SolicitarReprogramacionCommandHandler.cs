@@ -30,6 +30,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private readonly IDistributedCacheService? _cacheService;
     private readonly IFuncionalidadesService? _funcionalidades;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IRutaRepository? _rutaRepository;
 
     public SolicitarReprogramacionCommandHandler(
         IEnvioRepository envioRepository,
@@ -42,8 +43,10 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         ICurrentTenant? currentTenant = null,
         IDistributedCacheService? cacheService = null,
         IFuncionalidadesService? funcionalidades = null,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IRutaRepository? rutaRepository = null)
     {
+        _rutaRepository = rutaRepository;
         _funcionalidades = funcionalidades;
         _envioRepository = envioRepository;
         _direccionRepository = direccionRepository;
@@ -92,7 +95,31 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
         }
         else
         {
-            envio.ReprogramarFranjaPorDestinatario(request.FranjaHorariaId);
+            if (envio.EstadoActual is EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito)
+            {
+                // Ya está en una hoja de ruta (o en la calle): se retira su parada para que el repartidor no la visite y el envío queda para otra franja
+                var ruta = envio.HojaDeRutaId.HasValue && _rutaRepository is not null
+                    ? await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(envio.HojaDeRutaId.Value, cancellationToken)
+                    : null;
+                if (ruta is null)
+                    throw new DomainValidationException("No se pudo ubicar la hoja de ruta del envío para reprogramarlo.");
+
+                ruta.RetirarEnvio(envio.Id);
+                envio.ReprogramarFranjaPorDestinatarioEnRuta(request.FranjaHorariaId);
+                await _rutaRepository!.UpdateAsync(ruta, cancellationToken);
+
+                // Para avisar al repartidor afectado, igual que cuando el despachador retira un envío de la ruta
+                await _outboxStorage.SaveRangeAsync(new[]
+                {
+                    new OutboxMessage(Guid.NewGuid(), nameof(Domain.Entities.Envios.Envio), envio.Id, "EnvioRetiradoDeRutaIntegrationEvent",
+                        JsonSerializer.Serialize(new { EnvioId = envio.Id, HojaDeRutaId = ruta.Id, RepartidorId = ruta.RepartidorId, Accion = "Reprogramar", Timestamp = _clock.UtcNow }))
+                }, cancellationToken);
+            }
+            else
+            {
+                envio.ReprogramarFranjaPorDestinatario(request.FranjaHorariaId);
+            }
+
             solicitud.Aprobar();
             await _envioRepository.UpdateAsync(envio, cancellationToken);
 
@@ -140,10 +167,7 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     private async Task<(string? Motivo, FranjaHoraria? Franja)> EvaluarAsync(
         Domain.Entities.Envios.Envio envio, Guid franjaId, CancellationToken cancellationToken)
     {
-        if (envio.EstadoActual is EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito)
-            return ("El envío ya está en preparación para salir a reparto: no admite cambios de franja.", null);
-
-        if (envio.EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.Reprogramado))
+        if (envio.EstadoActual is not (EstadoEnvio.Admitido or EstadoEnvio.EnDeposito or EstadoEnvio.AsignadoARuta or EstadoEnvio.EnTransito or EstadoEnvio.Reprogramado))
             return ("El envío ya no está pendiente de entrega.", null);
 
         var regla = await _envioRepository.GetReglaOperativaVigenteAsync(envio.OperadorId, cancellationToken);

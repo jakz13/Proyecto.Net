@@ -175,11 +175,8 @@ public class LoginModel : PageModel
 
     private IActionResult RedirigirTrasLogin(string? returnUrl, string perfil)
     {
-        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-        {
-            return LocalRedirect(returnUrl);
-        }
-
+        // Siempre al inicio del perfil que acaba de entrar: la dirección de retorno la dejó la sesión anterior (otro perfil, quizá sin permiso
+        // para esa pantalla) y llevaba al nuevo usuario a un "Acceso denegado"
         return perfil switch
         {
             "Operario" => RedirectToPage("/Despacho/Index"),

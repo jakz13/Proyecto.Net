@@ -84,7 +84,7 @@ public class RetiroEnDomicilioApiTests
 
         var repartidor = await Json(await admin.PostAsJsonAsync("/api/v1/flota/repartidores", new
         {
-            nombreCompleto = "Repartidor " + sufijo, email, documento = "4.111.222-3", telefono = "099000222", password = "Repartidor.2026!"
+            nombreCompleto = "Repartidor " + sufijo, email, documento = CedulaDePrueba.Nueva(), telefono = "099000222", password = "Repartidor.2026!"
         }), HttpStatusCode.Created);
 
         var vehiculo = await Json(await admin.PostAsJsonAsync("/api/v1/flota/vehiculos", new

@@ -16,11 +16,16 @@ namespace UltimaMilla.Backoffice.Pages.Retiros;
 public class IndexModel : PageModel
 {
     private readonly IRetirosApi _retirosApi;
+    private readonly IFuncionalidadesApi _funcionalidades;
 
-    public IndexModel(IRetirosApi retirosApi)
+    public IndexModel(IRetirosApi retirosApi, IFuncionalidadesApi funcionalidades)
     {
         _retirosApi = retirosApi;
+        _funcionalidades = funcionalidades;
     }
+
+    /// <summary>Falso cuando la plataforma deshabilitó los retiros en domicilio para este operador: la pantalla se muestra bloqueada.</summary>
+    public bool Habilitado { get; private set; } = true;
 
     public ResumenRetirosOperadorDto Resumen { get; private set; } = new();
 
@@ -33,7 +38,21 @@ public class IndexModel : PageModel
     [TempData]
     public string? MensajeError { get; set; }
 
-    public async Task OnGetAsync() => Resumen = await _retirosApi.ListarDelOperadorAsync(Estado);
+    public async Task OnGetAsync()
+    {
+        try
+        {
+            var valores = await _funcionalidades.ObtenerDelOperadorAsync();
+            Habilitado = !valores.TryGetValue("retiro-en-domicilio", out var habilitada) || habilitada;
+        }
+        catch (ApiExcepcion)
+        {
+            Habilitado = true;
+        }
+
+        if (Habilitado)
+            Resumen = await _retirosApi.ListarDelOperadorAsync(Estado);
+    }
 
     public Task<IActionResult> OnPostRecibirAsync(Guid id) =>
         !PermisosBackoffice.PuedeTrabajarEnDeposito(User) ? Task.FromResult<IActionResult>(Forbid()) : EjecutarAsync(() => _retirosApi.RecibirEnDepositoAsync(id), "Los bultos se recibieron en depósito.");

@@ -366,9 +366,10 @@ public class AdministracionBackofficeApiTests
             api.CrearVehiculoAsync(new CrearVehiculoDto { Patente = patente, Tipo = "Moto", CapacidadPeso = 1, CapacidadVolumen = 1 }));
 
         var email = $"repartidor.{Sufijo()}@ultimamilla.com.uy";
+        var cedula = CedulaDePrueba.Nueva();
         var repartidor = await api.CrearRepartidorAsync(new CrearRepartidorDto
         {
-            NombreCompleto = "Repartidor Prueba", Email = email, Documento = "4.111.222-3", Password = "Repartidor.2026!", Telefono = "099111222", VehiculoAsignadoId = vehiculo.Id
+            NombreCompleto = "Repartidor Prueba", Email = email, Documento = cedula, Password = "Repartidor.2026!", Telefono = "099111222", VehiculoAsignadoId = vehiculo.Id
         });
         Assert.Equal("Disponible", repartidor.Estado);
         Assert.Equal(patente, repartidor.VehiculoPatente);
@@ -385,6 +386,14 @@ public class AdministracionBackofficeApiTests
             NombreCompleto = "Sin cédula", Email = $"sc.{Sufijo()}@ultimamilla.com.uy", Documento = "1234567", Password = "Repartidor.2026!", Telefono = "099111222"
         }));
 
+        // Dos repartidores del mismo operador no pueden tener la misma cédula (aunque se escriba con otros puntos o guiones)
+        var repetida = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearRepartidorAsync(new CrearRepartidorDto
+        {
+            NombreCompleto = "Cédula repetida", Email = $"cr.{Sufijo()}@ultimamilla.com.uy", Documento = cedula.Replace(".", "").Replace("-", ""),
+            Password = "Repartidor.2026!", Telefono = "099111222"
+        }));
+        Assert.Contains("cédula", repetida.Message, StringComparison.OrdinalIgnoreCase);
+
         // Con la confirmación explícita, la reasignación se hace
         await api.AsignarVehiculoAsync(demo.Id, vehiculo.Id, confirmarReasignacion: true);
         Assert.Null((await api.ObtenerRepartidorPorIdAsync(repartidor.Id))!.VehiculoAsignadoId);
@@ -399,7 +408,7 @@ public class AdministracionBackofficeApiTests
 
         var actualizado = await api.ActualizarRepartidorAsync(new ActualizarRepartidorDto
         {
-            Id = repartidor.Id, NombreCompleto = "Repartidor Renombrado", Email = email, Documento = "4.111.222-3",
+            Id = repartidor.Id, NombreCompleto = "Repartidor Renombrado", Email = email, Documento = cedula,
             Telefono = "099333444", VehiculoAsignadoId = vehiculo.Id, Estado = "Disponible"
         });
         Assert.Equal("Repartidor Renombrado", actualizado.NombreCompleto);

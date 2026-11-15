@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using UltimaMilla.Api.Auth;
+using UltimaMilla.Api.Hubs;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Exceptions;
@@ -15,6 +17,9 @@ namespace UltimaMilla.Api.Endpoints;
 /// </summary>
 public static class FuncionalidadesEndpoints
 {
+    /// <summary>Evento del hub de tablero: una bandera de funcionalidad del operador cambió.</summary>
+    public const string EventoFuncionalidadesCambiaron = "FuncionalidadesCambiaron";
+
     public static IEndpointRouteBuilder MapFuncionalidadesEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/funcionalidades", async (
@@ -64,12 +69,36 @@ public static class FuncionalidadesEndpoints
             HttpContext http,
             [FromServices] IFuncionalidadesService funcionalidades,
             [FromServices] ICurrentTenant tenant,
+            [FromServices] IHubContext<TableroHub> hub,
             CancellationToken ct) =>
         {
             try
             {
                 var nombre = http.User.FindFirstValue(ClaimTypes.Name) ?? http.User.FindFirstValue("email");
                 var cambio = await funcionalidades.EstablecerAsync(operadorId, clave, request.Habilitada, tenant.UsuarioId, nombre, ct);
+
+                // Las sesiones abiertas del operador afectado (personal y comercios) se enteran en el momento: aviso visible y pantalla bloqueada o liberada
+                if (cambio)
+                {
+                    try
+                    {
+                        await hub.Clients.Group(TableroHub.GrupoIdentidadOperador(operadorId)).SendAsync(
+                            EventoFuncionalidadesCambiaron,
+                            new
+                            {
+                                clave,
+                                nombre = Funcionalidad.Catalogo.GetValueOrDefault(clave, clave),
+                                habilitada = request.Habilitada,
+                                timestamp = DateTime.UtcNow
+                            },
+                            CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // Un fallo del transporte no deshace un cambio que ya se guardó: las pantallas lo verán en la próxima consulta
+                    }
+                }
+
                 return Results.Ok(new { operadorId, clave, habilitada = request.Habilitada, cambio });
             }
             catch (DomainValidationException ex)
