@@ -219,6 +219,7 @@ if (!string.IsNullOrWhiteSpace(redisBackplane))
 }
 
 builder.Services.AddScoped<ITableroRealtimeNotifier, SignalRTableroNotifier>();
+builder.Services.AddScoped<UltimaMilla.Application.Ports.ISesionRealtimeNotifier, UltimaMilla.Api.Services.SignalRSesionNotifier>();
 
 // Puntos de verificación de salud para el balanceador: /live (proceso), /ready (base de datos) y /health (todo)
 builder.Services.AddHealthChecks()
@@ -385,10 +386,10 @@ app.Use(async (context, next) =>
 
 app.UseCors();
 app.UseAuthentication();
+app.UseMiddleware<UltimaMilla.Api.Auth.SesionUnicaActivaMiddleware>();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.UseMiddleware<UltimaMilla.Api.Auth.UsuarioActivoMiddleware>();
-app.UseMiddleware<UltimaMilla.Api.Auth.SesionUnicaActivaMiddleware>();
 app.UseMiddleware<UltimaMilla.Api.Auth.ComercioActivoMiddleware>();
 
 // Auto-migrate database on startup with resilience retry and idempotent seed data

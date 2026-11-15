@@ -15,7 +15,7 @@ namespace UltimaMilla.Api.Auth;
 public sealed class SesionUnicaActivaMiddleware
 {
     public const string CodigoSesionDesplazada = "SESION_DESPLAZADA";
-    public const string MensajeSesionDesplazada = "Sesión cerrada porque se inició sesión con esta cuenta en otro dispositivo.";
+    public const string MensajeSesionDesplazada = "Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo.";
 
     private readonly RequestDelegate _siguiente;
     private readonly ILogger<SesionUnicaActivaMiddleware> _logger;
@@ -54,8 +54,22 @@ public sealed class SesionUnicaActivaMiddleware
                         _logger.LogDebug(ex, "Degradación controlada al consultar sesión única activa en caché.");
                     }
 
-                    if (!string.IsNullOrWhiteSpace(sesionVigente)
-                        && !string.Equals(sesionVigente, sidToken, StringComparison.Ordinal))
+                    if (string.IsNullOrWhiteSpace(sesionVigente))
+                    {
+                        try
+                        {
+                            await cache.SetAsync(
+                                ClavesCache.SesionActivaUsuario(usuarioId.Value),
+                                sidToken,
+                                ClavesCache.ExpiracionSesionActiva,
+                                contexto.RequestAborted);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Degradación controlada al registrar sesión activa en caché.");
+                        }
+                    }
+                    else if (!string.Equals(sesionVigente, sidToken, StringComparison.Ordinal))
                     {
                         _logger.LogInformation(
                             "Sesión desplazada detectada para usuario {UsuarioId} en ruta {Ruta}.",

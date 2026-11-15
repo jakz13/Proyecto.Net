@@ -356,6 +356,67 @@ public class IniciarSesionCommandHandlerTests
         Assert.Equal(sessionIdDispositivoB, sesionEnCacheTrasLoginB);
     }
 
+    [Fact]
+    public async Task IniciarSesion_ConNotificadorRealtime_NotificaDesplazamientoSinBloquearSiFallaElTransporte()
+    {
+        // Arrange: primer caso exitoso verificando envío de UsuarioId + nuevo SessionId
+        var cache = new FakeSesionCacheService();
+        var tokens = new FakeTokenJwtService();
+        var notifier = new FakeSesionRealtimeNotifier();
+        var handler = new IniciarSesionCommandHandler(
+            _usuarioRepository,
+            _passwordHasher,
+            tokens,
+            _clock,
+            _unitOfWork,
+            cache: cache,
+            sesionNotifier: notifier);
+
+        var res1 = await handler.Handle(new IniciarSesionCommand("repartidor@gmail.com", "Password.123!"), CancellationToken.None);
+        var sid1 = tokens.UltimoSessionId;
+
+        var res2 = await handler.Handle(new IniciarSesionCommand("repartidor@gmail.com", "Password.123!"), CancellationToken.None);
+        var sid2 = tokens.UltimoSessionId;
+
+        Assert.Equal(2, notifier.Notificaciones.Count);
+        Assert.Equal((res1.UsuarioId, sid1!), notifier.Notificaciones[0]);
+        Assert.Equal((res2.UsuarioId, sid2!), notifier.Notificaciones[1]);
+        Assert.NotEqual(sid1, sid2);
+
+        // Arrange: notificador que falla en tiempo real no debe impedir el login
+        var notifierConError = new FakeSesionRealtimeNotifier { DebeFallar = true };
+        var handlerResiliente = new IniciarSesionCommandHandler(
+            _usuarioRepository,
+            _passwordHasher,
+            tokens,
+            _clock,
+            _unitOfWork,
+            cache: cache,
+            sesionNotifier: notifierConError);
+
+        var res3 = await handlerResiliente.Handle(new IniciarSesionCommand("repartidor@gmail.com", "Password.123!"), CancellationToken.None);
+        Assert.NotNull(res3);
+        Assert.False(string.IsNullOrWhiteSpace(res3.Token));
+        Assert.Equal(tokens.UltimoSessionId, await cache.GetAsync<string>(UltimaMilla.Application.Common.ClavesCache.SesionActivaUsuario(res3.UsuarioId)));
+    }
+
+    private sealed class FakeSesionRealtimeNotifier : ISesionRealtimeNotifier
+    {
+        public bool DebeFallar { get; init; }
+        public List<(Guid UsuarioId, string NuevoSessionId)> Notificaciones { get; } = new();
+
+        public Task NotificarSesionDesplazadaAsync(Guid usuarioId, string nuevoSessionId, CancellationToken cancellationToken = default)
+        {
+            if (DebeFallar)
+            {
+                throw new InvalidOperationException("Error simulado de SignalR");
+            }
+
+            Notificaciones.Add((usuarioId, nuevoSessionId));
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeSesionCacheService : IDistributedCacheService
     {
         private readonly Dictionary<string, object?> _store = new(StringComparer.Ordinal);

@@ -60,6 +60,7 @@ public static class ComercioOperadoresEndpoints
             IUsuarioRepository usuarios,
             ITokenJwtService tokens,
             IDistributedCacheService cache,
+            ISesionRealtimeNotifier? sesionNotifier,
             CancellationToken ct) => RespuestasBackoffice.Ejecutar(async () =>
         {
             var comercioId = await ComercioDelUsuarioAsync(db, tenant, ct);
@@ -94,6 +95,18 @@ public static class ComercioOperadoresEndpoints
                 sessionId,
                 ClavesCache.ExpiracionSesionActiva,
                 ct);
+
+            if (sesionNotifier is not null)
+            {
+                try
+                {
+                    await sesionNotifier.NotificarSesionDesplazadaAsync(usuario.Id, sessionId, ct);
+                }
+                catch
+                {
+                    // Notificación no bloqueante
+                }
+            }
 
             return Results.Ok(new SesionOperadorDto { Token = token.Token, OperadorId = operadorId.ToString(), ExpiraUtc = token.ExpiraUtc });
         }))

@@ -260,11 +260,16 @@ public class OperacionHub : Hub
             _logger.LogDebug(ex, "No se pudo auto-suscribir al repartidor al conectar OperacionHub.");
         }
 
+        var (uidRegistro, sidRegistro) = RegistroConexionesHub.ExtraerIdentidadYSid(Context.User);
+        RegistroConexionesHub.Registrar(RegistroConexionesHub.HubOperacion, Context.ConnectionId, uidRegistro, sidRegistro);
+
         await base.OnConnectedAsync();
     }
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {
+        RegistroConexionesHub.Remover(RegistroConexionesHub.HubOperacion, Context.ConnectionId);
+
         var usuarioId = ExtraerUsuarioIdDelContexto();
         if (usuarioId.HasValue && ConexionesActivasPorUsuario.TryGetValue(usuarioId.Value, out var connId) && connId == Context.ConnectionId)
         {
@@ -301,27 +306,20 @@ public class OperacionHub : Hub
 
         if (!string.IsNullOrWhiteSpace(sidToken) && _cache is not null)
         {
-            try
+            if (!await RegistroConexionesHub.ValidarYRegistrarSesionAsync(
+                    _cache,
+                    usuarioId.Value,
+                    sidToken,
+                    _logger,
+                    Context.ConnectionAborted))
             {
-                var sesionVigente = await _cache.GetAsync<string>(
-                    ClavesCache.SesionActivaUsuario(usuarioId.Value),
-                    Context.ConnectionAborted);
+                _logger.LogInformation(
+                    "SignalR Hub: Conexión rechazada por sesión desplazada para usuario {UsuarioId}.",
+                    usuarioId.Value);
 
-                if (!string.IsNullOrWhiteSpace(sesionVigente)
-                    && !string.Equals(sesionVigente, sidToken, StringComparison.Ordinal))
-                {
-                    _logger.LogInformation(
-                        "SignalR Hub: Conexión rechazada por sesión desplazada para usuario {UsuarioId}.",
-                        usuarioId.Value);
-
-                    await Clients.Caller.SendAsync("SesionDesplazada", SesionUnicaActivaMiddleware.MensajeSesionDesplazada);
-                    Context.Abort();
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "SignalR Hub: Degradación controlada al validar sesión única en Redis.");
+                await Clients.Caller.SendAsync("SesionDesplazada", SesionUnicaActivaMiddleware.MensajeSesionDesplazada);
+                Context.Abort();
+                return false;
             }
         }
 

@@ -21,6 +21,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
     private readonly IUnitOfWork _unitOfWork;
     private readonly IComercioOperadorRepository? _comercioOperadorRepository;
     private readonly IDistributedCacheService? _cache;
+    private readonly ISesionRealtimeNotifier? _sesionNotifier;
 
     // Compartido por todas las instancias del manejador: se calcula una sola vez (la carrera entre dos pedidos simultáneos es inocua)
     private static string? HashFicticio;
@@ -35,10 +36,12 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
         IClock clock,
         IUnitOfWork unitOfWork,
         IComercioOperadorRepository? comercioOperadorRepository = null,
-        IDistributedCacheService? cache = null)
+        IDistributedCacheService? cache = null,
+        ISesionRealtimeNotifier? sesionNotifier = null)
     {
         _comercioOperadorRepository = comercioOperadorRepository;
         _cache = cache;
+        _sesionNotifier = sesionNotifier;
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _tokenJwtService = tokenJwtService ?? throw new ArgumentNullException(nameof(tokenJwtService));
@@ -148,6 +151,21 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
                 sessionId,
                 ClavesCache.ExpiracionSesionActiva,
                 cancellationToken);
+        }
+
+        if (_sesionNotifier is not null)
+        {
+            try
+            {
+                await _sesionNotifier.NotificarSesionDesplazadaAsync(
+                    usuario.Id,
+                    sessionId,
+                    cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real nunca debe bloquear el inicio de sesión.
+            }
         }
 
         return new IniciarSesionResultadoDto(

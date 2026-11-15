@@ -14,10 +14,17 @@ namespace UltimaMilla.Api.Hubs;
 public class TableroHub : Hub
 {
     private readonly AppDbContext _db;
+    private readonly UltimaMilla.Application.Ports.IDistributedCacheService? _cache;
+    private readonly ILogger<TableroHub>? _logger;
 
-    public TableroHub(AppDbContext db)
+    public TableroHub(
+        AppDbContext db,
+        UltimaMilla.Application.Ports.IDistributedCacheService? cache = null,
+        ILogger<TableroHub>? logger = null)
     {
         _db = db;
+        _cache = cache;
+        _logger = logger;
     }
 
     private static readonly string[] ClaimsOperador =
@@ -50,6 +57,32 @@ public class TableroHub : Hub
             return;
         }
 
+        var (usuarioId, sid) = RegistroConexionesHub.ExtraerIdentidadYSid(Context.User);
+        if (!await RegistroConexionesHub.ValidarYRegistrarSesionAsync(
+                _cache,
+                usuarioId,
+                sid,
+                _logger,
+                Context.ConnectionAborted))
+        {
+            try
+            {
+                await Clients.Caller.SendAsync(
+                    UltimaMilla.Api.Services.SignalRSesionNotifier.EventoSesionDesplazada,
+                    UltimaMilla.Api.Auth.SesionUnicaActivaMiddleware.MensajeSesionDesplazada,
+                    Context.ConnectionAborted);
+            }
+            catch
+            {
+                // Ignorar errores de transporte al abortar sesión desplazada.
+            }
+
+            Context.Abort();
+            return;
+        }
+
+        RegistroConexionesHub.Registrar(RegistroConexionesHub.HubTablero, Context.ConnectionId, usuarioId, sid);
+
         // Un usuario de comercio solo ve lo suyo: se une a su grupo y NO al del operador (que incluye a los demás comercios)
         string grupo;
         if (EsUsuarioDeComercio(Context.User))
@@ -74,6 +107,12 @@ public class TableroHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, GrupoIdentidadOperador(operadorId));
         await Clients.Caller.SendAsync("ConectadoTablero", new { OperadorId = operadorId, Grupo = grupo });
         await base.OnConnectedAsync();
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        RegistroConexionesHub.Remover(RegistroConexionesHub.HubTablero, Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
     }
 
     internal static bool EsUsuarioDeComercio(ClaimsPrincipal? usuario) =>
