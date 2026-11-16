@@ -327,4 +327,32 @@ public class MockIncidenciasApi : IIncidenciasApi
         };
         return Task.FromResult<IReadOnlyList<RutaDisponibleIncidenciaDto>>(rutas);
     }
+
+    public Task<IReadOnlyList<ConflictoSincronizacionDto>> ListarConflictosSincronizacionAsync(int maximo = 50, CancellationToken cancelacion = default)
+    {
+        var conflictos = new List<ConflictoSincronizacionDto>
+        {
+            new(
+                Guid.Parse("cccccccc-0001-0000-0000-000000000001"),
+                DateTime.UtcNow.AddMinutes(-25),
+                "Envio",
+                Guid.Parse("11111111-0001-0000-0000-000000000001"),
+                "TRK-2026-0001",
+                "Entregado",
+                "Cancelado",
+                "PrevaleceEntregaFisicaConEvidencia",
+                "El servidor tenía estado Cancelado pero el repartidor registró entrega física con evidencia en domicilio."),
+            new(
+                Guid.Parse("cccccccc-0002-0000-0000-000000000002"),
+                DateTime.UtcNow.AddMinutes(-10),
+                "Envio",
+                Guid.Parse("11111111-0002-0000-0000-000000000002"),
+                "TRK-2026-0002",
+                "NoEntregado",
+                "EnDeposito",
+                "PrevaleceEstadoServidor",
+                "El envío ya había sido modificado a EnDeposito en el servidor; se preserva el estado del servidor y se asienta el intento.")
+        };
+        return Task.FromResult<IReadOnlyList<ConflictoSincronizacionDto>>(conflictos.Take(Math.Clamp(maximo, 1, 200)).ToList());
+    }
 }

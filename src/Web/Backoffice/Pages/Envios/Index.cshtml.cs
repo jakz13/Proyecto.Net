@@ -30,7 +30,7 @@ public class IndexModel : PageModel
     public string Busqueda { get; set; } = string.Empty;
 
     [BindProperty(SupportsGet = true)]
-    public string EstadoFiltro { get; set; } = "Todos"; // "Todos", "CandidatosExtravio", "EnDeposito", "EnTransito", "Extraviado"
+    public string EstadoFiltro { get; set; } = "Todos"; // "Todos", "CandidatosExtravio", "EnDeposito", "EnTransito", "EntregadoParcialmente", "Extraviado"
 
     [BindProperty]
     public DeclararExtraviadoDto DeclaracionInput { get; set; } = new();
@@ -79,6 +79,10 @@ public class IndexModel : PageModel
         else if (EstadoFiltro == "EnTransito")
         {
             filtrados = filtrados.Where(e => e.Estado == EstadoEnvioDto.EnTransito);
+        }
+        else if (EstadoFiltro == "EntregadoParcialmente")
+        {
+            filtrados = filtrados.Where(e => e.Estado == EstadoEnvioDto.EntregadoParcialmente);
         }
         else if (EstadoFiltro == "Extraviado")
         {
@@ -202,7 +206,16 @@ public class IndexModel : PageModel
         try
         {
             var respuesta = await _enviosApi.GenerarEtiquetasEnviosAsync(new[] { id });
-            return new JsonResult(respuesta);
+            var detalleEnvio = await _enviosApi.ObtenerPorIdAsync(id);
+            return new JsonResult(new
+            {
+                respuesta.Etiquetas,
+                respuesta.TotalEnviosSeleccionados,
+                respuesta.TotalEtiquetasGeneradas,
+                respuesta.NombreArchivoDescarga,
+                respuesta.ContenidoHtmlDescargable,
+                BultosDetalle = detalleEnvio?.BultosDetalle
+            });
         }
         catch
         {
@@ -237,7 +250,15 @@ public class IndexModel : PageModel
                 FechaAdmision: envio.FechaCreacion)).ToList();
 
             var html = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(etiquetas);
-            return new JsonResult(new ResultadoGeneracionEtiquetasDto(etiquetas, 1, etiquetas.Count, $"etiquetas-{envio.CodigoSeguimiento}.html", html));
+            return new JsonResult(new
+            {
+                Etiquetas = etiquetas,
+                TotalEnviosSeleccionados = 1,
+                TotalEtiquetasGeneradas = etiquetas.Count,
+                NombreArchivoDescarga = $"etiquetas-{envio.CodigoSeguimiento}.html",
+                ContenidoHtmlDescargable = html,
+                BultosDetalle = envio.BultosDetalle
+            });
         }
     }
 }

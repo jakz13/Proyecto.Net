@@ -73,6 +73,20 @@ public class HttpIncidenciasApi : IIncidenciasApi
         return incidencias.OrderByDescending(i => i.FechaRegistro).ToList();
     }
 
+    public async Task<IReadOnlyList<ConflictoSincronizacionDto>> ListarConflictosSincronizacionAsync(
+        int maximo = 50,
+        CancellationToken cancelacion = default)
+    {
+        var tope = Math.Clamp(maximo, 1, 200);
+        var respuesta = await _http.GetAsync($"{RutaIncidencias}/conflictos?maximo={tope}", cancelacion);
+        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+            return Array.Empty<ConflictoSincronizacionDto>();
+        await AsegurarExitoAsync(respuesta, cancelacion);
+
+        return await respuesta.Content.ReadFromJsonAsync<List<ConflictoSincronizacionDto>>(CatalogosHttp.OpcionesJson, cancelacion)
+            ?? new List<ConflictoSincronizacionDto>();
+    }
+
     public async Task<IncidenciaDto?> ObtenerIncidenciaPorIdAsync(Guid id, CancellationToken cancelacion = default)
     {
         var respuesta = await _http.GetAsync($"{RutaIncidencias}/{id}", cancelacion);

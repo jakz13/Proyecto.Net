@@ -37,9 +37,10 @@ public class CoberturaYDocumentoRepartidorTests
     }
 
     [Fact]
-    public void Contiene_PoligonoIlegible_NoContieneNada()
+    public void PoligonoIlegible_LaZonaNoSePuedeCrear()
     {
-        Assert.False(Zona("Montevideo Centro").Contiene(-34.91, -56.17));
+        // Antes quedaba una zona que no contenía ningún punto; ahora el dominio la rechaza al crearla
+        Assert.Throws<DomainValidationException>(() => Zona("Montevideo Centro"));
     }
 
     [Theory]

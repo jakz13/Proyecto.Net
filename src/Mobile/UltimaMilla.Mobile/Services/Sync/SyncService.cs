@@ -255,7 +255,26 @@ public class SyncService : ISyncService, IDisposable
         return await _localDatabaseService.ObtenerCantidadPendientesAsync();
     }
 
-    private Dictionary<string, bool> _funcionalidades = new(StringComparer.OrdinalIgnoreCase);
+    private const string PreferenciaFuncionalidadesJson = "Operador_Funcionalidades_Json";
+    private Dictionary<string, bool> _funcionalidades = CargarFuncionalidadesGuardadas();
+
+    private static Dictionary<string, bool> CargarFuncionalidadesGuardadas()
+    {
+        try
+        {
+            var json = Preferences.Default.Get(PreferenciaFuncionalidadesJson, string.Empty);
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var leido = JsonSerializer.Deserialize<Dictionary<string, bool>>(json);
+                if (leido is not null)
+                    return new Dictionary<string, bool>(leido, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+        }
+        return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+    }
 
     public bool FuncionalidadHabilitada(string clave) =>
         !_funcionalidades.TryGetValue(clave, out var habilitada) || habilitada;
@@ -269,6 +288,13 @@ public class SyncService : ISyncService, IDisposable
             if (respuesta is not null)
             {
                 _funcionalidades = new Dictionary<string, bool>(respuesta, StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    Preferences.Default.Set(PreferenciaFuncionalidadesJson, JsonSerializer.Serialize(_funcionalidades));
+                }
+                catch
+                {
+                }
             }
         }
         catch (Exception ex)
@@ -884,6 +910,10 @@ public class SyncService : ISyncService, IDisposable
                 procesadas++;
                 try
                 {
+                    var correlationId = !string.IsNullOrWhiteSpace(op.CorrelationId) ? op.CorrelationId : op.OperacionId.ToString("N");
+                    client.DefaultRequestHeaders.Remove(Services.Handlers.AuthDelegatingHandler.CabeceraCorrelacion);
+                    client.DefaultRequestHeaders.TryAddWithoutValidation(Services.Handlers.AuthDelegatingHandler.CabeceraCorrelacion, correlationId);
+
                     switch (op.TipoOperacion)
                     {
                         case TiposOperacionOffline.ConfirmarCarga:
@@ -1163,15 +1193,16 @@ public class SyncService : ISyncService, IDisposable
 
                                 var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/retiro";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
-                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroRealizado", detallesErrores, cancellationToken);
-                                if (ok)
+                                if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Conflict)
                                 {
-                                    // Si el servidor cambió el retiro mientras no había conexión, prevalece lo hecho en el domicilio (conflictoResuelto)
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Entregado");
                                     exitosas++;
                                 }
                                 else
                                 {
-                                    erroresNegocio++;
+                                    bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroRealizado", detallesErrores, cancellationToken);
+                                    if (ok) exitosas++; else erroresNegocio++;
                                 }
                             }
                             break;
@@ -1198,8 +1229,17 @@ public class SyncService : ISyncService, IDisposable
 
                                 var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/retiro/no-realizado";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
-                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroNoRealizado", detallesErrores, cancellationToken);
-                                if (ok) exitosas++; else erroresNegocio++;
+                                if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                                {
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(payload.ParadaId, "Fallido");
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    bool ok = await ProcesarRespuestaHttpAsync(op, response, "RetiroNoRealizado", detallesErrores, cancellationToken);
+                                    if (ok) exitosas++; else erroresNegocio++;
+                                }
                             }
                             break;
                         }

@@ -189,6 +189,7 @@ internal static class ConstructorTablero
 
         var franjaIds = paradas.Where(p => p.FranjaHorariaId.HasValue).Select(p => p.FranjaHorariaId!.Value)
             .Union(envios.Values.Where(e => e.FranjaHorariaComprometidaId.HasValue).Select(e => e.FranjaHorariaComprometidaId!.Value))
+            .Union(retiros.Values.Where(r => r.FranjaHorariaId.HasValue).Select(r => r.FranjaHorariaId!.Value))
             .Distinct()
             .ToList();
         var franjas = await db.FranjasHorarias.AsNoTracking().Where(f => franjaIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
@@ -250,6 +251,13 @@ internal static class ConstructorTablero
                     zona = ResolverZonaPorDefecto(direccion, envio);
                 var textoFranja = ventana is { } v0 ? $"{v0.HoraInicio:HH\\:mm} - {v0.HoraFin:HH\\:mm}" : "Sin franja comprometida";
 
+                var codigoParada = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? string.Empty;
+                var contactoParada = envio?.NombreDestinatario ?? retiro?.NombreContacto ?? string.Empty;
+                var telefonoParada = envio is not null
+                    ? telefonos.GetValueOrDefault(envio.DestinatarioId) ?? string.Empty
+                    : retiro?.TelefonoContacto ?? string.Empty;
+                var direccionParada = envio?.DireccionDestino ?? retiro?.DireccionRetiro ?? FormatearDireccion(direccion) ?? string.Empty;
+
                 string? incidenciaParada = null;
                 if (parada.EnvioId.HasValue && incidenciaPorEnvio.TryGetValue(parada.EnvioId.Value, out var incEnvio))
                     incidenciaParada = incEnvio;
@@ -284,12 +292,10 @@ internal static class ConstructorTablero
                             HojaDeRutaId = ruta.Id,
                             RepartidorId = ruta.RepartidorId ?? Guid.Empty,
                             NumeroRuta = numero,
-                            CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? string.Empty,
-                            Destinatario = envio?.NombreDestinatario ?? retiro?.NombreContacto ?? string.Empty,
-                            DestinatarioTelefono = envio is not null
-                                ? telefonos.GetValueOrDefault(envio.DestinatarioId) ?? string.Empty
-                                : retiro?.TelefonoContacto ?? string.Empty,
-                            Direccion = envio?.DireccionDestino ?? retiro?.DireccionRetiro ?? FormatearDireccion(direccion) ?? string.Empty,
+                            CodigoSeguimiento = codigoParada,
+                            Destinatario = contactoParada,
+                            DestinatarioTelefono = telefonoParada,
+                            Direccion = direccionParada,
                             Zona = zona,
                             FranjaHoraria = textoFranja,
                             HoraLimiteVentana = limite,
@@ -309,10 +315,10 @@ internal static class ConstructorTablero
                 paradasDto.Add(new ParadaEnVivoDto
                 {
                     EnvioId = parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
-                    CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? string.Empty,
+                    CodigoSeguimiento = codigoParada,
                     Orden = parada.Orden,
-                    Destinatario = envio?.NombreDestinatario ?? retiro?.NombreContacto ?? string.Empty,
-                    Direccion = envio?.DireccionDestino ?? retiro?.DireccionRetiro ?? FormatearDireccion(direccion) ?? string.Empty,
+                    Destinatario = contactoParada,
+                    Direccion = direccionParada,
                     Latitud = direccion?.Latitud ?? latitudBase,
                     Longitud = direccion?.Longitud ?? longitudBase,
                     FranjaHoraria = textoFranja,
@@ -504,7 +510,7 @@ internal static class ConstructorTablero
 
     private static string EstadoParada(string estado) => estado switch
     {
-        "Entregada" or "Entregado" or "Retirada" or "Retirado" => "Entregado",
+        "Entregada" or "Entregado" or "EntregadaParcialmente" or "Retirada" or "Retirado" => "Entregado",
         "Fallida" or "Fallido" or "NoRetirada" or "NoRetirado" => "NoEntregado",
         "EnCamino" or "EnSitio" => "EnCurso",
         _ => "Pendiente"

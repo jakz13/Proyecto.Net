@@ -382,8 +382,24 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
     /// <summary>El comercio confirma que recibió el bulto devuelto: la devolución queda cerrada.</summary>
     public void ConfirmarDevolucionRecibida(Guid? responsableUsuarioId)
     {
-        if (EstadoActual != EstadoEnvio.EnDevolucion)
+        var tieneBultosEnDevolucionParcial = EstadoActual == EstadoEnvio.EntregadoParcialmente
+            && _bultos.Any(b => b.EstadoBulto == MaquinaEstadosBulto.EnRetornoADeposito);
+
+        if (EstadoActual != EstadoEnvio.EnDevolucion && !tieneBultosEnDevolucionParcial)
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no está en devolución (estado '{EstadoActual}').");
+
+        if (tieneBultosEnDevolucionParcial)
+        {
+            foreach (var bulto in _bultos.Where(b => b.EstadoBulto == MaquinaEstadosBulto.EnRetornoADeposito))
+                bulto.MarcarDevuelto();
+
+            RegistrarEventoSinCambioDeEstado(
+                "DevolucionConfirmadaPorComercio",
+                responsableUsuarioId,
+                "PortalComercio",
+                payload: "El comercio confirmó la recepción de los bultos devueltos de una entrega parcial.");
+            return;
+        }
 
         foreach (var bulto in _bultos.Where(b => b.EstadoBulto is MaquinaEstadosBulto.EnRetornoADeposito or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.NoEntregado))
             bulto.MarcarDevuelto();
@@ -1183,6 +1199,40 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         _intentosEntrega.Add(intento);
 
+        bool yaTieneBultosEntregados = _bultos.Any(b => b.EstaEntregado);
+        int intentosAcumulados = _intentosEntrega.Count(i => i.Resultado is "Fallido" or "Parcial");
+        bool superaMaximo = reglaOperativa.SuperaMaximoIntentos(intentosAcumulados);
+        int intentosRestantes = reglaOperativa.CalcularIntentosRestantes(intentosAcumulados);
+
+        if (yaTieneBultosEntregados)
+        {
+            string destinoPendientes = superaMaximo
+                ? MaquinaEstadosBulto.EnRetornoADeposito
+                : MaquinaEstadosBulto.PendienteReenvio;
+
+            foreach (var bulto in _bultos.Where(b => !b.EstaEntregado && b.EstadoBulto is MaquinaEstadosBulto.CargadoEnVehiculo or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.PendienteReenvio or MaquinaEstadosBulto.NoEntregado))
+            {
+                if (bulto.EstadoBulto is MaquinaEstadosBulto.Recibido)
+                    bulto.MarcarCargadoEnVehiculo();
+                bulto.MarcarNoEntregado(motivo.Codigo, destinoPendientes);
+            }
+
+            string payloadParcialFallo = superaMaximo
+                ? $"Intento fallido en visita por bultos restantes ({motivo.Codigo} - {motivo.Descripcion}). Superado el límite de {reglaOperativa.MaxIntentosEntrega} intentos: bultos pendientes pasan a devolución al comercio."
+                : $"Intento fallido en visita por bultos restantes ({motivo.Codigo} - {motivo.Descripcion}). Bultos pendientes quedan programados para nuevo intento (Quedan {intentosRestantes} intentos).";
+
+            TransicionarEstado(
+                EstadoEnvio.EntregadoParcialmente,
+                "IntentoEntregaFallido",
+                responsableUsuarioId,
+                "MobileApp",
+                latitud,
+                longitud,
+                payload: payloadParcialFallo);
+
+            return (intento, EstadoEnvio.EntregadoParcialmente, intentosRestantes);
+        }
+
         TransicionarEstado(
             EstadoEnvio.NoEntregado,
             "IntentoEntregaFallido",
@@ -1191,10 +1241,6 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             latitud,
             longitud,
             payload: $"Motivo: {motivo.Codigo} - {motivo.Descripcion}. Observaciones: {observaciones.Trim()}. DispositivoUtc: {fechaHoraDispositivoUtc:O}");
-
-        int intentosAcumulados = _intentosEntrega.Count(i => i.Resultado == "Fallido");
-        bool superaMaximo = reglaOperativa.SuperaMaximoIntentos(intentosAcumulados);
-        int intentosRestantes = reglaOperativa.CalcularIntentosRestantes(intentosAcumulados);
 
         EstadoEnvio estadoFinal;
         string tipoEventoPaso2;

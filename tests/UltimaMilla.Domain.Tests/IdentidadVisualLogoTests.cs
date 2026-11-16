@@ -7,7 +7,7 @@ namespace UltimaMilla.Domain.Tests;
 public class IdentidadVisualLogoTests
 {
     private static IdentidadVisual Nueva() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "#D7301D", "#0CAC17", "contacto@operador.uy", "+598 2900 1122", null);
+        new(Guid.NewGuid(), Guid.NewGuid(), "#D7301D", "#0CAC17", "contacto@operador.uy", "099001122", null);
 
     [Theory]
     [InlineData("javascript:alert(1)")]

@@ -289,17 +289,21 @@ public class AdministracionBackofficeApiTests
         var api = new HttpMotivosNoEntregaApi(_factory.CreateClient());
         var catalogo = await api.ListarMotivosAsync();
         Assert.NotEmpty(catalogo);
+        Assert.All(catalogo, m => Assert.True(m.FechaAlta.Year > 1));
 
         var codigo = "TEST_" + Sufijo().ToUpperInvariant();
         var creado = await api.CrearMotivoAsync(new CrearMotivoNoEntregaDto { Codigo = codigo.ToLowerInvariant(), Descripcion = "Motivo de prueba" });
         Assert.Equal(codigo, creado.Codigo);
         Assert.True(creado.Activo);
+        Assert.True(creado.FechaAlta.Year > 1);
 
         var repetido = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearMotivoAsync(new CrearMotivoNoEntregaDto { Codigo = codigo, Descripcion = "otra" }));
         Assert.Equal(HttpStatusCode.BadRequest, repetido.CodigoEstado);
 
         var actualizado = await api.ActualizarMotivoAsync(new ActualizarMotivoNoEntregaDto { Id = creado.Id, Descripcion = "Descripción nueva", Activo = true });
         Assert.Equal("Descripción nueva", actualizado.Descripcion);
+        // PostgreSQL timestamptz tiene resolución de microsegundos y trunca las décimas de microsegundo de .NET
+        Assert.Equal(creado.FechaAlta, actualizado.FechaAlta, TimeSpan.FromMilliseconds(1));
 
         Assert.Contains(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Id == creado.Id);
         Assert.DoesNotContain(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Codigo == "RETORNO_SIN_INTENTO");
@@ -326,7 +330,7 @@ public class AdministracionBackofficeApiTests
         var actualizada = await api.ActualizarIdentidadVisualAsync(new ActualizarIdentidadVisualDto
         {
             NombreComercial = "Última Milla Express", ColorPrimario = "#0f766e", ColorSecundario = "#facc15",
-            EmailContacto = "Hola@UltimaMilla.com.uy", TelefonoContacto = "+598 2000 0000",
+            EmailContacto = "Hola@UltimaMilla.com.uy", TelefonoContacto = "099000000",
             SitioWeb = "https://ultimamilla.com.uy", MensajeComunicaciones = "¡Gracias!"
         });
         Assert.Equal("#0F766E", actualizada.ColorPrimario);

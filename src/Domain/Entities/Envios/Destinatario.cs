@@ -29,22 +29,24 @@ public class Destinatario : Entity
         ValidacionTexto.LargoMaximo(documento, 50, "El documento");
         if (!string.IsNullOrWhiteSpace(documento))
             Cedula.Validar(documento, "del destinatario");
-        ValidacionTexto.LargoMaximo(email, 200, "El email");
-        ValidacionTexto.LargoMaximo(telefono, 50, "El teléfono");
+        var emailValido = ContactoValidacion.ValidarEmailOpcional(email, "del destinatario");
+        var telefonoValido = ContactoValidacion.ValidarTelefonoOpcional(telefono, "del destinatario");
+        if (nombre.Any(c => c is '<' or '>' || char.IsControl(c)))
+            throw new DomainValidationException("El nombre del destinatario contiene caracteres no permitidos.");
 
         Nombre = nombre.Trim();
         Documento = documento?.Trim();
-        Email = email?.Trim().ToLowerInvariant();
-        Telefono = telefono?.Trim();
+        Email = emailValido;
+        Telefono = telefonoValido;
     }
 
     public void ActualizarContacto(string? email, string? telefono)
     {
-        ValidacionTexto.LargoMaximo(email, 200, "El email");
-        ValidacionTexto.LargoMaximo(telefono, 50, "El teléfono");
+        var emailValido = ContactoValidacion.ValidarEmailOpcional(email, "del destinatario");
+        var telefonoValido = ContactoValidacion.ValidarTelefonoOpcional(telefono, "del destinatario");
 
-        Email = email?.Trim().ToLowerInvariant();
-        Telefono = telefono?.Trim();
+        Email = emailValido;
+        Telefono = telefonoValido;
     }
 
     public void ActualizarNombre(string nombre)

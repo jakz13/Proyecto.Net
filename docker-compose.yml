@@ -53,7 +53,7 @@ services:
       - Smtp__UsarSsl=${SMTP_SSL:-true}
       - Smtp__Usuario=${SMTP_USER:-}
       - Smtp__Password=${SMTP_PASS:-}
-      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5002/seguimiento}
+      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5004/seguimiento}
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,7 +79,7 @@ services:
       - Smtp__UsarSsl=${SMTP_SSL:-true}
       - Smtp__Usuario=${SMTP_USER:-}
       - Smtp__Password=${SMTP_PASS:-}
-      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5002/seguimiento}
+      - Smtp__UrlBaseSeguimiento=${SMTP_URL_SEGUIMIENTO:-http://localhost:5004/seguimiento}
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +117,19 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
+
+  seguimiento-publico:
+    build:
+      context: .
+      dockerfile: src/Web/SeguimientoPublico/Dockerfile
+    container_name: ultimamilla-seguimiento-publico
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5004:80"
+    environment:
+      - API_BASE_URL=http://localhost:5000
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

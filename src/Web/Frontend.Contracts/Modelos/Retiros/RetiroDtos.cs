@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Retiros;
 
 /// <summary>Bulto que se pide retirar: descripción, peso en kg y dimensiones en centímetros.</summary>
@@ -13,17 +15,47 @@ public record BultoRetiroSolicitudDto
 /// <summary>Solicitud de retiro en domicilio que hace el comercio desde su portal.</summary>
 public record SolicitarRetiroDto
 {
+    [Required(ErrorMessage = "El nombre de contacto es obligatorio.")]
+    [StringLength(200, ErrorMessage = "El nombre no puede superar los 200 caracteres.")]
+    [SinMarcado]
     public string NombreContacto { get; set; } = string.Empty;
+
+    [TelefonoNueveDigitos]
     public string? TelefonoContacto { get; set; }
+
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string? EmailContacto { get; set; }
+
+    [Required(ErrorMessage = "La calle es obligatoria.")]
+    [StringLength(200, ErrorMessage = "La calle no puede superar los 200 caracteres.")]
+    [DireccionValida]
     public string Calle { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El número de puerta es obligatorio.")]
+    [NumeroPuertaValido]
     public string Numero { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La ciudad es obligatoria.")]
+    [CiudadValida]
     public string Ciudad { get; set; } = "Montevideo";
     public string? Referencia { get; set; }
+    [Required(ErrorMessage = "Indique el motivo del retiro.")]
+    [StringLength(300, ErrorMessage = "El motivo no puede superar los 300 caracteres.")]
+    [SinMarcado]
     public string Motivo { get; set; } = string.Empty;
+    public Guid? FranjaHorariaId { get; set; }
     public DateOnly? FechaSolicitada { get; set; }
     public string? ReferenciaExterna { get; set; }
     public List<BultoRetiroSolicitudDto> Bultos { get; set; } = new() { new BultoRetiroSolicitudDto() };
+}
+
+public record FranjaRetiroDisponibleDto
+{
+    public Guid Id { get; init; }
+    public string ZonaNombre { get; init; } = string.Empty;
+    public string DiaTexto { get; init; } = string.Empty;
+    public string VentanaTexto { get; init; } = string.Empty;
 }
 
 public record ResultadoSolicitudRetiroDto
@@ -80,6 +112,7 @@ public record PaginaRetirosDto
 {
     public IReadOnlyList<RetiroResumenDto> Items { get; init; } = Array.Empty<RetiroResumenDto>();
     public int Total { get; init; }
+    public IReadOnlyList<FranjaRetiroDisponibleDto>? FranjasDisponibles { get; init; }
 }
 
 /// <summary>Retiros del operador con el conteo por estado, para el tablero y los reportes.</summary>

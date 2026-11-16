@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos.Flota;
 
@@ -12,7 +13,8 @@ public record CrearRepartidorDto
     public string NombreCompleto { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El correo electrónico es obligatorio.")]
-    [EmailAddress(ErrorMessage = "El correo electrónico no tiene un formato válido.")]
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string Email { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El documento es obligatorio.")]
@@ -20,7 +22,7 @@ public record CrearRepartidorDto
     public string Documento { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El teléfono es obligatorio.")]
-    [StringLength(30, MinimumLength = 6, ErrorMessage = "El teléfono debe tener entre 6 y 30 caracteres.")]
+    [TelefonoNueveDigitos]
     public string Telefono { get; init; } = string.Empty;
 
     public Guid? VehiculoAsignadoId { get; init; }

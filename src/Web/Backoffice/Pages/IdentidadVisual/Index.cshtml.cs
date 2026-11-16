@@ -64,7 +64,7 @@ public class IndexModel : PageModel
                 ColorPrimario = "#1D4ED8",
                 ColorSecundario = "#F97316",
                 EmailContacto = "contacto@translogistica.uy",
-                TelefonoContacto = "+598 2900 1122"
+                TelefonoContacto = "099001122"
             };
             MensajeError = $"No se pudo sincronizar la identidad en línea ({ex.Message}). Mostrando valores de respaldo.";
         }
@@ -84,7 +84,7 @@ public class IndexModel : PageModel
             ColorSecundario = IdentidadActual.ColorSecundario,
             LogoUrl = urlExterna,
             EmailContacto = IdentidadActual.EmailContacto ?? "contacto@operador.uy",
-            TelefonoContacto = IdentidadActual.TelefonoContacto ?? "+598 2900 0000",
+            TelefonoContacto = IdentidadActual.TelefonoContacto ?? "099000000",
             SitioWeb = IdentidadActual.SitioWeb ?? "https://translogistica.uy",
             MensajeComunicaciones = IdentidadActual.MensajeComunicaciones ?? $"Gracias por elegir {IdentidadActual.NombreComercial}. Tu paquete está en camino.",
             DireccionDeposito = IdentidadActual.DireccionDeposito
@@ -210,7 +210,7 @@ public class IndexModel : PageModel
                 LogoUrl = null,
                 EliminarLogo = true,
                 EmailContacto = "contacto@translogistica.uy",
-                TelefonoContacto = "+598 2900 1122",
+                TelefonoContacto = "099001122",
                 SitioWeb = "https://translogistica.uy",
                 MensajeComunicaciones = "Gracias por confiar en TransLogística Express. Tu paquete está en camino."
             };

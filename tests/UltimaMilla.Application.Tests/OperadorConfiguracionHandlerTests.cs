@@ -3,6 +3,7 @@ using UltimaMilla.Application.Commands.Operador.CambiarEstadoMotivoNoEntrega;
 using UltimaMilla.Application.Commands.Operador.CrearMotivoNoEntrega;
 using UltimaMilla.Application.Commands.Operador.PublicarReglaOperativa;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Operador;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Operador;
@@ -203,11 +204,15 @@ public class OperadorConfiguracionHandlerTests
     {
         var dto = await Crear().Handle(new CrearMotivoNoEntregaCommand(" direccion_erronea ", " Dirección errónea ", true), default);
 
+        var guardado = Assert.Single(_motivos.Motivos);
         Assert.Equal("DIRECCION_ERRONEA", dto.Codigo);
         Assert.Equal("Dirección errónea", dto.Descripcion);
         Assert.True(dto.Activo);
         Assert.True(dto.EsInterno);
-        Assert.Equal(_tenant.OperadorId, Assert.Single(_motivos.Motivos).OperadorId);
+        Assert.NotEqual(default, dto.FechaAlta);
+        Assert.True(dto.FechaAlta.Year > 1);
+        Assert.Equal(guardado.FechaAlta, dto.FechaAlta);
+        Assert.Equal(_tenant.OperadorId, guardado.OperadorId);
         Assert.Equal(1, _uow.Confirmaciones);
     }
 
@@ -417,6 +422,23 @@ public class OperadorConfiguracionHandlerTests
     }
 
     [Fact]
+    public async Task ConsultasYComandosDeMotivos_ConservanFechaAltaDeLaEntidad()
+    {
+        var motivo = AgregarMotivo("CON_FECHA");
+
+        var listado = await new ListarMotivosNoEntregaQueryHandler(_motivos, _tenant).Handle(new ListarMotivosNoEntregaQuery(), default);
+        var obtenido = await new ObtenerMotivoNoEntregaQueryHandler(_motivos, _tenant).Handle(new ObtenerMotivoNoEntregaQuery(motivo.Id), default);
+        var actualizado = await Actualizar().Handle(new ActualizarMotivoNoEntregaCommand(motivo.Id, "Actualizada"), default);
+        var cambiado = await CambiarEstado().Handle(new CambiarEstadoMotivoNoEntregaCommand(motivo.Id, false), default);
+
+        Assert.Equal(motivo.FechaAlta, Assert.Single(listado).FechaAlta);
+        Assert.Equal(motivo.FechaAlta, obtenido.FechaAlta);
+        Assert.Equal(motivo.FechaAlta, actualizado.FechaAlta);
+        Assert.Equal(motivo.FechaAlta, cambiado.FechaAlta);
+        Assert.True(obtenido.FechaAlta.Year > 1);
+    }
+
+    [Fact]
     public async Task Publicar_TipoPruebaCompuesto_NormalizaACompleta()
     {
         var dto = await Publicar().Handle(Regla(tipo: "Firma digital y Foto del paquete en puerta"), default);
@@ -510,5 +532,47 @@ public class OperadorConfiguracionHandlerTests
 
         Assert.True(res.SlaVencido);
         Assert.Equal(fechaDespacho.AddHours(12), res.FechaLimiteSla);
+    }
+
+    [Fact]
+    public async Task Publicar_NotificaIdentidadVisualYReglaActualizadaEnTiempoReal()
+    {
+        var notificador = new FakeIdentidadNotifier();
+        var handler = new PublicarReglaOperativaCommandHandler(_reglas, _tenant, _clock, _uow, notificador);
+
+        var dto = await handler.Handle(Regla(tipo: "Completa"), default);
+
+        Assert.Equal("Completa", dto.TipoPruebaEntregaExigida);
+        var operadorNotificado = Assert.Single(notificador.OperadoresNotificados);
+        Assert.Equal(_tenant.OperadorId, operadorNotificado);
+    }
+
+    [Fact]
+    public async Task Publicar_CuandoFallaElNotificadorRealtime_GuardaLaReglaSinFallar()
+    {
+        var notificador = new FakeIdentidadNotifier { LanzarExcepcion = true };
+        var handler = new PublicarReglaOperativaCommandHandler(_reglas, _tenant, _clock, _uow, notificador);
+
+        var dto = await handler.Handle(Regla(tipo: "Foto"), default);
+
+        Assert.Equal("Foto", dto.TipoPruebaEntregaExigida);
+        Assert.Equal(1, _uow.Confirmaciones);
+    }
+
+    private sealed class FakeIdentidadNotifier : ITableroRealtimeNotifier
+    {
+        public bool LanzarExcepcion { get; init; }
+        public List<Guid> OperadoresNotificados { get; } = new();
+
+        public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default) => Task.CompletedTask;
+        public Task NotificarHitoParadaAsync(Guid operadorId, Guid hojaDeRutaId, Guid paradaId, string estadoParada, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task NotificarIdentidadVisualActualizadaAsync(Guid operadorId, CancellationToken ct = default)
+        {
+            if (LanzarExcepcion)
+                throw new InvalidOperationException("Fallo simulado de Redis/SignalR");
+            OperadoresNotificados.Add(operadorId);
+            return Task.CompletedTask;
+        }
     }
 }

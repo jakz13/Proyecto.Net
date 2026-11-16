@@ -22,6 +22,7 @@ public class IndexModel : PageModel
     public IReadOnlyList<IncidenciaDto> Incidencias { get; private set; } = new List<IncidenciaDto>();
     public IReadOnlyList<EnvioDisponibleIncidenciaDto> EnviosDisponibles { get; private set; } = new List<EnvioDisponibleIncidenciaDto>();
     public IReadOnlyList<RutaDisponibleIncidenciaDto> RutasDisponibles { get; private set; } = new List<RutaDisponibleIncidenciaDto>();
+    public IReadOnlyList<ConflictoSincronizacionDto> ConflictosSincronizacion { get; private set; } = new List<ConflictoSincronizacionDto>();
 
     // Contadores para métricas
     public int TotalIncidencias { get; private set; }
@@ -77,6 +78,7 @@ public class IndexModel : PageModel
         Incidencias = await _incidenciasApi.ListarIncidenciasAsync(filtro, cancelacion);
         EnviosDisponibles = await _incidenciasApi.ListarEnviosDisponiblesAsync(cancelacion);
         RutasDisponibles = await _incidenciasApi.ListarRutasDisponiblesAsync(cancelacion);
+        ConflictosSincronizacion = await _incidenciasApi.ListarConflictosSincronizacionAsync(50, cancelacion);
 
         return Page();
     }

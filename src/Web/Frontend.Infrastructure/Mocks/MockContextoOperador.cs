@@ -24,7 +24,7 @@ public class MockContextoOperador
             ColorSecundario = "#F97316", // Naranja acento
             LogoUrl = null,
             EmailContacto = "contacto@translogistica.uy",
-            TelefonoContacto = "+598 2900 1122"
+            TelefonoContacto = "099001122"
         },
         new IdentidadVisualDto
         {
@@ -34,7 +34,7 @@ public class MockContextoOperador
             ColorSecundario = "#F59E0B", // Ámbar acento
             LogoUrl = null,
             EmailContacto = "operaciones@velozcargo.uy",
-            TelefonoContacto = "+598 2400 3344"
+            TelefonoContacto = "099003344"
         }
     };
 

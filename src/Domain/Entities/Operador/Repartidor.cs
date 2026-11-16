@@ -34,14 +34,13 @@ public class Repartidor : Entity, IMustHaveTenant
 
         ValidarDocumento(documento);
 
-        if (string.IsNullOrWhiteSpace(telefono))
-            throw new DomainValidationException("El teléfono del repartidor no puede ser vacío.");
+        var telefonoValido = ContactoValidacion.ValidarTelefono(telefono, "del repartidor");
 
         UsuarioId = usuarioId;
         OperadorId = operadorId;
         VehiculoAsignadoId = vehiculoAsignadoId;
         Documento = documento.Trim();
-        Telefono = telefono.Trim();
+        Telefono = telefonoValido;
         Estado = string.IsNullOrWhiteSpace(estado) ? "Disponible" : estado.Trim();
     }
 
@@ -90,9 +89,6 @@ public class Repartidor : Entity, IMustHaveTenant
 
     public void ActualizarContacto(string telefono)
     {
-        if (string.IsNullOrWhiteSpace(telefono))
-            throw new DomainValidationException("El teléfono no puede ser vacío.");
-
-        Telefono = telefono.Trim();
+        Telefono = ContactoValidacion.ValidarTelefono(telefono, "del repartidor");
     }
 }

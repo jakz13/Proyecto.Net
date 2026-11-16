@@ -75,8 +75,18 @@ public static class DatabaseSeederAdministracion
     private static async Task SembrarComercioAsync(AppDbContext context, CancellationToken ct)
     {
         var comercio = await context.Comercios.FirstOrDefaultAsync(c => c.Id == DatabaseSeeder.DefaultComercioId, ct);
-        if (comercio is not null && string.IsNullOrWhiteSpace(comercio.NombreFantasia))
+        if (comercio is null || !string.IsNullOrWhiteSpace(comercio.NombreFantasia))
+            return;
+
+        try
+        {
             comercio.ActualizarPerfil(comercio.RazonSocial, "MegaStore", comercio.Email, comercio.Telefono, "Av. Italia 3456, Montevideo");
+        }
+        catch (UltimaMilla.Domain.Exceptions.DomainValidationException)
+        {
+            // Un comercio sembrado con un teléfono o correo de formato viejo no cumple las reglas de hoy: se deja como estaba
+            // (ActualizarPerfil valida todo antes de asignar). Completarlo no puede impedir que la API arranque.
+        }
     }
 
     private static async Task SembrarZonasAsync(AppDbContext context, CancellationToken ct)
@@ -120,7 +130,7 @@ public static class DatabaseSeederAdministracion
             return;
 
         var identidad = new IdentidadVisual(IdentidadVisualId, DatabaseSeeder.DefaultOperadorId, "#1D4ED8", "#F97316",
-            "contacto@ultimamilla.com.uy", "+598 2900 1122");
+            "contacto@ultimamilla.com.uy", "099001122");
         identidad.ActualizarComunicaciones("https://ultimamilla.com.uy", "Gracias por confiar en nosotros. Seguí tu envío en línea.");
         await context.IdentidadesVisuales.AddAsync(identidad, ct);
     }

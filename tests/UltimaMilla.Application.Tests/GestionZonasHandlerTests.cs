@@ -92,7 +92,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             nombreInvalido!,
-            "[[-34.9080, -56.2120], [-34.9030, -56.1780]]",
+            "[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9080, -56.1780]]",
             "#2563eb",
             new List<CrearFranjaHorariaDto>());
 
@@ -136,7 +136,7 @@ public class GestionZonasHandlerTests
             Guid.NewGuid(),
             _operadorIdPrincipal,
             "Zona Pocitos",
-            "[[-34.91, -56.15], [-34.92, -56.16]]");
+            "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         zonaExistente.ActualizarDatos("Zona Pocitos", "#2563eb");
         await _repositorioZonas.AgregarAsync(zonaExistente);
 
@@ -147,7 +147,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "zona pocitos",
-            "[[-34.90, -56.14], [-34.93, -56.17]]",
+            "[[-34.90, -56.14], [-34.93, -56.17], [-34.90, -56.17]]",
             "#ef4444",
             new List<CrearFranjaHorariaDto>());
 
@@ -171,7 +171,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "Zona Cordón",
-            "[[-34.90, -56.17], [-34.91, -56.18]]",
+            "[[-34.90, -56.17], [-34.91, -56.18], [-34.90, -56.18]]",
             "#2563eb",
             new List<CrearFranjaHorariaDto>());
 
@@ -201,7 +201,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "Zona Ciudad Vieja",
-            "[[-34.90, -56.20], [-34.91, -56.21]]",
+            "[[-34.90, -56.20], [-34.91, -56.21], [-34.90, -56.21]]",
             "#8b5cf6",
             franjasSolapadas);
 
@@ -228,7 +228,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "Zona Carrasco",
-            "[[-34.88, -56.05], [-34.89, -56.06]]",
+            "[[-34.88, -56.05], [-34.89, -56.06], [-34.88, -56.06]]",
             "#f59e0b",
             franjasInvertidas);
 
@@ -258,7 +258,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "Zona Malvín",
-            "[[-34.89, -56.10], [-34.90, -56.11]]",
+            "[[-34.89, -56.10], [-34.90, -56.11], [-34.89, -56.11]]",
             "#10b981",
             franjas);
 
@@ -286,7 +286,7 @@ public class GestionZonasHandlerTests
 
         var comando = new CrearZonaCoberturaCommand(
             "Zona Frontera",
-            "[[-34.90, -56.16], [-34.91, -56.17]]",
+            "[[-34.90, -56.16], [-34.91, -56.17], [-34.90, -56.17]]",
             "#2563eb",
             franjasContiguas);
 
@@ -310,7 +310,7 @@ public class GestionZonasHandlerTests
             Guid.NewGuid(),
             _operadorIdPrincipal,
             "Zona Original",
-            "[[-34.90, -56.16]]");
+            "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         zona.AgregarFranjaHoraria(new FranjaHoraria(Guid.NewGuid(), zona.Id, DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(13, 0), 10));
         await _repositorioZonas.AgregarAsync(zona);
 
@@ -327,7 +327,7 @@ public class GestionZonasHandlerTests
         var comando = new ActualizarZonaCoberturaCommand(
             zona.Id,
             "Zona Actualizada",
-            "[[-34.90, -56.16], [-34.92, -56.18]]",
+            "[[-34.90, -56.16], [-34.92, -56.18], [-34.90, -56.18]]",
             "#10b981",
             true,
             nuevasFranjas);
@@ -351,7 +351,7 @@ public class GestionZonasHandlerTests
             Guid.NewGuid(),
             _operadorIdAjeno,
             "Zona Secreta de Competidor",
-            "[[-34.90, -56.16]]");
+            "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         await _repositorioZonas.AgregarAsync(zonaAjena);
 
         var handler = new ActualizarZonaCoberturaCommandHandler(
@@ -406,7 +406,7 @@ public class GestionZonasHandlerTests
             Guid.NewGuid(),
             _operadorIdPrincipal,
             "Zona Cordón Sur",
-            "[[-34.90, -56.17]]");
+            "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         await _repositorioZonas.AgregarAsync(zona);
 
         var handler = new CambiarEstadoZonaCoberturaCommandHandler(
@@ -444,7 +444,7 @@ public class GestionZonasHandlerTests
             Guid.NewGuid(),
             _operadorIdAjeno,
             "Zona Ajena",
-            "[[-34.90, -56.17]]");
+            "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         await _repositorioZonas.AgregarAsync(zonaAjena);
 
         var handler = new CambiarEstadoZonaCoberturaCommandHandler(
@@ -507,10 +507,10 @@ public class GestionZonasHandlerTests
     public async Task ListarZonasCobertura_FiltraPorOperadorYEstado()
     {
         // Arrange
-        var zonaPropiaActiva = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Centro Activa", "[]");
-        var zonaPropiaInactiva = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Centro Inactiva", "[]");
+        var zonaPropiaActiva = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Centro Activa", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
+        var zonaPropiaInactiva = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Centro Inactiva", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         zonaPropiaInactiva.Desactivar();
-        var zonaAjena = new ZonaCobertura(Guid.NewGuid(), _operadorIdAjeno, "Zona Ajena Activa", "[]");
+        var zonaAjena = new ZonaCobertura(Guid.NewGuid(), _operadorIdAjeno, "Zona Ajena Activa", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
 
         await _repositorioZonas.AgregarAsync(zonaPropiaActiva);
         await _repositorioZonas.AgregarAsync(zonaPropiaInactiva);
@@ -550,7 +550,7 @@ public class GestionZonasHandlerTests
     public async Task ObtenerZonaPorId_ZonaExistentePropia_DevuelveDetalle()
     {
         // Arrange
-        var zona = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Zona Detalle", "[[-34.90, -56.16]]");
+        var zona = new ZonaCobertura(Guid.NewGuid(), _operadorIdPrincipal, "Zona Detalle", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         zona.AgregarFranjaHoraria(new FranjaHoraria(Guid.NewGuid(), zona.Id, DayOfWeek.Monday, new TimeOnly(8, 0), new TimeOnly(12, 0), 15));
         await _repositorioZonas.AgregarAsync(zona);
 
@@ -570,7 +570,7 @@ public class GestionZonasHandlerTests
     public async Task ObtenerZonaPorId_ZonaAjena_LanzaNotFoundException_AntiIDOR()
     {
         // Arrange
-        var zonaAjena = new ZonaCobertura(Guid.NewGuid(), _operadorIdAjeno, "Zona Ajena", "[]");
+        var zonaAjena = new ZonaCobertura(Guid.NewGuid(), _operadorIdAjeno, "Zona Ajena", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         await _repositorioZonas.AgregarAsync(zonaAjena);
 
         var handler = new ObtenerZonaCoberturaPorIdQueryHandler(_repositorioZonas, _inquilinoActual);

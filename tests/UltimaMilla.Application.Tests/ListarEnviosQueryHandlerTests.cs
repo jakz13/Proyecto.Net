@@ -77,7 +77,7 @@ public class ListarEnviosQueryHandlerTests
             usuarioId,
             _tenant.OperadorId,
             "43219876",
-            "+598 99 123 456"
+            "099123456"
         );
 
         var usuario = new UltimaMilla.Domain.Entities.Identidad.Usuario(
@@ -181,7 +181,7 @@ public class ListarEnviosQueryHandlerTests
             Guid.NewGuid(),
             _tenant.OperadorId,
             "12345678",
-            "+598 99 999 999"
+            "099999999"
         );
 
         var envio = Crear(_tenant.OperadorId, Guid.NewGuid(), "TRK-FALLBACK-DOC", rutaId);

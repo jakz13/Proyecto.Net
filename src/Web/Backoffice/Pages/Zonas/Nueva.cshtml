@@ -20,6 +20,13 @@
     </a>
 </div>
 
+@if (string.IsNullOrEmpty(Model.ErrorMessage) && !ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
+        <strong>Error de validación:</strong>
+        <span>@string.Join(" ", ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct())</span>
+    </div>
+}
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
     <div class="alert alert-danger small py-2 mb-3 border-0 shadow-sm" role="alert">
@@ -200,14 +207,14 @@
                                     <tr class="fila-franja">
                                         <td>
                                             <select name="Franjas[@i].DiaSemana" class="form-select form-select-sm" required>
-                                                <option value="Monday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Monday)">Lunes</option>
-                                                <option value="Tuesday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Tuesday)">Martes</option>
-                                                <option value="Wednesday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Wednesday)">Miércoles</option>
-                                                <option value="Thursday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Thursday)">Jueves</option>
-                                                <option value="Friday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Friday)">Viernes</option>
-                                                <option value="Saturday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Saturday)">Sábado</option>
-                                                <option value="Sunday" selected="@(Model.Franjas[i].DiaSemana == DayOfWeek.Sunday)">Domingo</option>
-                                                <option value="-1">Todos los días</option>
+                                                <option value="Monday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Monday), StringComparison.OrdinalIgnoreCase))">Lunes</option>
+                                                <option value="Tuesday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Tuesday), StringComparison.OrdinalIgnoreCase))">Martes</option>
+                                                <option value="Wednesday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Wednesday), StringComparison.OrdinalIgnoreCase))">Miércoles</option>
+                                                <option value="Thursday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Thursday), StringComparison.OrdinalIgnoreCase))">Jueves</option>
+                                                <option value="Friday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Friday), StringComparison.OrdinalIgnoreCase))">Viernes</option>
+                                                <option value="Saturday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Saturday), StringComparison.OrdinalIgnoreCase))">Sábado</option>
+                                                <option value="Sunday" selected="@(string.Equals(Model.Franjas[i].DiaSemana, nameof(DayOfWeek.Sunday), StringComparison.OrdinalIgnoreCase))">Domingo</option>
+                                                <option value="-1" selected="@(Model.Franjas[i].DiaSemana == FranjasTodosLosDias.CodigoTodosLosDias)">Todos los días</option>
                                             </select>
                                         </td>
                                         <td>

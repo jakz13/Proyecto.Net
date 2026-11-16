@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos;
 
@@ -25,12 +26,12 @@ public class ActualizarIdentidadVisualDto
     public string? LogoUrl { get; set; }
 
     [Required(ErrorMessage = "El correo de contacto o soporte es obligatorio.")]
-    [EmailAddress(ErrorMessage = "Debe ingresar un formato de correo electrónico válido.")]
+    [EmailValido]
     [StringLength(100, ErrorMessage = "El correo no puede exceder 100 caracteres.")]
     public string EmailContacto { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El teléfono de contacto oficial es obligatorio.")]
-    [StringLength(50, MinimumLength = 6, ErrorMessage = "El teléfono debe tener entre 6 y 50 caracteres.")]
+    [TelefonoNueveDigitos]
     public string TelefonoContacto { get; set; } = string.Empty;
 
     /// <summary>
@@ -49,6 +50,7 @@ public class ActualizarIdentidadVisualDto
     /// Indica si se debe eliminar explícitamente el logotipo actual (por ejemplo, al restablecer valores predeterminados).
     /// </summary>
     [StringLength(300, ErrorMessage = "La dirección del depósito no puede exceder 300 caracteres.")]
+    [DireccionValida]
     public string? DireccionDeposito { get; set; }
 
     public bool EliminarLogo { get; set; }

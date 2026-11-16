@@ -272,8 +272,24 @@ public class ProcesarMensajeCommandHandler : IRequestHandler<ProcesarMensajeComm
         if (canal.Length == 0)
             return 0;
 
+        string? resumenBultos = null;
+        if (estado == EstadoEnvio.EntregadoParcialmente)
+        {
+            var operativos = envio.Bultos.Where(b => b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion).ToList();
+            var entregados = operativos.Where(b => b.EstaEntregado).Select(b => b.Identificacion).ToList();
+            var pendientes = operativos
+                .Where(b => !b.EstaEntregado)
+                .Select(b => string.IsNullOrWhiteSpace(b.MotivoNoEntregaCodigo)
+                    ? b.Identificacion
+                    : $"{b.Identificacion} (motivo: {b.MotivoNoEntregaCodigo})")
+                .ToList();
+
+            resumenBultos = $"Entregados ({entregados.Count}/{operativos.Count}): {string.Join(", ", entregados)}. " +
+                            $"Pendientes ({pendientes.Count}): {string.Join(", ", pendientes)}.";
+        }
+
         await _notificacionService.EnviarAsync(
-            new NotificacionDestinatario(envio.Id, envio.CodigoSeguimientoPublico, destinatario.Nombre, canal, contacto, estado),
+            new NotificacionDestinatario(envio.Id, envio.CodigoSeguimientoPublico, destinatario.Nombre, canal, contacto, estado, resumenBultos),
             cancellationToken);
 
         await _notificacionRepository.AddAsync(

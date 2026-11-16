@@ -116,8 +116,8 @@ public class Retiro : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, I
         ComercioOperadorId = comercioOperadorId;
         CodigoSeguimientoPublico = codigoSeguimientoPublico.Trim().ToUpperInvariant();
         NombreContacto = nombreContacto.Trim();
-        TelefonoContacto = telefonoContacto?.Trim();
-        EmailContacto = emailContacto?.Trim().ToLowerInvariant();
+        TelefonoContacto = ContactoValidacion.ValidarTelefonoOpcional(telefonoContacto, "de contacto");
+        EmailContacto = ContactoValidacion.ValidarEmailOpcional(emailContacto, "de contacto");
         DireccionRetiroId = direccionRetiroId;
         DireccionRetiro = direccionRetiro.Trim();
         FranjaHorariaId = franjaHorariaId;

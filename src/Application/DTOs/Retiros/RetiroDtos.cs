@@ -36,7 +36,14 @@ public record RetiroDetalleDto(
     bool TieneFotoEstado,
     bool TieneFirma);
 
-public record PaginaRetirosDto(IReadOnlyList<RetiroResumenDto> Items, int Total, int Pagina, int TamanoPagina);
+public record FranjaRetiroDisponibleDto(Guid Id, string ZonaNombre, string DiaTexto, string VentanaTexto);
+
+public record PaginaRetirosDto(
+    IReadOnlyList<RetiroResumenDto> Items,
+    int Total,
+    int Pagina,
+    int TamanoPagina,
+    IReadOnlyList<FranjaRetiroDisponibleDto>? FranjasDisponibles = null);
 
 /// <summary>Retiros del operador agrupados por estado, para el tablero de operación y los reportes.</summary>
 public record ResumenRetirosOperadorDto(

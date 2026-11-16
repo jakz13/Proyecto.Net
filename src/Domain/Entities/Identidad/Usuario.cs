@@ -42,8 +42,10 @@ public class Usuario : AggregateRoot
         if (perfilId == Guid.Empty)
             throw new DomainValidationException("El identificador de perfil no puede ser vacío.");
 
+        var emailValido = ContactoValidacion.ValidarEmail(email, "del usuario");
+
         Nombre = nombre.Trim();
-        Email = email.Trim().ToLowerInvariant();
+        Email = emailValido;
         PasswordHash = passwordHash;
         PerfilId = perfilId;
         OperadorId = operadorId;
@@ -86,8 +88,10 @@ public class Usuario : AggregateRoot
         if (string.IsNullOrWhiteSpace(email))
             throw new DomainValidationException("El email no puede ser vacío.");
 
+        var emailValido = ContactoValidacion.ValidarEmail(email, "del usuario");
+
         Nombre = nombre.Trim();
-        Email = email.Trim().ToLowerInvariant();
+        Email = emailValido;
     }
 
     public bool EstaBloqueado(DateTime fechaReferencia)

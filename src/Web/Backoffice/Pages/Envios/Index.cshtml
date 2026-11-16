@@ -77,6 +77,7 @@
                     <option value="CandidatosExtravio" selected="@(Model.EstadoFiltro == "CandidatosExtravio")">Candidatos a Extravío (En depósito / En tránsito)</option>
                     <option value="EnDeposito" selected="@(Model.EstadoFiltro == "EnDeposito")">En Depósito</option>
                     <option value="EnTransito" selected="@(Model.EstadoFiltro == "EnTransito")">En Tránsito</option>
+                    <option value="EntregadoParcialmente" selected="@(Model.EstadoFiltro == "EntregadoParcialmente")">Entregados Parcialmente</option>
                     <option value="Extraviado" selected="@(Model.EstadoFiltro == "Extraviado")">Extraviados</option>
                 </select>
             </div>
@@ -567,6 +568,7 @@
                         return String(e.Id || e.id).toLowerCase() === String(envioId).toLowerCase();
                     });
                     if (envioSel) {
+                        firmaMapaHistorial = JSON.stringify(envioSel);
                         window.MapasUltimaMilla.renderizarMapaSeguimientoEnvio('mapaHistorialEnvioLeaflet', envioSel);
                     }
                 }
@@ -575,12 +577,33 @@
             cargarEvidencias(envioId);
             cargarBultosEnContenedor(envioId, 'listaBultosEnHistorial');
 
-            fetch('?handler=Historial&id=' + encodeURIComponent(envioId))
+            historialAbierto = { id: envioId, codigo: codigoSeguimiento };
+            ultimaFirmaHistorial = '';
+            firmaMapaHistorial = '';
+            cargarEventosHistorial(envioId, false);
+        }
+
+        // Línea de vida del envío abierto: se vuelve a pedir cada vez que algo cambia en el sistema, sin cerrar ni vaciar el panel
+        var historialAbierto = null;
+        var ultimaFirmaHistorial = '';
+        var firmaMapaHistorial = '';
+
+        function cargarEventosHistorial(envioId, silencioso) {
+            var cargando = document.getElementById('cargandoHistorial');
+            var contenedor = document.getElementById('contenedorHistorial');
+            var error = document.getElementById('errorHistorial');
+            var timeline = document.getElementById('listaEventosTimeline');
+
+            return fetch('?handler=Historial&id=' + encodeURIComponent(envioId), { cache: 'no-store' })
                 .then(function(response) {
                     if (!response.ok) throw new Error('Error de red');
                     return response.json();
                 })
                 .then(function(eventos) {
+                    // Al actualizar en vivo se vuelve a dibujar solo si hubo eventos nuevos (así no se mueve el scroll ni parpadea el panel)
+                    var firma = JSON.stringify(eventos || []);
+                    if (silencioso && firma === ultimaFirmaHistorial) return;
+                    ultimaFirmaHistorial = firma;
                     cargando.style.display = 'none';
                     if (!eventos || eventos.length === 0) {
                         timeline.innerHTML = '<div class="text-secondary small">No hay eventos registrados para este envío.</div>';
@@ -624,22 +647,29 @@
                     contenedor.style.display = 'block';
                 })
                 .catch(function(err) {
+                    // Un fallo al actualizar en vivo no tapa lo que ya se está mostrando
+                    if (silencioso) return;
                     cargando.style.display = 'none';
                     error.style.display = 'block';
                 });
         }
 
         // Firma y foto que dejó el repartidor: las imágenes se piden aparte y por el Backoffice (la API exige el token de sesión).
-        function cargarEvidencias(envioId) {
+        function cargarEvidencias(envioId, silencioso) {
             var seccion = document.getElementById('seccionEvidencias');
             var lista = document.getElementById('listaEvidencias');
-            seccion.style.display = 'none';
-            lista.innerHTML = '';
+            if (!silencioso) {
+                seccion.style.display = 'none';
+                lista.innerHTML = '';
+            }
 
             fetch('?handler=Evidencias&id=' + encodeURIComponent(envioId))
                 .then(function (r) { if (!r.ok) throw new Error('Error de red'); return r.json(); })
                 .then(function (evidencias) {
                     if (!evidencias || evidencias.length === 0) return;
+                    var firma = JSON.stringify(evidencias);
+                    if (silencioso && lista.getAttribute('data-firma') === firma) return;
+                    lista.setAttribute('data-firma', firma);
 
                     var html = '';
                     evidencias.forEach(function (ev) {
@@ -663,15 +693,52 @@
                 .catch(function () { /* La evidencia es complementaria: si falla, el historial sigue funcionando. */ });
         }
 
+        // Tiempo real: con el panel de línea de vida abierto, cada cambio del sistema actualiza eventos, evidencias, bultos y mapa del envío que se está mirando
+        document.addEventListener('DOMContentLoaded', function () {
+            var modalHistorial = document.getElementById('modalHistorialTrazabilidad');
+            if (!modalHistorial) return;
+
+            modalHistorial.addEventListener('hidden.bs.modal', function () { historialAbierto = null; });
+
+            document.addEventListener('tiempo-real:actualizado', function () {
+                if (!historialAbierto || !modalHistorial.classList.contains('show')) return;
+                var envioId = historialAbierto.id;
+
+                cargarEventosHistorial(envioId, true);
+                cargarEvidencias(envioId, true);
+                cargarBultosEnContenedor(envioId, 'listaBultosEnHistorial', true);
+
+                // El catálogo de envíos ya se volvió a evaluar con la actualización de la página: el mapa se redibuja con el estado nuevo
+                if (window.MapasUltimaMilla && Array.isArray(catalogoEnviosVista)) {
+                    var envioSel = catalogoEnviosVista.find(function (e) {
+                        return String(e.Id || e.id).toLowerCase() === String(envioId).toLowerCase();
+                    });
+                    // Solo se redibuja si el envío cambió (estado, posición): redibujar siempre reiniciaría el zoom que la persona eligió
+                    var firmaMapa = envioSel ? JSON.stringify(envioSel) : '';
+                    if (envioSel && firmaMapa !== firmaMapaHistorial) {
+                        firmaMapaHistorial = firmaMapa;
+                        window.MapasUltimaMilla.renderizarMapaSeguimientoEnvio('mapaHistorialEnvioLeaflet', envioSel);
+                    }
+                }
+            });
+        });
+
         var ultimoHtmlImprimibleEtiquetas = '';
 
         function calcularSvgBarras(codigo) {
             return Code128.svg(codigo, 54);
         }
 
-        function renderizarTarjetasEtiquetas(etiquetas) {
+        function renderizarTarjetasEtiquetas(etiquetas, bultosDetalle) {
             if (!etiquetas || etiquetas.length === 0) {
                 return '<div class="col-12 text-secondary small">No se registraron bultos para este envío.</div>';
+            }
+            var mapaEstado = {};
+            if (Array.isArray(bultosDetalle)) {
+                bultosDetalle.forEach(function (b) {
+                    var id = (b.identificacion || b.Identificacion || '').toUpperCase();
+                    if (id) mapaEstado[id] = b;
+                });
             }
             var html = '';
             etiquetas.forEach(function (et) {
@@ -680,10 +747,23 @@
                 var totBultos = et.totalBultos || et.TotalBultos || 1;
                 var destinatario = et.nombreDestinatario || et.NombreDestinatario || '';
                 var direccion = et.direccionDestino || et.DireccionDestino || '';
+                var infoBulto = mapaEstado[codBulto.toUpperCase()];
+                var estadoBulto = infoBulto ? (infoBulto.estadoBulto || infoBulto.EstadoBulto || '') : '';
+                var motivoBulto = infoBulto ? (infoBulto.motivoNoEntregaCodigo || infoBulto.MotivoNoEntregaCodigo || '') : '';
+                var badgeEstado = '';
+                if (estadoBulto) {
+                    var claseBadge = estadoBulto === 'Entregado'
+                        ? 'bg-success-subtle text-success border border-success-subtle'
+                        : (estadoBulto === 'NoEntregado' || estadoBulto === 'PendienteReenvio' || estadoBulto === 'EnRetornoADeposito'
+                            ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+                            : 'bg-secondary-subtle text-secondary border');
+                    var textoEstado = escapeHtml(estadoBulto) + (motivoBulto ? ' (' + escapeHtml(motivoBulto) + ')' : '');
+                    badgeEstado = '<span class="badge ' + claseBadge + ' ms-1">' + textoEstado + '</span>';
+                }
                 html += '<div class="col-12 col-md-6">';
                 html += '  <div class="border rounded-3 p-3 bg-white shadow-xs h-100">';
-                html += '    <div class="d-flex justify-content-between align-items-center mb-2">';
-                html += '      <span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>';
+                html += '    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">';
+                html += '      <div><span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>' + badgeEstado + '</div>';
                 html += '      <span class="small text-secondary font-monospace">' + escapeHtml(et.codigoSeguimiento || et.CodigoSeguimiento || '') + '</span>';
                 html += '    </div>';
                 html += '    <div class="mb-2">' + calcularSvgBarras(codBulto) + '</div>';
@@ -695,18 +775,24 @@
             return html;
         }
 
-        function cargarBultosEnContenedor(envioId, contenedorId) {
+        function cargarBultosEnContenedor(envioId, contenedorId, silencioso) {
             var contenedor = document.getElementById(contenedorId);
             if (!contenedor) return;
-            contenedor.innerHTML = '<div class="col-12 text-secondary small">Cargando códigos de barras de los bultos...</div>';
+            if (!silencioso) contenedor.innerHTML = '<div class="col-12 text-secondary small">Cargando códigos de barras de los bultos...</div>';
             fetch('?handler=Etiquetas&id=' + encodeURIComponent(envioId))
                 .then(function (r) { if (!r.ok) throw new Error('Error'); return r.json(); })
                 .then(function (resp) {
                     var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    var bultosDetalle = resp.bultosDetalle || resp.BultosDetalle || [];
                     ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
-                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                    var html = renderizarTarjetasEtiquetas(etiquetas, bultosDetalle);
+                    if (!silencioso || contenedor.getAttribute('data-firma') !== html) {
+                        contenedor.setAttribute('data-firma', html);
+                        contenedor.innerHTML = html;
+                    }
                 })
                 .catch(function () {
+                    if (silencioso) return;
                     contenedor.innerHTML = '<div class="col-12 text-danger small">No se pudieron cargar los códigos de barras de los bultos.</div>';
                 });
         }
@@ -729,8 +815,9 @@
                 .then(function (resp) {
                     cargando.style.display = 'none';
                     var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    var bultosDetalle = resp.bultosDetalle || resp.BultosDetalle || [];
                     ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
-                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas, bultosDetalle);
                     contenedor.style.display = 'flex';
                 })
                 .catch(function () {

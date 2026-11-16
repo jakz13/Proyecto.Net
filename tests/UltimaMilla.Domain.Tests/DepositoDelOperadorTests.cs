@@ -6,7 +6,7 @@ namespace UltimaMilla.Domain.Tests;
 public class DepositoDelOperadorTests
 {
     private static IdentidadVisual Nueva() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "#1D4ED8", "#F97316", "contacto@operador.uy", "+598 2900 1122");
+        new(Guid.NewGuid(), Guid.NewGuid(), "#1D4ED8", "#F97316", "contacto@operador.uy", "099001122");
 
     [Fact]
     public void SinDireccionConfigurada_ElOperadorNoTieneDeposito()

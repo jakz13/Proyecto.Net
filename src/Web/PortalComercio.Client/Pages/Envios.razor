@@ -228,10 +228,19 @@
                                         @for (var idxBulto = 0; idxBulto < bultosSeguimiento.Count; idxBulto++)
                                         {
                                             var codBulto = bultosSeguimiento[idxBulto];
+                                            var detBulto = envioEnSeguimiento.BultosDetalle?.FirstOrDefault(b => string.Equals(b.Identificacion, codBulto, StringComparison.OrdinalIgnoreCase));
                                             var patronBarrasSeg = GeneradorDocumentoEtiquetas.CalcularPatronBarras(codBulto);
                                             <div class="border rounded-2 p-2 bg-white text-center">
-                                                <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                                <div class="d-flex justify-content-between align-items-center mb-1 small flex-wrap gap-1">
                                                     <span class="badge bg-light text-dark border">Bulto @(idxBulto + 1) de @bultosSeguimiento.Count</span>
+                                                    @if (detBulto is not null && !string.IsNullOrWhiteSpace(detBulto.EstadoBulto))
+                                                    {
+                                                        var esBultoEntregado = detBulto.EstadoBulto == "Entregado";
+                                                        var esBultoPendiente = detBulto.EstadoBulto is "NoEntregado" or "PendienteReenvio" or "EnRetornoADeposito";
+                                                        <span class="badge @(esBultoEntregado ? "bg-success-subtle text-success border border-success-subtle" : esBultoPendiente ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle" : "bg-secondary-subtle text-secondary border")">
+                                                            @detBulto.EstadoBulto@(!string.IsNullOrWhiteSpace(detBulto.MotivoNoEntregaCodigo) ? $" ({detBulto.MotivoNoEntregaCodigo})" : "")
+                                                        </span>
+                                                    }
                                                     <span class="font-monospace fw-bold text-dark">@codBulto</span>
                                                 </div>
                                                 <svg viewBox="0 0 @GeneradorDocumentoEtiquetas.AnchoTotal(patronBarrasSeg) 36" width="100%" style="height: auto; max-height: 110px;" role="img" aria-label="Código de barras @codBulto" class="border rounded bg-white p-1">
@@ -864,6 +873,7 @@
         EstadoEnvioDto.EnTransito => "En tránsito",
         EstadoEnvioDto.Entregado => "Entregado",
         EstadoEnvioDto.NoEntregado => "No entregado",
+        EstadoEnvioDto.EntregadoParcialmente => "Entregado parcialmente",
         EstadoEnvioDto.Reprogramado => "Reprogramado",
         EstadoEnvioDto.EnDevolucion => "En devolución",
         EstadoEnvioDto.Devuelto => "Devuelto",
@@ -1160,6 +1170,9 @@
                 var actualizado = resultadoPaginado?.Elementos.FirstOrDefault(e => e.Id == envioEnSeguimiento.Id);
                 if (actualizado is not null && actualizado.Estado != envioEnSeguimiento.Estado)
                     envioEnSeguimiento = envioEnSeguimiento with { Estado = actualizado.Estado };
+
+                // La línea de vida y los avisos del envío abierto también se ponen al día con cada cambio
+                await RefrescarDetalleDelEnvioAbiertoAsync();
             }
 
             if (!string.IsNullOrWhiteSpace(codigoSeguimiento))
@@ -1185,6 +1198,28 @@
 
             StateHasChanged();
         });
+    }
+
+    /// <summary>Vuelve a pedir los eventos de trazabilidad y los avisos del envío abierto en el panel, sin cerrarlo ni mostrar "cargando".</summary>
+    private async Task RefrescarDetalleDelEnvioAbiertoAsync()
+    {
+        if (envioEnSeguimiento is null)
+            return;
+
+        var envioId = envioEnSeguimiento.Id;
+        try
+        {
+            var eventos = await EnviosApi.ObtenerHistorialEnvioAsync(envioId);
+            if (envioEnSeguimiento?.Id == envioId)
+                eventosSeguimiento = eventos;
+            var avisos = await AvisosApi.ConsultarHistorialAvisosAsync(envioId: envioId);
+            if (envioEnSeguimiento?.Id == envioId)
+                avisosDelEnvio = avisos;
+        }
+        catch
+        {
+            // Un fallo al actualizar en vivo no tapa lo que el panel ya muestra
+        }
     }
 
     public void Dispose()

@@ -164,4 +164,88 @@ public class IncidenciasYReprogramacionApiTests
         Assert.All(respuestas, r => Assert.True(
             r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict, $"Respuesta inesperada: {(int)r.StatusCode}"));
     }
+
+    [FactPostgres]
+    public async Task ConflictosSincronizacion_ListaSoloLosDelOperador_YValidaAutorizacionYLímite()
+    {
+        var op1Cliente = _factory.CreateClient();
+        var conflictoOp1Id = Guid.NewGuid();
+        var conflictoOp2Id = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            using var _ = db.HabilitarEscrituraAdministrativa();
+
+            var envioOp1 = await db.Envios.IgnoreQueryFilters().AsNoTracking()
+                .FirstAsync(e => e.OperadorId == DatabaseSeeder.DefaultOperadorId);
+            var envioOp2 = await db.Envios.IgnoreQueryFilters().AsNoTracking()
+                .FirstAsync(e => e.OperadorId == DatabaseSeederSegundoOperador.OperadorId);
+
+            db.ConflictosSincronizacion.AddRange(
+                new UltimaMilla.Domain.Entities.Ejecucion.ConflictoSincronizacion(
+                    conflictoOp1Id,
+                    "Envio",
+                    envioOp1.Id,
+                    "EnDeposito",
+                    "NoEntregado",
+                    "PrevaleceEstadoServidor",
+                    "Conflicto de prueba operador 1"),
+                new UltimaMilla.Domain.Entities.Ejecucion.ConflictoSincronizacion(
+                    conflictoOp2Id,
+                    "Envio",
+                    envioOp2.Id,
+                    "Cancelado",
+                    "Entregado",
+                    "PrevaleceEntregaFisicaConEvidencia",
+                    "Conflicto ajeno operador 2"));
+            await db.SaveChangesAsync();
+        }
+
+        try
+        {
+            var respuesta = await op1Cliente.GetAsync("/api/backoffice/incidencias/conflictos?maximo=20");
+            Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+            var lista = await respuesta.Content.ReadFromJsonAsync<List<JsonElement>>();
+            Assert.NotNull(lista);
+            Assert.Contains(lista!, x => x.GetProperty("id").GetGuid() == conflictoOp1Id
+                && x.GetProperty("politicaAplicada").GetString() == "PrevaleceEstadoServidor");
+            Assert.DoesNotContain(lista!, x => x.GetProperty("id").GetGuid() == conflictoOp2Id);
+
+            Assert.Equal(HttpStatusCode.BadRequest, (await op1Cliente.GetAsync("/api/backoffice/incidencias/conflictos?maximo=0")).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await op1Cliente.GetAsync("/api/backoffice/incidencias/conflictos?maximo=201")).StatusCode);
+
+            var tokenInvalido = _factory.CreateClient();
+            tokenInvalido.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "token.invalido.jwt");
+            Assert.Equal(HttpStatusCode.Unauthorized, (await tokenInvalido.GetAsync("/api/backoffice/incidencias/conflictos")).StatusCode);
+
+            var operario = await UsuariosDePrueba.OperarioAsync(_factory);
+            Assert.Equal(HttpStatusCode.Forbidden, (await operario.GetAsync("/api/backoffice/incidencias/conflictos")).StatusCode);
+
+            var op2Cliente = _factory.CreateClient();
+            var loginOp2 = await op2Cliente.PostAsJsonAsync("/api/v1/auth/login", new
+            {
+                email = DatabaseSeederSegundoOperador.EmailDespachador,
+                password = PoliticaDeSemillas.PasswordDe(DatabaseSeederAdministracion.PasswordDemo)
+            });
+            Assert.Equal(HttpStatusCode.OK, loginOp2.StatusCode);
+            var tokenOp2 = (await loginOp2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString();
+            op2Cliente.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenOp2);
+
+            var respuestaOp2 = await op2Cliente.GetAsync("/api/backoffice/incidencias/conflictos?maximo=20");
+            Assert.Equal(HttpStatusCode.OK, respuestaOp2.StatusCode);
+            var listaOp2 = await respuestaOp2.Content.ReadFromJsonAsync<List<JsonElement>>();
+            Assert.NotNull(listaOp2);
+            Assert.Contains(listaOp2!, x => x.GetProperty("id").GetGuid() == conflictoOp2Id
+                && x.GetProperty("politicaAplicada").GetString() == "PrevaleceEntregaFisicaConEvidencia");
+            Assert.DoesNotContain(listaOp2!, x => x.GetProperty("id").GetGuid() == conflictoOp1Id);
+        }
+        finally
+        {
+            using var scopeLimpieza = _factory.Services.CreateScope();
+            var dbLimpieza = scopeLimpieza.ServiceProvider.GetRequiredService<AppDbContext>();
+            await dbLimpieza.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM \"ConflictosSincronizacion\" WHERE \"Id\" IN ({conflictoOp1Id}, {conflictoOp2Id})");
+        }
+    }
 }

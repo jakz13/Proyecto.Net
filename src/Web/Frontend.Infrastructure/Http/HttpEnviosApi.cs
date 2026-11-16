@@ -260,6 +260,12 @@ public class HttpEnviosApi : IEnviosApi
             Tarifa = detalleApi.Tarifa,
             HojaDeRutaNumero = detalleApi.HojaDeRutaId?.ToString(),
             BultosIdentificaciones = detalleApi.Bultos?.Select(b => b.Identificacion).ToList(),
+            BultosDetalle = detalleApi.Bultos?.Select(b => new BultoEstadoEnvioDto(
+                b.BultoId,
+                b.Identificacion,
+                b.PesoKg,
+                b.EstadoBulto,
+                b.MotivoNoEntregaCodigo)).ToList(),
             PesoKg = detalleApi.Bultos?.Sum(b => b.PesoKg) ?? 0
         };
     }
@@ -958,7 +964,7 @@ public class HttpEnviosApi : IEnviosApi
         List<EventoDetalleApiDto>? Eventos,
         List<IntentoDetalleApiDto>? Intentos = null);
 
-    private record BultoDetalleApiDto(Guid BultoId, string Identificacion, decimal PesoKg, string EstadoBulto);
+    private record BultoDetalleApiDto(Guid BultoId, string Identificacion, decimal PesoKg, string EstadoBulto, string? MotivoNoEntregaCodigo = null);
 
     private record EventoDetalleApiDto(DateTime Fecha, string TipoEvento, int EstadoNuevo, string Origen, string? Detalle);
 
