@@ -29,7 +29,7 @@ public class ArmarHojaDeRutaCommandHandlerTests
 
     public ArmarHojaDeRutaCommandHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "11111111", "099111111");
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB1234", "Furgoneta", capacidadPeso: 100m, capacidadVolumen: 10000m);
         _repartidores.Repartidores.Add(_repartidor);
         _vehiculos.Vehiculos.Add(_vehiculo);
@@ -317,7 +317,7 @@ public class ArmarHojaDeRutaCommandHandlerTests
         var resultado = await Ejecutar(Comando(new[] { incompatible, valido }));
 
         Assert.Single(resultado.Paradas);
-        Assert.Contains("franja comprometida corresponde a Monday", Assert.Single(resultado.Excluidos).Motivo);
+        Assert.Contains("franja comprometida corresponde al lunes", Assert.Single(resultado.Excluidos).Motivo);
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public class ArmarHojaDeRutaCommandHandlerTests
     [Fact]
     public async Task RepartidorDeOtroOperador_LanzaUnauthorizedAccess()
     {
-        var ajeno = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "2.222.222-2", "099222222");
+        var ajeno = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "22222222", "099222222");
         _repartidores.Repartidores.Add(ajeno);
         var a = CrearEnvioListo();
 

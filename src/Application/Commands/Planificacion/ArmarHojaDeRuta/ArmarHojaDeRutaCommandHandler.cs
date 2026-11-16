@@ -351,7 +351,7 @@ public class ArmarHojaDeRutaCommandHandler : IRequestHandler<ArmarHojaDeRutaComm
             return "La franja horaria comprometida no está disponible.";
 
         if (franja.DiaSemana != fecha.DayOfWeek)
-            return $"La franja comprometida corresponde a {franja.DiaSemana} y la hoja de ruta es del {fecha:dd/MM/yyyy} ({fecha.DayOfWeek}).";
+            return $"La franja comprometida corresponde al {Services.ValidadorFranjasHorarias.ObtenerNombreDia(franja.DiaSemana)} y la hoja de ruta es del {fecha:dd/MM/yyyy} ({Services.ValidadorFranjasHorarias.ObtenerNombreDia(fecha.DayOfWeek)}).";
 
         return null;
     }

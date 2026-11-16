@@ -30,7 +30,7 @@ public class DespachoYCargaCommandHandlerTests
 
     public DespachoYCargaCommandHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "11111111", "099111111");
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB1234", "Furgoneta", 500m, 100000m);
     }
 

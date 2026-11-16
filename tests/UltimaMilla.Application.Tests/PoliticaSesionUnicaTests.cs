@@ -5,8 +5,8 @@ using Xunit;
 namespace UltimaMilla.Application.Tests;
 
 /// <summary>
-/// La sesión única activa (un nuevo inicio de sesión deja sin efecto los tokens anteriores) aplica SOLO a repartidores. Antes se aplicaba a todas las cuentas y, con
-/// cuentas compartidas (demostración, dos navegadores en el Backoffice), las personas se expulsaban entre sí.
+/// La sesión única activa (un nuevo inicio de sesión deja sin efecto los tokens anteriores) aplica a todos los perfiles: una cuenta no puede usarse
+/// a la vez desde dos sesiones (Backoffice, Portal del comercio o app móvil).
 /// </summary>
 public class PoliticaSesionUnicaTests
 {
@@ -14,15 +14,15 @@ public class PoliticaSesionUnicaTests
     [InlineData("Repartidor", true)]
     [InlineData("repartidor", true)]
     [InlineData(" Repartidor ", true)]
-    [InlineData("Administrador", false)]
-    [InlineData("AdministradorPlataforma", false)]
-    [InlineData("Despachador", false)]
-    [InlineData("Operario", false)]
-    [InlineData("Comercio", false)]
-    [InlineData("SinPerfil", false)]
+    [InlineData("Administrador", true)]
+    [InlineData("AdministradorPlataforma", true)]
+    [InlineData("Despachador", true)]
+    [InlineData("Operario", true)]
+    [InlineData("Comercio", true)]
+    [InlineData("SinPerfil", true)]
     [InlineData("", false)]
     [InlineData(null, false)]
-    public void PorPerfil_SoloAplicaAlRepartidor(string? perfil, bool aplica)
+    public void PorPerfil_AplicaATodosLosPerfilesConNombre(string? perfil, bool aplica)
         => Assert.Equal(aplica, PoliticaSesionUnica.AplicaAlPerfil(perfil));
 
     private static ClaimsPrincipal Usuario(string? rol, bool autenticado = true, string tipoClaim = ClaimTypes.Role)
@@ -35,11 +35,11 @@ public class PoliticaSesionUnicaTests
 
     [Theory]
     [InlineData("Repartidor", true)]
-    [InlineData("Administrador", false)]
-    [InlineData("Despachador", false)]
-    [InlineData("Operario", false)]
-    [InlineData("Comercio", false)]
-    public void PorIdentidad_SoloAplicaAlRepartidorAutenticado(string rol, bool aplica)
+    [InlineData("Administrador", true)]
+    [InlineData("Despachador", true)]
+    [InlineData("Operario", true)]
+    [InlineData("Comercio", true)]
+    public void PorIdentidad_AplicaATodosLosPerfilesAutenticados(string rol, bool aplica)
     {
         Assert.Equal(aplica, PoliticaSesionUnica.AplicaA(Usuario(rol)));
         Assert.Equal(aplica, PoliticaSesionUnica.AplicaA(Usuario(rol, tipoClaim: "role")));

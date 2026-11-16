@@ -47,7 +47,7 @@ public class RegistrarPosicionesCommandHandlerTests
 
     public RegistrarPosicionesCommandHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111", _vehiculoId);
+        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111", _vehiculoId);
         _repartidores.Repartidores.Add(_repartidor);
     }
 
@@ -162,7 +162,7 @@ public class RegistrarPosicionesCommandHandlerTests
     public async Task RepartidorSinVehiculoYSinRuta_LanzaDomainValidation()
     {
         _repartidores.Repartidores.Clear();
-        _repartidores.Repartidores.Add(new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111"));
+        _repartidores.Repartidores.Add(new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111"));
 
         await Assert.ThrowsAsync<DomainValidationException>(() =>
             CrearHandler().Handle(Comando(new PosicionDispositivoDto(-34.9, -56.16)), default));
@@ -195,7 +195,7 @@ public class RegistrarPosicionesCommandHandlerTests
     public async Task RepartidorSinVehiculo_ConVehiculoFallbackEnOperador_ResuelveExitosamente()
     {
         _repartidores.Repartidores.Clear();
-        var repartidorSinVehiculo = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111");
+        var repartidorSinVehiculo = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111");
         _repartidores.Repartidores.Add(repartidorSinVehiculo);
 
         var vehiculoFallback = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "ABC-1234", "Furgon", 1000, 10);

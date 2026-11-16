@@ -26,7 +26,7 @@ public class ObtenerRutaActivaRepartidorQueryHandlerTests
 
     public ObtenerRutaActivaRepartidorQueryHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111");
         _repartidores.Repartidores.Add(_repartidor);
 
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SBA-4321", "Furgón Master", 1200m, 12m);
@@ -42,7 +42,7 @@ public class ObtenerRutaActivaRepartidorQueryHandlerTests
     {
         _secuencia++;
         var codigo = $"ENV-2026-{107 + _secuencia:D5}";
-        var destinatario = new Destinatario(Guid.NewGuid(), $"Destinatario {_secuencia}", "4.123.456-7", $"dest{_secuencia}@mail.com", "099111222");
+        var destinatario = new Destinatario(Guid.NewGuid(), $"Destinatario {_secuencia}", "41234567", $"dest{_secuencia}@mail.com", "099111222");
         var direccion = new Direccion(Guid.NewGuid(), "Av. 18 de Julio", $"{1400 + _secuencia}", "Montevideo", null, -34.9058, -56.1885, "Timbre 201");
         var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), destinatario.Id, "Estandar", codigo,
             direccion.Id, null, null, direccion.ToString(), destinatario.Nombre, _tenant.OperadorId);
@@ -151,7 +151,7 @@ public class ObtenerRutaActivaRepartidorQueryHandlerTests
     {
         var otroOperadorId = Guid.NewGuid();
         var otroUsuarioId = Guid.NewGuid();
-        _repartidores.Repartidores.Add(new Repartidor(Guid.NewGuid(), otroUsuarioId, otroOperadorId, "2.222.222-2", "099222222"));
+        _repartidores.Repartidores.Add(new Repartidor(Guid.NewGuid(), otroUsuarioId, otroOperadorId, "22222222", "099222222"));
         _tenant.UsuarioId = otroUsuarioId;
 
         var handler = CrearHandler();

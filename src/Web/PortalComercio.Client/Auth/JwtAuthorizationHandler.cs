@@ -53,6 +53,20 @@ public class JwtAuthorizationHandler : DelegatingHandler
             }
         }
 
+        // La cuenta inició sesión en otro lugar: la API rechaza el token anterior con 401 y este código (sesión única activa).
+        // Se descarta el token y se vuelve al login con el aviso.
+        if (respuesta.StatusCode == System.Net.HttpStatusCode.Unauthorized
+            && !peticion.RequestUri!.AbsolutePath.Contains("/auth/login", StringComparison.OrdinalIgnoreCase)
+            && respuesta.Content is not null)
+        {
+            var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+            if (cuerpo.Contains("SESION_DESPLAZADA", StringComparison.Ordinal))
+            {
+                await _tokenStore.EliminarTokenAsync();
+                _navegador.NavigateTo("/login?desplazada=1", forceLoad: true);
+            }
+        }
+
         return respuesta;
     }
 }

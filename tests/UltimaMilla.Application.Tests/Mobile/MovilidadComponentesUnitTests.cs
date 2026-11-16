@@ -566,7 +566,7 @@ public class MovilidadComponentesUnitTests
             EnvioId = Guid.NewGuid(),
             IdempotencyKey = $"ENTREGA-{Guid.NewGuid():N}",
             NombreReceptor = "Carlos Martinez",
-            DocumentoReceptor = "4.567.890-1",
+            DocumentoReceptor = "45678901",
             FirmaDigitalBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
             FotoEvidenciaBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
             Latitud = latitud,

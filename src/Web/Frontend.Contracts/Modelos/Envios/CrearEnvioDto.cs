@@ -12,6 +12,7 @@ public record CrearEnvioDto
     [StringLength(100, MinimumLength = 2, ErrorMessage = "El nombre debe contener al menos 2 caracteres.")]
     public string NombreDestinatario { get; set; } = string.Empty;
 
+    [RegularExpression(@"^\d{8}$", ErrorMessage = "La cédula debe tener exactamente 8 dígitos, solo números (sin puntos ni guiones).")]
     public string? DocumentoDestinatario { get; set; }
 
     [StringLength(200, ErrorMessage = "La dirección no puede superar los 200 caracteres.")]

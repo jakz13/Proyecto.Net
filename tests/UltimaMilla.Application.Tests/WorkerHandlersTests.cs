@@ -72,7 +72,7 @@ public class WorkerHandlersTests
         Guid? franjaId = null,
         Guid? operadorId = null)
     {
-        var destinatario = new Destinatario(Guid.NewGuid(), "Ana Gómez", "4.123.456-7", email, telefono);
+        var destinatario = new Destinatario(Guid.NewGuid(), "Ana Gómez", "41234567", email, telefono);
         _destinatariosRepo.Destinatarios.Add(destinatario);
 
         var envio = new Envio(

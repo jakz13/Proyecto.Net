@@ -25,7 +25,7 @@ public class DescargarHojasDeRutaQueryHandlerTests
 
     public DescargarHojasDeRutaQueryHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111");
         _repartidores.Repartidores.Add(_repartidor);
         _envios.ReglaOperativa = new ReglaOperativa(Guid.NewGuid(), _tenant.OperadorId, 1, _clock.UtcNow.AddDays(-5), 3,
             TimeSpan.FromHours(24), "Firma digital y foto", "Devolución", TimeSpan.FromHours(48), TimeSpan.FromHours(24));
@@ -42,7 +42,7 @@ public class DescargarHojasDeRutaQueryHandlerTests
     {
         _secuencia++;
         var codigo = $"TRK-DESC{_secuencia:0000}";
-        var destinatario = new Destinatario(Guid.NewGuid(), $"Destinatario {_secuencia}", "1.234.567-8", $"d{_secuencia}@correo.com", "099000000");
+        var destinatario = new Destinatario(Guid.NewGuid(), $"Destinatario {_secuencia}", "12345678", $"d{_secuencia}@correo.com", "099000000");
         var direccion = new Direccion(Guid.NewGuid(), "Rivera", $"{_secuencia}", "Montevideo", null, -34.9, -56.1, "Timbre 2");
         var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), destinatario.Id, "Estandar", codigo,
             direccion.Id, franja, null, direccion.ToString(), destinatario.Nombre, operadorId ?? _tenant.OperadorId);

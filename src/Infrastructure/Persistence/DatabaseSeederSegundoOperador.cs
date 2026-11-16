@@ -157,14 +157,14 @@ public static class DatabaseSeederSegundoOperador
         if (await context.Envios.IgnoreQueryFilters().AnyAsync(e => e.OperadorId == OperadorId, ct))
             return;
 
-        var destinatario1 = new Destinatario(Guid.Parse("ba000000-0001-0000-0000-000000000001"), "Sofía Méndez", "4.111.222-3", "sofia@correo.com", "+598 99 222 001");
+        var destinatario1 = new Destinatario(Guid.Parse("ba000000-0001-0000-0000-000000000001"), "Sofía Méndez", "41112223", "sofia@correo.com", "+598 99 222 001");
         var direccion1 = new Direccion(Guid.Parse("bb000000-0001-0000-0000-000000000001"), "Av. Giannattasio", "1500", "Canelones", null, -34.8550, -56.0100, null);
         var envio1 = new Envio(Envio1Id, ComercioOperadorId, destinatario1.Id, "Estandar", CodigoEnvio1, direccion1.Id,
             direccionDestino: direccion1.ToString(), nombreDestinatario: destinatario1.Nombre, operadorId: OperadorId);
         envio1.AplicarTarifa(200m, ReglaTarifaEstandarId);
         envio1.AgregarBulto("BLT-201-A", 1.5m);
 
-        var destinatario2 = new Destinatario(Guid.Parse("ba000000-0002-0000-0000-000000000002"), "Andrés Cabrera", "3.222.333-4", "andres@correo.com", "+598 99 222 002");
+        var destinatario2 = new Destinatario(Guid.Parse("ba000000-0002-0000-0000-000000000002"), "Andrés Cabrera", "32223334", "andres@correo.com", "+598 99 222 002");
         var direccion2 = new Direccion(Guid.Parse("bb000000-0002-0000-0000-000000000002"), "Ruta Interbalnearia", "km 20", "Canelones", null, -34.8450, -55.9900, null);
         var envio2 = new Envio(Envio2Id, ComercioOperadorId, destinatario2.Id, "Estandar", CodigoEnvio2, direccion2.Id,
             direccionDestino: direccion2.ToString(), nombreDestinatario: destinatario2.Nombre, operadorId: OperadorId);

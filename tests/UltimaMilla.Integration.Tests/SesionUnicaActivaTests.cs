@@ -108,14 +108,15 @@ public class SesionUnicaActivaTests
     }
 
     [Theory]
+    [InlineData("Repartidor")]
     [InlineData("Administrador")]
     [InlineData("Despachador")]
     [InlineData("Operario")]
     [InlineData("Comercio")]
     [InlineData("AdministradorPlataforma")]
-    public async Task Middleware_ParaLosPerfilesQueNoSonRepartidor_NuncaDesplazaAunqueRedisTengaOtroSid(string rol)
+    public async Task Middleware_ParaTodosLosPerfiles_DesplazaSiRedisTieneOtroSid(string rol)
     {
-        // La sesión única es solo para repartidores: dos sesiones de la misma cuenta de administración, despacho, depósito o comercio conviven
+        // La sesión única rige para todos los perfiles: la sesión anterior de cualquier cuenta recibe 401 SESION_DESPLAZADA
         var usuarioId = Guid.NewGuid();
         var cache = new FakeCacheMemoria();
         cache.Datos[ClavesCache.SesionActivaUsuario(usuarioId)] = "sid_de_otra_sesion";
@@ -129,25 +130,27 @@ public class SesionUnicaActivaTests
 
         await middleware.InvokeAsync(contexto);
 
-        Assert.True(siguienteInvocado);
-        Assert.NotEqual((int)HttpStatusCode.Unauthorized, contexto.Response.StatusCode);
+        Assert.False(siguienteInvocado);
+        Assert.Equal((int)HttpStatusCode.Unauthorized, contexto.Response.StatusCode);
     }
 
     [Fact]
-    public async Task RegistroConexionesHub_ParaLosPerfilesQueNoSonRepartidor_NoHayIdentidadQueRegistrarNiValidar()
+    public async Task RegistroConexionesHub_ParaUnAdministrador_RegistraYValidaLaSesion()
     {
+        var usuarioId = Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
-            new Claim("sub", Guid.NewGuid().ToString()), new Claim("sid", "sid_A"), new Claim(ClaimTypes.Role, "Administrador")
+            new Claim("sub", usuarioId.ToString()), new Claim("sid", "sid_A"), new Claim(ClaimTypes.Role, "Administrador")
         }, "Bearer"));
 
-        var (usuarioId, sid) = RegistroConexionesHub.ExtraerIdentidadYSid(principal);
+        var (id, sid) = RegistroConexionesHub.ExtraerIdentidadYSid(principal);
         var cache = new FakeCacheMemoria();
 
-        Assert.Equal(Guid.Empty, usuarioId);
-        Assert.Null(sid);
-        Assert.True(await RegistroConexionesHub.ValidarYRegistrarSesionAsync(cache, usuarioId, sid));
-        Assert.Empty(cache.Datos);   // ni siquiera se registra una sesión para ellos
+        Assert.Equal(usuarioId, id);
+        Assert.Equal("sid_A", sid);
+        Assert.True(await RegistroConexionesHub.ValidarYRegistrarSesionAsync(cache, id, sid));
+        Assert.Equal("sid_A", await cache.GetAsync<string>(ClavesCache.SesionActivaUsuario(usuarioId)));
+        Assert.False(await RegistroConexionesHub.ValidarYRegistrarSesionAsync(cache, id, "sid_B"));
     }
 
     [Fact]

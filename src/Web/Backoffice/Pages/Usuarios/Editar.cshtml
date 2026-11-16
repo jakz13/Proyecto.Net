@@ -84,7 +84,7 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label asp-for="Usuario.Documento" class="form-label small fw-semibold">Cédula / DNI</label>
-                        <input asp-for="Usuario.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 4.512.980-3" maxlength="30" />
+                        <input asp-for="Usuario.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 45129803 (8 dígitos)" maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
                     </div>
                     <div class="col-md-6">
                         <label asp-for="Usuario.Telefono" class="form-label small fw-semibold">Teléfono Celular</label>

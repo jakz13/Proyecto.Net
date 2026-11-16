@@ -208,7 +208,7 @@ public static class DatabaseSeeder
                 DefaultRepartidorId,
                 DefaultUsuarioRepartidorId,
                 DefaultOperadorId,
-                documento: "CI 4.321.987-6",
+                documento: "43219876",
                 telefono: "+598 99 654 321",
                 vehiculoAsignadoId: DefaultVehiculoId,
                 estado: "Disponible"
@@ -410,7 +410,7 @@ public static class DatabaseSeeder
         cuadro.AgregarRegla(new ReglaTarifa(Guid.Parse("99999999-0002-0000-0000-000000000002"), cuadro.Id, "Urgente", 0m, 1000m, 0m, 1000000000m, 300m));
         await context.CuadrosTarifarios.AddAsync(cuadro, cancellationToken);
 
-        var destinatario4 = new Destinatario(Guid.Parse("88888888-0004-0000-0000-000000000004"), "Carolina Silva", "3.456.789-0", "carolina@correo.com", "+598 99 111 444");
+        var destinatario4 = new Destinatario(Guid.Parse("88888888-0004-0000-0000-000000000004"), "Carolina Silva", "34567890", "carolina@correo.com", "+598 99 111 444");
         var direccion4 = new Direccion(Guid.Parse("eeeeeeee-0004-0000-0000-000000000004"), "Av. Brasil", "2890", "Montevideo", null, -34.9112, -56.1560, "Casa con reja verde");
         var envio4 = new Envio(Envio4Id, DefaultComercioOperadorId, destinatario4.Id, "Estandar", "ENV-2026-00111", direccion4.Id,
             direccionDestino: direccion4.ToString(), nombreDestinatario: destinatario4.Nombre, operadorId: DefaultOperadorId);
@@ -418,7 +418,7 @@ public static class DatabaseSeeder
         envio4.AgregarBulto("BLT-004-A", 2.0m);
         PrepararEnDepositoClasificado(envio4, new[] { "BLT-004-A" });
 
-        var destinatario5 = new Destinatario(Guid.Parse("88888888-0005-0000-0000-000000000005"), "Diego Pereira", "2.345.678-9", "diego@correo.com", "+598 99 111 555");
+        var destinatario5 = new Destinatario(Guid.Parse("88888888-0005-0000-0000-000000000005"), "Diego Pereira", "23456789", "diego@correo.com", "+598 99 111 555");
         var direccion5 = new Direccion(Guid.Parse("eeeeeeee-0005-0000-0000-000000000005"), "Bulevar Artigas", "1100", "Montevideo", null, -34.8990, -56.1650, null);
         var envio5 = new Envio(Envio5Id, DefaultComercioOperadorId, destinatario5.Id, "Estandar", "ENV-2026-00112", direccion5.Id,
             direccionDestino: direccion5.ToString(), nombreDestinatario: destinatario5.Nombre, operadorId: DefaultOperadorId);

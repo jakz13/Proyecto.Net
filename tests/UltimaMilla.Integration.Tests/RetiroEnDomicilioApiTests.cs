@@ -207,7 +207,7 @@ public class RetiroEnDomicilioApiTests
         var cuerpoRetiro = new
         {
             retiroId, idempotencyKey = claveIdempotencia, codigosBultosEscaneados = bultosRetiro,
-            fotoEstadoBase64 = "Zm90bw==", firmaBase64 = "ZmlybWE=", nombreEntrega = "Carlos Pérez", documentoEntrega = "1.111.111-1",
+            fotoEstadoBase64 = "Zm90bw==", firmaBase64 = "ZmlybWE=", nombreEntrega = "Carlos Pérez", documentoEntrega = "11111111",
             latitud = -34.9, longitud = -56.18
         };
         var realizado = await Json(await repartidor.PostAsJsonAsync(rutaMovil, cuerpoRetiro), HttpStatusCode.OK);
@@ -226,13 +226,13 @@ public class RetiroEnDomicilioApiTests
         var textoPublico = publico.GetRawText();
         Assert.DoesNotContain("Carlos", textoPublico);
         Assert.DoesNotContain("Artigas", textoPublico);
-        Assert.DoesNotContain("1.111.111-1", textoPublico);
+        Assert.DoesNotContain("11111111", textoPublico);
         Assert.DoesNotContain(retiroId.ToString(), textoPublico, StringComparison.OrdinalIgnoreCase);
 
         // La entrega del envío cierra la parada de entrega y, con ambas cerradas, la ruta queda finalizada
         await Json(await repartidor.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/paradas/{paradaEnvioId}/entrega-exitosa", new
         {
-            envioId = envio.Id, idempotencyKey = Guid.NewGuid().ToString(), nombreReceptor = "Cliente", documentoReceptor = "1.234.567-8",
+            envioId = envio.Id, idempotencyKey = Guid.NewGuid().ToString(), nombreReceptor = "Cliente", documentoReceptor = "12345678",
             firmaDigitalBase64 = "firma", fotoEvidenciaBase64 = "foto"
         }), HttpStatusCode.OK);
 

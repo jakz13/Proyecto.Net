@@ -195,5 +195,5 @@ public class SolicitarReprogramacionCommandHandler : IRequestHandler<SolicitarRe
     }
 
     private static string Describir(FranjaHoraria franja) =>
-        $"{franja.DiaSemana} {franja.HoraInicio.ToString("HH:mm", CultureInfo.InvariantCulture)}-{franja.HoraFin.ToString("HH:mm", CultureInfo.InvariantCulture)}";
+        $"{UltimaMilla.Application.Services.ValidadorFranjasHorarias.ObtenerNombreDiaCapitalizado(franja.DiaSemana)} {franja.HoraInicio.ToString("HH:mm", CultureInfo.InvariantCulture)}-{franja.HoraFin.ToString("HH:mm", CultureInfo.InvariantCulture)}";
 }

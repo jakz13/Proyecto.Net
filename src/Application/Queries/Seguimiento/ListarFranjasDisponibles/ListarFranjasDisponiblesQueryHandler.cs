@@ -47,7 +47,7 @@ public class ListarFranjasDisponiblesQueryHandler : IRequestHandler<ListarFranja
         var franjas = (await _franjaHorariaRepository.ListarActivasPorZonaAsync(zonaId.Value, cancellationToken))
             .Select(f => new FranjaDisponibleDto(
                 f.Id,
-                f.DiaSemana.ToString(),
+                UltimaMilla.Application.Services.ValidadorFranjasHorarias.ObtenerNombreDiaCapitalizado(f.DiaSemana),
                 f.HoraInicio.ToString("HH:mm", CultureInfo.InvariantCulture),
                 f.HoraFin.ToString("HH:mm", CultureInfo.InvariantCulture),
                 f.Id == envio.FranjaHorariaComprometidaId))

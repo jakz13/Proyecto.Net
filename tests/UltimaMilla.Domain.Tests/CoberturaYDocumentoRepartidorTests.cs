@@ -43,10 +43,9 @@ public class CoberturaYDocumentoRepartidorTests
     }
 
     [Theory]
-    [InlineData("4.111.222-3")]
     [InlineData("41112223")]
-    [InlineData("CI 4.321.987-6")]
-    public void Repartidor_CedulaConAlMenosOchoDigitos_SeAcepta(string documento)
+    [InlineData("00123456")]
+    public void Repartidor_CedulaDeOchoDigitos_SeAcepta(string documento)
     {
         var repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), documento, "099111222");
         Assert.Equal(documento, repartidor.Documento);
@@ -54,9 +53,12 @@ public class CoberturaYDocumentoRepartidorTests
 
     [Theory]
     [InlineData("1234567")]
-    [InlineData("1.234.56")]
+    [InlineData("123456789")]
+    [InlineData("4.111.222-3")]
+    [InlineData("CI 43219876")]
+    [InlineData("4111222a")]
     [InlineData("abc")]
-    public void Repartidor_CedulaConMenosDeOchoDigitos_SeRechaza(string documento)
+    public void Repartidor_CedulaQueNoSonOchoDigitosNumericos_SeRechaza(string documento)
     {
         Assert.Throws<DomainValidationException>(() =>
             new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), documento, "099111222"));
@@ -65,9 +67,9 @@ public class CoberturaYDocumentoRepartidorTests
     [Fact]
     public void Repartidor_ActualizarDocumentoConMenosDeOchoDigitos_SeRechazaYConservaElAnterior()
     {
-        var repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "4.111.222-3", "099111222");
+        var repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "41112223", "099111222");
 
         Assert.Throws<DomainValidationException>(() => repartidor.ActualizarDocumento("123456"));
-        Assert.Equal("4.111.222-3", repartidor.Documento);
+        Assert.Equal("41112223", repartidor.Documento);
     }
 }

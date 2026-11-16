@@ -144,7 +144,7 @@ public class IniciarSesionCommandHandler : IRequestHandler<IniciarSesionCommand,
             comercioOperadorId: comercioOperadorId,
             sessionId: sessionId);
 
-        // Sesión única activa: solo para repartidores (app móvil en un único dispositivo). Los demás perfiles pueden tener varias sesiones a la vez.
+        // Sesión única activa para todos los perfiles: un nuevo inicio de sesión deja sin efecto el token anterior de la cuenta.
         var aplicaSesionUnica = PoliticaSesionUnica.AplicaAlPerfil(nombrePerfil);
 
         if (aplicaSesionUnica && _cache is not null)

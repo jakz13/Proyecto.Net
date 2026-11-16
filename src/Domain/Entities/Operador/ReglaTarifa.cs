@@ -67,9 +67,24 @@ public class ReglaTarifa : Entity
         return final < 0 ? 0 : final;
     }
 
+    /// <summary>
+    /// "Express" (lo que ofrecen el portal y la API) y "Urgente" (como se llama la tarifa en el cuadro del operador) son la misma modalidad:
+    /// sin esta equivalencia, un envío Express nunca encontraba tarifa y el alta fallaba.
+    /// </summary>
+    public static bool MismaModalidad(string? a, string? b)
+    {
+        static string Canonica(string? m)
+        {
+            var valor = m?.Trim() ?? string.Empty;
+            return valor.Equals("Express", StringComparison.OrdinalIgnoreCase) ? "Urgente" : valor;
+        }
+
+        return string.Equals(Canonica(a), Canonica(b), StringComparison.OrdinalIgnoreCase);
+    }
+
     public bool AplicaPara(decimal peso, decimal volumen, string modalidadServicio, Guid? zonaCoberturaId = null)
     {
-        if (!ModalidadServicio.Equals(modalidadServicio, StringComparison.OrdinalIgnoreCase))
+        if (!MismaModalidad(ModalidadServicio, modalidadServicio))
             return false;
 
         if (ZonaCoberturaId.HasValue && (!zonaCoberturaId.HasValue || ZonaCoberturaId.Value != zonaCoberturaId.Value))

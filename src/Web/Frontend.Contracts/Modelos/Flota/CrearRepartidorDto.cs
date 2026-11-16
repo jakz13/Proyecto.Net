@@ -16,8 +16,7 @@ public record CrearRepartidorDto
     public string Email { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El documento es obligatorio.")]
-    [StringLength(30, MinimumLength = 8, ErrorMessage = "La cédula debe tener entre 8 y 30 caracteres.")]
-    [RegularExpression(@"^(?:\D*\d){8,}\D*$", ErrorMessage = "La cédula debe tener al menos 8 dígitos.")]
+    [RegularExpression(@"^\d{8}$", ErrorMessage = "La cédula debe tener exactamente 8 dígitos, solo números (sin puntos ni guiones).")]
     public string Documento { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El teléfono es obligatorio.")]

@@ -48,6 +48,13 @@ public static class ValidadorFranjasHorarias
         }
     }
 
+    /// <summary>Nombre del día en español con la inicial en mayúscula (Lunes, Martes...), para mostrarlo a personas.</summary>
+    public static string ObtenerNombreDiaCapitalizado(DayOfWeek dia)
+    {
+        var nombre = ObtenerNombreDia(dia);
+        return char.ToUpperInvariant(nombre[0]) + nombre[1..];
+    }
+
     public static string ObtenerNombreDia(DayOfWeek dia) => dia switch
     {
         DayOfWeek.Monday => "lunes",

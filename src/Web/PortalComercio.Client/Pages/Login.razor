@@ -52,8 +52,14 @@
     [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "baja")]
     public string? Baja { get; set; }
 
+    [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "desplazada")]
+    public string? Desplazada { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (Desplazada == "1")
+            error = "Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo. Ingresá de nuevo para continuar.";
+
         if (Baja == "1")
             error = "El operador dio de baja a este comercio: se cerró su sesión y no puede realizar más acciones. Comuníquese con el operador logístico.";
 

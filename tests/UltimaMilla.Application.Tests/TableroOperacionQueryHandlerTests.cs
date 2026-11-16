@@ -43,7 +43,7 @@ public class TableroOperacionQueryHandlerTests
             operadorId: _tenant.OperadorId);
         _usuarios.Usuarios.Add(usuario);
 
-        _repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, _tenant.OperadorId, "1.111.111-1", "099123456");
+        _repartidor = new Repartidor(Guid.NewGuid(), usuario.Id, _tenant.OperadorId, "11111111", "099123456");
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "STX1021", "Renault Kangoo", 500m, 10m);
 
         _repartidores.Repartidores.Add(_repartidor);
@@ -350,7 +350,7 @@ public class TableroOperacionQueryHandlerTests
         var handler = new EnviarInstruccionRepartidorCommandHandler(
             _repartidores, _outbox, _uow, _tenant, _clock);
 
-        var ajeno = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "2.222.222-2", "099000000");
+        var ajeno = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "22222222", "099000000");
         _repartidores.Repartidores.Add(ajeno);
 
         var command = new EnviarInstruccionRepartidorCommand(ajeno.Id, "Mensaje");

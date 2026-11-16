@@ -49,7 +49,7 @@ public class ImportacionCsvApiTests
         var csv = string.Join("\n", new[]
         {
             Encabezado,
-            $"CSV-{lote}-1,Estandar,Ana Gomez,Av. Italia,100,Montevideo,2.5,10,20,30,1234567-8,ana@correo.com,099111222",
+            $"CSV-{lote}-1,Estandar,Ana Gomez,Av. Italia,100,Montevideo,2.5,10,20,30,12345678,ana@correo.com,099111222",
             $"CSV-{lote}-2,Estandar,Luis Perez,Rivera,200,Montevideo,1,10,10,10,,,",
             $"CSV-{lote}-3,Estandar,Sin Peso,Rivera,300,Montevideo,pesado,10,10,10,,,"
         });
