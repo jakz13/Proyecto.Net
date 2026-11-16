@@ -21,5 +21,5 @@ public static class OperadorMapper
         r.AdmiteEntregaParcial,
         r.PoliticaEntregaParcial);
 
-    public static MotivoNoEntregaDto ToDto(MotivoNoEntrega m) => new(m.Id, m.Codigo, m.Descripcion, m.Activo, m.EsInterno);
+    public static MotivoNoEntregaDto ToDto(MotivoNoEntrega m) => new(m.Id, m.Codigo, m.Descripcion, m.Activo, m.EsInterno, m.FechaAlta);
 }

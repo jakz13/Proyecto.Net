@@ -163,8 +163,7 @@
             </span>
             <div class="d-flex gap-2">
                 <a asp-page="/Tarifas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-                <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm"
-                        onclick="return confirm('¿Confirma la publicación de esta nueva versión? La versión anterior cerrará su vigencia y los nuevos envíos se tarifarán con estas reglas.');">
+                <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm" id="btnPublicarVersion">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
@@ -174,6 +173,54 @@
         </div>
     </div>
 </form>
+
+<!-- Panel modal de confirmación para publicar una nueva versión del cuadro tarifario -->
+<div class="modal fade" id="modalConfirmarPublicacion" tabindex="-1" aria-labelledby="tituloModalConfirmarPublicacion" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0 rounded-3">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-warning-subtle p-2 text-warning-emphasis">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="modal-title h6 fw-bold text-dark mb-0" id="tituloModalConfirmarPublicacion">Confirmar Publicación de Cuadro Tarifario</h2>
+                        @if (Model.VersionActual != null)
+                        {
+                            <span class="small text-secondary">Reemplazará a la Versión @Model.VersionActual.Version vigente</span>
+                        }
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body py-3 small">
+                <p class="text-dark fw-semibold mb-3">
+                    ¿Confirma la publicación de esta nueva versión? La versión anterior cerrará su vigencia y los nuevos envíos se tarifarán con estas reglas.
+                </p>
+                <div class="p-3 bg-light rounded-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">Reglas a publicar:</span>
+                        <span class="fw-bold text-dark" id="modalResumenTotalReglas">@Model.Reglas.Count</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-secondary">Vigente a partir de:</span>
+                        <span class="fw-semibold text-dark font-monospace" id="modalResumenVigenteDesde">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-dark btn-sm px-4 shadow-sm" id="btnConfirmarPublicacionModal">
+                    Confirmar y Publicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
@@ -263,5 +310,54 @@
             });
             document.getElementById('contadorReglas').textContent = 'Total de reglas configuradas: ' + filas.length;
         }
+
+        (function () {
+            var formulario = document.getElementById('formularioNuevaVersion');
+            var modalEl = document.getElementById('modalConfirmarPublicacion');
+            var btnConfirmar = document.getElementById('btnConfirmarPublicacionModal');
+            var confirmado = false;
+
+            if (!formulario || !modalEl || !btnConfirmar) return;
+
+            function formatearFechaLocal(valorIso) {
+                if (!valorIso) return '-';
+                var partes = valorIso.split('T');
+                if (partes.length !== 2) return valorIso;
+                var fecha = partes[0].split('-');
+                if (fecha.length !== 3) return valorIso;
+                return fecha[2] + '/' + fecha[1] + '/' + fecha[0] + ' ' + partes[1];
+            }
+
+            formulario.addEventListener('submit', function (e) {
+                if (confirmado) return;
+                if (e.defaultPrevented) return;
+                if (window.jQuery && jQuery.fn && jQuery.fn.valid && !jQuery(formulario).valid()) return;
+
+                e.preventDefault();
+
+                var totalReglas = document.querySelectorAll('#cuerpoTablaReglas tr.fila-regla').length;
+                var spanReglas = document.getElementById('modalResumenTotalReglas');
+                if (spanReglas) spanReglas.textContent = totalReglas;
+
+                var inputVigente = formulario.querySelector('[name="NuevaVersion.VigenteDesde"]');
+                var spanVigente = document.getElementById('modalResumenVigenteDesde');
+                if (spanVigente) spanVigente.textContent = formatearFechaLocal(inputVigente ? inputVigente.value : '');
+
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    var modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modal.show();
+                } else if (window.confirm('¿Confirma la publicación de esta nueva versión? La versión anterior cerrará su vigencia y los nuevos envíos se tarifarán con estas reglas.')) {
+                    confirmado = true;
+                    formulario.submit();
+                }
+            });
+
+            btnConfirmar.addEventListener('click', function () {
+                confirmado = true;
+                btnConfirmar.disabled = true;
+                btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Publicando...';
+                formulario.submit();
+            });
+        })();
     </script>
 }

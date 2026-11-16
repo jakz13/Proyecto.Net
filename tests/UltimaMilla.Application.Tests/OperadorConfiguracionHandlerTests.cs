@@ -203,11 +203,15 @@ public class OperadorConfiguracionHandlerTests
     {
         var dto = await Crear().Handle(new CrearMotivoNoEntregaCommand(" direccion_erronea ", " Dirección errónea ", true), default);
 
+        var guardado = Assert.Single(_motivos.Motivos);
         Assert.Equal("DIRECCION_ERRONEA", dto.Codigo);
         Assert.Equal("Dirección errónea", dto.Descripcion);
         Assert.True(dto.Activo);
         Assert.True(dto.EsInterno);
-        Assert.Equal(_tenant.OperadorId, Assert.Single(_motivos.Motivos).OperadorId);
+        Assert.NotEqual(default, dto.FechaAlta);
+        Assert.True(dto.FechaAlta.Year > 1);
+        Assert.Equal(guardado.FechaAlta, dto.FechaAlta);
+        Assert.Equal(_tenant.OperadorId, guardado.OperadorId);
         Assert.Equal(1, _uow.Confirmaciones);
     }
 
@@ -414,6 +418,23 @@ public class OperadorConfiguracionHandlerTests
         await Assert.ThrowsAsync<DomainValidationException>(() => h.Handle(new ObtenerMotivoNoEntregaQuery(Guid.Empty), default));
         await Assert.ThrowsAsync<NotFoundException>(() => h.Handle(new ObtenerMotivoNoEntregaQuery(Guid.NewGuid()), default));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Handle(new ObtenerMotivoNoEntregaQuery(ajeno.Id), default));
+    }
+
+    [Fact]
+    public async Task ConsultasYComandosDeMotivos_ConservanFechaAltaDeLaEntidad()
+    {
+        var motivo = AgregarMotivo("CON_FECHA");
+
+        var listado = await new ListarMotivosNoEntregaQueryHandler(_motivos, _tenant).Handle(new ListarMotivosNoEntregaQuery(), default);
+        var obtenido = await new ObtenerMotivoNoEntregaQueryHandler(_motivos, _tenant).Handle(new ObtenerMotivoNoEntregaQuery(motivo.Id), default);
+        var actualizado = await Actualizar().Handle(new ActualizarMotivoNoEntregaCommand(motivo.Id, "Actualizada"), default);
+        var cambiado = await CambiarEstado().Handle(new CambiarEstadoMotivoNoEntregaCommand(motivo.Id, false), default);
+
+        Assert.Equal(motivo.FechaAlta, Assert.Single(listado).FechaAlta);
+        Assert.Equal(motivo.FechaAlta, obtenido.FechaAlta);
+        Assert.Equal(motivo.FechaAlta, actualizado.FechaAlta);
+        Assert.Equal(motivo.FechaAlta, cambiado.FechaAlta);
+        Assert.True(obtenido.FechaAlta.Year > 1);
     }
 
     [Fact]
