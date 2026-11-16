@@ -30,7 +30,22 @@ public class EfComercioRepository : IComercioRepository
             return null;
 
         var documentoNormalizado = documento.Trim();
-        return await _contexto.Comercios.FirstOrDefaultAsync(c => c.Documento == documentoNormalizado, cancellationToken);
+        var exacto = await _contexto.Comercios.FirstOrDefaultAsync(c => c.Documento == documentoNormalizado, cancellationToken);
+        if (exacto is not null)
+            return exacto;
+
+        var digitos = new string(documentoNormalizado.Where(char.IsAsciiDigit).ToArray());
+        if (digitos.Length >= 8)
+        {
+            var conPrefijoRut = $"RUT {digitos}";
+            var porVariante = await _contexto.Comercios.FirstOrDefaultAsync(
+                c => c.Documento == digitos || c.Documento == conPrefijoRut,
+                cancellationToken);
+            if (porVariante is not null)
+                return porVariante;
+        }
+
+        return null;
     }
 
     public async Task<bool> ExisteDocumentoAsync(string documento, Guid? excluirComercioId = null, CancellationToken cancellationToken = default)

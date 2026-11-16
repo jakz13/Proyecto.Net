@@ -24,11 +24,42 @@ public static partial class IdentidadVisualEndpoints
             .WithTags("Backoffice · Identidad visual");
 
         grupo.MapGet("/", (
+            [FromQuery] Guid? operadorId,
+            HttpContext httpContext,
             AppDbContext db,
             ICurrentTenant tenant,
             CancellationToken ct,
             IDistributedCacheService? cache = null) => RespuestasBackoffice.Ejecutar(async () =>
-            Results.Ok(await ObtenerAsync(db, tenant.OperadorId, ct, cache))))
+        {
+            var idObjetivo = operadorId is { } opExplicito && opExplicito != Guid.Empty
+                ? opExplicito
+                : tenant.OperadorId;
+
+            // Si la petición proviene de un usuario de comercio autenticado, garantizar que solo reciba la identidad
+            // de un operador con el que el comercio posea efectivamente un vínculo activo (nunca la de un operador ajeno).
+            if (httpContext.User.Identity?.IsAuthenticated == true &&
+                (httpContext.User.IsInRole(PoliticasApi.RolComercio)
+                 || httpContext.User.FindFirst("comercio_id") is not null
+                 || httpContext.User.FindFirst("comercio_operador_id") is not null))
+            {
+                var vinculadosIds = await ComercioOperadoresEndpoints.ObtenerOperadoresVinculadosIdsAsync(db, tenant, ct);
+                if (vinculadosIds.Count > 0)
+                {
+                    if (!vinculadosIds.Contains(idObjetivo))
+                    {
+                        idObjetivo = vinculadosIds.Contains(tenant.OperadorId)
+                            ? tenant.OperadorId
+                            : vinculadosIds[0];
+                    }
+                }
+                else if (tenant.UsuarioId is { } uid && await db.Usuarios.IgnoreQueryFilters().AsNoTracking().AnyAsync(u => u.Id == uid && u.ComercioId != null, ct))
+                {
+                    return Results.Ok(new IdentidadVisualDto { OperadorId = string.Empty });
+                }
+            }
+
+            return Results.Ok(await ObtenerAsync(db, idObjetivo, ct, cache));
+        }))
         .WithName("ObtenerIdentidadVisual")
         .WithSummary("Identidad visual del operador en sesión")
         .AllowAnonymous();

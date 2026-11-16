@@ -27,7 +27,9 @@ app.Use(async (contexto, siguiente) =>
     // 1. Sirve appsettings.json dinámicamente al cliente WASM reflejando la configuración actual del host
     // (permite usar --UsarMocks=true desde el script o UsarMocks=false por defecto para el equipo).
     if (ruta.Equals("/appsettings.json", StringComparison.OrdinalIgnoreCase) ||
-        ruta.Equals("/appsettings.Development.json", StringComparison.OrdinalIgnoreCase))
+        ruta.Equals("/appsettings.Development.json", StringComparison.OrdinalIgnoreCase) ||
+        ruta.Equals("/appsettings.Production.json", StringComparison.OrdinalIgnoreCase) ||
+        (ruta.StartsWith("/appsettings.", StringComparison.OrdinalIgnoreCase) && ruta.EndsWith(".json", StringComparison.OrdinalIgnoreCase)))
     {
         contexto.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
         contexto.Response.Headers.Pragma = "no-cache";

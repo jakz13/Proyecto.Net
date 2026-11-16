@@ -657,4 +657,49 @@ public class GestionUsuariosHandlerTests
         Assert.Equal("Repartidor", resultado.NombrePerfil);
         Assert.Equal(1, _unidadDeTrabajo.Confirmaciones);
     }
+
+    [Fact]
+    public async Task CrearUsuarioComercio_EmailExistenteEnOtroOperador_VinculaComercioAlSegundoOperador()
+    {
+        var operadorOrigenId = Guid.NewGuid();
+        var comercioExistente = new UltimaMilla.Domain.Entities.Comercio.Comercio(
+            Guid.NewGuid(), "Tienda Compartida S.A.", "219999990011", "contacto@compartida.com", "099111222", "Compartida");
+        _comercioRepositorio.Comercios.Add(comercioExistente);
+        _comercioOperadorRepositorio.Relaciones.Add(new UltimaMilla.Domain.Entities.Comercio.ComercioOperador(
+            Guid.NewGuid(), comercioExistente.Id, operadorOrigenId, "huella-1", "Activo"));
+        _comercioOperadorRepositorio.Relaciones.Add(new UltimaMilla.Domain.Entities.Comercio.ComercioOperador(
+            Guid.NewGuid(), comercioExistente.Id, _inquilinoActual.OperadorId, "huella-2", "Activo"));
+
+        var usuarioComercioExistente = new Usuario(
+            Guid.NewGuid(),
+            "Admin Tienda",
+            "tienda.compartida@correo.com",
+            "hash",
+            _perfilComercio.Id,
+            operadorOrigenId,
+            comercioExistente.Id);
+        _usuarioRepositorio.Usuarios.Add(usuarioComercioExistente);
+
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _comercioOperadorRepositorio,
+            _hasheadorContrasena,
+            _inquilinoActual,
+            _unidadDeTrabajo);
+
+        var comando = new CrearUsuarioCommand(
+            "Admin",
+            "tienda.compartida@correo.com",
+            "ClaveSegura123",
+            _perfilComercio.Id,
+            comercioExistente.Id,
+            "Tienda");
+
+        var resultado = await handler.Handle(comando, CancellationToken.None);
+
+        Assert.Equal(usuarioComercioExistente.Id, resultado.Id);
+        Assert.Equal(comercioExistente.Id, resultado.ComercioId);
+        Assert.Equal(_inquilinoActual.OperadorId, resultado.OperadorId);
+    }
 }

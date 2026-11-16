@@ -137,7 +137,7 @@ public class TableroHub : Hub
             return null;
 
         var vinculo = await _db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
-            .FirstOrDefaultAsync(c => c.OperadorId == operadorId && (candidatos.Contains(c.Id) || candidatos.Contains(c.ComercioId)), Context.ConnectionAborted);
+            .FirstOrDefaultAsync(c => c.OperadorId == operadorId && c.Estado == "Activo" && (candidatos.Contains(c.Id) || candidatos.Contains(c.ComercioId)), Context.ConnectionAborted);
         return vinculo is null ? null : (vinculo.Id, vinculo.ComercioId);
     }
 

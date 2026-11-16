@@ -57,13 +57,55 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
         if (solicitud.PerfilId == Guid.Empty)
             throw new DomainValidationException("Debe seleccionar un perfil válido.");
 
-        // Validar unicidad de correo
+        // Validar existencia del perfil primero para determinar si es un Administrador de Comercio
+        var perfil = await _usuarioRepositorio.ObtenerPerfilPorIdAsync(solicitud.PerfilId, cancellationToken);
+
+        // Validar unicidad de correo (permitiendo vincular un usuario de comercio existente cuando otro operador lo asocia)
         var existeEmail = await _usuarioRepositorio.ExisteEmailAsync(emailNormalizado, null, cancellationToken);
         if (existeEmail)
-            throw new DomainValidationException("Ya existe un usuario registrado con ese correo electrónico.");
+        {
+            if (perfil is { EsAdministradorDeComercio: true } && solicitud.ComercioId is { } idComercioSolicitado && idComercioSolicitado != Guid.Empty)
+            {
+                var usuarioExistente = await _usuarioRepositorio.ObtenerPorEmailAsync(emailNormalizado, cancellationToken);
+                if (usuarioExistente is { ComercioId: { } idComercioExistente } && usuarioExistente.OperadorId != operadorId)
+                {
+                    var perteneceSolicitado = await _comercioOperadorRepositorio.ExisteRelacionAsync(idComercioSolicitado, operadorId, cancellationToken);
+                    if (!perteneceSolicitado)
+                        throw new DomainValidationException("El comercio seleccionado no pertenece al operador.");
 
-        // Validar existencia del perfil
-        var perfil = await _usuarioRepositorio.ObtenerPerfilPorIdAsync(solicitud.PerfilId, cancellationToken);
+                    var yaVinculado = await _comercioOperadorRepositorio.ExisteRelacionAsync(idComercioExistente, operadorId, cancellationToken);
+                    if (!yaVinculado)
+                    {
+                        var claveAleatoria = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+                        var huellaClave = UltimaMilla.Domain.Entities.Comercio.ComercioOperador.CalcularHuellaClaveApi(claveAleatoria);
+                        await _comercioOperadorRepositorio.AgregarAsync(
+                            new UltimaMilla.Domain.Entities.Comercio.ComercioOperador(Guid.NewGuid(), idComercioExistente, operadorId, huellaClave, "Activo"),
+                            cancellationToken);
+                        await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+                    }
+
+                    var comercioVinculado = await _comercioRepositorio.ObtenerPorIdAsync(idComercioSolicitado, cancellationToken);
+                    var nombreComercioVinculado = comercioVinculado is null
+                        ? null
+                        : (string.IsNullOrWhiteSpace(comercioVinculado.NombreFantasia) ? comercioVinculado.RazonSocial : comercioVinculado.NombreFantasia);
+
+                    return new UsuarioDetalleDto(
+                        usuarioExistente.Id,
+                        usuarioExistente.Nombre,
+                        usuarioExistente.Email,
+                        usuarioExistente.PerfilId,
+                        perfil.Nombre,
+                        operadorId,
+                        idComercioExistente,
+                        nombreComercioVinculado,
+                        usuarioExistente.Activo,
+                        usuarioExistente.FechaAlta);
+                }
+            }
+
+            throw new DomainValidationException("Ya existe un usuario registrado con ese correo electrónico.");
+        }
+
         if (perfil is null)
             throw new DomainValidationException("El perfil seleccionado no existe.");
 

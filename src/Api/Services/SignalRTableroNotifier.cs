@@ -256,11 +256,35 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
 
         try
         {
-            var grupos = new[]
+            var grupos = new List<string>
             {
                 TableroHub.GrupoIdentidadOperador(operadorId),
                 TableroHub.GrupoOperador(operadorId)
             };
+
+            if (_scopeFactory is not null)
+            {
+                try
+                {
+                    using var alcance = _scopeFactory.CreateScope();
+                    var db = alcance.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var comerciosVinculados = await db.ComerciosOperadores.IgnoreQueryFilters().AsNoTracking()
+                        .Where(v => v.OperadorId == operadorId && v.Estado == "Activo")
+                        .Select(v => v.ComercioId)
+                        .Distinct()
+                        .ToListAsync(ct);
+
+                    foreach (var comercioId in comerciosVinculados)
+                    {
+                        grupos.Add(TableroHub.GrupoCuentaComercio(comercioId));
+                    }
+                }
+                catch
+                {
+                    // Si la consulta auxiliar falla, igual se emite al grupo directo del operador
+                }
+            }
+
             var payload = new { operadorId, timestamp = DateTime.UtcNow };
             await _hubContext.Clients.Groups(grupos).SendAsync(EventoIdentidadVisualActualizada, payload, ct);
             await _hubContext.Clients.Groups(grupos).SendAsync(EventoOperadoresDelComercio, payload, ct);

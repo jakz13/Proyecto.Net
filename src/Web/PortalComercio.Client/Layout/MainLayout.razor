@@ -61,7 +61,7 @@
                                 </div>
                                 @foreach (var operador in operadoresDisponibles)
                                 {
-                                    var esSeleccionado = operador.OperadorId == identidad.OperadorId;
+                                    var esSeleccionado = string.Equals(operador.OperadorId, operadorActualId ?? identidad.OperadorId, StringComparison.OrdinalIgnoreCase);
                                     <button type="button"
                                             class="dropdown-item d-flex align-items-center justify-content-between rounded-2 px-3 py-2 mb-1 @(esSeleccionado ? "active fw-semibold" : "")"
                                             @onclick="() => SeleccionarOperadorAsync(operador.OperadorId)">
@@ -167,17 +167,19 @@
     // Verdadero cuando la lista de operadores viene de la sesión real del comercio (no del selector de la demo)
     private bool sesionReal;
     private bool comercioDadoDeBaja;
+    private string? operadorActualId;
     private CancellationTokenSource? cancelacionRefrescoIdentidad;
 
     private async Task CerrarSesionAsync()
     {
+        cancelacionRefrescoIdentidad?.Cancel();
         await TokenStore.EliminarTokenAsync();
         Navegador.NavigateTo("login", forceLoad: true);
     }
 
     protected override async Task OnInitializedAsync()
     {
-        modoDemo = Configuracion.GetValue("Auth:PermitirModoDemo", true);
+        modoDemo = Configuracion.GetValue("Auth:PermitirModoDemo", false);
         if (!modoDemo)
         {
             // Servidor: sin sesión real no hay portal; se manda al login
@@ -231,20 +233,52 @@
             {
                 try
                 {
-                    var nuevaIdentidad = await IdentidadApi.ObtenerIdentidadActualAsync(token);
-                    var huboCambio = nuevaIdentidad.NombreComercial != identidad.NombreComercial
-                        || nuevaIdentidad.ColorPrimario != identidad.ColorPrimario
-                        || nuevaIdentidad.ColorSecundario != identidad.ColorSecundario
-                        || nuevaIdentidad.LogoUrl != identidad.LogoUrl;
-
-                    if (huboCambio)
+                    await InvokeAsync(async () =>
                     {
-                        await InvokeAsync(async () =>
+                        if (token.IsCancellationRequested)
+                            return;
+
+                        if (sesionReal)
                         {
-                            await CargarOperadoresDisponibles();
-                            await CargarIdentidadVisual();
-                        });
-                    }
+                            var delComercio = await IdentidadApi.ObtenerOperadoresDelComercioAsync(token);
+                            var seleccion = ResolverOperadorSeleccionado(delComercio.Operadores, delComercio.OperadorActualId ?? operadorActualId);
+                            var cambioLista = delComercio.Operadores.Count != operadoresDisponibles.Count
+                                || delComercio.Operadores.Select(o => $"{o.OperadorId}|{o.NombreComercial}|{o.ColorPrimario}|{o.ColorSecundario}|{o.LogoUrl}")
+                                    .SequenceEqual(operadoresDisponibles.Select(o => $"{o.OperadorId}|{o.NombreComercial}|{o.ColorPrimario}|{o.ColorSecundario}|{o.LogoUrl}")) == false;
+                            var cambioIdentidadActiva = seleccion is not null && (
+                                seleccion.OperadorId != identidad.OperadorId
+                                || seleccion.NombreComercial != identidad.NombreComercial
+                                || seleccion.ColorPrimario != identidad.ColorPrimario
+                                || seleccion.ColorSecundario != identidad.ColorSecundario
+                                || seleccion.LogoUrl != identidad.LogoUrl);
+
+                            if (cambioLista || cambioIdentidadActiva)
+                            {
+                                operadoresDisponibles = delComercio.Operadores;
+                                operadorActualId = seleccion?.OperadorId ?? delComercio.OperadorActualId;
+                                comercioDadoDeBaja = (operadoresDisponibles.Count == 0);
+                                if (seleccion is not null)
+                                {
+                                    AplicarIdentidad(seleccion);
+                                }
+                            }
+                        }
+                        else if (modoDemo)
+                        {
+                            var idDemo = ContextoOperador.OperadorActivo?.OperadorId;
+                            if (!string.IsNullOrWhiteSpace(idDemo))
+                            {
+                                var nuevaIdentidad = await IdentidadApi.ObtenerPorOperadorDemoAsync(idDemo, token);
+                                if (nuevaIdentidad.NombreComercial != identidad.NombreComercial
+                                    || nuevaIdentidad.ColorPrimario != identidad.ColorPrimario
+                                    || nuevaIdentidad.ColorSecundario != identidad.ColorSecundario
+                                    || nuevaIdentidad.LogoUrl != identidad.LogoUrl)
+                                {
+                                    AplicarIdentidad(nuevaIdentidad);
+                                }
+                            }
+                        }
+                    });
                 }
                 catch
                 {
@@ -261,8 +295,29 @@
         {
             var delComercio = await IdentidadApi.ObtenerOperadoresDelComercioAsync();
             operadoresDisponibles = delComercio.Operadores;
+            operadorActualId = delComercio.OperadorActualId;
             comercioDadoDeBaja = (operadoresDisponibles.Count == 0);
             sesionReal = true;
+
+            // Si el token inicial apuntaba a un operador que no está en la lista de operadores activos del comercio,
+            // alinear inmediatamente la sesión con el primer operador vinculado al comercio.
+            if (operadoresDisponibles.Count > 0 &&
+                (string.IsNullOrWhiteSpace(operadorActualId) ||
+                 !operadoresDisponibles.Any(o => string.Equals(o.OperadorId, operadorActualId, StringComparison.OrdinalIgnoreCase))))
+            {
+                var primerOperadorId = operadoresDisponibles[0].OperadorId;
+                operadorActualId = primerOperadorId;
+                try
+                {
+                    var sesionAlineada = await IdentidadApi.AbrirSesionConOperadorAsync(primerOperadorId);
+                    await TokenStore.GuardarTokenAsync(sesionAlineada.Token);
+                }
+                catch
+                {
+                    // Si falla el reajuste de sesión, igual se muestra la identidad del operador vinculado
+                }
+            }
+
             return;
         }
         catch (Exception ex)
@@ -293,11 +348,49 @@
         }
     }
 
+    private static IdentidadVisualDto? ResolverOperadorSeleccionado(IReadOnlyList<IdentidadVisualDto> disponibles, string? idPreferido)
+    {
+        if (disponibles.Count == 0)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(idPreferido))
+        {
+            var coincidencia = disponibles.FirstOrDefault(o => string.Equals(o.OperadorId, idPreferido, StringComparison.OrdinalIgnoreCase));
+            if (coincidencia is not null)
+                return coincidencia;
+        }
+
+        return disponibles[0];
+    }
+
     private async Task CargarIdentidadVisual()
     {
+        if (sesionReal)
+        {
+            var operadorVinculado = ResolverOperadorSeleccionado(operadoresDisponibles, operadorActualId);
+            if (operadorVinculado is not null)
+            {
+                operadorActualId = operadorVinculado.OperadorId;
+                AplicarIdentidad(operadorVinculado);
+            }
+            else
+            {
+                AplicarIdentidad(new IdentidadVisualDto());
+            }
+            return;
+        }
+
         try
         {
-            identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+            var idDemo = ContextoOperador.OperadorActivo?.OperadorId;
+            if (modoDemo && !string.IsNullOrWhiteSpace(idDemo))
+            {
+                identidad = await IdentidadApi.ObtenerPorOperadorDemoAsync(idDemo);
+            }
+            else
+            {
+                identidad = await IdentidadApi.ObtenerIdentidadActualAsync();
+            }
         }
         catch
         {
@@ -305,6 +398,12 @@
             identidad = ContextoOperador.OperadorActivo ?? new IdentidadVisualDto();
         }
 
+        AplicarIdentidad(identidad);
+    }
+
+    private void AplicarIdentidad(IdentidadVisualDto nuevaIdentidad)
+    {
+        identidad = nuevaIdentidad;
         colorPrimarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorPrimario, "#1D4ED8");
         colorSecundarioValido = ColorUtil.NormalizarHexadecimal(identidad.ColorSecundario, "#F97316");
 
@@ -327,16 +426,33 @@
     private async Task SeleccionarOperadorAsync(string operadorId)
     {
         desplegableOperadoresAbierto = false;
+        cancelacionRefrescoIdentidad?.Cancel();
+
+        var seleccionado = ResolverOperadorSeleccionado(operadoresDisponibles, operadorId);
+        if (seleccionado is not null)
+        {
+            operadorActualId = seleccionado.OperadorId;
+            AplicarIdentidad(seleccionado);
+        }
+
         if (sesionReal)
         {
             // Sesión nueva del mismo usuario, acotada al operador elegido: la API valida que el comercio tenga vínculo activo con él
             var sesion = await IdentidadApi.AbrirSesionConOperadorAsync(operadorId);
             await TokenStore.GuardarTokenAsync(sesion.Token);
+            if (AuthStateProvider is UltimaMilla.PortalComercio.Client.Auth.CustomAuthStateProvider customAuth)
+            {
+                customAuth.NotificarAutenticacion();
+            }
             Navegador.NavigateTo("", forceLoad: true);
             return;
         }
 
         ContextoOperador.SeleccionarOperador(operadorId);
+        if (AuthStateProvider is UltimaMilla.PortalComercio.Client.Auth.CustomAuthStateProvider authDemo)
+        {
+            await authDemo.IniciarSesionSimuladaAsync("MegaStore Uruguay S.R.L.", "Comercio", operadorId, "33333333-3333-3333-3333-333333333333");
+        }
         await CargarIdentidadVisual();
         // Redirige al Dashboard del comercio para aislar la información del operador anterior y cargar el nuevo operador
         Navegador.NavigateTo("", forceLoad: true);
