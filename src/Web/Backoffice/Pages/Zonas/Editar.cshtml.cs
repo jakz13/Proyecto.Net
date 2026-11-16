@@ -24,7 +24,7 @@ public class EditarModel : PageModel
     public ActualizarZonaCoberturaDto Zona { get; set; } = new();
 
     [BindProperty]
-    public List<CrearFranjaHorariaDto> Franjas { get; set; } = new();
+    public List<FranjaHorariaFormulario> Franjas { get; set; } = new();
 
     public string? ErrorMessage { get; set; }
 
@@ -45,9 +45,9 @@ public class EditarModel : PageModel
             Activa = entidad.Activa
         };
 
-        Franjas = entidad.FranjasHorarias.Select(f => new CrearFranjaHorariaDto
+        Franjas = entidad.FranjasHorarias.Select(f => new FranjaHorariaFormulario
         {
-            DiaSemana = f.DiaSemana,
+            DiaSemana = f.DiaSemana.ToString(),
             HoraInicio = f.HoraInicio,
             HoraFin = f.HoraFin,
             CapacidadMaximaEnvios = f.CapacidadMaximaEnvios
@@ -60,33 +60,41 @@ public class EditarModel : PageModel
     {
         if (Franjas == null || Franjas.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "Debe conservar al menos una franja horaria de entrega en la zona de cobertura.");
-            return Page();
-        }
-
-        // "Todos los días" se convierte en una franja por cada día de la semana
-        Franjas = FranjasTodosLosDias.Expandir(Franjas);
-
-        // Validación de superposiciones inconsistentes
-        var (esValido, mensajeError) = await _zonasApi.ValidarSuperposicionFranjasAsync(Franjas);
-        if (!esValido)
-        {
-            ErrorMessage = mensajeError;
-            ModelState.AddModelError(string.Empty, mensajeError ?? "Superposición horaria inconsistente detectada.");
+            ErrorMessage = "Debe conservar al menos una franja horaria de entrega en la zona de cobertura.";
+            ModelState.AddModelError(string.Empty, ErrorMessage);
             return Page();
         }
 
         if (!ModelState.IsValid)
         {
+            ErrorMessage = FranjasTodosLosDias.ResumirErroresModelState(ModelState);
+            return Page();
+        }
+
+        // "Todos los días" se convierte en una franja por cada día de la semana sin alterar las filas visibles si luego falla una validación
+        var franjasExpandidas = FranjasTodosLosDias.ConvertirYExpandir(Franjas, out var errorDia);
+        if (franjasExpandidas is null)
+        {
+            ErrorMessage = errorDia;
+            ModelState.AddModelError(string.Empty, errorDia!);
+            return Page();
+        }
+
+        // Validación de superposiciones inconsistentes
+        var (esValido, mensajeError) = await _zonasApi.ValidarSuperposicionFranjasAsync(franjasExpandidas);
+        if (!esValido)
+        {
+            ErrorMessage = string.IsNullOrWhiteSpace(mensajeError) ? "Superposición horaria inconsistente detectada." : mensajeError;
+            ModelState.AddModelError(string.Empty, ErrorMessage);
             return Page();
         }
 
         try
         {
-            var zonaActualizada = Zona with { FranjasHorarias = Franjas };
+            var zonaActualizada = Zona with { FranjasHorarias = franjasExpandidas };
             await _zonasApi.ActualizarZonaAsync(Id, zonaActualizada);
 
-            TempData["MensajeExito"] = $"La zona de cobertura '{Zona.Nombre}' y sus {Franjas.Count} franjas horarias fueron actualizadas exitosamente.";
+            TempData["MensajeExito"] = $"La zona de cobertura '{Zona.Nombre}' y sus {franjasExpandidas.Count} franjas horarias fueron actualizadas exitosamente.";
             return RedirectToPage("/Zonas/Index");
         }
         catch (ApiExcepcion ex)

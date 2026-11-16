@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -261,5 +261,75 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         var cuerpo = await respuesta.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         Assert.Contains("No hay ningún bulto marcado", WebUtility.HtmlDecode(cuerpo));
+    }
+
+    [Fact]
+    public async Task ZonaNueva_ConTodosLosDias_CreaLaZonaYExpandeLasFranjas()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Zonas/Nueva")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        var nombreZona = "Zona Todos Los Dias " + Guid.NewGuid().ToString("N")[..6];
+        datos["NuevaZona.Nombre"] = nombreZona;
+        datos["NuevaZona.PoligonoGeografico"] = "[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9180, -56.1480], [-34.9080, -56.2120]]";
+        datos["Franjas[0].DiaSemana"] = "-1";
+        datos["Franjas[0].HoraInicio"] = "09:00";
+        datos["Franjas[0].HoraFin"] = "13:00";
+        datos["Franjas[0].CapacidadMaximaEnvios"] = "35";
+        datos.Remove("Franjas[1].DiaSemana");
+        datos.Remove("Franjas[1].HoraInicio");
+        datos.Remove("Franjas[1].HoraFin");
+        datos.Remove("Franjas[1].CapacidadMaximaEnvios");
+
+        var respuesta = await cliente.PostAsync("/Zonas/Nueva", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {cuerpo[..Math.Min(cuerpo.Length, 1200)]}");
+
+        var listado = WebUtility.HtmlDecode(await (await cliente.GetAsync("/Zonas")).Content.ReadAsStringAsync());
+        Assert.Contains(nombreZona, listado);
+        Assert.Contains("7 franjas horarias", listado);
+    }
+
+    [Fact]
+    public async Task ZonaNueva_ConNombreMuyCortoYTodosLosDias_MuestraElErrorEnLaPagina()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Zonas/Nueva")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        datos["NuevaZona.Nombre"] = "AB"; // menor a 3 caracteres
+        datos["Franjas[0].DiaSemana"] = "-1";
+
+        var respuesta = await cliente.PostAsync("/Zonas/Nueva", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("Error de validación:", cuerpo);
+        Assert.Contains("entre 3 y 100 caracteres", cuerpo);
+    }
+
+    [Fact]
+    public async Task ZonaEditar_ConTodosLosDias_ActualizaLaZonaYExpandeLasFranjas()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var listado = await (await cliente.GetAsync("/Zonas")).Content.ReadAsStringAsync();
+        var zonaId = Regex.Match(listado, @"/Zonas/Editar/([0-9a-f-]{36})", RegexOptions.IgnoreCase).Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(zonaId), "No se encontró ninguna zona editable.");
+
+        var html = await (await cliente.GetAsync($"/Zonas/Editar/{zonaId}")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        foreach (var clave in datos.Keys.Where(k => k.StartsWith("Franjas[", StringComparison.Ordinal)).ToList())
+            datos.Remove(clave);
+
+        datos["Zona.PoligonoGeografico"] = "[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9180, -56.1480], [-34.9080, -56.2120]]";
+        datos["Franjas[0].DiaSemana"] = "-1";
+        datos["Franjas[0].HoraInicio"] = "08:00";
+        datos["Franjas[0].HoraFin"] = "12:00";
+        datos["Franjas[0].CapacidadMaximaEnvios"] = "25";
+
+        var respuesta = await cliente.PostAsync($"/Zonas/Editar/{zonaId}", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {cuerpo[..Math.Min(cuerpo.Length, 1200)]}");
     }
 }

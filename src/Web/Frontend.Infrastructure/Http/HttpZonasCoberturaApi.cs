@@ -90,7 +90,8 @@ public class HttpZonasCoberturaApi : IZonasCoberturaApi
         }
 
         var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
-        return (false, string.IsNullOrWhiteSpace(cuerpo) ? "Superposición horaria inconsistente detectada." : cuerpo);
+        var mensaje = HttpIncidenciasApi.ExtraerMensaje(cuerpo) ?? cuerpo;
+        return (false, string.IsNullOrWhiteSpace(mensaje) ? "Superposición horaria inconsistente detectada." : mensaje);
     }
 
     private static async Task AsegurarRespuestaExitosaAsync(HttpResponseMessage respuesta, CancellationToken cancelacion)
@@ -101,6 +102,7 @@ public class HttpZonasCoberturaApi : IZonasCoberturaApi
         }
 
         var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
-        throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(cuerpo) ? $"Error HTTP {respuesta.StatusCode}" : cuerpo);
+        var mensaje = HttpIncidenciasApi.ExtraerMensaje(cuerpo) ?? cuerpo;
+        throw new ApiExcepcion(respuesta.StatusCode, string.IsNullOrWhiteSpace(mensaje) ? $"Error HTTP {(int)respuesta.StatusCode}" : mensaje);
     }
 }
