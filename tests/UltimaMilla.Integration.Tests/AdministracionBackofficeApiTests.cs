@@ -380,16 +380,20 @@ public class AdministracionBackofficeApiTests
         Assert.Equal(System.Net.HttpStatusCode.Conflict, conflicto.CodigoEstado);
         Assert.Equal(vehiculo.Id, (await api.ObtenerRepartidorPorIdAsync(repartidor.Id))!.VehiculoAsignadoId);
 
-        // La cédula es obligatoria y de al menos 8 dígitos
-        await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearRepartidorAsync(new CrearRepartidorDto
+        // La cédula debe tener exactamente 8 dígitos numéricos, sin puntos ni guiones
+        foreach (var invalida in new[] { "1234567", "1.234.567-8", "1234567-8", "CI 12345678", "texto123", "123456789" })
         {
-            NombreCompleto = "Sin cédula", Email = $"sc.{Sufijo()}@ultimamilla.com.uy", Documento = "1234567", Password = "Repartidor.2026!", Telefono = "099111222"
-        }));
+            var rechazo = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearRepartidorAsync(new CrearRepartidorDto
+            {
+                NombreCompleto = "Formato inválido", Email = $"fi.{Sufijo()}@ultimamilla.com.uy", Documento = invalida, Password = "Repartidor.2026!", Telefono = "099111222"
+            }));
+            Assert.Equal(HttpStatusCode.BadRequest, rechazo.CodigoEstado);
+        }
 
-        // Dos repartidores del mismo operador no pueden tener la misma cédula (aunque se escriba con otros puntos o guiones)
+        // Dos repartidores del mismo operador no pueden tener la misma cédula
         var repetida = await Assert.ThrowsAsync<ApiExcepcion>(() => api.CrearRepartidorAsync(new CrearRepartidorDto
         {
-            NombreCompleto = "Cédula repetida", Email = $"cr.{Sufijo()}@ultimamilla.com.uy", Documento = cedula.Replace(".", "").Replace("-", ""),
+            NombreCompleto = "Cédula repetida", Email = $"cr.{Sufijo()}@ultimamilla.com.uy", Documento = cedula,
             Password = "Repartidor.2026!", Telefono = "099111222"
         }));
         Assert.Contains("cédula", repetida.Message, StringComparison.OrdinalIgnoreCase);

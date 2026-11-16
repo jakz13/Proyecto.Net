@@ -389,9 +389,19 @@
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="NuevoRepartidor.Documento" class="form-label small fw-semibold">
-                                    Cédula / DNI <span class="text-danger">*</span>
+                                    Cédula <span class="text-danger">*</span>
                                 </label>
-                                <input asp-for="NuevoRepartidor.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 45129803 (8 dígitos)" required maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
+                                <input asp-for="NuevoRepartidor.Documento"
+                                       type="text"
+                                       inputmode="numeric"
+                                       pattern="[0-9]{8}"
+                                       maxlength="8"
+                                       autocomplete="off"
+                                       class="form-control form-control-sm font-monospace js-solo-cedula"
+                                       placeholder="Ej: 12345678"
+                                       title="Ingrese 8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678)."
+                                       required />
+                                <div class="form-text" style="font-size: 0.725rem;">8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678).</div>
                                 <span asp-validation-for="NuevoRepartidor.Documento" class="text-danger small"></span>
                             </div>
                             <div class="col-md-6">
@@ -471,9 +481,20 @@
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="EdicionRepartidor.Documento" class="form-label small fw-semibold">
-                                    Cédula / DNI <span class="text-danger">*</span>
+                                    Cédula <span class="text-danger">*</span>
                                 </label>
-                                <input asp-for="EdicionRepartidor.Documento" id="editRepartidorDocumento" class="form-control form-control-sm font-monospace" required maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
+                                <input asp-for="EdicionRepartidor.Documento"
+                                       id="editRepartidorDocumento"
+                                       type="text"
+                                       inputmode="numeric"
+                                       pattern="[0-9]{8}"
+                                       maxlength="8"
+                                       autocomplete="off"
+                                       class="form-control form-control-sm font-monospace js-solo-cedula"
+                                       placeholder="Ej: 12345678"
+                                       title="Ingrese 8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678)."
+                                       required />
+                                <div class="form-text" style="font-size: 0.725rem;">8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678).</div>
                                 <span asp-validation-for="EdicionRepartidor.Documento" class="text-danger small"></span>
                             </div>
                             <div class="col-md-6">
@@ -772,7 +793,7 @@
                 document.getElementById('editRepartidorNombre').value = nombre;
                 document.getElementById('spanEditNombreRepartidor').textContent = nombre;
                 document.getElementById('editRepartidorEmail').value = email;
-                document.getElementById('editRepartidorDocumento').value = documento;
+                document.getElementById('editRepartidorDocumento').value = (documento || '').replace(/\D+/g, '').slice(0, 8);
                 document.getElementById('editRepartidorTelefono').value = telefono;
                 document.getElementById('editRepartidorEstado').value = estado;
                 document.getElementById('editRepartidorVehiculoId').value = vehiculoId || '';
@@ -854,5 +875,17 @@
                 }
             }
         }
+
+        // Mantener el formato de cédula de 8 dígitos numéricos sin puntos ni guiones (ej.: 12345678)
+        (function () {
+            document.querySelectorAll('.js-solo-cedula').forEach(function (campo) {
+                campo.addEventListener('input', function () {
+                    var soloDigitos = this.value.replace(/\D+/g, '').slice(0, 8);
+                    if (this.value !== soloDigitos) {
+                        this.value = soloDigitos;
+                    }
+                });
+            });
+        })();
     </script>
 }
