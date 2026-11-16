@@ -43,3 +43,17 @@ public record IncidenciaDetalleDto(
     IReadOnlyList<NotaIncidenciaDto> Bitacora);
 
 public record NotaIncidenciaDto(DateTime Fecha, Guid UsuarioId, string Comentario);
+
+/// <summary>Lista los conflictos de sincronización offline resueltos recientemente para el operador actual.</summary>
+public record ListarConflictosSincronizacionQuery(int Maximo = 50) : IRequest<IReadOnlyList<ConflictoSincronizacionDto>>;
+
+public record ConflictoSincronizacionDto(
+    Guid Id,
+    DateTime Timestamp,
+    string EntidadAfectada,
+    Guid EntidadId,
+    string CodigoSeguimiento,
+    string EstadoDispositivo,
+    string EstadoServidor,
+    string PoliticaAplicada,
+    string Resolucion);

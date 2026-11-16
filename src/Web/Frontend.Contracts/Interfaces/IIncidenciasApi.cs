@@ -21,4 +21,6 @@ public interface IIncidenciasApi
     Task<IReadOnlyList<EnvioDisponibleIncidenciaDto>> ListarEnviosDisponiblesAsync(CancellationToken cancelacion = default);
 
     Task<IReadOnlyList<RutaDisponibleIncidenciaDto>> ListarRutasDisponiblesAsync(CancellationToken cancelacion = default);
+
+    Task<IReadOnlyList<ConflictoSincronizacionDto>> ListarConflictosSincronizacionAsync(int maximo = 50, CancellationToken cancelacion = default);
 }

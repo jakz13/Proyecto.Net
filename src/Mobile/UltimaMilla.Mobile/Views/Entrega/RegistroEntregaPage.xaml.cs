@@ -67,6 +67,7 @@ public partial class RegistroEntregaPage : ContentPage
 
         if (BindingContext is RegistroEntregaViewModel vm)
         {
+            vm.CargarReglasOperativas();
             _ = vm.ActualizarUbicacionYFechaAsync();
         }
     }

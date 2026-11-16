@@ -73,3 +73,35 @@ public class ObtenerIncidenciaQueryHandler : IRequestHandler<ObtenerIncidenciaQu
             incidencia.Notas.OrderBy(n => n.Fecha).Select(n => new NotaIncidenciaDto(n.Fecha, n.UsuarioId, n.Comentario)).ToList());
     }
 }
+
+public class ListarConflictosSincronizacionQueryHandler
+    : IRequestHandler<ListarConflictosSincronizacionQuery, IReadOnlyList<ConflictoSincronizacionDto>>
+{
+    private const int MaximoPermitido = 200;
+
+    private readonly IConflictoSincronizacionRepository _repositorio;
+    private readonly ICurrentTenant _currentTenant;
+
+    public ListarConflictosSincronizacionQueryHandler(
+        IConflictoSincronizacionRepository repositorio,
+        ICurrentTenant currentTenant)
+    {
+        _repositorio = repositorio;
+        _currentTenant = currentTenant;
+    }
+
+    public async Task<IReadOnlyList<ConflictoSincronizacionDto>> Handle(
+        ListarConflictosSincronizacionQuery request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (_currentTenant.OperadorId == Guid.Empty)
+            throw new UnauthorizedAccessException("Se requiere un operador autenticado para consultar conflictos de sincronización.");
+
+        if (request.Maximo < 1 || request.Maximo > MaximoPermitido)
+            throw new DomainValidationException($"La cantidad máxima de conflictos debe estar entre 1 y {MaximoPermitido}.");
+
+        return await _repositorio.ListarRecientesPorOperadorAsync(_currentTenant.OperadorId, request.Maximo, cancellationToken);
+    }
+}

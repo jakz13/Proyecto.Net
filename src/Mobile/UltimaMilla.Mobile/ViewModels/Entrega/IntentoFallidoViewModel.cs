@@ -123,7 +123,10 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
             }
 
             var tipoPrueba = Preferences.Default.Get("ReglaOperativa_TipoPruebaEntrega", "").ToUpperInvariant();
-            RequiereFotoOperador = tipoPrueba.Contains("FOTO");
+            RequiereFotoOperador = tipoPrueba.Contains("FOTO")
+                || tipoPrueba.Contains("COMPLETA")
+                || tipoPrueba.Contains("TODOS")
+                || tipoPrueba.Contains("AMBOS");
             TextoEtiquetaFoto = RequiereFotoOperador
                 ? "Evidencia Fotográfica (Obligatoria según regla del operador)"
                 : "Evidencia Fotográfica (Recomendada)";

@@ -72,3 +72,15 @@ public record RutaDisponibleIncidenciaDto(
     string VehiculoMatricula,
     string EstadoRuta
 );
+
+public record ConflictoSincronizacionDto(
+    Guid Id,
+    DateTime Timestamp,
+    string EntidadAfectada,
+    Guid EntidadId,
+    string CodigoSeguimiento,
+    string EstadoDispositivo,
+    string EstadoServidor,
+    string PoliticaAplicada,
+    string Resolucion
+);

@@ -302,7 +302,8 @@ public class AdministracionBackofficeApiTests
 
         var actualizado = await api.ActualizarMotivoAsync(new ActualizarMotivoNoEntregaDto { Id = creado.Id, Descripcion = "Descripción nueva", Activo = true });
         Assert.Equal("Descripción nueva", actualizado.Descripcion);
-        Assert.Equal(creado.FechaAlta, actualizado.FechaAlta);
+        // PostgreSQL timestamptz tiene resolución de microsegundos y trunca las décimas de microsegundo de .NET
+        Assert.Equal(creado.FechaAlta, actualizado.FechaAlta, TimeSpan.FromMilliseconds(1));
 
         Assert.Contains(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Id == creado.Id);
         Assert.DoesNotContain(await api.ObtenerMotivosParaSincronizacionMovilAsync(), m => m.Codigo == "RETORNO_SIN_INTENTO");

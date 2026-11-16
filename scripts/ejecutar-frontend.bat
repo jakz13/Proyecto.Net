@@ -9,6 +9,6 @@ echo.
 echo Iniciando script interactivo de PowerShell...
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ejecutar-frontend.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ejecutar-frontend.ps1" %*
 
 pause

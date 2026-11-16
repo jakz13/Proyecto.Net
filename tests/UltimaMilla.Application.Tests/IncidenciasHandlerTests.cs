@@ -2,6 +2,7 @@ using UltimaMilla.Application.Commands.Incidencias.AbrirIncidencia;
 using UltimaMilla.Application.Commands.Incidencias.CerrarIncidencia;
 using UltimaMilla.Application.Commands.Incidencias.RegistrarSeguimientoIncidencia;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Incidencias;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Envios;
@@ -168,5 +169,79 @@ public class IncidenciasHandlerTests
         var handler = new ObtenerIncidenciaQueryHandler(_incidencias, _tenant);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ObtenerIncidenciaQuery(incidencia.Id), default));
+    }
+
+    [Fact]
+    public async Task ListarConflictos_RequestNulo_LanzaArgumentNullException()
+    {
+        var handler = new ListarConflictosSincronizacionQueryHandler(new FakeConflictoSincronizacionRepository(), _tenant);
+        await Assert.ThrowsAsync<ArgumentNullException>(() => handler.Handle(null!, default));
+    }
+
+    [Fact]
+    public async Task ListarConflictos_SinOperadorAutenticado_LanzaUnauthorized()
+    {
+        var tenantVacio = new FakeCurrentTenant { OperadorId = Guid.Empty, IsAuthenticated = false };
+        var handler = new ListarConflictosSincronizacionQueryHandler(new FakeConflictoSincronizacionRepository(), tenantVacio);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ListarConflictosSincronizacionQuery(), default));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(201)]
+    public async Task ListarConflictos_MaximoFueraDeRango_LanzaDomainValidation(int maximo)
+    {
+        var handler = new ListarConflictosSincronizacionQueryHandler(new FakeConflictoSincronizacionRepository(), _tenant);
+
+        await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(new ListarConflictosSincronizacionQuery(maximo), default));
+    }
+
+    [Fact]
+    public async Task ListarConflictos_ListaSoloLosDelOperadorActualYRespetaTopeYOrden()
+    {
+        var otroOperador = Guid.NewGuid();
+        var repo = new FakeConflictoSincronizacionRepository();
+        repo.Agregar(_tenant.OperadorId, new ConflictoSincronizacionDto(
+            Guid.NewGuid(), _clock.UtcNow.AddMinutes(-30), "Envio", Guid.NewGuid(), "ENV-1",
+            "Entregado", "Cancelado", "PrevaleceEntregaFisicaConEvidencia", "Prevalece evidencia."));
+        repo.Agregar(_tenant.OperadorId, new ConflictoSincronizacionDto(
+            Guid.NewGuid(), _clock.UtcNow.AddMinutes(-5), "Envio", Guid.NewGuid(), "ENV-2",
+            "NoEntregado", "EnDeposito", "PrevaleceEstadoServidor", "Prevalece servidor."));
+        repo.Agregar(otroOperador, new ConflictoSincronizacionDto(
+            Guid.NewGuid(), _clock.UtcNow, "Envio", Guid.NewGuid(), "ENV-AJENO",
+            "Entregado", "EnDeposito", "PrevaleceEntregaFisicaConEvidencia", "No visible."));
+
+        var handler = new ListarConflictosSincronizacionQueryHandler(repo, _tenant);
+        var todos = await handler.Handle(new ListarConflictosSincronizacionQuery(), default);
+        var acotados = await handler.Handle(new ListarConflictosSincronizacionQuery(1), default);
+
+        Assert.Equal(2, todos.Count);
+        Assert.Equal("ENV-2", todos[0].CodigoSeguimiento);
+        Assert.Equal("ENV-1", todos[1].CodigoSeguimiento);
+        Assert.DoesNotContain(todos, c => c.CodigoSeguimiento == "ENV-AJENO");
+
+        var unico = Assert.Single(acotados);
+        Assert.Equal("ENV-2", unico.CodigoSeguimiento);
+    }
+
+    private sealed class FakeConflictoSincronizacionRepository : IConflictoSincronizacionRepository
+    {
+        private readonly List<(Guid OperadorId, ConflictoSincronizacionDto Dto)> _items = new();
+
+        public void Agregar(Guid operadorId, ConflictoSincronizacionDto dto) => _items.Add((operadorId, dto));
+
+        public Task<IReadOnlyList<ConflictoSincronizacionDto>> ListarRecientesPorOperadorAsync(
+            Guid operadorId, int maximo, CancellationToken cancellationToken = default)
+        {
+            var filtrados = _items
+                .Where(x => x.OperadorId == operadorId)
+                .OrderByDescending(x => x.Dto.Timestamp)
+                .Take(maximo)
+                .Select(x => x.Dto)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<ConflictoSincronizacionDto>>(filtrados);
+        }
     }
 }

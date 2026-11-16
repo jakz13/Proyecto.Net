@@ -261,6 +261,80 @@
     </div>
 </div>
 
+<!-- Tabla de Conflictos de Sincronización Offline -->
+<div class="card border-0 shadow-sm rounded-3 mt-4" id="seccionConflictosSincronizacion">
+    <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h6 fw-bold text-dark mb-0">Conflictos de Sincronización Offline</h2>
+            <div class="small text-secondary">
+                Auditoría automática de operaciones offline cuyo estado difería respecto al servidor central.
+            </div>
+        </div>
+        <span class="badge bg-secondary-subtle text-dark border">@Model.ConflictosSincronizacion.Count registrados</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 14%;" class="text-dark">Fecha y Hora</th>
+                    <th style="width: 16%;" class="text-dark">Envío / Retiro</th>
+                    <th style="width: 20%;" class="text-dark">Dispositivo vs. Servidor</th>
+                    <th style="width: 22%;" class="text-dark">Política Aplicada</th>
+                    <th style="width: 28%;" class="text-dark">Resolución</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.ConflictosSincronizacion.Count == 0)
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-secondary small">
+                            Sin conflictos de sincronización offline registrados para este operador.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var conf in Model.ConflictosSincronizacion)
+                    {
+                        <tr>
+                            <td class="text-secondary small">
+                                @conf.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border me-1">@conf.EntidadAfectada</span>
+                                <strong class="font-monospace text-dark">@conf.CodigoSeguimiento</strong>
+                            </td>
+                            <td class="small">
+                                <span class="badge bg-warning-subtle text-dark border">@conf.EstadoDispositivo</span>
+                                <span class="text-secondary mx-1">vs.</span>
+                                <span class="badge bg-info-subtle text-dark border">@conf.EstadoServidor</span>
+                            </td>
+                            <td>
+                                @switch (conf.PoliticaAplicada)
+                                {
+                                    case "PrevaleceEntregaFisicaConEvidencia":
+                                    case "PrevalecenLosHechosFisicosEnElDomicilio":
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">@conf.PoliticaAplicada</span>
+                                        break;
+                                    case "PrevaleceEstadoServidor":
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">@conf.PoliticaAplicada</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-secondary-subtle text-dark border">@conf.PoliticaAplicada</span>
+                                        break;
+                                }
+                            </td>
+                            <td class="small text-dark">
+                                @conf.Resolucion
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- =========================================================================
      MODAL 1: REGISTRAR NUEVA INCIDENCIA
      ========================================================================= -->
