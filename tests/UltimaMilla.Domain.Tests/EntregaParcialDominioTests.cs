@@ -10,6 +10,8 @@ namespace UltimaMilla.Domain.Tests;
 /// </summary>
 public class EntregaParcialDominioTests
 {
+    private static readonly Guid OperadorId = Guid.NewGuid();
+
     private static ReglaOperativa CrearReglaOperativa(
         bool admiteEntregaParcial = true,
         string politicaEntregaParcial = ReglaOperativa.PoliticaNuevaVisitaSinRecargo,
@@ -387,6 +389,233 @@ public class EntregaParcialDominioTests
         Assert.Equal(EstadoEnvio.EntregadoParcialmente, envio.EstadoActual);
         Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-001").EstadoBulto);
         Assert.Equal(MaquinaEstadosBulto.PendienteReenvio, envio.Bultos.Single(b => b.Identificacion == "BUL-002").EstadoBulto);
+    }
+
+    [Fact]
+    public void DespacharEnRutaParcial_ConBultoFaltante_DespachaCargadoYMarcaFaltanteEnCargaConDiscrepancia()
+    {
+        var envio = new Envio(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-CARGA-PARCIAL-01",
+            Guid.NewGuid(),
+            null,
+            null,
+            "Av. Italia 2500, Montevideo",
+            "Carlos Pérez",
+            OperadorId);
+        envio.AgregarBulto("BUL-C1", 2.0m, 20m, 20m, 20m);
+        envio.AgregarBulto("BUL-C2", 3.0m, 20m, 20m, 20m);
+        var usuarioId = Guid.NewGuid();
+        envio.RecepcionarEnDeposito(new[] { "BUL-C1", "BUL-C2" }, Array.Empty<string>(), null, usuarioId);
+        envio.ClasificarBultos(new[]
+        {
+            new ClasificacionBulto("BUL-C1", PrioridadBulto.Normal),
+            new ClasificacionBulto("BUL-C2", PrioridadBulto.Normal)
+        }, usuarioId);
+        var hojaId = Guid.NewGuid();
+        envio.AsignarRuta(hojaId);
+
+        var bultoFaltante = envio.Bultos.Single(b => b.Identificacion == "BUL-C2");
+        envio.DespacharEnRutaParcial(hojaId, new[] { bultoFaltante.Id }, usuarioId, "No estaba en andén");
+
+        Assert.Equal(EstadoEnvio.EnTransito, envio.EstadoActual);
+        Assert.Equal(hojaId, envio.HojaDeRutaId);
+        Assert.Equal(MaquinaEstadosBulto.CargadoEnVehiculo, envio.Bultos.Single(b => b.Identificacion == "BUL-C1").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, bultoFaltante.EstadoBulto);
+        Assert.Single(envio.Discrepancias, d => d.BultoId == bultoFaltante.Id && d.TipoDiscrepancia == "FaltanteEnCarga");
+    }
+
+    [Fact]
+    public void DespacharEnRutaParcial_SinBultosCargadosOConParametrosInvalidos_LanzaExcepcionDeDominio()
+    {
+        var envio = new Envio(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-CARGA-ERR-01",
+            Guid.NewGuid(),
+            null,
+            null,
+            "Bulevar Artigas 1000",
+            "Sofía Silva",
+            OperadorId);
+        envio.AgregarBulto("BUL-E1", 2.0m, 10m, 10m, 10m);
+        var usuarioId = Guid.NewGuid();
+        envio.RecepcionarEnDeposito(new[] { "BUL-E1" }, Array.Empty<string>(), null, usuarioId);
+        envio.ClasificarBultos(new[] { new ClasificacionBulto("BUL-E1", PrioridadBulto.Normal) }, usuarioId);
+        var hojaId = Guid.NewGuid();
+        envio.AsignarRuta(hojaId);
+
+        Assert.Throws<DomainValidationException>(() =>
+            envio.DespacharEnRutaParcial(Guid.Empty, Array.Empty<Guid>(), usuarioId));
+
+        Assert.Throws<DomainValidationException>(() =>
+            envio.DespacharEnRutaParcial(hojaId, new[] { envio.Bultos.Single().Id }, usuarioId));
+    }
+
+    [Fact]
+    public void RegistrarEntregaParcial_ConBultoFaltanteEnCargaSinMotivoEnDomicilio_EntregaCargadosYDerivaEntregadoParcialmente()
+    {
+        var envio = CrearEnvioConDosBultosUnoFaltanteEnCarga(out var hojaId);
+        var regla = CrearReglaOperativa(admiteEntregaParcial: true);
+
+        var resultado = envio.RegistrarEntregaParcial(
+            Guid.NewGuid(),
+            regla,
+            new[] { "BUL-C1" },
+            Array.Empty<BultoNoEntregadoInput>(),
+            "María Rodríguez",
+            "41112223",
+            firmaDigitalBase64: "firma-1",
+            fotoEvidenciaBase64: null,
+            latitud: -34.9,
+            longitud: -56.1,
+            fechaHoraDispositivoUtc: DateTime.UtcNow,
+            Guid.NewGuid());
+
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, resultado.EstadoFinalEnvio);
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, envio.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-C1").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single(b => b.Identificacion == "BUL-C2").EstadoBulto);
+        Assert.Equal(1, resultado.BultosEntregadosAcumulados);
+        Assert.Equal(1, resultado.BultosPendientes);
+        Assert.Equal(hojaId, envio.HojaDeRutaId);
+    }
+
+    [Fact]
+    public void RegistrarEntregaParcial_ConFaltanteEnCargaYOperadorNoAdmiteParcial_EntregaTodosLosCargadosSinError()
+    {
+        var envio = CrearEnvioConDosBultosUnoFaltanteEnCarga(out _);
+        var reglaSinParcialEnPuerta = CrearReglaOperativa(admiteEntregaParcial: false);
+
+        var resultado = envio.RegistrarEntregaParcial(
+            Guid.NewGuid(),
+            reglaSinParcialEnPuerta,
+            new[] { "BUL-C1" },
+            Array.Empty<BultoNoEntregadoInput>(),
+            "María Rodríguez",
+            "41112223",
+            firmaDigitalBase64: "firma-1",
+            fotoEvidenciaBase64: null,
+            latitud: null,
+            longitud: null,
+            fechaHoraDispositivoUtc: DateTime.UtcNow);
+
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, resultado.EstadoFinalEnvio);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-C1").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single(b => b.Identificacion == "BUL-C2").EstadoBulto);
+    }
+
+    [Fact]
+    public void RegistrarEntregaExitosa_ConBultoFaltanteEnCarga_RechazaExigiendoEntregaParcial()
+    {
+        var envio = CrearEnvioConDosBultosUnoFaltanteEnCarga(out _);
+        var regla = CrearReglaOperativa();
+
+        var ex = Assert.Throws<DomainValidationException>(() =>
+            envio.RegistrarEntregaExitosa(
+                Guid.NewGuid(),
+                regla,
+                "María Rodríguez",
+                "41112223",
+                firmaDigitalBase64: "firma-1",
+                fotoEvidenciaBase64: null,
+                latitud: null,
+                longitud: null,
+                fechaHoraDispositivoUtc: DateTime.UtcNow));
+
+        Assert.Contains("entrega parcial", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EstadoEnvio.EnTransito, envio.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single(b => b.Identificacion == "BUL-C2").EstadoBulto);
+    }
+
+    [Fact]
+    public void RegistrarEntregaParcial_TresBultosUnoFaltanteEnCargaYOtroPerdidoEnEntrega_RegistraAmbos()
+    {
+        var envio = new Envio(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-COMBINADO-01",
+            Guid.NewGuid(),
+            null,
+            null,
+            "Av. Rivera 2100",
+            "Lucía Gómez",
+            OperadorId);
+        envio.AgregarBulto("BUL-1", 1.5m, 15m, 15m, 15m);
+        envio.AgregarBulto("BUL-2", 1.5m, 15m, 15m, 15m);
+        envio.AgregarBulto("BUL-3", 1.5m, 15m, 15m, 15m);
+        var usuarioId = Guid.NewGuid();
+        envio.RecepcionarEnDeposito(new[] { "BUL-1", "BUL-2", "BUL-3" }, Array.Empty<string>(), null, usuarioId);
+        envio.ClasificarBultos(new[]
+        {
+            new ClasificacionBulto("BUL-1", PrioridadBulto.Normal),
+            new ClasificacionBulto("BUL-2", PrioridadBulto.Normal),
+            new ClasificacionBulto("BUL-3", PrioridadBulto.Normal)
+        }, usuarioId);
+        var hojaId = Guid.NewGuid();
+        envio.AsignarRuta(hojaId);
+        envio.DespacharEnRutaParcial(hojaId, new[] { envio.Bultos.Single(b => b.Identificacion == "BUL-3").Id }, usuarioId, "Faltante en carga");
+
+        var regla = CrearReglaOperativa();
+        var motivo = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "EXTR_REPARTO", "Extraviado durante el reparto", true);
+
+        var resultado = envio.RegistrarEntregaParcial(
+            Guid.NewGuid(),
+            regla,
+            new[] { "BUL-1" },
+            new[] { new BultoNoEntregadoInput("BUL-2", motivo, "No se ubicó en el furgón") },
+            "Lucía Gómez",
+            "42223334",
+            firmaDigitalBase64: "firma-ok",
+            fotoEvidenciaBase64: null,
+            latitud: null,
+            longitud: null,
+            fechaHoraDispositivoUtc: DateTime.UtcNow,
+            usuarioId);
+
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, resultado.EstadoFinalEnvio);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-1").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.PendienteReenvio, envio.Bultos.Single(b => b.Identificacion == "BUL-2").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single(b => b.Identificacion == "BUL-3").EstadoBulto);
+        Assert.Equal(1, resultado.BultosEntregadosAcumulados);
+        Assert.Equal(2, resultado.BultosPendientes);
+    }
+
+    private static Envio CrearEnvioConDosBultosUnoFaltanteEnCarga(out Guid hojaDeRutaId)
+    {
+        var envio = new Envio(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-CARGA-DOS-01",
+            Guid.NewGuid(),
+            null,
+            null,
+            "Av. 18 de Julio 1234, Montevideo",
+            "María Rodríguez",
+            OperadorId);
+        envio.AgregarBulto("BUL-C1", 2.0m, 20m, 20m, 20m);
+        envio.AgregarBulto("BUL-C2", 2.5m, 20m, 20m, 20m);
+        var usuarioId = Guid.NewGuid();
+        envio.RecepcionarEnDeposito(new[] { "BUL-C1", "BUL-C2" }, Array.Empty<string>(), null, usuarioId);
+        envio.ClasificarBultos(new[]
+        {
+            new ClasificacionBulto("BUL-C1", PrioridadBulto.Normal),
+            new ClasificacionBulto("BUL-C2", PrioridadBulto.Normal)
+        }, usuarioId);
+        hojaDeRutaId = Guid.NewGuid();
+        envio.AsignarRuta(hojaDeRutaId);
+        var faltanteId = envio.Bultos.Single(b => b.Identificacion == "BUL-C2").Id;
+        envio.DespacharEnRutaParcial(hojaDeRutaId, new[] { faltanteId }, usuarioId, "Faltante en andén");
+        return envio;
     }
 }
 

@@ -87,7 +87,7 @@ public class ReglaTarifa : Entity
         if (!MismaModalidad(ModalidadServicio, modalidadServicio))
             return false;
 
-        if (ZonaCoberturaId.HasValue && zonaCoberturaId.HasValue && ZonaCoberturaId.Value != zonaCoberturaId.Value)
+        if (ZonaCoberturaId.HasValue && (!zonaCoberturaId.HasValue || ZonaCoberturaId.Value != zonaCoberturaId.Value))
             return false;
 
         return peso >= PesoDesde && peso <= PesoHasta && volumen >= VolumenDesde && volumen <= VolumenHasta;

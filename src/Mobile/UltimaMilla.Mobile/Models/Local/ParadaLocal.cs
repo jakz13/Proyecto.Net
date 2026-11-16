@@ -49,5 +49,7 @@ public class ParadaLocal
 
     public int CantidadBultos { get; set; }
 
+    public int CantidadBultosFaltantesEnCarga { get; set; }
+
     public bool EsParadaActual { get; set; }
 }

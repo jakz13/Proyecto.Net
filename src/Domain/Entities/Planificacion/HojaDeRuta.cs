@@ -201,12 +201,12 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
     }
 
     /// <summary>
-    /// Si la hoja de ruta está liberada, en carga o despachada y el repartidor opera un retiro en calle
-    /// (por ejemplo en una ruta de solo retiros o ruta mixta), pasa automáticamente a EnTransito.
+    /// Si la hoja de ruta está liberada, planificada, en carga o despachada y el repartidor opera una parada en calle,
+    /// pasa automáticamente a EnTransito.
     /// </summary>
     public bool AsegurarEnTransitoParaOperacionEnCalle()
     {
-        if (Estado is "Liberada" or "EnCarga" or "Despachada")
+        if (Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
         {
             FechaDespacho ??= DateTime.UtcNow;
             Estado = "EnTransito";

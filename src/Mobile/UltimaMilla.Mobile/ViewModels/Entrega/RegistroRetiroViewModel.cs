@@ -28,6 +28,7 @@ public partial class BultoRetiroItemViewModel : ObservableObject
 /// Se registra con la identificación de cada bulto (escaneo), la fotografía de su estado y la firma de quien los entrega, también sin conexión.
 /// </summary>
 [QueryProperty(nameof(Parada), "Parada")]
+[QueryProperty(nameof(ModoFallo), "ModoFallo")]
 public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
@@ -53,7 +54,31 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NoMostrarNoRealizado))]
+    [NotifyPropertyChangedFor(nameof(EsModoRetiroExitoso))]
+    [NotifyPropertyChangedFor(nameof(ModoFallo))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoBgColor))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoTextColor))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoBorderColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloBgColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloTextColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloBorderColor))]
     private bool _mostrarNoRealizado;
+
+    public bool ModoFallo
+    {
+        get => MostrarNoRealizado;
+        set => MostrarNoRealizado = value;
+    }
+
+    public bool EsModoRetiroExitoso => !MostrarNoRealizado;
+
+    public Color TabExitosoBgColor => EsModoRetiroExitoso ? Color.FromArgb("#16A34A") : Color.FromArgb("#F8FAFC");
+    public Color TabExitosoTextColor => EsModoRetiroExitoso ? Color.FromArgb("#FFFFFF") : Color.FromArgb("#475569");
+    public Color TabExitosoBorderColor => EsModoRetiroExitoso ? Color.FromArgb("#16A34A") : Color.FromArgb("#CBD5E1");
+
+    public Color TabFalloBgColor => MostrarNoRealizado ? Color.FromArgb("#DC2626") : Color.FromArgb("#FEF2F2");
+    public Color TabFalloTextColor => MostrarNoRealizado ? Color.FromArgb("#FFFFFF") : Color.FromArgb("#DC2626");
+    public Color TabFalloBorderColor => MostrarNoRealizado ? Color.FromArgb("#DC2626") : Color.FromArgb("#EF4444");
 
     [ObservableProperty]
     private string _observacionesNoRealizado = string.Empty;
@@ -123,6 +148,8 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
             if (string.IsNullOrEmpty(MotivoSeleccionado) && MotivosNoRetiro.Count > 0)
                 MotivoSeleccionado = MotivosNoRetiro[0];
+
+            SincronizarOpcionesMotivoTarjetas();
         }
         catch (Exception ex)
         {
@@ -194,6 +221,12 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
     [RelayCommand]
     private void AlternarNoRealizado() => MostrarNoRealizado = !MostrarNoRealizado;
+
+    [RelayCommand]
+    private void SeleccionarModoRetiroExitoso() => MostrarNoRealizado = false;
+
+    [RelayCommand]
+    private void SeleccionarModoNoRetirado() => MostrarNoRealizado = true;
 
     [RelayCommand]
     private async Task GuardarRetiroAsync()
@@ -394,9 +427,21 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
         if (syncExitoso == false)
         {
-            parada.Estado = estadoAnterior;
+            parada.Estado = string.IsNullOrWhiteSpace(estadoAnterior) ? "Pendiente" : estadoAnterior;
             if (_localDatabaseService is not null)
-                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, estadoAnterior);
+                await _localDatabaseService.RevertirEstadoParadaLocalAsync(parada.Id, parada.Estado);
+
+            if (_syncService?.IsOnline == true)
+            {
+                try
+                {
+                    await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RegistroRetiroViewModel] Refresco tras rechazo: {ex.Message}");
+                }
+            }
 
             await AvisarAsync(
                 "No se pudo completar la sincronización",

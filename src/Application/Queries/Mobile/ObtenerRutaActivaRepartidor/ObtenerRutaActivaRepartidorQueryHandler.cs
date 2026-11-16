@@ -246,9 +246,18 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
                 ReferenciaEntrega: direccion?.Referencia
             );
 
-            var bultosVigentes = envio?.Bultos
-                .Where(b => b.EstadoBulto is not "FaltanteEnRecepcion" and not "Entregado" and not "Devuelto")
+            var bultosFaltantesEnCarga = envio?.Bultos
+                .Where(b => b.EstadoBulto == "FaltanteEnCarga")
                 .OrderBy(b => b.Identificacion)
+                .ToList();
+
+            var bultosVigentes = envio?.Bultos
+                .Where(b => b.EstadoBulto is not ("FaltanteEnRecepcion" or "FaltanteEnCarga" or "Entregado" or "Devuelto"))
+                .OrderBy(b => b.Identificacion)
+                .ToList();
+
+            var codigosFaltantesCarga = bultosFaltantesEnCarga?
+                .Select(b => b.Identificacion)
                 .ToList();
 
             var resumenBultos = retiro is not null
@@ -259,7 +268,9 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
                 : new ResumenBultosParadaDto(
                     CantidadBultos: bultosVigentes?.Count ?? 0,
                     CodigosBultos: bultosVigentes?.Select(b => b.Identificacion).ToList() ?? new List<string>(),
-                    PesoTotalKg: bultosVigentes?.Sum(b => b.Peso) ?? 0m
+                    PesoTotalKg: bultosVigentes?.Sum(b => b.Peso) ?? 0m,
+                    CantidadBultosFaltantesEnCarga: codigosFaltantesCarga?.Count ?? 0,
+                    CodigosBultosFaltantesEnCarga: codigosFaltantesCarga
                 );
 
             bool esParadaActual = parada.Estado == "EnCamino" || parada.Estado == "EnSitio";

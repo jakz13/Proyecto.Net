@@ -10,7 +10,9 @@ public record DestinatarioContactoDto(
 public record ResumenBultosParadaDto(
     int CantidadBultos,
     List<string> CodigosBultos,
-    decimal PesoTotalKg
+    decimal PesoTotalKg,
+    int CantidadBultosFaltantesEnCarga = 0,
+    List<string>? CodigosBultosFaltantesEnCarga = null
 );
 
 public record ParadaNavegacionDto(

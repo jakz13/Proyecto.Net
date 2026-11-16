@@ -898,14 +898,14 @@
                                                FontSize="12"
                                                FontAttributes="Bold"
                                                TextColor="#991B1B" />
-                                        <Label Text="Los envíos que no tengan la totalidad de sus bultos cargados quedarán excluidos de la ruta y permanecerán en depósito."
+                                        <Label Text="Los bultos faltantes quedarán registrados como Faltante en Carga y no viajarán en este recorrido. Solo volverá a depósito un envío si no se cargó ninguno de sus bultos."
                                                FontSize="11"
                                                TextColor="#7F1D1D" />
                                     </VerticalStackLayout>
                                 </Border>
 
                                 <VerticalStackLayout Spacing="3">
-                                    <Label Text="ENVÍOS EXCLUIDOS POR INCOMPLETOS:"
+                                    <Label Text="DETALLE POR ENVÍO:"
                                            FontSize="9.5"
                                            FontAttributes="Bold"
                                            TextColor="#64748B" />

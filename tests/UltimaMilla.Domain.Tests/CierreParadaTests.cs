@@ -264,4 +264,29 @@ public class CierreParadaTests
         // Assert: Al estar todas las paradas completadas, la ruta pasa automáticamente a Finalizada
         Assert.Equal("Finalizada", ruta.Estado);
     }
+
+    [Theory]
+    [InlineData(null, "foto", "41234567")]
+    [InlineData("firma", null, "41234567")]
+    [InlineData("firma", "foto", null)]
+    [InlineData("firma", "foto", "   ")]
+    public void ReglaOperativa_Completa_ExigeFirmaFotoYDocumento(string? firma, string? foto, string? documento)
+    {
+        var regla = CrearRegla(tipoPrueba: "Completa");
+        Assert.Throws<DomainValidationException>(() => regla.ValidarPruebaEntrega(firma, foto, documento));
+    }
+
+    [Fact]
+    public void ReglaOperativa_Completa_ConFirmaFotoYDocumento_EsValida()
+    {
+        var regla = CrearRegla(tipoPrueba: "Completa");
+        regla.ValidarPruebaEntrega("firma-b64", "foto-b64", "41234567");
+    }
+
+    [Fact]
+    public void ReglaTarifa_ConZonaEspecifica_NoAplicaCuandoZonaConsultadaEsNull()
+    {
+        var reglaZona = new ReglaTarifa(Guid.NewGuid(), Guid.NewGuid(), "Estandar", 0, 10, 0, 1, 150, 0, 0, Guid.NewGuid());
+        Assert.False(reglaZona.AplicaPara(2m, 0.01m, "Estandar", zonaCoberturaId: null));
+    }
 }

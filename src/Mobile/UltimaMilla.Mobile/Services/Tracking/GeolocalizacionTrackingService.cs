@@ -166,7 +166,7 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 Location? location = null;
                 try
                 {
-                    // Usa la precisión adaptativa calculada según distancia a geocerca y nivel de batería
+                    // Intento primario con la precisión adaptativa calculada según cercanía a geocerca y batería
                     var request = new GeolocationRequest(_precisionActual, TimeSpan.FromSeconds(8));
                     location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
                 }

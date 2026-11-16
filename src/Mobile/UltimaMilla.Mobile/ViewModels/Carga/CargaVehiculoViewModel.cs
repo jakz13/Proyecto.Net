@@ -1197,14 +1197,32 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
 
         if (TieneBultosFaltantes)
         {
-            var enviosIncompletos = BultosPendientes
-                .Select(b => string.IsNullOrWhiteSpace(b.CodigoSeguimiento) ? b.CodigoBulto : b.CodigoSeguimiento)
-                .Distinct()
+            var cargadosPorEnvio = BultosCargadosLista
+                .Where(b => !b.EsSobrante && b.EnvioId != Guid.Empty)
+                .Select(b => b.EnvioId)
+                .ToHashSet();
+
+            var faltantesPorEnvio = BultosPendientes
+                .GroupBy(b => string.IsNullOrWhiteSpace(b.CodigoSeguimiento) ? b.CodigoBulto : b.CodigoSeguimiento)
                 .ToList();
 
-            EnviosExcluidosTexto = enviosIncompletos.Count > 0
-                ? string.Join(", ", enviosIncompletos)
-                : "Ninguno";
+            var enviosParciales = faltantesPorEnvio
+                .Where(g => g.Any(x => x.EnvioId != Guid.Empty && cargadosPorEnvio.Contains(x.EnvioId)))
+                .Select(g => g.Key)
+                .ToList();
+
+            var enviosSinCarga = faltantesPorEnvio
+                .Where(g => g.All(x => x.EnvioId == Guid.Empty || !cargadosPorEnvio.Contains(x.EnvioId)))
+                .Select(g => g.Key)
+                .ToList();
+
+            var partes = new List<string>();
+            if (enviosParciales.Count > 0)
+                partes.Add($"Salida parcial (faltante en carga): {string.Join(", ", enviosParciales)}");
+            if (enviosSinCarga.Count > 0)
+                partes.Add($"Sin carga (vuelven a depósito): {string.Join(", ", enviosSinCarga)}");
+
+            EnviosExcluidosTexto = partes.Count > 0 ? string.Join(" | ", partes) : "Ninguno";
         }
         else
         {
@@ -1250,18 +1268,13 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
                 .Concat(BultosSobrantes.Select(s => s.CodigoBulto))
                 .ToList();
 
-            var enviosIncompletosIds = BultosPendientes
-                .Where(b => !b.EsSobrante && b.EnvioId != Guid.Empty)
-                .Select(b => b.EnvioId)
-                .ToHashSet();
-
-            var enviosCompletosCount = BultosCargadosLista
-                .Where(b => !b.EsSobrante && (b.EnvioId == Guid.Empty || !enviosIncompletosIds.Contains(b.EnvioId)))
+            var enviosConCargaCount = BultosCargadosLista
+                .Where(b => !b.EsSobrante)
                 .Select(b => b.EnvioId != Guid.Empty ? b.EnvioId : b.Id)
                 .Distinct()
                 .Count();
 
-            var puedeDespacharEnTransito = enviosCompletosCount > 0 || faltantes == 0;
+            var puedeDespacharEnTransito = enviosConCargaCount > 0 || faltantes == 0;
 
             var idempotencyKey = $"CARGA-{HojaDeRutaId:N}";
             var observaciones = (faltantes > 0 || sobrantes > 0)
@@ -1329,23 +1342,9 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
                 }
             }
 
-            if (puedeDespacharEnTransito && enviosIncompletosIds.Count > 0)
+            if (puedeDespacharEnTransito && BultosPendientes.Count > 0)
             {
-                var bultosRetirados = BultosPendientes
-                    .Where(b => enviosIncompletosIds.Contains(b.EnvioId))
-                    .ToList();
-                foreach (var bultoRetirado in bultosRetirados)
-                {
-                    BultosPendientes.Remove(bultoRetirado);
-                }
-
-                var cargadosDeEnviosRetirados = BultosCargadosLista
-                    .Where(b => enviosIncompletosIds.Contains(b.EnvioId))
-                    .ToList();
-                foreach (var bultoRetirado in cargadosDeEnviosRetirados)
-                {
-                    BultosCargadosLista.Remove(bultoRetirado);
-                }
+                BultosPendientes.Clear();
             }
 
             if (_trackingService is not null && EstadoHojaDeRuta is "EnTransito" or "Despachada")

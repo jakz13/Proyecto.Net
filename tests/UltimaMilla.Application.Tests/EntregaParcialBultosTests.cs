@@ -2,6 +2,7 @@ using System.Text.Json;
 using UltimaMilla.Application.Commands.Mensajeria;
 using UltimaMilla.Application.Commands.Mensajeria.ProcesarMensaje;
 using UltimaMilla.Application.Tests.Fakes;
+using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaParcial;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Messaging;
@@ -357,6 +358,144 @@ public class EntregaParcialBultosTests
         Assert.Equal(1, docV2.RootElement.GetProperty("resumenBultos").GetProperty("bultosEntregados").GetInt32());
         var bultosJson = docV2.RootElement.GetProperty("bultos");
         Assert.Equal(2, bultosJson.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task RegistrarEntregaParcialHandler_ConBultoFaltanteEnCargaSinMotivoEnDomicilio_RegistraParcialEIdempotencia()
+    {
+        var direccionId = Guid.NewGuid();
+        var envio = new Envio(
+            Guid.NewGuid(),
+            ComercioOperadorId,
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-PARCIAL-CARGA-01",
+            direccionEntregaId: direccionId,
+            direccionDestino: "Bulevar Artigas 1500",
+            nombreDestinatario: "Sofía Pérez",
+            operadorId: OperadorId);
+
+        envio.AgregarBulto("BLT-C1", 2m);
+        envio.AgregarBulto("BLT-C2", 3m);
+        envio.RecepcionarEnDeposito(new[] { "BLT-C1", "BLT-C2" }, null, null, Guid.NewGuid());
+        var zonaId = Guid.NewGuid();
+        foreach (var bulto in envio.Bultos)
+            bulto.Clasificar(PrioridadBulto.Normal, zonaId, "General");
+
+        var paradaId = Guid.NewGuid();
+        var ruta = new HojaDeRuta(Guid.NewGuid(), OperadorId, DateOnly.FromDateTime(DateTime.UtcNow), "EnTransito");
+        ruta.AsignarRecursos(RepartidorId, Guid.NewGuid());
+        ruta.AgregarParada(paradaId, envio.Id, 1, direccionId);
+        var parada = ruta.Paradas.Single();
+
+        envio.AsignarRuta(ruta.Id);
+        var faltanteCargaId = envio.Bultos.Single(b => b.Identificacion == "BLT-C2").Id;
+        envio.DespacharEnRutaParcial(ruta.Id, new[] { faltanteCargaId }, UsuarioRepartidorId, "Faltante en andén");
+
+        var motivo = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "RECHAZO_PARCIAL", "Faltante", true);
+        var regla = new ReglaOperativa(
+            Guid.NewGuid(),
+            OperadorId,
+            1,
+            DateTime.UtcNow.AddDays(-1),
+            maxIntentosEntrega: 2,
+            plazoEntreIntentos: TimeSpan.FromHours(24),
+            tipoPruebaEntregaExigida: "Firma",
+            politicaDevolucion: "Retorno a depósito",
+            plazoComprometidoEstandar: TimeSpan.FromHours(48),
+            plazoComprometidoUrgente: TimeSpan.FromHours(24),
+            admiteEntregaParcial: true,
+            politicaEntregaParcial: ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
+
+        var outbox = new FakeOutboxParcialStorage();
+        var handler = new RegistrarEntregaParcialCommandHandler(
+            new FakeEnvioParcialRepo(envio, regla, motivo),
+            new FakeRutaParcialRepo(ruta),
+            new FakeUnitOfWorkParcial(),
+            outbox,
+            new FakeCacheParcialService(),
+            new FakeTenantParcial(OperadorId, UsuarioRepartidorId),
+            new FakeClockParcial());
+
+        var cmd = new RegistrarEntregaParcialCommand(
+            ruta.Id,
+            parada.Id,
+            envio.Id,
+            "IDEMP-CARGA-PARCIAL-01",
+            new[] { "BLT-C1" },
+            Array.Empty<BultoNoEntregadoRequestDto>(),
+            "Sofía Pérez",
+            "41234567",
+            "BASE64FIRMA",
+            null,
+            -34.9011,
+            -56.1645);
+
+        var res = await handler.Handle(cmd, CancellationToken.None);
+
+        Assert.False(res.Idempotente);
+        Assert.Equal("EntregadoParcialmente", res.EstadoEnvio);
+        Assert.Equal("EntregadaParcialmente", res.EstadoParada);
+        Assert.Equal(1, res.BultosEntregados);
+        Assert.Equal(1, res.BultosPendientes);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BLT-C1").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, envio.Bultos.Single(b => b.Identificacion == "BLT-C2").EstadoBulto);
+        Assert.Single(outbox.Mensajes, m => m.TipoEvento == "EnvioEntregadoParcialmenteIntegrationEvent");
+
+        // Reintento idempotente posterior no duplica eventos
+        var replay = await handler.Handle(cmd, CancellationToken.None);
+        Assert.True(replay.Idempotente);
+        Assert.Equal("EntregadoParcialmente", replay.EstadoEnvio);
+        Assert.Equal("EntregadaParcialmente", replay.EstadoParada);
+    }
+
+    [Fact]
+    public async Task RegistrarEntregaExitosaHandler_ConBultoFaltanteEnCarga_RechazaConDomainValidationException()
+    {
+        var direccionId = Guid.NewGuid();
+        var envio = new Envio(
+            Guid.NewGuid(),
+            ComercioOperadorId,
+            Guid.NewGuid(),
+            "Estandar",
+            "UM-EXITOSA-RECHAZA-01",
+            direccionEntregaId: direccionId,
+            direccionDestino: "Av. 18 de Julio 1000",
+            nombreDestinatario: "Jorge Sosa",
+            operadorId: OperadorId);
+        envio.AgregarBulto("BLT-X1", 2m);
+        envio.AgregarBulto("BLT-X2", 2m);
+        envio.RecepcionarEnDeposito(new[] { "BLT-X1", "BLT-X2" }, null, null, Guid.NewGuid());
+        var zonaId = Guid.NewGuid();
+        foreach (var b in envio.Bultos)
+            b.Clasificar(PrioridadBulto.Normal, zonaId, "General");
+
+        var paradaId = Guid.NewGuid();
+        var ruta = new HojaDeRuta(Guid.NewGuid(), OperadorId, DateOnly.FromDateTime(DateTime.UtcNow), "EnTransito");
+        ruta.AsignarRecursos(RepartidorId, Guid.NewGuid());
+        ruta.AgregarParada(paradaId, envio.Id, 1, direccionId);
+        var parada = ruta.Paradas.Single();
+        envio.AsignarRuta(ruta.Id);
+        envio.DespacharEnRutaParcial(ruta.Id, new[] { envio.Bultos.Last().Id }, UsuarioRepartidorId, "Faltante en carga");
+
+        var motivo = new MotivoNoEntrega(Guid.NewGuid(), OperadorId, "RECHAZO", "Rechazo", true);
+        var regla = new ReglaOperativa(
+            Guid.NewGuid(), OperadorId, 1, DateTime.UtcNow.AddDays(-1), 2, TimeSpan.FromHours(24),
+            "Firma", "Retorno", TimeSpan.FromHours(48), TimeSpan.FromHours(24), admiteEntregaParcial: true);
+
+        var handler = new RegistrarEntregaExitosaCommandHandler(
+            new FakeEnvioParcialRepo(envio, regla, motivo),
+            new FakeRutaParcialRepo(ruta),
+            new FakeUnitOfWorkParcial(),
+            new FakeOutboxParcialStorage(),
+            new FakeCacheParcialService(),
+            new FakeTenantParcial(OperadorId, UsuarioRepartidorId),
+            new FakeClockParcial());
+
+        var cmd = new UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa.RegistrarEntregaExitosaCommand(
+            ruta.Id, parada.Id, envio.Id, "IDEMP-EX-REJ-01", "Jorge Sosa", "41234567", "FIRMA", null, null, null, DateTime.UtcNow);
+
+        await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(cmd, CancellationToken.None));
     }
 
     private sealed class FakeEnvioParcialRepo : IEnvioRepository

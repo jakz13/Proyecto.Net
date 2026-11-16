@@ -2,6 +2,7 @@ using MediatR;
 using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
@@ -14,6 +15,7 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly ITableroRealtimeNotifier? _tableroNotifier;
+    private readonly IEnvioRepository? _envioRepository;
 
     public IniciarRecorridoCommandHandler(
         IRutaRepository rutaRepository,
@@ -21,7 +23,8 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
         IOutboxStorage outboxStorage,
         ICurrentTenant currentTenant,
         IClock clock,
-        ITableroRealtimeNotifier? tableroNotifier = null)
+        ITableroRealtimeNotifier? tableroNotifier = null,
+        IEnvioRepository? envioRepository = null)
     {
         _rutaRepository = rutaRepository;
         _unitOfWork = unitOfWork;
@@ -29,6 +32,7 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
         _currentTenant = currentTenant;
         _clock = clock;
         _tableroNotifier = tableroNotifier;
+        _envioRepository = envioRepository;
     }
 
     public async Task<IniciarRecorridoResultDto> Handle(IniciarRecorridoCommand request, CancellationToken cancellationToken)
@@ -45,9 +49,24 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
         if (ruta.OperadorId != _currentTenant.OperadorId)
             throw new UnauthorizedAccessException("Acceso denegado: La hoja de ruta no corresponde al operador actual.");
 
-        // Idempotencia: si ya está en tránsito, informar sin repetir
+        // Idempotencia: si ya está en tránsito, asegurar que todos los envíos vigentes también estén en EnTransito
         if (ruta.Estado == "EnTransito")
         {
+            if (_envioRepository is not null)
+            {
+                var enviosRuta = await _envioRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
+                var pendientesDespacho = enviosRuta.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta).ToList();
+                if (pendientesDespacho.Count > 0)
+                {
+                    foreach (var envio in pendientesDespacho)
+                    {
+                        envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Sincronización de inicio de recorrido en calle");
+                        await _envioRepository.UpdateAsync(envio, cancellationToken);
+                    }
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+            }
+
             return new IniciarRecorridoResultDto(
                 ruta.Id,
                 ruta.Estado,
@@ -69,6 +88,16 @@ public class IniciarRecorridoCommandHandler : IRequestHandler<IniciarRecorridoCo
         }
 
         ruta.IniciarRecorrido();
+
+        if (_envioRepository is not null)
+        {
+            var enviosRuta = await _envioRepository.GetByHojaDeRutaIdAsync(ruta.Id, cancellationToken);
+            foreach (var envio in enviosRuta.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))
+            {
+                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Inicio de recorrido en aplicación móvil");
+                await _envioRepository.UpdateAsync(envio, cancellationToken);
+            }
+        }
 
         var outboxMessage = EventosIntegracion.DeRuta(
             EventosIntegracion.Tipos.RutaIniciada,

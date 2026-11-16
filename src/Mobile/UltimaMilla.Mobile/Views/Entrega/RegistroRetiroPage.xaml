@@ -2,8 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Entrega"
+             xmlns:models="clr-namespace:UltimaMilla.Mobile.Models.Local"
              xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Entrega.RegistroRetiroPage"
+             x:Name="RegistroRetiroRoot"
              x:DataType="vm:RegistroRetiroViewModel"
              Title="Registrar Retiro"
              BackgroundColor="{StaticResource PageBackground}">
@@ -30,8 +32,149 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Selector de modo en la parte superior (Retiro exitoso vs No se pudo retirar) -->
+            <Border Style="{StaticResource CardView}" Padding="10">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="RESULTADO DE LA VISITA EN DOMICILIO"
+                           FontSize="10.5"
+                           FontAttributes="Bold"
+                           TextColor="#64748B" />
+                    <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                        <Button Grid.Column="0"
+                                Text="Retiro exitoso"
+                                BackgroundColor="{Binding TabExitosoBgColor}"
+                                TextColor="{Binding TabExitosoTextColor}"
+                                BorderColor="{Binding TabExitosoBorderColor}"
+                                BorderWidth="1.5"
+                                CornerRadius="10"
+                                FontAttributes="Bold"
+                                FontSize="13.5"
+                                HeightRequest="44"
+                                Command="{Binding SeleccionarModoRetiroExitosoCommand}" />
+
+                        <Button Grid.Column="1"
+                                Text="No se pudo retirar"
+                                BackgroundColor="{Binding TabFalloBgColor}"
+                                TextColor="{Binding TabFalloTextColor}"
+                                BorderColor="{Binding TabFalloBorderColor}"
+                                BorderWidth="1.5"
+                                CornerRadius="10"
+                                FontAttributes="Bold"
+                                FontSize="13.5"
+                                HeightRequest="44"
+                                Command="{Binding SeleccionarModoNoRetiradoCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ========================================================================= -->
+            <!-- MODO: NO SE PUDO RETIRAR (VISIBLE DIRECTAMENTE ARRIBA SIN HACER SCROLL)   -->
+            <!-- ========================================================================= -->
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding MostrarNoRealizado}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Motivo por el que no se pudo retirar *" Style="{StaticResource H3Label}" />
+                    <Label Text="Seleccione el motivo del catálogo del operador y agregue observaciones si corresponde."
+                           Style="{StaticResource CaptionLabel}" />
+
+                    <Border BackgroundColor="#F8FAFC"
+                            Stroke="{DynamicResource CardBorderColor}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 10"
+                            Padding="14,12">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AbrirSelectorMotivoCommand}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                            <Label Grid.Column="0"
+                                   Text="{Binding MotivoSelectorTexto}"
+                                   FontSize="13.5"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center" />
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{DynamicResource PrimaryLight}"
+                                    Stroke="{DynamicResource PrimaryColor}"
+                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 6"
+                                    Padding="8,4"
+                                    VerticalOptions="Center">
+                                <Label Text="Cambiar motivo"
+                                       FontSize="10.5"
+                                       FontAttributes="Bold"
+                                       TextColor="{DynamicResource PrimaryColor}" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tarjetas corporativas de selección rápida del motivo -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding MotivosModalOpciones}" Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="models:OpcionSeleccionableItem">
+                                <Border BackgroundColor="#FFFFFF"
+                                        Stroke="#E2E8F0"
+                                        StrokeThickness="1.5"
+                                        StrokeShape="RoundRectangle 10"
+                                        Padding="14,12">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding EsSeleccionada}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryLight}" />
+                                            <Setter Property="Stroke" Value="{DynamicResource PrimaryColor}" />
+                                            <Setter Property="StrokeThickness" Value="2" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference RegistroRetiroRoot}, Path=BindingContext.SeleccionarMotivoDirectoCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding Texto}"
+                                               FontSize="13"
+                                               FontAttributes="Bold"
+                                               TextColor="#0F172A"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="1"
+                                                IsVisible="{Binding EsSeleccionada}"
+                                                BackgroundColor="{DynamicResource PrimaryColor}"
+                                                StrokeThickness="0"
+                                                StrokeShape="RoundRectangle 6"
+                                                Padding="8,3"
+                                                VerticalOptions="Center">
+                                            <Label Text="Seleccionado"
+                                                   FontSize="9.5"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#FFFFFF" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Observaciones (opcional)" FontSize="13" FontAttributes="Bold" />
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry Text="{Binding ObservacionesNoRealizado}"
+                                   Placeholder="Detalle adicional sobre el intento de retiro"
+                                   ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Button Text="Confirmar retiro no realizado"
+                            BackgroundColor="#DC2626"
+                            TextColor="#FFFFFF"
+                            FontAttributes="Bold"
+                            CornerRadius="10"
+                            Command="{Binding RegistrarNoRealizadoCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HeightRequest="50"
+                            FontSize="15" />
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Escaneo de los bultos a retirar -->
-            <Border Style="{StaticResource CardView}">
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding EsModoRetiroExitoso}">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Bultos a retirar"
                            Style="{StaticResource H3Label}" />
@@ -78,7 +221,7 @@
             </Border>
 
             <!-- Quién entrega los bultos -->
-            <Border Style="{StaticResource CardView}">
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding EsModoRetiroExitoso}">
                 <VerticalStackLayout Spacing="14">
                     <Label Text="Datos de quien entrega los bultos"
                            Style="{StaticResource H3Label}" />
@@ -105,7 +248,7 @@
             </Border>
 
             <!-- Firma -->
-            <Border Style="{StaticResource CardView}">
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding EsModoRetiroExitoso}">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Firma de quien entrega *"
                            Style="{StaticResource H3Label}" />
@@ -135,7 +278,7 @@
             </Border>
 
             <!-- Fotografía del estado de los bultos -->
-            <Border Style="{StaticResource CardView}">
+            <Border Style="{StaticResource CardView}" IsVisible="{Binding EsModoRetiroExitoso}">
                 <VerticalStackLayout Spacing="12">
                     <Label Text="Fotografía del estado de los bultos *"
                            Style="{StaticResource H3Label}" />
@@ -188,70 +331,14 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- Acción principal -->
-            <Button Text="Marcar como retirado"
+            <!-- Acción principal de retiro exitoso -->
+            <Button Text="Confirmar retiro"
                     Style="{StaticResource SuccessButton}"
                     Command="{Binding GuardarRetiroCommand}"
                     IsEnabled="{Binding IsNotBusy}"
+                    IsVisible="{Binding EsModoRetiroExitoso}"
                     HeightRequest="52"
                     FontSize="16" />
-
-            <!-- Si no se pudo retirar -->
-            <Button Text="No se pudo retirar"
-                    Style="{StaticResource DangerOutlineButton}"
-                    Command="{Binding AlternarNoRealizadoCommand}"
-                    IsVisible="{Binding NoMostrarNoRealizado}"
-                    HeightRequest="46" />
-
-            <Border Style="{StaticResource CardView}" IsVisible="{Binding MostrarNoRealizado}">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Motivo por el que no se pudo retirar *" Style="{StaticResource H3Label}" />
-                    <Border BackgroundColor="#F8FAFC"
-                            Stroke="{DynamicResource CardBorderColor}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 10"
-                            Padding="14,12">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding AbrirSelectorMotivoCommand}" />
-                        </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
-                            <Label Grid.Column="0"
-                                   Text="{Binding MotivoSelectorTexto}"
-                                   FontSize="13.5"
-                                   FontAttributes="Bold"
-                                   TextColor="#0F172A"
-                                   LineBreakMode="TailTruncation"
-                                   VerticalOptions="Center" />
-                            <Border Grid.Column="1"
-                                    BackgroundColor="{DynamicResource PrimaryLight}"
-                                    Stroke="{DynamicResource PrimaryColor}"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 6"
-                                    Padding="8,4"
-                                    VerticalOptions="Center">
-                                <Label Text="Elegir"
-                                       FontSize="10.5"
-                                       FontAttributes="Bold"
-                                       TextColor="{DynamicResource PrimaryColor}" />
-                            </Border>
-                        </Grid>
-                    </Border>
-                    <Border Style="{StaticResource InputContainer}">
-                        <Entry Text="{Binding ObservacionesNoRealizado}"
-                               Placeholder="Observaciones (opcional)"
-                               ClearButtonVisibility="WhileEditing" />
-                    </Border>
-                    <Button Text="Registrar retiro no realizado"
-                            Style="{StaticResource DangerOutlineButton}"
-                            Command="{Binding RegistrarNoRealizadoCommand}"
-                            IsEnabled="{Binding IsNotBusy}"
-                            HeightRequest="46" />
-                    <Button Text="Cancelar"
-                            Style="{StaticResource SecondaryButton}"
-                            Command="{Binding AlternarNoRealizadoCommand}"
-                            HeightRequest="40" />
-                </VerticalStackLayout>
-            </Border>
 
             <BoxView HeightRequest="16" Color="Transparent" />
             </VerticalStackLayout>

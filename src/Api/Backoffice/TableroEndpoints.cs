@@ -330,6 +330,7 @@ internal static class ConstructorTablero
 
             var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault() ?? vigentes.LastOrDefault();
             var actualEnvio = actual?.EnvioId is { } actualEnvioId ? envios.GetValueOrDefault(actualEnvioId) : null;
+            var actualRetiro = actual?.RetiroId is { } actualRetiroId ? retiros.GetValueOrDefault(actualRetiroId) : null;
             var actualDireccion = actual is null ? null : direcciones.GetValueOrDefault(actual.DireccionId);
             var zonaActual = actualDireccion?.ZonaCoberturaId is { } z ? zonas.GetValueOrDefault(z) ?? string.Empty : string.Empty;
             if (string.IsNullOrWhiteSpace(zonaActual))
@@ -351,16 +352,16 @@ internal static class ConstructorTablero
                 VehiculoModelo = vehiculo?.Tipo ?? string.Empty,
                 Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? latitudBase,
                 Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? longitudBase,
-                DireccionAproximada = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
+                DireccionAproximada = actualEnvio?.DireccionDestino ?? actualRetiro?.DireccionRetiro ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
                 ZonaActual = zonaActual,
                 NivelBateriaPct = bateriaEfectiva,
                 VelocidadKmh = (int)Math.Round(velocidadEfectiva),
                 UltimaActualizacion = timestampEfectivo,
                 EstadoOperativo = EstadoOperativo(ahora, posicion?.Timestamp, velocidadEfectiva, actual?.Estado, ruta.Estado),
-                ParadasCompletadas = vigentes.Count(p => p.Estado is "Entregada" or "Fallida" or "NoVisitada"),
+                ParadasCompletadas = vigentes.Count(p => p.Estado is "Entregada" or "Entregado" or "Fallida" or "Fallido" or "NoVisitada" or "Retirada" or "Retirado" or "NoRetirada" or "NoRetirado"),
                 TotalParadas = vigentes.Count,
-                ParadaActualCodigo = actualEnvio?.CodigoSeguimientoPublico,
-                ParadaActualDireccion = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion),
+                ParadaActualCodigo = actualEnvio?.CodigoSeguimientoPublico ?? actualRetiro?.CodigoSeguimientoPublico,
+                ParadaActualDireccion = actualEnvio?.DireccionDestino ?? actualRetiro?.DireccionRetiro ?? FormatearDireccion(actualDireccion),
                 TieneAlertasRiesgo = enRiesgo.Count > 0,
                 CantidadEnviosEnRiesgo = enRiesgo.Count,
                 EnviosEnRiesgo = enRiesgo,
@@ -509,8 +510,8 @@ internal static class ConstructorTablero
 
     private static string EstadoParada(string estado) => estado switch
     {
-        "Entregada" or "EntregadaParcialmente" or "Retirada" => "Entregado",
-        "Fallida" or "NoRetirada" => "NoEntregado",
+        "Entregada" or "Entregado" or "EntregadaParcialmente" or "Retirada" or "Retirado" => "Entregado",
+        "Fallida" or "Fallido" or "NoRetirada" or "NoRetirado" => "NoEntregado",
         "EnCamino" or "EnSitio" => "EnCurso",
         _ => "Pendiente"
     };

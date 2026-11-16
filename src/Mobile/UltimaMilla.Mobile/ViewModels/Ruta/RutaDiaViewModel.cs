@@ -84,6 +84,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public string Destinatario { get; init; } = string.Empty;
     public string Telefono { get; init; } = string.Empty;
     public int CantidadBultos { get; init; }
+    public int CantidadBultosFaltantesEnCarga { get; init; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EstadoBgColor))]
@@ -91,7 +92,8 @@ public partial class ParadaItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EstadoBorderColor))]
     [NotifyPropertyChangedFor(nameof(EstadoTextoBadge))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrar))]
-    private string _estado = "Pendiente"; // "Pendiente", "Entregado", "Fallido", "EnDevolucion"
+    [NotifyPropertyChangedFor(nameof(EsRetiroPendiente))]
+    private string _estado = "Pendiente"; // "Pendiente", "Entregado", "EntregadaParcialmente", "Fallido", "EnDevolucion"
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MostrarBadgeGeocerca))]
@@ -123,6 +125,7 @@ public partial class ParadaItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EstadoBorderColor))]
     [NotifyPropertyChangedFor(nameof(EstadoTextoBadge))]
     [NotifyPropertyChangedFor(nameof(PuedeRegistrar))]
+    [NotifyPropertyChangedFor(nameof(EsRetiroPendiente))]
     private bool _enPrecarga;
 
     // Helpers visuales para el renderizado del badge de estado en XAML
@@ -130,21 +133,21 @@ public partial class ParadaItemViewModel : ObservableObject
 
     public Color EstadoBgColor => Estado switch
     {
-        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#DCFCE7"),
+        "Entregado" or "EntregadaParcialmente" or "Retirado" or "Retirada" => Color.FromArgb("#DCFCE7"),
         "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#FEE2E2"),
         _ => BloqueadaPorCarga ? Color.FromArgb("#F1F5F9") : Color.FromArgb("#FEF3C7")
     };
 
     public Color EstadoTextColor => Estado switch
     {
-        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#15803D"),
+        "Entregado" or "EntregadaParcialmente" or "Retirado" or "Retirada" => Color.FromArgb("#15803D"),
         "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#B91C1C"),
         _ => BloqueadaPorCarga ? Color.FromArgb("#475569") : Color.FromArgb("#B45309")
     };
 
     public Color EstadoBorderColor => Estado switch
     {
-        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#86EFAC"),
+        "Entregado" or "EntregadaParcialmente" or "Retirado" or "Retirada" => Color.FromArgb("#86EFAC"),
         "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#FCA5A5"),
         _ => BloqueadaPorCarga ? Color.FromArgb("#CBD5E1") : Color.FromArgb("#FCD34D")
     };
@@ -159,6 +162,7 @@ public partial class ParadaItemViewModel : ObservableObject
         : Estado switch
         {
             "Entregado" => "Entregado",
+            "EntregadaParcialmente" => "Entrega Parcial",
             "EnDevolucion" => "En Devolución",
             "Fallido" => "Fallido",
             _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
@@ -186,6 +190,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public Color GeocercaTextColor => Color.FromArgb("#1E40AF");
 
     public bool PuedeRegistrar => Estado == "Pendiente" && (EsRetiro || !EnPrecarga);
+    public bool EsRetiroPendiente => EsRetiro && PuedeRegistrar;
 }
 
 public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelectorRutaModalHost
@@ -956,6 +961,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
                 a.RetiroId == b.RetiroId &&
                 a.EnPrecarga == b.EnPrecarga &&
                 a.CantidadBultos == b.CantidadBultos &&
+                a.CantidadBultosFaltantesEnCarga == b.CantidadBultosFaltantesEnCarga &&
                 string.Equals(a.CodigoSeguimiento, b.CodigoSeguimiento, StringComparison.Ordinal) &&
                 string.Equals(a.Direccion, b.Direccion, StringComparison.Ordinal))
             .All(iguales => iguales);
@@ -1094,7 +1100,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
             return;
         }
 
-        int completadas = Paradas.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion" or "Retirado" or "Retirada" or "NoRetirado" or "NoRetirada");
+        int completadas = Paradas.Count(p => p.Estado is "Entregado" or "EntregadaParcialmente" or "Fallido" or "EnDevolucion" or "Retirado" or "Retirada" or "NoRetirado" or "NoRetirada");
         int total = Paradas.Count;
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
         TotalParadasCount = total;
@@ -1148,7 +1154,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
             return;
 
         int total = Paradas.Count;
-        int entregadas = Paradas.Count(p => p.Estado == "Entregado");
+        int entregadas = Paradas.Count(p => p.Estado is "Entregado" or "EntregadaParcialmente");
         int fallidas = Paradas.Count(p => p.Estado == "Fallido");
         int devolucion = Paradas.Count(p => p.Estado == "EnDevolucion");
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
@@ -1156,7 +1162,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
         var bultosRetorno = Paradas
             .Where(p => !p.EsRetiro)
             .SelectMany(p => p.Bultos
-                .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado == "Entregado" && !b.VerificadoEnEntrega))
+                .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado is "Entregado" or "EntregadaParcialmente" && !b.VerificadoEnEntrega))
                 .Select(b => b.Codigo))
             .Distinct()
             .ToList();
@@ -1210,7 +1216,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
             var bultosRetorno = Paradas
                 .Where(p => !p.EsRetiro)
                 .SelectMany(p => p.Bultos
-                    .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado == "Entregado" && !b.VerificadoEnEntrega))
+                    .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado is "Entregado" or "EntregadaParcialmente" && !b.VerificadoEnEntrega))
                     .Select(b => b.Codigo))
                 .Distinct()
                 .ToList();
@@ -1291,6 +1297,39 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
         await Shell.Current.GoToAsync("DetalleParadaPage", new Dictionary<string, object>
         {
             { "Parada", parada }
+        });
+    }
+
+    [RelayCommand]
+    private async Task RegistrarRetiroDirectoAsync(ParadaItemViewModel? parada)
+    {
+        await AbrirFlujoRetiroDesdeTarjetaAsync(parada, modoFallo: false);
+    }
+
+    [RelayCommand]
+    private async Task RegistrarNoRetiradoDirectoAsync(ParadaItemViewModel? parada)
+    {
+        await AbrirFlujoRetiroDesdeTarjetaAsync(parada, modoFallo: true);
+    }
+
+    private async Task AbrirFlujoRetiroDesdeTarjetaAsync(ParadaItemViewModel? parada, bool modoFallo)
+    {
+        if (parada is null || Shell.Current is null)
+            return;
+
+        if (EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Despachada")
+        {
+            EstadoHojaDeRuta = "EnTransito";
+            if (_localDatabaseService != null && parada.HojaDeRutaId != Guid.Empty)
+            {
+                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(parada.HojaDeRutaId, "EnTransito");
+            }
+        }
+
+        await Shell.Current.GoToAsync(nameof(Views.Entrega.RegistroRetiroPage), new Dictionary<string, object>
+        {
+            { "Parada", parada },
+            { "ModoFallo", modoFallo }
         });
     }
 

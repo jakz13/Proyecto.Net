@@ -553,4 +553,108 @@ public class GestionUsuariosHandlerTests
         Assert.Equal("LucÃ­a FernÃ¡ndez", resultado.Nombre);
         Assert.Equal("LucÃ­a FernÃ¡ndez", usuario.Nombre);
     }
+
+    [Theory]
+    [InlineData("4.111.222-3")]
+    [InlineData("1234567-8")]
+    [InlineData("CI 12345678")]
+    [InlineData("texto")]
+    [InlineData("1234567")]
+    [InlineData("123456789")]
+    public async Task CrearUsuarioRepartidor_ConCedulaConFormatoInvalido_SeRechazaYSinConfirmar(string cedulaInvalida)
+    {
+        var perfilRepartidor = new Perfil(Guid.NewGuid(), "Repartidor", "Reparto en calle");
+        _usuarioRepositorio.Perfiles.Add(perfilRepartidor);
+
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _comercioOperadorRepositorio,
+            _hasheadorContrasena,
+            _inquilinoActual,
+            _unidadDeTrabajo);
+
+        var comando = new CrearUsuarioCommand(
+            "Juan",
+            $"juan.{Guid.NewGuid():N}@operador.com",
+            "ClaveSegura123",
+            perfilRepartidor.Id,
+            null,
+            "Pérez",
+            cedulaInvalida,
+            "099111222");
+
+        await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(comando, CancellationToken.None));
+        Assert.Equal(0, _unidadDeTrabajo.Confirmaciones);
+        Assert.Empty(_usuarioRepositorio.Usuarios);
+    }
+
+    [Theory]
+    [InlineData("4.111.222-3")]
+    [InlineData("1234567-8")]
+    [InlineData("texto")]
+    [InlineData("1234567")]
+    public async Task ActualizarUsuarioRepartidor_ConCedulaConFormatoInvalido_SeRechazaYSinConfirmar(string cedulaInvalida)
+    {
+        var perfilRepartidor = new Perfil(Guid.NewGuid(), "Repartidor", "Reparto en calle");
+        _usuarioRepositorio.Perfiles.Add(perfilRepartidor);
+
+        var usuario = new Usuario(
+            Guid.NewGuid(),
+            "Juan Pérez",
+            "juan.update@operador.com",
+            "hash",
+            perfilRepartidor.Id,
+            _inquilinoActual.OperadorId);
+        _usuarioRepositorio.Usuarios.Add(usuario);
+
+        var handler = new ActualizarUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _inquilinoActual,
+            _unidadDeTrabajo);
+
+        var comando = new ActualizarUsuarioCommand(
+            usuario.Id,
+            "Juan",
+            "juan.update@operador.com",
+            perfilRepartidor.Id,
+            true,
+            "Pérez",
+            cedulaInvalida,
+            "099111222");
+
+        await Assert.ThrowsAsync<DomainValidationException>(() => handler.Handle(comando, CancellationToken.None));
+        Assert.Equal(0, _unidadDeTrabajo.Confirmaciones);
+    }
+
+    [Fact]
+    public async Task CrearUsuarioRepartidor_ConCedulaOchoDigitosSinPuntosNiGuiones_SeAcepta()
+    {
+        var perfilRepartidor = new Perfil(Guid.NewGuid(), "Repartidor", "Reparto en calle");
+        _usuarioRepositorio.Perfiles.Add(perfilRepartidor);
+
+        var handler = new CrearUsuarioCommandHandler(
+            _usuarioRepositorio,
+            _comercioRepositorio,
+            _comercioOperadorRepositorio,
+            _hasheadorContrasena,
+            _inquilinoActual,
+            _unidadDeTrabajo);
+
+        var comando = new CrearUsuarioCommand(
+            "Juan",
+            "juan.valido@operador.com",
+            "ClaveSegura123",
+            perfilRepartidor.Id,
+            null,
+            "Pérez",
+            "12345678",
+            "099111222");
+
+        var resultado = await handler.Handle(comando, CancellationToken.None);
+
+        Assert.Equal("Repartidor", resultado.NombrePerfil);
+        Assert.Equal(1, _unidadDeTrabajo.Confirmaciones);
+    }
 }

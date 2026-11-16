@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -261,5 +261,66 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         var cuerpo = await respuesta.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         Assert.Contains("No hay ningún bulto marcado", WebUtility.HtmlDecode(cuerpo));
+    }
+
+    [Fact]
+    public async Task Flota_CamposDeCedulaExigenFormatoOchoDigitosSinPuntosNiGuiones()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Flota")).Content.ReadAsStringAsync();
+
+        Assert.Contains("placeholder=\"Ej: 12345678\"", html);
+        Assert.Contains("pattern=\"[0-9]{8}\"", html);
+        Assert.Contains("maxlength=\"8\"", html);
+        Assert.DoesNotContain("4.512.980-3", html);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("4.512.980-3")]
+    [InlineData("4512980-3")]
+    [InlineData("cualquiera")]
+    [InlineData("1234567")]
+    [InlineData("123456789")]
+    public async Task Flota_AltaRepartidorConCedulaInvalida_SeRechazaYConservaPanelAbierto(string cedulaInvalida)
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Flota")).Content.ReadAsStringAsync();
+
+        var respuesta = await cliente.PostAsync("/Flota?handler=CrearRepartidor", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["NuevoRepartidor.NombreCompleto"] = "Juan Repartidor",
+            ["NuevoRepartidor.Email"] = $"repartidor.{Guid.NewGuid():N}@operador.uy",
+            ["NuevoRepartidor.Documento"] = cedulaInvalida,
+            ["NuevoRepartidor.Telefono"] = "+598 99 111 222",
+            ["NuevoRepartidor.Password"] = "Segura.2026!",
+            ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
+        }));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("panelRepartidorNuevo", cuerpo);
+    }
+
+    [Fact]
+    public async Task Flota_AltaRepartidorConCedulaOchoDigitos_RedirigeConExito()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Flota")).Content.ReadAsStringAsync();
+        var sufijo = Guid.NewGuid().ToString("N")[..6];
+        var cedulaUnica = Random.Shared.Next(10_000_000, 100_000_000).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        var respuesta = await cliente.PostAsync("/Flota?handler=CrearRepartidor", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["NuevoRepartidor.NombreCompleto"] = "Repartidor Válido " + sufijo,
+            ["NuevoRepartidor.Email"] = $"valido.{sufijo}@operador.uy",
+            ["NuevoRepartidor.Documento"] = cedulaUnica,
+            ["NuevoRepartidor.Telefono"] = "+598 99 111 222",
+            ["NuevoRepartidor.Password"] = "Segura.2026!",
+            ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
+        }));
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync();
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió: {cuerpo}");
     }
 }

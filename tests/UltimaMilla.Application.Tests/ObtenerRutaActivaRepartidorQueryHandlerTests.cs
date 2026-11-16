@@ -194,4 +194,35 @@ public class ObtenerRutaActivaRepartidorQueryHandlerTests
         Assert.Equal(d2.Nombre, resultado.Paradas[1].Destinatario.Nombre);
         Assert.Single(resultado.MotivosNoEntrega);
     }
+
+    [Fact]
+    public async Task Handle_ConBultoFaltanteEnCarga_OcultaBultoFaltanteDeCodigosEInformaCantidadFaltantes()
+    {
+        var (e1, _, _) = CrearEnvio(bultos: 2);
+        var bultoFaltante = e1.Bultos.Last();
+        var bultoCargado = e1.Bultos.First();
+
+        var ruta = new HojaDeRuta(Guid.NewGuid(), _tenant.OperadorId, Hoy);
+        ruta.AsignarRecursos(_repartidor.Id, _vehiculo.Id);
+        ruta.AgregarParada(e1.Id, 1, e1.DireccionEntregaId!.Value);
+        ruta.RegistrarAsignacion(e1.Id, Guid.NewGuid());
+        e1.AsignarRuta(ruta.Id);
+        ruta.Liberar();
+        ruta.RegistrarCargaEscaneada(new[] { bultoCargado.Id });
+        e1.DespacharEnRutaParcial(ruta.Id, new[] { bultoFaltante.Id }, _tenant.UsuarioId, "No subió al furgón");
+        ruta.Despachar();
+        ruta.IniciarRecorrido();
+        _rutas.Rutas.Add(ruta);
+
+        var handler = CrearHandler();
+        var resultado = await handler.Handle(new ObtenerRutaActivaRepartidorQuery(), CancellationToken.None);
+
+        var paradaDto = Assert.Single(resultado.Paradas);
+        Assert.Equal(1, paradaDto.ResumenBultos.CantidadBultos);
+        var codigoVisible = Assert.Single(paradaDto.ResumenBultos.CodigosBultos);
+        Assert.Equal(bultoCargado.Identificacion, codigoVisible);
+        Assert.DoesNotContain(bultoFaltante.Identificacion, paradaDto.ResumenBultos.CodigosBultos);
+        Assert.Equal(1, paradaDto.ResumenBultos.CantidadBultosFaltantesEnCarga);
+        Assert.Equal(new[] { bultoFaltante.Identificacion }, paradaDto.ResumenBultos.CodigosBultosFaltantesEnCarga);
+    }
 }

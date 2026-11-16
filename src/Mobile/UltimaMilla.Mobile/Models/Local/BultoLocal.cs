@@ -26,6 +26,8 @@ public class BultoLocal
 
     public bool VerificadoEnCarga { get; set; }
 
+    public bool FaltanteEnCarga { get; set; }
+
     [Ignore]
     public bool Cargado
     {

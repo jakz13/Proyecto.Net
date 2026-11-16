@@ -170,19 +170,23 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public void ValidarPruebaEntrega(string? firmaBase64, string? fotoBase64, string? documentoReceptor)
     {
         var regla = TipoPruebaEntregaExigida.ToUpperInvariant();
-        var esCompleta = regla.Contains("COMPLETA");
+        var esCompleta = regla.Contains("COMPLETA") || regla.Contains("TODOS") || regla.Contains("AMBOS");
 
-        if ((esCompleta || regla.Contains("FIRMA")) && string.IsNullOrWhiteSpace(firmaDigitalOrFallback(firmaBase64)))
+        var exigeFirma = esCompleta || regla.Contains("FIRMA");
+        var exigeFoto = esCompleta || regla.Contains("FOTO");
+        var exigeDocumento = esCompleta || regla.Contains("DOCUMENTO") || regla.Contains("C.I.") || regla.Contains("CEDULA") || regla.Contains("CÉDULA");
+
+        if (exigeFirma && string.IsNullOrWhiteSpace(firmaDigitalOrFallback(firmaBase64)))
         {
             throw new DomainValidationException($"La regla operativa vigente exige firma digital del receptor ({TipoPruebaEntregaExigida}).");
         }
 
-        if ((esCompleta || regla.Contains("FOTO")) && string.IsNullOrWhiteSpace(fotoBase64))
+        if (exigeFoto && string.IsNullOrWhiteSpace(fotoBase64))
         {
             throw new DomainValidationException($"La regla operativa vigente exige fotografía de evidencia ({TipoPruebaEntregaExigida}).");
         }
 
-        if ((esCompleta || regla.Contains("DOCUMENTO")) && string.IsNullOrWhiteSpace(documentoReceptor))
+        if (exigeDocumento && string.IsNullOrWhiteSpace(documentoReceptor))
         {
             throw new DomainValidationException($"La regla operativa vigente exige documento de identidad del receptor ({TipoPruebaEntregaExigida}).");
         }

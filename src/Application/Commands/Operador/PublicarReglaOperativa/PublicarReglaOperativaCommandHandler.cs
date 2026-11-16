@@ -29,10 +29,22 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
         ArgumentNullException.ThrowIfNull(request);
 
         var tipoPrueba = request.TipoPruebaEntregaExigida?.Trim() ?? string.Empty;
-        var tipoCanonico = TiposPruebaPermitidos.FirstOrDefault(t => string.Equals(t, tipoPrueba, StringComparison.OrdinalIgnoreCase))
-            ?? (tipoPrueba.Contains("Firma", StringComparison.OrdinalIgnoreCase) && tipoPrueba.Contains("Foto", StringComparison.OrdinalIgnoreCase) ? "Completa" : null)
-            ?? TiposPruebaPermitidos.FirstOrDefault(t => tipoPrueba.Contains(t, StringComparison.OrdinalIgnoreCase))
-            ?? throw new DomainValidationException($"El tipo de prueba de entrega debe ser uno de: {string.Join(", ", TiposPruebaPermitidos)}.");
+        var tieneFirma = tipoPrueba.Contains("Firma", StringComparison.OrdinalIgnoreCase);
+        var tieneFoto = tipoPrueba.Contains("Foto", StringComparison.OrdinalIgnoreCase);
+        var tieneDoc = tipoPrueba.Contains("Documento", StringComparison.OrdinalIgnoreCase);
+        var esCompleta = tipoPrueba.Contains("Completa", StringComparison.OrdinalIgnoreCase) || (tieneFirma && tieneFoto);
+
+        string tipoCanonico;
+        if (esCompleta)
+            tipoCanonico = "Completa";
+        else if (tieneFirma && tieneDoc)
+            tipoCanonico = "Firma y Documento";
+        else if (tieneFoto && tieneDoc)
+            tipoCanonico = "Foto y Documento";
+        else
+            tipoCanonico = TiposPruebaPermitidos.FirstOrDefault(t => string.Equals(t, tipoPrueba, StringComparison.OrdinalIgnoreCase))
+                ?? TiposPruebaPermitidos.FirstOrDefault(t => tipoPrueba.Contains(t, StringComparison.OrdinalIgnoreCase))
+                ?? throw new DomainValidationException($"El tipo de prueba de entrega debe ser uno de: {string.Join(", ", TiposPruebaPermitidos)}.");
 
         if (request.PlazoEntreIntentos < TimeSpan.Zero
             || request.PlazoComprometidoEstandar < TimeSpan.Zero

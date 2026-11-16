@@ -60,10 +60,22 @@ public class ObtenerSecuenciaParadasQueryHandler : IRequestHandler<ObtenerSecuen
                 ReferenciaEntrega: null
             );
 
+            var bultosVigentes = envio?.Bultos
+                .Where(b => b.EstadoBulto is not ("FaltanteEnRecepcion" or "FaltanteEnCarga"))
+                .OrderBy(b => b.Identificacion)
+                .ToList();
+            var codigosFaltantesCarga = envio?.Bultos
+                .Where(b => b.EstadoBulto == "FaltanteEnCarga")
+                .OrderBy(b => b.Identificacion)
+                .Select(b => b.Identificacion)
+                .ToList();
+
             var resumenBultos = new ResumenBultosParadaDto(
-                envio?.Bultos.Count ?? 0,
-                envio?.Bultos.Select(b => b.Identificacion).ToList() ?? new List<string>(),
-                envio?.Bultos.Sum(b => b.Peso) ?? 0m
+                bultosVigentes?.Count ?? 0,
+                bultosVigentes?.Select(b => b.Identificacion).ToList() ?? new List<string>(),
+                bultosVigentes?.Sum(b => b.Peso) ?? 0m,
+                codigosFaltantesCarga?.Count ?? 0,
+                codigosFaltantesCarga
             );
 
             bool esParadaActual = parada.Estado == "EnCamino" || parada.Estado == "EnSitio";

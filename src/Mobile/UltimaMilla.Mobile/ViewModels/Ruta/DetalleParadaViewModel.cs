@@ -247,6 +247,17 @@ public partial class DetalleParadaViewModel : ObservableObject, ICorporateAvisoM
     [RelayCommand]
     private async Task IrARegistrarRetiroAsync()
     {
+        await AbrirRegistroRetiroAsync(modoFallo: false);
+    }
+
+    [RelayCommand]
+    private async Task IrARegistrarNoRetiradoAsync()
+    {
+        await AbrirRegistroRetiroAsync(modoFallo: true);
+    }
+
+    private async Task AbrirRegistroRetiroAsync(bool modoFallo)
+    {
         if (Parada is null)
             return;
 
@@ -264,7 +275,8 @@ public partial class DetalleParadaViewModel : ObservableObject, ICorporateAvisoM
 
         await Shell.Current.GoToAsync(nameof(RegistroRetiroPage), new Dictionary<string, object>
         {
-            { "Parada", Parada }
+            { "Parada", Parada },
+            { "ModoFallo", modoFallo }
         });
     }
 
