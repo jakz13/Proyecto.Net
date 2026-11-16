@@ -72,7 +72,10 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
                 true, "La hoja de ruta ya fue rendida (operación idempotente).");
         }
 
-        if (ruta.Estado is not ("Despachada" or "EnTransito" or "Finalizada"))
+        var paradasVigentes = ruta.Paradas.Where(p => p.Estado != "Cancelada").ToList();
+        var soloRetiros = paradasVigentes.Count > 0 && paradasVigentes.All(p => p.EsRetiro);
+
+        if (ruta.Estado is not ("Despachada" or "EnTransito" or "Finalizada") && !(ruta.Estado == "Liberada" && soloRetiros))
             throw new DomainValidationException($"Solo se puede rendir una hoja de ruta despachada (estado actual: '{ruta.Estado}').");
 
         var presentados = (request.CodigosBultosDevueltos ?? new List<string>())

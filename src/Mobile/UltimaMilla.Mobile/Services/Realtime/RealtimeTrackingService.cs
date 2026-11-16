@@ -28,6 +28,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
     private bool _isDisposed;
 
     public event EventHandler<bool>? ConnectionStateChanged;
+    public event EventHandler? RutaActualizadaEnTiempoReal;
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
     public HubConnectionState State => _hubConnection?.State ?? HubConnectionState.Disconnected;
@@ -215,6 +216,24 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             _logger.LogInformation("SignalR: Reconexion exitosa establecida con ID {ConnectionId}", connectionId);
             await RegistrarGrupoRepartidorAsync(CancellationToken.None);
             ConnectionStateChanged?.Invoke(this, true);
+
+            var syncService = ObtenerSyncService();
+            if (syncService is not null)
+            {
+                try
+                {
+                    if (await syncService.ObtenerCantidadPendientesAsync() > 0)
+                    {
+                        await syncService.SincronizarOperacionesPendientesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "SignalR: fallo no bloqueante al drenar cola pendiente tras reconexión.");
+                }
+            }
+
+            await RefrescarRutasSilenciosamenteAsync();
         };
 
         _hubConnection.Closed += error =>
@@ -322,6 +341,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             if (syncService is not null)
             {
                 await syncService.DescargarYActualizarRutasDelServidorAsync();
+                RutaActualizadaEnTiempoReal?.Invoke(this, EventArgs.Empty);
             }
         }
         catch (Exception ex)
@@ -355,9 +375,12 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
+        var tokenDisponible = _serviceProvider?.GetService<IAuthService>()?.AccessToken
+            ?? AuthDelegatingHandler.CurrentTokenInMemory;
+
         if (e.NetworkAccess == NetworkAccess.Internet
-            && _hubConnection?.State == HubConnectionState.Disconnected
-            && !string.IsNullOrWhiteSpace(AuthDelegatingHandler.CurrentTokenInMemory))
+            && (_hubConnection == null || _hubConnection.State == HubConnectionState.Disconnected)
+            && !string.IsNullOrWhiteSpace(tokenDisponible))
         {
             _logger.LogInformation("SignalR: Acceso a internet restablecido. Reanudando conexión...");
             _ = Task.Run(async () =>

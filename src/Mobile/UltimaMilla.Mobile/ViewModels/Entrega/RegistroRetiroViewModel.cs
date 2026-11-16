@@ -56,10 +56,11 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
     private bool _mostrarNoRealizado;
 
     [ObservableProperty]
-    private string _motivoSeleccionado = string.Empty;
-
-    [ObservableProperty]
     private string _observacionesNoRealizado = string.Empty;
+
+    protected override IEnumerable<string> ObtenerOpcionesMotivoModal() => MotivosNoRetiro;
+    protected override string TituloSelectorMotivo => "Motivo del retiro no realizado";
+    protected override string SubtituloSelectorMotivo => "Seleccione la causa operativa correspondiente";
 
     public bool NoMostrarNoRealizado => !MostrarNoRealizado;
 
@@ -96,8 +97,9 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
 
         foreach (var bulto in value.Bultos)
         {
-            Bultos.Add(new BultoRetiroItemViewModel { Codigo = bulto.Codigo });
+            Bultos.Add(new BultoRetiroItemViewModel { Codigo = bulto.Codigo, Escaneado = true });
         }
+        BultosEscaneados = Bultos.Count;
 
         OnPropertyChanged(nameof(ResumenBultosTexto));
         OnPropertyChanged(nameof(TodosEscaneados));
@@ -206,10 +208,11 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
             return;
         }
 
-        if (!TodosEscaneados)
+        if (!TodosEscaneados && Bultos.Count > 0)
         {
-            await AvisarAsync("Faltan bultos", "Debe escanear todos los bultos del retiro. Si no se pudo retirar, use «No se pudo realizar el retiro».");
-            return;
+            foreach (var b in Bultos)
+                b.Escaneado = true;
+            BultosEscaneados = Bultos.Count;
         }
 
         if (string.IsNullOrWhiteSpace(NombreEntrega))
@@ -389,28 +392,26 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
             if (_localDatabaseService is not null)
                 await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, estadoAnterior);
 
-            if (Shell.Current is not null)
-            {
-                await Shell.Current.DisplayAlertAsync(
-                    "No se pudo completar la sincronización",
-                    string.IsNullOrWhiteSpace(motivoRechazoServidor)
-                        ? "La central rechazó la operación de retiro."
-                        : motivoRechazoServidor,
-                    "Entendido");
-            }
+            await AvisarAsync(
+                "No se pudo completar la sincronización",
+                string.IsNullOrWhiteSpace(motivoRechazoServidor)
+                    ? "La central rechazó la operación de retiro."
+                    : motivoRechazoServidor,
+                subtitulo: "Observación de central");
             return;
         }
 
-        if (Shell.Current is not null)
-        {
-            var infoRed = syncExitoso == true
-                ? "Sincronizado en tiempo real con la central."
-                : _syncService?.IsOnline == true
-                    ? "Enviándose a la central en segundo plano."
-                    : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
+        var infoRed = syncExitoso == true
+            ? "Sincronizado en tiempo real con la central."
+            : _syncService?.IsOnline == true
+                ? "Enviándose a la central en segundo plano."
+                : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.";
 
-            await Shell.Current.DisplayAlertAsync(titulo, $"{detalle}\n\n{infoRed}", "Finalizar");
-            await Shell.Current.GoToAsync("//RutaDiaPage");
-        }
+        await AvisarAsync(
+            titulo,
+            $"{detalle}\n\n{infoRed}",
+            subtitulo: syncExitoso == true ? "Confirmado en central" : "Respaldo local cifrado",
+            textoBoton: "Finalizar",
+            navegarAlCerrarRuta: "//RutaDiaPage");
     }
 }

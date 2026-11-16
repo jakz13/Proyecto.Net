@@ -122,11 +122,18 @@ public class EntregarRetiroAlComercioCommandHandler : RetiroHandlerBase, IReques
 public class SacarRetiroDeRutaCommandHandler : RetiroHandlerBase, IRequestHandler<SacarRetiroDeRutaCommand, RetiroDetalleDto>
 {
     private readonly IRutaRepository _rutas;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
-    public SacarRetiroDeRutaCommandHandler(IRetiroRepository retiros, IRutaRepository rutas, IUnitOfWork unitOfWork, ICurrentTenant tenant)
+    public SacarRetiroDeRutaCommandHandler(
+        IRetiroRepository retiros,
+        IRutaRepository rutas,
+        IUnitOfWork unitOfWork,
+        ICurrentTenant tenant,
+        ITableroRealtimeNotifier? tableroNotifier = null)
         : base(retiros, unitOfWork, tenant)
     {
         _rutas = rutas;
+        _tableroNotifier = tableroNotifier;
     }
 
     public async Task<RetiroDetalleDto> Handle(SacarRetiroDeRutaCommand request, CancellationToken cancellationToken)
@@ -146,6 +153,25 @@ public class SacarRetiroDeRutaCommandHandler : RetiroHandlerBase, IRequestHandle
         retiro.LiberarDeRuta("Retiro sacado de la hoja de ruta por el despachador.", Tenant.UsuarioId);
 
         await _rutas.UpdateAsync(ruta, cancellationToken);
-        return await GuardarAsync(retiro, cancellationToken);
+        var dto = await GuardarAsync(retiro, cancellationToken);
+
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarCambioRutaConDetalleAsync(
+                    ruta.OperadorId,
+                    ruta.Id,
+                    ruta.Estado,
+                    "Se retiró una parada de retiro de la hoja de ruta.",
+                    cancellationToken);
+            }
+            catch
+            {
+                // El fallo de notificación en tiempo real no revierte la operación ya persistida.
+            }
+        }
+
+        return dto;
     }
 }

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
+             x:Class="UltimaMilla.Mobile.Views.Components.CorporateAvisoModalView"
+             x:DataType="components:ICorporateAvisoModalHost"
+             IsVisible="{Binding MostrarModalAviso}">
+
+    <Grid BackgroundColor="#990F172A" Padding="22">
+        <Border VerticalOptions="Center"
+                HorizontalOptions="Fill"
+                MaximumWidthRequest="420"
+                BackgroundColor="#FFFFFF"
+                Stroke="{DynamicResource CardBorderColor}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 20">
+            <Border.Shadow>
+                <Shadow Brush="#0F172A" Offset="0,10" Radius="24" Opacity="0.25" />
+            </Border.Shadow>
+
+            <VerticalStackLayout Spacing="0">
+                <Border BackgroundColor="{DynamicResource PrimaryColor}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 20,20,0,0"
+                        Padding="18,16">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding TituloModalAviso}"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="#FFFFFF" />
+                        <Label Text="{Binding SubtituloModalAviso}"
+                               IsVisible="{Binding TieneSubtituloModalAviso}"
+                               FontSize="11.5"
+                               TextColor="#E2E8F0" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout Padding="18,16" Spacing="16">
+                    <Label Text="{Binding MensajeModalAviso}"
+                           FontSize="13.5"
+                           TextColor="#334155"
+                           LineHeight="1.35" />
+
+                    <Button Text="{Binding TextoBotonModalAviso}"
+                            Command="{Binding CerrarModalAvisoCommand}"
+                            BackgroundColor="{DynamicResource PrimaryColor}"
+                            TextColor="#FFFFFF"
+                            FontAttributes="Bold"
+                            FontSize="13.5"
+                            HeightRequest="44"
+                            CornerRadius="10" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+
+</ContentView>

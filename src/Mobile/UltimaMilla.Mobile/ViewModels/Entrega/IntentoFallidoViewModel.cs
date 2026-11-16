@@ -23,10 +23,11 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
     private ParadaItemViewModel? _parada;
 
     [ObservableProperty]
-    private string _motivoSeleccionado = string.Empty;
-
-    [ObservableProperty]
     private string _observaciones = string.Empty;
+
+    protected override IEnumerable<string> ObtenerOpcionesMotivoModal() => MotivosNoEntrega;
+    protected override string TituloSelectorMotivo => "Motivo del intento fallido";
+    protected override string SubtituloSelectorMotivo => "Seleccione la causa de no entrega";
 
     [ObservableProperty]
     private string _coordenadasGps = "Consultando ubicación GPS...";
@@ -217,6 +218,8 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
                 FechaHoraDispositivoUtc = DateTime.UtcNow
             };
 
+            var estadoAnterior = parada.Estado;
+
             // 1. Encolar en la base cifrada y actualizar el estado local
             if (_localDatabaseService is not null)
             {
@@ -230,35 +233,63 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
             // 2. Estado en memoria
             parada.Estado = "Fallido";
 
-            // 3. Sincronizar si hay conexión
+            bool? syncExitoso = null;
+            string? motivoRechazoServidor = null;
+
+            // 3. Envío instantáneo (0 ms) al servidor si hay conexión
             if (_syncService?.IsOnline == true)
             {
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
+                    var syncTask = _syncService.SincronizarOperacionesPendientesAsync();
+                    var completada = await Task.WhenAny(syncTask, Task.Delay(TimeSpan.FromSeconds(6)));
+                    if (completada == syncTask)
                     {
-                        await _syncService.SincronizarOperacionesPendientesAsync();
+                        var resultado = await syncTask;
+                        if (resultado.ErroresNegocio > 0)
+                        {
+                            syncExitoso = false;
+                            motivoRechazoServidor = resultado.DetallesErrores is { Count: > 0 }
+                                ? string.Join("\n", resultado.DetallesErrores.Take(3))
+                                : resultado.Mensaje;
+                        }
+                        else
+                        {
+                            syncExitoso = true;
+                            await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[IntentoFallidoViewModel] Sincronización en segundo plano: {ex.Message}");
-                    }
-                });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[IntentoFallidoViewModel] Sincronización inmediata: {ex.Message}");
+                }
             }
 
-            if (Shell.Current is not null)
+            if (syncExitoso == false && !string.IsNullOrWhiteSpace(motivoRechazoServidor))
             {
-                var infoRed = _syncService?.IsOnline == true
-                    ? "Se está enviando a la central, que aplicará la regla operativa (reprogramación o devolución)."
-                    : "Guardado en el dispositivo. Se resolverá la regla operativa al recuperar la conexión.";
+                parada.Estado = estadoAnterior;
+                if (_localDatabaseService is not null)
+                {
+                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, estadoAnterior);
+                }
 
-                await Shell.Current.DisplayAlertAsync(
-                    "Intento fallido registrado",
-                    $"El intento fallido por '{MotivoSeleccionado}' fue guardado.\n\n{infoRed}",
-                    "Aceptar");
-
-                await Shell.Current.GoToAsync("//RutaDiaPage");
+                await AvisarAsync("Observación del servidor", motivoRechazoServidor);
+                return;
             }
+
+            var infoRed = syncExitoso == true
+                ? "Sincronizado al instante con la central operativa."
+                : (_syncService?.IsOnline == true
+                    ? "Se está enviando a la central, que aplicará la regla operativa (reprogramación o devolución)."
+                    : "Guardado en el dispositivo. Se resolverá la regla operativa al recuperar la conexión.");
+
+            await AvisarAsync(
+                "Intento fallido registrado",
+                $"El intento fallido por '{MotivoSeleccionado}' fue guardado.\n\n{infoRed}",
+                subtitulo: syncExitoso == true ? "Sincronizado con la central" : "Respaldo local cifrado",
+                textoBoton: "Aceptar",
+                navegarAlCerrarRuta: "//RutaDiaPage");
         }
         finally
         {

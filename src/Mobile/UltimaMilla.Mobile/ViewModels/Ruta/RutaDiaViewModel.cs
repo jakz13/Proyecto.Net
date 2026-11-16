@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
@@ -12,6 +13,7 @@ using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Services.Updates;
+using UltimaMilla.Mobile.Views.Components;
 using UltimaMilla.Mobile.Views.Ruta;
 
 namespace UltimaMilla.Mobile.ViewModels.Ruta;
@@ -72,7 +74,7 @@ public partial class ParadaItemViewModel : ObservableObject
     public Guid? RetiroId { get; init; }
     public bool EsRetiro => string.Equals(Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
         || (RetiroId.HasValue && RetiroId.Value != Guid.Empty);
-    public string TipoTexto => EsRetiro ? "RETIRO" : "ENTREGA";
+    public string TipoTexto => EsRetiro ? "Retiro en domicilio" : "Entrega";
 
     [ObservableProperty]
     private int _orden;
@@ -124,34 +126,43 @@ public partial class ParadaItemViewModel : ObservableObject
     private bool _enPrecarga;
 
     // Helpers visuales para el renderizado del badge de estado en XAML
+    public bool BloqueadaPorCarga => !EsRetiro && EnPrecarga;
+
     public Color EstadoBgColor => Estado switch
     {
-        "Entregado" => Color.FromArgb("#DCFCE7"),
-        "Fallido" or "EnDevolucion" => Color.FromArgb("#FEE2E2"),
-        _ => EnPrecarga ? Color.FromArgb("#F1F5F9") : Color.FromArgb("#FEF3C7")
+        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#DCFCE7"),
+        "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#FEE2E2"),
+        _ => BloqueadaPorCarga ? Color.FromArgb("#F1F5F9") : Color.FromArgb("#FEF3C7")
     };
 
     public Color EstadoTextColor => Estado switch
     {
-        "Entregado" => Color.FromArgb("#15803D"),
-        "Fallido" or "EnDevolucion" => Color.FromArgb("#B91C1C"),
-        _ => EnPrecarga ? Color.FromArgb("#475569") : Color.FromArgb("#B45309")
+        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#15803D"),
+        "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#B91C1C"),
+        _ => BloqueadaPorCarga ? Color.FromArgb("#475569") : Color.FromArgb("#B45309")
     };
 
     public Color EstadoBorderColor => Estado switch
     {
-        "Entregado" => Color.FromArgb("#86EFAC"),
-        "Fallido" or "EnDevolucion" => Color.FromArgb("#FCA5A5"),
-        _ => EnPrecarga ? Color.FromArgb("#CBD5E1") : Color.FromArgb("#FCD34D")
+        "Entregado" or "Retirado" or "Retirada" => Color.FromArgb("#86EFAC"),
+        "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => Color.FromArgb("#FCA5A5"),
+        _ => BloqueadaPorCarga ? Color.FromArgb("#CBD5E1") : Color.FromArgb("#FCD34D")
     };
 
-    public string EstadoTextoBadge => Estado switch
-    {
-        "Entregado" => EsRetiro ? "Retirado" : "Entregado",
-        "EnDevolucion" => "En Devolución",
-        "Fallido" => "Fallido",
-        _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
-    };
+    public string EstadoTextoBadge => EsRetiro
+        ? Estado switch
+        {
+            "Entregado" or "Retirado" or "Retirada" => "Retirado",
+            "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada" => "No retirado",
+            _ => "Pendiente de retiro"
+        }
+        : Estado switch
+        {
+            "Entregado" => "Entregado",
+            "EnDevolucion" => "En Devolución",
+            "Fallido" => "Fallido",
+            _ => EnPrecarga ? "Pendiente de Carga en Depósito" : "Pendiente"
+        };
 
     // Helpers visuales para Geocercas
     public bool MostrarBadgeGeocerca => EnGeocerca;
@@ -174,10 +185,10 @@ public partial class ParadaItemViewModel : ObservableObject
     public Color GeocercaBorderColor => Color.FromArgb("#93C5FD");
     public Color GeocercaTextColor => Color.FromArgb("#1E40AF");
 
-    public bool PuedeRegistrar => Estado == "Pendiente" && !EnPrecarga;
+    public bool PuedeRegistrar => Estado == "Pendiente" && (EsRetiro || !EnPrecarga);
 }
 
-public partial class RutaDiaViewModel : ObservableObject, IDisposable
+public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelectorRutaModalHost
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
@@ -207,7 +218,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(RecorridoNoIniciado))]
     private string _estadoHojaDeRuta = "EnTransito";
 
-    public bool RecorridoNoIniciado => EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador";
+    public bool EsRutaSoloRetiros => Paradas.Count > 0 && Paradas.All(p => p.EsRetiro);
+
+    public bool RecorridoNoIniciado => !EsRutaSoloRetiros
+        && Paradas.Any(p => !p.EsRetiro)
+        && (EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Borrador");
 
     [ObservableProperty]
     private bool _isOffline = true;
@@ -295,13 +310,23 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private HojaDeRutaSelectorItem? _hojaDeRutaSeleccionada;
+
+    [ObservableProperty]
+    private bool _mostrarModalSelectorRuta;
+
     private bool _actualizandoSelector;
     private readonly SemaphoreSlim _uiRefreshLock = new(1, 1);
 
     public ObservableCollection<HojaDeRutaSelectorItem> HojasDeRutaDisponibles { get; } = new();
 
+    ICommand ISelectorRutaModalHost.AbrirSelectorRutaCommand => AbrirSelectorRutaCommand;
+    ICommand ISelectorRutaModalHost.CerrarSelectorRutaCommand => CerrarSelectorRutaCommand;
+    ICommand ISelectorRutaModalHost.SeleccionarRutaDelModalCommand => SeleccionarRutaDelModalCommand;
+
     async partial void OnHojaDeRutaSeleccionadaChanged(HojaDeRutaSelectorItem? value)
     {
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, value?.Id);
+
         if (_actualizandoSelector || value == null || IsBusy)
             return;
 
@@ -564,6 +589,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             _syncService.OnSyncStateChanged += OnSyncStateChangedHandler;
         }
 
+        if (_realtimeTrackingService != null)
+        {
+            _realtimeTrackingService.RutaActualizadaEnTiempoReal += OnRutaActualizadaEnTiempoRealHandler;
+        }
+
         if (_trackingService != null)
         {
             _trackingService.OnTrackingStateChanged += OnTrackingStateChangedHandler;
@@ -593,6 +623,21 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error en OnSyncStateChangedHandler: {ex.Message}");
+            }
+        });
+    }
+
+    private void OnRutaActualizadaEnTiempoRealHandler(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await RefrescarParadasDesdeSQLiteAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RutaDiaViewModel] Error en OnRutaActualizadaEnTiempoRealHandler: {ex.Message}");
             }
         });
     }
@@ -823,30 +868,12 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (_localDatabaseService == null)
             return;
 
-        var rutasLocales = await _localDatabaseService.ListarHojasDeRutaLocalesAsync();
+        var itemsSelector = await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(HojaDeRutaSeleccionada?.Id);
         HojasDeRutaDisponibles.Clear();
 
-        foreach (var r in rutasLocales)
+        foreach (var item in itemsSelector)
         {
-            string descEstado = r.Estado switch
-            {
-                "EnTransito" => "En Tránsito",
-                "Despachada" => "Despachada",
-                "EnCarga" => "En Carga",
-                "Liberada" => "Liberada",
-                "Finalizada" => "Todas las paradas completadas",
-                "Rendida" => "Rendida en depósito",
-                "Cerrada" => "Cerrada",
-                _ => r.Estado
-            };
-
-            HojasDeRutaDisponibles.Add(new HojaDeRutaSelectorItem(
-                r.Id,
-                r.NumeroRuta,
-                r.Estado,
-                r.TotalParadas,
-                $"{r.NumeroRuta} - {descEstado} ({r.TotalParadas} paradas)"
-            ));
+            HojasDeRutaDisponibles.Add(item);
         }
 
         TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
@@ -903,11 +930,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
             if (local != null)
             {
-                Paradas.Clear();
-                foreach (var p in local.Paradas)
-                {
-                    Paradas.Add(p);
-                }
+                ActualizarParadasEnLugar(local.Paradas);
                 EstadoHojaDeRuta = local.Ruta.Estado;
                 FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
                 SinRutaAsignada = false;
@@ -922,6 +945,31 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void ActualizarParadasEnLugar(IReadOnlyList<ParadaItemViewModel> nuevasParadas)
+    {
+        bool mismasParadas = Paradas.Count == nuevasParadas.Count &&
+            Paradas.Zip(nuevasParadas, (a, b) =>
+                a.Id == b.Id &&
+                a.Orden == b.Orden &&
+                string.Equals(a.Estado, b.Estado, StringComparison.Ordinal) &&
+                string.Equals(a.Tipo, b.Tipo, StringComparison.Ordinal) &&
+                a.RetiroId == b.RetiroId &&
+                a.EnPrecarga == b.EnPrecarga &&
+                a.CantidadBultos == b.CantidadBultos &&
+                string.Equals(a.CodigoSeguimiento, b.CodigoSeguimiento, StringComparison.Ordinal) &&
+                string.Equals(a.Direccion, b.Direccion, StringComparison.Ordinal))
+            .All(iguales => iguales);
+
+        if (mismasParadas)
+            return;
+
+        Paradas.Clear();
+        foreach (var p in nuevasParadas)
+        {
+            Paradas.Add(p);
+        }
+    }
+
     public async Task RefrescarParadasDesdeSQLiteAsync()
     {
         if (_localDatabaseService is null)
@@ -932,39 +980,31 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
         try
         {
+            var rutasLocales = await _localDatabaseService.ListarHojasDeRutaLocalesAsync();
+            bool selectorDesactualizado = HojaDeRutaSeleccionada is null
+                || rutasLocales.Count != HojasDeRutaDisponibles.Count
+                || !rutasLocales
+                    .Select(r => (r.Id, r.Estado, r.TotalParadas))
+                    .SequenceEqual(HojasDeRutaDisponibles.Select(h => (h.Id, h.Estado, h.TotalParadas)));
+
             var rutaId = HojaDeRutaSeleccionada?.Id;
             var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
-            if (local == null || local.Ruta == null || local.Ruta.Estado is "Cerrada" or "Rendida")
+            if (local == null || local.Ruta == null || local.Ruta.Estado is "Cerrada" or "Rendida" || selectorDesactualizado)
             {
                 await CargarRutasDesdeSQLiteAsync();
+                if (rutaId.HasValue && HojasDeRutaDisponibles.Any(h => h.Id == rutaId.Value))
+                {
+                    var seleccionada = HojasDeRutaDisponibles.First(h => h.Id == rutaId.Value);
+                    if (seleccionada.Estado is not ("Cerrada" or "Rendida") && HojaDeRutaSeleccionada?.Id != seleccionada.Id)
+                    {
+                        HojaDeRutaSeleccionada = seleccionada;
+                    }
+                }
                 return;
             }
 
-            if (local.Paradas.Count > 0)
-            {
-                bool mismasParadas = Paradas.Count == local.Paradas.Count &&
-                    Paradas.Zip(local.Paradas, (a, b) =>
-                        a.Id == b.Id &&
-                        a.Orden == b.Orden &&
-                        string.Equals(a.Estado, b.Estado, StringComparison.Ordinal) &&
-                        string.Equals(a.Tipo, b.Tipo, StringComparison.Ordinal) &&
-                        a.RetiroId == b.RetiroId &&
-                        a.CantidadBultos == b.CantidadBultos &&
-                        string.Equals(a.CodigoSeguimiento, b.CodigoSeguimiento, StringComparison.Ordinal) &&
-                        string.Equals(a.Direccion, b.Direccion, StringComparison.Ordinal))
-                    .All(iguales => iguales);
-
-                if (!mismasParadas)
-                {
-                    Paradas.Clear();
-                    foreach (var p in local.Paradas)
-                    {
-                        Paradas.Add(p);
-                    }
-                }
-
-                AplicarEstadosGeocercaEnParadas();
-            }
+            ActualizarParadasEnLugar(local.Paradas);
+            AplicarEstadosGeocercaEnParadas();
             EstadoHojaDeRuta = local.Ruta.Estado;
             FechaHojaRuta = local.Ruta.Fecha.ToString("dd/MM/yyyy");
             SinRutaAsignada = false;
@@ -1039,6 +1079,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
 
     public void RecalcularProgreso()
     {
+        OnPropertyChanged(nameof(EsRutaSoloRetiros));
+        OnPropertyChanged(nameof(RecorridoNoIniciado));
+
         if (Paradas.Count == 0)
         {
             TotalParadasCount = 0;
@@ -1051,7 +1094,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
             return;
         }
 
-        int completadas = Paradas.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion");
+        int completadas = Paradas.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion" or "Retirado" or "Retirada" or "NoRetirado" or "NoRetirada");
         int total = Paradas.Count;
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
         TotalParadasCount = total;
@@ -1111,7 +1154,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
 
         var bultosRetorno = Paradas
-            .Where(p => p.Estado is "Fallido" or "EnDevolucion")
+            .Where(p => !p.EsRetiro && p.Estado is "Fallido" or "EnDevolucion")
             .SelectMany(p => p.Bultos)
             .Select(b => b.Codigo)
             .Distinct()
@@ -1228,10 +1271,19 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (parada is null)
             return;
 
-        if (RecorridoNoIniciado || parada.EnPrecarga)
+        if (!parada.EsRetiro && (RecorridoNoIniciado || parada.EnPrecarga))
         {
             MostrarAvisoRapido("Ruta en precarga: diríjase a Carga para escanear los bultos.", esExito: false);
             return;
+        }
+
+        if (parada.EsRetiro && EsRutaSoloRetiros && EstadoHojaDeRuta is "Liberada" or "EnCarga" or "Despachada")
+        {
+            EstadoHojaDeRuta = "EnTransito";
+            if (_localDatabaseService != null && parada.HojaDeRutaId != Guid.Empty)
+            {
+                await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(parada.HojaDeRutaId, "EnTransito");
+            }
         }
 
         await Shell.Current.GoToAsync("DetalleParadaPage", new Dictionary<string, object>
@@ -1246,7 +1298,7 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (parada is null)
             return;
 
-        if (RecorridoNoIniciado || parada.EnPrecarga)
+        if (!parada.EsRetiro && (RecorridoNoIniciado || parada.EnPrecarga))
         {
             MostrarAvisoRapido("Ruta en precarga: diríjase a Carga para escanear los bultos.", esExito: false);
             return;
@@ -1320,12 +1372,48 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void AbrirSelectorRuta()
+    {
+        if (HojasDeRutaDisponibles.Count == 0 || IsBusy)
+            return;
+
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, HojaDeRutaSeleccionada?.Id);
+        CerrarModales();
+        MostrarModalSelectorRuta = true;
+    }
+
+    [RelayCommand]
+    private void CerrarSelectorRuta()
+    {
+        MostrarModalSelectorRuta = false;
+    }
+
+    [RelayCommand]
+    private async Task SeleccionarRutaDelModalAsync(HojaDeRutaSelectorItem? ruta)
+    {
+        MostrarModalSelectorRuta = false;
+        if (ruta == null || IsBusy)
+            return;
+
+        HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, ruta.Id);
+        if (HojaDeRutaSeleccionada?.Id != ruta.Id)
+        {
+            HojaDeRutaSeleccionada = ruta;
+        }
+        else
+        {
+            await CargarRutaEspecificaAsync(ruta.Id);
+        }
+    }
+
+    [RelayCommand]
     private void CerrarModales()
     {
         MostrarMenuHerramientas = false;
         MostrarModalBateria = false;
         MostrarModalGpsGeocercas = false;
         MostrarModalOptimizacion = false;
+        MostrarModalSelectorRuta = false;
         if (!DescargandoActualizacion)
         {
             MostrarModalActualizacion = false;
@@ -1745,6 +1833,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable
         if (_syncService != null)
         {
             _syncService.OnSyncStateChanged -= OnSyncStateChangedHandler;
+        }
+
+        if (_realtimeTrackingService != null)
+        {
+            _realtimeTrackingService.RutaActualizadaEnTiempoReal -= OnRutaActualizadaEnTiempoRealHandler;
         }
 
         if (_trackingService != null)

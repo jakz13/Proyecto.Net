@@ -1,3 +1,4 @@
+using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
@@ -439,6 +440,96 @@ public class ControlCargaYEntregaEnPuertaTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("Entregado", result.EstadoEnvio);
+    }
+
+    [Fact]
+    public async Task IniciarRecorrido_RutaLiberadaConSoloRetiros_PasaDirectamenteAEnTransito()
+    {
+        var ruta = new HojaDeRuta(HojaDeRutaId, OperadorId, DateOnly.FromDateTime(DateTime.UtcNow));
+        ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
+        ruta.AgregarParadaRetiro(Guid.NewGuid(), 1, Direccion1Id);
+        ruta.Liberar();
+
+        var rutaRepo = new FakeRutaRepository();
+        rutaRepo.Rutas.Add(ruta);
+        var outbox = new FakeOutboxStorage();
+        var uow = new FakeUnitOfWork();
+        var clock = new FakeClock();
+        var tenant = new FakeCurrentTenant { OperadorId = OperadorId, UsuarioId = UsuarioRepartidorId };
+
+        var handler = new IniciarRecorridoCommandHandler(rutaRepo, uow, outbox, tenant, clock);
+        var result = await handler.Handle(new IniciarRecorridoCommand(HojaDeRutaId, "IDEMP-SOLO-RETIROS"), CancellationToken.None);
+
+        Assert.Equal("EnTransito", result.Estado);
+        Assert.Equal("EnTransito", ruta.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarCarga_RutaLiberadaConSoloRetirosSinBultos_PasaAEnTransitoSinRequerirEscaneo()
+    {
+        var ruta = new HojaDeRuta(HojaDeRutaId, OperadorId, DateOnly.FromDateTime(DateTime.UtcNow));
+        ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
+        ruta.AgregarParadaRetiro(Guid.NewGuid(), 1, Direccion1Id);
+        ruta.Liberar();
+
+        var rutaRepo = new FakeRutaRepository();
+        rutaRepo.Rutas.Add(ruta);
+        var envioRepo = new FakeEnvioRepository();
+        var outbox = new FakeOutboxStorage();
+        var uow = new FakeUnitOfWork();
+        var tenant = new FakeCurrentTenant { OperadorId = OperadorId, UsuarioId = UsuarioRepartidorId };
+
+        var handler = new ConfirmarCargaCommandHandler(rutaRepo, envioRepo, uow, tenant, outbox);
+        var result = await handler.Handle(
+            new ConfirmarCargaCommand(HojaDeRutaId, new List<string>(), "IDEMP-CARGA-SOLO-RETIROS", null, true),
+            CancellationToken.None);
+
+        Assert.Equal("EnTransito", result.EstadoRuta);
+        Assert.Equal("EnTransito", ruta.Estado);
+        Assert.Equal("Esta ruta contiene únicamente retiros en domicilio y no requiere carga en depósito.", result.Mensaje);
+    }
+
+    [Fact]
+    public async Task ConfirmarCarga_RutaMixtaEnviosYRetiros_SoloEvaluaEnviosYConservaParadasDeRetiro()
+    {
+        var ruta = new HojaDeRuta(HojaDeRutaId, OperadorId, DateOnly.FromDateTime(DateTime.UtcNow));
+        ruta.AsignarRecursos(Guid.NewGuid(), Guid.NewGuid());
+        ruta.AgregarParada(Parada1Id, Envio1Id, 1, Direccion1Id, null, "Pendiente");
+        ruta.RegistrarAsignacion(Envio1Id, UsuarioRepartidorId);
+        var retiroId = Guid.NewGuid();
+        var paradaRetiro = ruta.AgregarParadaRetiro(retiroId, 2, Direccion1Id);
+        ruta.Liberar();
+
+        var envio = new Envio(
+            Envio1Id,
+            ComercioId,
+            "Av. 18 de Julio 1450, Centro, Montevideo",
+            "Martín Rodríguez",
+            "ENV-2026-00108",
+            OperadorId);
+        envio.AgregarBulto("BLT-MIX-001", 1.2m);
+        envio.RecepcionarEnDeposito(new[] { "BLT-MIX-001" }, null, null, UsuarioRepartidorId);
+        envio.ClasificarBultos(new[] { new ClasificacionBulto("BLT-MIX-001", PrioridadBulto.Normal) }, UsuarioRepartidorId);
+        envio.AsignarRuta(HojaDeRutaId);
+
+        var rutaRepo = new FakeRutaRepository();
+        rutaRepo.Rutas.Add(ruta);
+        var envioRepo = new FakeEnvioRepository();
+        envioRepo.Envios.Add(envio);
+        var outbox = new FakeOutboxStorage();
+        var uow = new FakeUnitOfWork();
+        var tenant = new FakeCurrentTenant { OperadorId = OperadorId, UsuarioId = UsuarioRepartidorId };
+
+        var handler = new ConfirmarCargaCommandHandler(rutaRepo, envioRepo, uow, tenant, outbox);
+        var result = await handler.Handle(
+            new ConfirmarCargaCommand(HojaDeRutaId, new List<string> { "BLT-MIX-001" }, "IDEMP-CARGA-MIXTA", null, true),
+            CancellationToken.None);
+
+        Assert.Equal("EnTransito", result.EstadoRuta);
+        Assert.Equal(1, result.TotalBultosCargados);
+        Assert.Equal(0, result.TotalBultosFaltantes);
+        Assert.Equal("Pendiente", paradaRetiro.Estado);
+        Assert.True(paradaRetiro.EsRetiro);
     }
 
     private sealed class FakeCacheService : IDistributedCacheService

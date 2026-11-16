@@ -1,4 +1,5 @@
 using MediatR;
+using UltimaMilla.Application.Common;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Entities.Ejecucion;
@@ -20,6 +21,7 @@ public abstract class RetiroMovilHandlerBase
     protected readonly ICurrentTenant Tenant;
     protected readonly IClock Clock;
     private readonly ITableroRealtimeNotifier? _tablero;
+    private readonly IDistributedCacheService? _cache;
 
     protected RetiroMovilHandlerBase(
         IRutaRepository rutas,
@@ -29,7 +31,8 @@ public abstract class RetiroMovilHandlerBase
         IUnitOfWork unitOfWork,
         ICurrentTenant tenant,
         IClock clock,
-        ITableroRealtimeNotifier? tablero)
+        ITableroRealtimeNotifier? tablero,
+        IDistributedCacheService? cache = null)
     {
         Rutas = rutas;
         Retiros = retiros;
@@ -39,6 +42,7 @@ public abstract class RetiroMovilHandlerBase
         Tenant = tenant;
         Clock = clock;
         _tablero = tablero;
+        _cache = cache;
     }
 
     protected async Task<(HojaDeRuta Ruta, Parada Parada, Retiro Retiro)> CargarAsync(
@@ -85,9 +89,14 @@ public abstract class RetiroMovilHandlerBase
         return (ruta, parada, retiro);
     }
 
-    /// <summary>Sin conflicto, la ruta debe estar en la calle. Con conflicto (el servidor la cambió mientras no había conexión) se acepta.</summary>
+    /// <summary>
+    /// Si la hoja de ruta está liberada, en carga o despachada, la pasa automáticamente a EnTransito
+    /// (aplica a rutas de solo retiros o rutas mixtas donde el repartidor opera un retiro en calle).
+    /// </summary>
     protected static void ValidarRutaEnLaCalle(HojaDeRuta ruta, bool huboConflicto)
     {
+        ruta.AsegurarEnTransitoParaOperacionEnCalle();
+
         if (ruta.Estado is not ("Despachada" or "EnTransito") && !huboConflicto)
         {
             throw new DomainValidationException(
@@ -123,13 +132,25 @@ public abstract class RetiroMovilHandlerBase
         await Retiros.UpdateAsync(retiro, cancellationToken);
         await UnitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (_cache is not null && !string.IsNullOrWhiteSpace(retiro.CodigoSeguimientoPublico))
+        {
+            try
+            {
+                await _cache.RemoveAsync(ClavesCache.SeguimientoPorCodigo(retiro.CodigoSeguimientoPublico), cancellationToken);
+                await _cache.RemoveAsync(ClavesCache.SeguimientoPorOperadorYCodigo(retiro.OperadorId, retiro.CodigoSeguimientoPublico), cancellationToken);
+            }
+            catch
+            {
+                // El fallo de caché no revierte el retiro ya persistido
+            }
+        }
+
         if (_tablero is not null)
         {
             try
             {
                 await _tablero.NotificarHitoParadaAsync(ruta.OperadorId, ruta.Id, parada.Id, parada.Estado, cancellationToken);
-                if (ruta.Estado == "Finalizada")
-                    await _tablero.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
+                await _tablero.NotificarCambioRutaAsync(ruta.OperadorId, ruta.Id, ruta.Estado, cancellationToken);
             }
             catch
             {
@@ -149,8 +170,9 @@ public class RegistrarRetiroRealizadoCommandHandler : RetiroMovilHandlerBase, IR
         IUnitOfWork unitOfWork,
         ICurrentTenant tenant,
         IClock clock,
-        ITableroRealtimeNotifier? tablero = null)
-        : base(rutas, retiros, envios, repartidores, unitOfWork, tenant, clock, tablero) { }
+        ITableroRealtimeNotifier? tablero = null,
+        IDistributedCacheService? cache = null)
+        : base(rutas, retiros, envios, repartidores, unitOfWork, tenant, clock, tablero, cache) { }
 
     public async Task<RetiroMovilResultDto> Handle(RegistrarRetiroRealizadoCommand request, CancellationToken cancellationToken)
     {
@@ -213,8 +235,9 @@ public class RegistrarRetiroNoRealizadoCommandHandler : RetiroMovilHandlerBase, 
         IUnitOfWork unitOfWork,
         ICurrentTenant tenant,
         IClock clock,
-        ITableroRealtimeNotifier? tablero = null)
-        : base(rutas, retiros, envios, repartidores, unitOfWork, tenant, clock, tablero) { }
+        ITableroRealtimeNotifier? tablero = null,
+        IDistributedCacheService? cache = null)
+        : base(rutas, retiros, envios, repartidores, unitOfWork, tenant, clock, tablero, cache) { }
 
     public async Task<RetiroMovilResultDto> Handle(RegistrarRetiroNoRealizadoCommand request, CancellationToken cancellationToken)
     {

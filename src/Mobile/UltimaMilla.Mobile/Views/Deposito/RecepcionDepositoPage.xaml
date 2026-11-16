@@ -505,22 +505,41 @@
                                 </HorizontalStackLayout>
 
                                 <Label Text="TIPO DE DISCREPANCIA" FontSize="10.5" FontAttributes="Bold" TextColor="#64748B" />
-                                <Border Stroke="#CBD5E1"
-                                        StrokeShape="RoundRectangle 8"
-                                        BackgroundColor="#FFFFFF"
-                                        Padding="10,0"
-                                        HeightRequest="44">
-                                    <Picker SelectedItem="{Binding TipoDiscrepancia}"
-                                            Title="Seleccione el tipo de discrepancia">
-                                        <Picker.ItemsSource>
-                                            <x:Array Type="{x:Type x:String}">
-                                                <x:String>Faltante</x:String>
-                                                <x:String>Sobrante</x:String>
-                                                <x:String>Bulto Dañado</x:String>
-                                            </x:Array>
-                                        </Picker.ItemsSource>
-                                    </Picker>
-                                </Border>
+                                <Grid ColumnDefinitions="*, *, *" ColumnSpacing="6">
+                                    <Button Grid.Column="0"
+                                            Text="Faltante"
+                                            Command="{Binding SeleccionarTipoDiscrepanciaCommand}"
+                                            CommandParameter="Faltante"
+                                            BackgroundColor="{Binding ChipFaltanteBg}"
+                                            TextColor="{Binding ChipFaltanteTextColor}"
+                                            FontSize="11.5"
+                                            FontAttributes="Bold"
+                                            HeightRequest="38"
+                                            CornerRadius="8"
+                                            Padding="0" />
+                                    <Button Grid.Column="1"
+                                            Text="Sobrante"
+                                            Command="{Binding SeleccionarTipoDiscrepanciaCommand}"
+                                            CommandParameter="Sobrante"
+                                            BackgroundColor="{Binding ChipSobranteBg}"
+                                            TextColor="{Binding ChipSobranteTextColor}"
+                                            FontSize="11.5"
+                                            FontAttributes="Bold"
+                                            HeightRequest="38"
+                                            CornerRadius="8"
+                                            Padding="0" />
+                                    <Button Grid.Column="2"
+                                            Text="Bulto Dañado"
+                                            Command="{Binding SeleccionarTipoDiscrepanciaCommand}"
+                                            CommandParameter="Bulto Dañado"
+                                            BackgroundColor="{Binding ChipDanadoBg}"
+                                            TextColor="{Binding ChipDanadoTextColor}"
+                                            FontSize="11"
+                                            FontAttributes="Bold"
+                                            HeightRequest="38"
+                                            CornerRadius="8"
+                                            Padding="0" />
+                                </Grid>
 
                                 <Label Text="OBSERVACIONES DOCUMENTALES (OBLIGATORIO)" FontSize="10.5" FontAttributes="Bold" TextColor="#64748B" />
                                 <Border Stroke="#CBD5E1"

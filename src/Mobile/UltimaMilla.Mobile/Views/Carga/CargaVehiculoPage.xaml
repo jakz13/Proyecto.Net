@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:UltimaMilla.Mobile.ViewModels.Carga"
+             xmlns:models="clr-namespace:UltimaMilla.Mobile.Models.Local"
              xmlns:controls="clr-namespace:UltimaMilla.Mobile.Controls"
              xmlns:components="clr-namespace:UltimaMilla.Mobile.Views.Components"
              x:Class="UltimaMilla.Mobile.Views.Carga.CargaVehiculoPage"
@@ -136,28 +137,55 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
-                                <!-- Selector de Hojas de Ruta del Repartidor (múltiples rutas del día) -->
+                                <!-- Selector corporativo de Hojas de Ruta del Repartidor (múltiples rutas del día) -->
                                 <Border IsVisible="{Binding TieneMultiplesRutas}"
                                         BackgroundColor="#F8FAFC"
                                         Stroke="{DynamicResource CardBorderColor}"
                                         StrokeThickness="1"
-                                        StrokeShape="RoundRectangle 8"
-                                        Padding="10,6"
+                                        StrokeShape="RoundRectangle 10"
+                                        Padding="12,9"
                                         Margin="0,4,0,0">
-                                    <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8" VerticalOptions="Center">
-                                        <Label Text="RUTA:"
-                                               FontSize="11"
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding AbrirSelectorRutaCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="Auto, *, Auto, Auto" ColumnSpacing="8" VerticalOptions="Center">
+                                        <Label Grid.Column="0"
+                                               Text="RUTA"
+                                               FontSize="10.5"
                                                FontAttributes="Bold"
-                                               TextColor="#475569"
+                                               TextColor="#64748B"
                                                VerticalOptions="Center" />
-                                        <Picker Grid.Column="1"
-                                                ItemsSource="{Binding HojasDeRutaDisponibles}"
-                                                ItemDisplayBinding="{Binding TituloSelector}"
-                                                SelectedItem="{Binding HojaDeRutaSeleccionada}"
-                                                FontSize="12"
-                                                TextColor="#0F172A"
-                                                Title="Seleccionar Ruta"
-                                                VerticalOptions="Center" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding HojaDeRutaSeleccionada.NumeroRuta}"
+                                               FontSize="13"
+                                               FontAttributes="Bold"
+                                               TextColor="#0F172A"
+                                               LineBreakMode="TailTruncation"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="2"
+                                                BackgroundColor="{Binding HojaDeRutaSeleccionada.EstadoBgColor}"
+                                                Stroke="{Binding HojaDeRutaSeleccionada.EstadoBorderColor}"
+                                                StrokeThickness="1"
+                                                StrokeShape="RoundRectangle 6"
+                                                Padding="7,2"
+                                                VerticalOptions="Center">
+                                            <Label Text="{Binding HojaDeRutaSeleccionada.EstadoDescripcion}"
+                                                   FontSize="10"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{Binding HojaDeRutaSeleccionada.EstadoTextColor}" />
+                                        </Border>
+                                        <Border Grid.Column="3"
+                                                BackgroundColor="{DynamicResource PrimaryLight}"
+                                                Stroke="{DynamicResource PrimaryColor}"
+                                                StrokeThickness="1"
+                                                StrokeShape="RoundRectangle 6"
+                                                Padding="8,4"
+                                                VerticalOptions="Center">
+                                            <Label Text="Cambiar"
+                                                   FontSize="10.5"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{DynamicResource PrimaryColor}" />
+                                        </Border>
                                     </Grid>
                                 </Border>
                             </VerticalStackLayout>
@@ -539,6 +567,30 @@
                     <!-- BOTONES DE ACCIÓN PRINCIPAL (SALIDA / DESPACHO)           -->
                     <!-- ========================================================= -->
                     <VerticalStackLayout Spacing="8" Margin="0,8,0,16">
+                        <Border BackgroundColor="#EFF6FF"
+                                Stroke="#BFDBFE"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,10"
+                                IsVisible="{Binding EsRutaSoloRetiros}">
+                            <Label Text="Esta ruta contiene únicamente retiros en domicilio y no requiere carga en depósito."
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#1E40AF" />
+                        </Border>
+
+                        <Border BackgroundColor="#EFF6FF"
+                                Stroke="#BFDBFE"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,10"
+                                IsVisible="{Binding TieneParadasRetiroMixta}">
+                            <Label Text="{Binding AvisoRetirosMixtaTexto}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#1E40AF" />
+                        </Border>
+
                         <Border BackgroundColor="{DynamicResource PrimarySoftBackground}"
                                 Stroke="{DynamicResource PrimaryColor}"
                                 StrokeThickness="1"
@@ -881,18 +933,55 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="3">
+                                <VerticalStackLayout Spacing="6">
                                     <Label Text="MOTIVO DE LA DISCREPANCIA"
                                            FontSize="9.5"
                                            FontAttributes="Bold"
                                            TextColor="#64748B" />
-                                    <Border BackgroundColor="#F8FAFC" Stroke="#CBD5E1" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="10,0">
-                                        <Picker ItemsSource="{Binding MotivosDiscrepanciaOpciones}"
-                                                SelectedItem="{Binding MotivoDiscrepanciaSeleccionado}"
-                                                FontSize="12"
-                                                TextColor="#0F172A"
-                                                Title="Seleccionar Motivo" />
-                                    </Border>
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding MotivosDiscrepanciaChips}" Spacing="6">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="models:OpcionSeleccionableItem">
+                                                <Border BackgroundColor="#F8FAFC"
+                                                        Stroke="#CBD5E1"
+                                                        StrokeThickness="1"
+                                                        StrokeShape="RoundRectangle 8"
+                                                        Padding="12,10">
+                                                    <Border.Triggers>
+                                                        <DataTrigger TargetType="Border" Binding="{Binding EsSeleccionada}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryLight}" />
+                                                            <Setter Property="Stroke" Value="{DynamicResource PrimaryColor}" />
+                                                            <Setter Property="StrokeThickness" Value="1.8" />
+                                                        </DataTrigger>
+                                                    </Border.Triggers>
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CargaVehiculoViewModel}}, Path=SeleccionarMotivoDiscrepanciaCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                                    </Border.GestureRecognizers>
+                                                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                                                        <Label Grid.Column="0"
+                                                               Text="{Binding Texto}"
+                                                               FontSize="12"
+                                                               FontAttributes="Bold"
+                                                               TextColor="#0F172A"
+                                                               VerticalOptions="Center" />
+                                                        <Border Grid.Column="1"
+                                                                IsVisible="{Binding EsSeleccionada}"
+                                                                BackgroundColor="{DynamicResource PrimaryColor}"
+                                                                StrokeThickness="0"
+                                                                StrokeShape="RoundRectangle 6"
+                                                                Padding="7,2"
+                                                                VerticalOptions="Center">
+                                                            <Label Text="Seleccionado"
+                                                                   FontSize="9.5"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="#FFFFFF" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="3">
@@ -936,6 +1025,16 @@
                 </ScrollView>
             </Border>
         </Grid>
+
+        <!-- Modal Corporativo Selector de Hoja de Ruta -->
+        <components:SelectorRutaModalView Grid.Row="0"
+                                          Grid.RowSpan="2"
+                                          ZIndex="99" />
+
+        <!-- Modal Corporativo de Avisos Operativos -->
+        <components:CorporateAvisoModalView Grid.Row="0"
+                                            Grid.RowSpan="2"
+                                            ZIndex="100" />
     </Grid>
 
 </ContentPage>

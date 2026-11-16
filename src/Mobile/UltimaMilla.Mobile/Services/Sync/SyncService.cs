@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Configuration;
 using UltimaMilla.Mobile.Data;
@@ -10,6 +11,7 @@ using UltimaMilla.Mobile.Models.Sync;
 using UltimaMilla.Mobile.Services.Auth;
 using UltimaMilla.Mobile.Services.Notifications;
 using UltimaMilla.Mobile.Services.Optimization;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 
@@ -71,6 +73,7 @@ public class SyncService : ISyncService, IDisposable
     private readonly ILogger<SyncService> _logger;
     private readonly IOperadorThemeService? _themeService;
     private readonly INotificacionLocalService? _notificacionService;
+    private readonly IServiceProvider? _serviceProvider;
     private readonly SemaphoreSlim _syncSemaphore = new(1, 1);
     private readonly SemaphoreSlim _downloadRoutesSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _alertasRutaEmitidas = new();
@@ -112,7 +115,8 @@ public class SyncService : ISyncService, IDisposable
         IAuthService authService,
         ILogger<SyncService> logger,
         IOperadorThemeService? themeService = null,
-        INotificacionLocalService? notificacionService = null)
+        INotificacionLocalService? notificacionService = null,
+        IServiceProvider? serviceProvider = null)
     {
         _localDatabaseService = localDatabaseService;
         _httpClientFactory = httpClientFactory;
@@ -120,9 +124,10 @@ public class SyncService : ISyncService, IDisposable
         _logger = logger;
         _themeService = themeService;
         _notificacionService = notificacionService;
+        _serviceProvider = serviceProvider;
 
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
-        _ = IniciarBucleSincronizacionAutomaticaAsync(_autoSyncCts.Token);
+        _ = IniciarReintentoSilenciosoColaOfflineAsync(_autoSyncCts.Token);
     }
 
     public void RegistrarNotificacionRutaEmitida(Guid hojaDeRutaId, string tipoEvento)
@@ -152,15 +157,33 @@ public class SyncService : ISyncService, IDisposable
     {
         await NotificarCambioEstadoAsync();
 
-        // Disparar sincronización automática en segundo plano cuando la señal vuelve
+        // Recuperación instantánea al restablecerse la conectividad: reconecta SignalR y drena la cola offline sin esperas
         if (IsOnline && !string.IsNullOrWhiteSpace(_authService.AccessToken))
         {
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    _logger.LogInformation("Conexión restablecida. Iniciando sincronización automática de operaciones pendientes...");
-                    await EjecutarCicloSincronizacionAutomaticaAsync(_autoSyncCts.Token);
+                    var ct = _autoSyncCts.Token;
+                    _logger.LogInformation("Conexión restablecida. Drenando cola pendiente y reconectando SignalR en tiempo real.");
+
+                    var realtime = _serviceProvider?.GetService<IRealtimeTrackingService>();
+                    if (realtime is not null && !realtime.IsConnected)
+                    {
+                        await realtime.StartAsync(ct);
+                    }
+
+                    await ReintentarColaPendienteSilenciosamenteAsync(ct);
+
+                    if (_themeService is not null)
+                    {
+                        await _themeService.SincronizarIdentidadVisualAsync(ct);
+                    }
+
+                    if (!_authService.EsOperarioODeposito)
+                    {
+                        await DescargarYActualizarRutasDelServidorAsync(ct);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -168,22 +191,24 @@ public class SyncService : ISyncService, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error durante la sincronización automática reactiva de red.");
+                    _logger.LogError(ex, "Error durante la recuperación reactiva de red y sincronización en tiempo real.");
                 }
             });
         }
     }
 
-    private async Task IniciarBucleSincronizacionAutomaticaAsync(CancellationToken ct)
+    private async Task IniciarReintentoSilenciosoColaOfflineAsync(CancellationToken ct)
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(25));
+            // Reintento silencioso exclusivo para operaciones offline fallidas cuando la cola tiene pendientes;
+            // la descarga de rutas y actualizaciones se dispara en tiempo real vía SignalR.
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
             while (await timer.WaitForNextTickAsync(ct))
             {
                 try
                 {
-                    await EjecutarCicloSincronizacionAutomaticaAsync(ct);
+                    await ReintentarColaPendienteSilenciosamenteAsync(ct);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
@@ -191,7 +216,7 @@ public class SyncService : ISyncService, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Ciclo automático de sincronización omitido por error transitorio.");
+                    _logger.LogDebug(ex, "Reintento silencioso de cola pendiente omitido por error transitorio.");
                 }
             }
         }
@@ -201,31 +226,21 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
-    private async Task EjecutarCicloSincronizacionAutomaticaAsync(CancellationToken ct)
+    private async Task ReintentarColaPendienteSilenciosamenteAsync(CancellationToken ct)
     {
         if (_disposed || ct.IsCancellationRequested || !IsOnline || string.IsNullOrWhiteSpace(_authService.AccessToken))
             return;
 
-        if (await _localDatabaseService.ObtenerCantidadPendientesAsync() > 0)
-        {
-            var resultado = await SincronizarOperacionesPendientesAsync(ct);
-            if (resultado.Exitosas > 0 && _notificacionService is not null)
-            {
-                await _notificacionService.MostrarNotificacionOperativaAsync(
-                    "Sincronización Offline Completada",
-                    $"Se transmitieron {resultado.Exitosas} operaciones pendientes a la central correctamente.",
-                    "SINCRONIZACION");
-            }
-        }
+        if (await _localDatabaseService.ObtenerCantidadPendientesAsync() <= 0)
+            return;
 
-        if (_authService.EsOperarioODeposito)
+        var resultado = await SincronizarOperacionesPendientesAsync(ct);
+        if (resultado.Exitosas > 0 && _notificacionService is not null)
         {
-            if (_themeService is not null)
-                await _themeService.SincronizarIdentidadVisualAsync(ct);
-        }
-        else
-        {
-            await DescargarYActualizarRutasDelServidorAsync(ct);
+            await _notificacionService.MostrarNotificacionOperativaAsync(
+                "Sincronización Offline Completada",
+                $"Se transmitieron {resultado.Exitosas} operaciones pendientes a la central correctamente.",
+                "SINCRONIZACION");
         }
     }
 
@@ -388,7 +403,8 @@ public class SyncService : ISyncService, IDisposable
                     motivosLocal,
                     estadoRuta: r.Estado,
                     numeroRuta: r.NumeroRuta,
-                    fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue));
+                    fechaRuta: r.Fecha.ToDateTime(TimeOnly.MinValue),
+                    patenteVehiculo: r.PatenteVehiculo);
 
                 var rutaPosterior = await _localDatabaseService.ObtenerHojaDeRutaLocalPorIdAsync(r.HojaDeRutaId);
                 var paradasPosteriores = await _localDatabaseService.ObtenerParadasLocalesPorRutaAsync(r.HojaDeRutaId);
@@ -423,6 +439,11 @@ public class SyncService : ISyncService, IDisposable
             {
                 _logger.LogInformation("Se descargaron y actualizaron {Count} hojas de ruta desde el servidor.", rutasDescargadas.Count);
                 await NotificarCambioEstadoAsync($"Se actualizaron {rutasDescargadas.Count} rutas desde el servidor.");
+            }
+            else
+            {
+                _logger.LogInformation("El servidor informó que el repartidor no tiene hojas de ruta activas.");
+                await NotificarCambioEstadoAsync("Sin hojas de ruta activas asignadas.");
             }
 
             // Sincronizar también la identidad visual del operador en caso de cambios desde el Backoffice

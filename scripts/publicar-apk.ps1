@@ -25,7 +25,7 @@ param(
     [string]$Vm = $(if ($env:DESPLIEGUE_VM) { $env:DESPLIEGUE_VM } else { '57.156.63.70' }),
     [string]$Clave = $(if ($env:DESPLIEGUE_CLAVE_SSH) { $env:DESPLIEGUE_CLAVE_SSH } else { "$HOME\.ssh\azure_ultimamilla" }),
     [string]$Dominio = 'shippingbox.duckdns.org',
-    [string]$Notas = 'Actualizacion operativa de Ultima Milla',
+    [string]$Notas = 'Sincronizacion en tiempo real via SignalR y drenaje automatico de cola offline',
     [string]$PaqueteEsperado = 'com.ultimamilla.repartidor',
     # Permite publicar un versionCode igual o menor que el vigente (volver atras) o una version tomada del .csproj sin poder compararla con el APK
     [switch]$Forzar

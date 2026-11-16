@@ -136,14 +136,31 @@ public class ReasignarEnvioCommandHandler : IRequestHandler<ReasignarEnvioComman
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if ((enLaCalle || destinoId.HasValue) && _tableroNotifier is not null)
+        if (_tableroNotifier is not null)
         {
             try
             {
-                await _tableroNotifier.NotificarCambioRutaAsync(origen.OperadorId, origen.Id, origen.Estado, cancellationToken);
+                var detalleOrigen = destinoId.HasValue
+                    ? "Se reasignó un envío de la hoja de ruta."
+                    : "Se retiró un envío de la hoja de ruta.";
+
+                await _tableroNotifier.NotificarCambioRutaConDetalleAsync(
+                    origen.OperadorId,
+                    origen.Id,
+                    origen.Estado,
+                    detalleOrigen,
+                    cancellationToken);
+
                 if (destinoId.HasValue && destinoId.Value != Guid.Empty)
                 {
-                    await _tableroNotifier.NotificarCambioRutaAsync(origen.OperadorId, destinoId.Value, "EnTransito", cancellationToken);
+                    var rutaDestino = await _rutaRepository.GetByIdAsync(destinoId.Value, cancellationToken);
+                    var estadoDestino = rutaDestino?.Estado ?? "Liberada";
+                    await _tableroNotifier.NotificarCambioRutaConDetalleAsync(
+                        origen.OperadorId,
+                        destinoId.Value,
+                        estadoDestino,
+                        "Se reasignó un nuevo envío a la hoja de ruta.",
+                        cancellationToken);
                 }
             }
             catch

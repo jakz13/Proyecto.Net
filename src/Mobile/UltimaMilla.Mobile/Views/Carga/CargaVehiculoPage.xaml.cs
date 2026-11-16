@@ -28,7 +28,7 @@ public partial class CargaVehiculoPage : ContentPage
             {
                 await _viewModel.InicializarAsync();
             }
-            _viewModel.IniciarVigilanciaDespacho();
+            _viewModel.IniciarEscuchaTiempoReal();
         }
         catch (Exception ex)
         {
@@ -38,7 +38,7 @@ public partial class CargaVehiculoPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        _viewModel.DetenerVigilanciaDespacho();
+        _viewModel.DetenerEscuchaTiempoReal();
         base.OnDisappearing();
     }
 }
