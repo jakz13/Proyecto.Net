@@ -7,7 +7,7 @@ El ambiente de producción corre en **Azure** (desde el 11/11/2026; antes estuvo
 | Grupo de recursos | `rg-ultimamilla-<ambiente>` | Todo vive aquí: borrar el grupo borra el ambiente |
 | Red virtual y subred | `vnet-…`, `snet-…` | 10.10.0.0/16 y 10.10.1.0/24 |
 | Reglas de red | `nsg-…` | Solo SSH (22), HTTP (80) y HTTPS (443 TCP y UDP/HTTP3). Base, cola, Redis y Prometheus **no** se publican |
-| IP pública | `pip-…` | Estática (Standard): los tres dominios de DuckDNS apuntan a ella |
+| IP pública | `pip-…` | Estática (Standard): los cuatro subdominios de DuckDNS apuntan a ella |
 | Máquina virtual | `vm-…` | Ubuntu 24.04, `Standard_B2als_v2` (2 vCPU, 4 GB), disco de 64 GB, **solo clave SSH** |
 | Preparación del servidor | `cloud-init.yaml.tftpl` | Docker, swap, carpeta de la aplicación y `.env.prod` con los secretos **generados al azar en la propia VM** |
 
@@ -41,7 +41,7 @@ Para un ambiente aparte (por ejemplo, ensayar la reconstrucción sin tocar produ
 
 ## Reconstruir el ambiente completo (escenario 7 de la defensa)
 1. `terraform destroy` (o `terraform apply` en un ambiente nuevo) y anotar la salida `ip_publica`.
-2. Apuntar los tres dominios de DuckDNS a esa IP.
+2. Apuntar los dominios de DuckDNS (`shippingbox`, `shippingbox-comercio` y sus subdominios `seguimiento.shippingbox`, `panel.shippingbox`) a esa IP mediante `scripts\actualizar-dns.ps1`.
 3. Esperar ~3 minutos a que cloud-init termine (Docker, swap, `.env.prod`).
 4. Desplegar la aplicación: `scripts\desplegar.bat` (construye las imágenes, las envía por SSH y levanta todo). El primer arranque ejecuta las migraciones y siembra los datos.
 5. Verificar: `https://<dominio>/ready` responde 200.

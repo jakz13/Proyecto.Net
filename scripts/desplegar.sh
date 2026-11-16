@@ -2,10 +2,10 @@
 # Despliega en la VM de Azure. Lo usa el pipeline (GitHub Actions) y sirve en Linux/Mac.
 # En Windows usar scripts/desplegar.bat.
 #
-# Uso:      scripts/desplegar.sh [api] [worker] [backoffice] [portal] [panel]   (sin argumentos: todos)
+# Uso:      scripts/desplegar.sh [api] [worker] [backoffice] [portal] [seguimiento] [panel]   (sin argumentos: todos)
 # Variables: VM_HOST (IP de la VM, obligatoria), VM_USUARIO (por defecto azureuser),
 #            VM_CLAVE_SSH (ruta a la clave privada, por defecto ~/.ssh/azure_ultimamilla),
-#            DOMINIO, DOMINIO_COMERCIO, DOMINIO_PANEL (para verificar al final)
+#            DOMINIO, DOMINIO_COMERCIO, DOMINIO_SEGUIMIENTO, DOMINIO_PANEL (para verificar al final)
 #            REGISTRO (prefijo de las imágenes, por defecto ghcr.io/jakz13/ultimamilla)
 #            DESDE_REGISTRO=1: no construye ni envía imágenes; la VM las descarga del registro (lo usa el pipeline, que ya las publicó)
 #              con GHCR_USUARIO y GHCR_TOKEN si el paquete no es público
@@ -17,6 +17,7 @@ VM_USUARIO="${VM_USUARIO:-azureuser}"
 VM_CLAVE_SSH="${VM_CLAVE_SSH:-$HOME/.ssh/azure_ultimamilla}"
 DOMINIO="${DOMINIO:-shippingbox.duckdns.org}"
 DOMINIO_COMERCIO="${DOMINIO_COMERCIO:-shippingbox-comercio.duckdns.org}"
+DOMINIO_SEGUIMIENTO="${DOMINIO_SEGUIMIENTO:-seguimiento.shippingbox.duckdns.org}"
 DOMINIO_PANEL="${DOMINIO_PANEL:-panel.shippingbox.duckdns.org}"
 REGISTRO="${REGISTRO:-ghcr.io/jakz13/ultimamilla}"
 DESDE_REGISTRO="${DESDE_REGISTRO:-}"
@@ -89,7 +90,8 @@ verificar() {
 }
 verificar "https://$DOMINIO/ready"
 for s in "${SERVICIOS[@]}"; do
-  [ "$s" = portal ] && verificar "https://$DOMINIO_COMERCIO/"
-  [ "$s" = panel ]  && verificar "https://$DOMINIO_PANEL/api/health"
+  [ "$s" = portal ]      && verificar "https://$DOMINIO_COMERCIO/"
+  [ "$s" = seguimiento ] && verificar "https://$DOMINIO_SEGUIMIENTO/"
+  [ "$s" = panel ]       && verificar "https://$DOMINIO_PANEL/api/health"
 done
 echo; echo "Despliegue terminado."
