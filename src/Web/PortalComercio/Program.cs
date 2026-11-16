@@ -29,6 +29,44 @@ if (!app.Environment.IsDevelopment())
 
 app.UseAntiforgery();
 
+// Caché del manifiesto de recursos de Blazor. resource-collection.<huella>.js sale con "immutable" por un año, pero su huella NO cambia
+// cuando cambia su contenido (cada despliegue trae otros hashes de ensamblados bajo el mismo nombre). El navegador se quedaba con la copia
+// vieja, su integridad ya no coincidía con el importmap y el portal quedaba en "Cargando Portal del Comercio…" (solo se arreglaba con
+// una ventana de incógnito). Ahora se revalida siempre (ETag => 304, casi sin costo).
+// Además, los navegadores que ya guardaron la copia vieja la purgan una única vez: Clear-Site-Data "cache" + cookie de marca.
+app.Use(async (contexto, siguiente) =>
+{
+    var ruta = contexto.Request.Path.Value ?? string.Empty;
+    var esManifiesto = ruta.StartsWith("/_framework/resource-collection", StringComparison.OrdinalIgnoreCase);
+    var esDocumento = HttpMethods.IsGet(contexto.Request.Method)
+        && !ruta.StartsWith("/_framework/", StringComparison.OrdinalIgnoreCase)
+        && contexto.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase)
+        && !contexto.Request.Cookies.ContainsKey(CookiePurgaCache);
+
+    if (esManifiesto || esDocumento)
+    {
+        contexto.Response.OnStarting(() =>
+        {
+            if (esManifiesto)
+                contexto.Response.Headers.CacheControl = "no-cache";
+            if (esDocumento && contexto.Response.StatusCode < 400)
+            {
+                contexto.Response.Headers["Clear-Site-Data"] = "\"cache\"";
+                contexto.Response.Cookies.Append(CookiePurgaCache, "1", new CookieOptions
+                {
+                    Secure = true,
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Lax,
+                    MaxAge = TimeSpan.FromDays(365)
+                });
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    await siguiente();
+});
+
 // Middleware para sincronizar configuración (Mocks vs API real) hacia el cliente WASM
 // y evitar bloqueos de caché o desincronización de hashes SRI en desarrollo.
 app.Use(async (contexto, siguiente) =>
@@ -170,3 +208,9 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(UltimaMilla.PortalComercio.Client.Routes).Assembly);
 
 app.Run();
+
+/// <summary>Cookie que marca que este navegador ya purgó la caché vieja del portal (ver el middleware de caché).</summary>
+public partial class Program
+{
+    internal const string CookiePurgaCache = "um_purga_cache_v1";
+}
