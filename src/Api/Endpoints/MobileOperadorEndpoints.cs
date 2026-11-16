@@ -53,7 +53,7 @@ public static class MobileOperadorEndpoints
             var reglaOperativa = await db.ReglasOperativas
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Where(r => r.OperadorId == operadorId)
+                .Where(r => r.OperadorId == operadorId && (r.VigenteHasta == null || r.VigenteHasta > DateTime.UtcNow))
                 .OrderByDescending(r => r.Version)
                 .FirstOrDefaultAsync(ct);
 

@@ -3,6 +3,7 @@ using UltimaMilla.Application.Commands.Operador.CambiarEstadoMotivoNoEntrega;
 using UltimaMilla.Application.Commands.Operador.CrearMotivoNoEntrega;
 using UltimaMilla.Application.Commands.Operador.PublicarReglaOperativa;
 using UltimaMilla.Application.Exceptions;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Operador;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Operador;
@@ -510,5 +511,47 @@ public class OperadorConfiguracionHandlerTests
 
         Assert.True(res.SlaVencido);
         Assert.Equal(fechaDespacho.AddHours(12), res.FechaLimiteSla);
+    }
+
+    [Fact]
+    public async Task Publicar_NotificaIdentidadVisualYReglaActualizadaEnTiempoReal()
+    {
+        var notificador = new FakeIdentidadNotifier();
+        var handler = new PublicarReglaOperativaCommandHandler(_reglas, _tenant, _clock, _uow, notificador);
+
+        var dto = await handler.Handle(Regla(tipo: "Completa"), default);
+
+        Assert.Equal("Completa", dto.TipoPruebaEntregaExigida);
+        var operadorNotificado = Assert.Single(notificador.OperadoresNotificados);
+        Assert.Equal(_tenant.OperadorId, operadorNotificado);
+    }
+
+    [Fact]
+    public async Task Publicar_CuandoFallaElNotificadorRealtime_GuardaLaReglaSinFallar()
+    {
+        var notificador = new FakeIdentidadNotifier { LanzarExcepcion = true };
+        var handler = new PublicarReglaOperativaCommandHandler(_reglas, _tenant, _clock, _uow, notificador);
+
+        var dto = await handler.Handle(Regla(tipo: "Foto"), default);
+
+        Assert.Equal("Foto", dto.TipoPruebaEntregaExigida);
+        Assert.Equal(1, _uow.Confirmaciones);
+    }
+
+    private sealed class FakeIdentidadNotifier : ITableroRealtimeNotifier
+    {
+        public bool LanzarExcepcion { get; init; }
+        public List<Guid> OperadoresNotificados { get; } = new();
+
+        public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default) => Task.CompletedTask;
+        public Task NotificarHitoParadaAsync(Guid operadorId, Guid hojaDeRutaId, Guid paradaId, string estadoParada, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task NotificarIdentidadVisualActualizadaAsync(Guid operadorId, CancellationToken ct = default)
+        {
+            if (LanzarExcepcion)
+                throw new InvalidOperationException("Fallo simulado de Redis/SignalR");
+            OperadoresNotificados.Add(operadorId);
+            return Task.CompletedTask;
+        }
     }
 }

@@ -14,14 +14,20 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ITableroRealtimeNotifier? _notifier;
 
     public PublicarReglaOperativaCommandHandler(
-        IReglaOperativaRepository reglas, ICurrentTenant currentTenant, IClock clock, IUnitOfWork unitOfWork)
+        IReglaOperativaRepository reglas,
+        ICurrentTenant currentTenant,
+        IClock clock,
+        IUnitOfWork unitOfWork,
+        ITableroRealtimeNotifier? notifier = null)
     {
         _reglas = reglas;
         _currentTenant = currentTenant;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _notifier = notifier;
     }
 
     public async Task<ReglaOperativaDto> Handle(PublicarReglaOperativaCommand request, CancellationToken cancellationToken)
@@ -83,6 +89,18 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
         vigente?.FinalizarVigencia(ahora);
         await _reglas.AddAsync(nueva, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_notifier is not null)
+        {
+            try
+            {
+                await _notifier.NotificarIdentidadVisualActualizadaAsync(operadorId, cancellationToken);
+            }
+            catch
+            {
+                // El transporte en tiempo real nunca revierte una regla ya publicada
+            }
+        }
 
         return OperadorMapper.ToDto(nueva);
     }

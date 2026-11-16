@@ -122,7 +122,7 @@
                                 <input type="text"
                                        id="claveFirmaInput"
                                        class="form-control font-monospace"
-                                       placeholder="Clave secreta para verificar X-Firma-Sha256"
+                                       placeholder="Clave secreta para verificar X-Hub-Signature-256"
                                        @bind="claveFirma" />
                                 <button class="btn btn-outline-secondary"
                                         type="button"
@@ -139,7 +139,7 @@
                                 </button>
                             </div>
                             <div class="form-text small" style="font-size: 0.75rem;">
-                                Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Firma-Sha256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
+                                Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Hub-Signature-256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
                             </div>
                         </div>
                     </div>
@@ -186,7 +186,7 @@
                                     @resultadoPrueba.Mensaje
                                 </div>
                                 <div class="mb-1">
-                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Cabecera X-Firma-Sha256 generada:</span>
+                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Cabecera X-Hub-Signature-256 generada:</span>
                                     <div class="font-monospace text-dark bg-white p-1 rounded border text-break small" style="font-size: 0.7rem;">
                                         @resultadoPrueba.FirmaGenerada
                                     </div>

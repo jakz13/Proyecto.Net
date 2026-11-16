@@ -49,6 +49,17 @@ public static class IncidenciasEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .WithOpenApi();
 
+        group.MapGet("/conflictos", (
+            [FromQuery] int? maximo,
+            [FromServices] IMediator mediator,
+            CancellationToken ct) => Ejecutar(async () =>
+                Results.Ok(await mediator.Send(new ListarConflictosSincronizacionQuery(maximo ?? 50), ct))))
+        .WithName("ListarConflictosSincronizacion")
+        .WithSummary("Listar conflictos de sincronización offline resueltos")
+        .Produces<IReadOnlyList<ConflictoSincronizacionDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .WithOpenApi();
+
         group.MapGet("/{incidenciaId:guid}", (
             [FromRoute] Guid incidenciaId,
             [FromServices] IMediator mediator,
