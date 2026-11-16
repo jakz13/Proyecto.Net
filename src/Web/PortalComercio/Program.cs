@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using System.Text.Json;
 using UltimaMilla.PortalComercio.Components;
 
@@ -8,6 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 // y consume la API directamente.
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
+
+// Claves de antiforgery y cookies en un volumen: sin esto cada despliegue (contenedor nuevo) deja inválidos los formularios y las
+// sesiones abiertas del navegador hasta que se limpian las cookies, y el portal "no anda" tras cada actualización.
+var rutaClaves = builder.Configuration["DataProtection:Path"];
+if (!string.IsNullOrWhiteSpace(rutaClaves))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("UltimaMilla.PortalComercio")
+        .PersistKeysToFileSystem(new DirectoryInfo(rutaClaves));
+}
 
 var app = builder.Build();
 

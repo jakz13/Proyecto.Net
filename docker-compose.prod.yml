@@ -218,7 +218,10 @@ services:
       ApiSettings__BaseUrl: https://${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
       UsarMocks: "false"
       Auth__PermitirModoDemo: "false"
+      DataProtection__Path: /keys
       DOTNET_GCConserveMemory: "7"
+    volumes:
+      - portal_keys:/keys
     depends_on:
       - caddy
     mem_limit: 128m
@@ -307,6 +310,7 @@ volumes:
   postgres_data:
   rabbitmq_data:
   backoffice_keys:
+  portal_keys:
   caddy_data:
   caddy_config:
   prometheus_data:
