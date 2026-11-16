@@ -1169,6 +1169,9 @@
                 var actualizado = resultadoPaginado?.Elementos.FirstOrDefault(e => e.Id == envioEnSeguimiento.Id);
                 if (actualizado is not null && actualizado.Estado != envioEnSeguimiento.Estado)
                     envioEnSeguimiento = envioEnSeguimiento with { Estado = actualizado.Estado };
+
+                // La línea de vida y los avisos del envío abierto también se ponen al día con cada cambio
+                await RefrescarDetalleDelEnvioAbiertoAsync();
             }
 
             if (!string.IsNullOrWhiteSpace(codigoSeguimiento))
@@ -1194,6 +1197,28 @@
 
             StateHasChanged();
         });
+    }
+
+    /// <summary>Vuelve a pedir los eventos de trazabilidad y los avisos del envío abierto en el panel, sin cerrarlo ni mostrar "cargando".</summary>
+    private async Task RefrescarDetalleDelEnvioAbiertoAsync()
+    {
+        if (envioEnSeguimiento is null)
+            return;
+
+        var envioId = envioEnSeguimiento.Id;
+        try
+        {
+            var eventos = await EnviosApi.ObtenerHistorialEnvioAsync(envioId);
+            if (envioEnSeguimiento?.Id == envioId)
+                eventosSeguimiento = eventos;
+            var avisos = await AvisosApi.ConsultarHistorialAvisosAsync(envioId: envioId);
+            if (envioEnSeguimiento?.Id == envioId)
+                avisosDelEnvio = avisos;
+        }
+        catch
+        {
+            // Un fallo al actualizar en vivo no tapa lo que el panel ya muestra
+        }
     }
 
     public void Dispose()
