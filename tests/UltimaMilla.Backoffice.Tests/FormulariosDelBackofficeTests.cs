@@ -331,6 +331,9 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
 
         var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
         Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {cuerpo[..Math.Min(cuerpo.Length, 1200)]}");
+    }
+
+    [Fact]
     public async Task Flota_CamposDeCedulaExigenFormatoOchoDigitosSinPuntosNiGuiones()
     {
         var cliente = await SesionDeAdministradorAsync();
