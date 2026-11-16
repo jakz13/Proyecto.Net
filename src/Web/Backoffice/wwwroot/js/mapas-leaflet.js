@@ -564,6 +564,8 @@
             case '8': return 'EnDevolucion';
             case '9': return 'Devuelto';
             case '10': return 'Extraviado';
+            case '11': return 'EntregadoParcialmente';
+            case '99': return 'Cancelado';
             default: return texto;
         }
     }
@@ -572,7 +574,8 @@
         if (enRiesgo) return 'fallo';
         if (estadoNorm === 'Entregado') return 'entregado';
         if (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado') return 'fallo';
-        if (estadoNorm === 'EnTransito' || estadoNorm === 'EnCurso' || estadoNorm === 'AsignadoARuta') return 'activo';
+        // Entrega parcial: parte de los bultos ya quedó en destino y el resto sigue su camino, por eso se muestra como activo
+        if (estadoNorm === 'EnTransito' || estadoNorm === 'EnCurso' || estadoNorm === 'AsignadoARuta' || estadoNorm === 'EntregadoParcialmente') return 'activo';
         return 'pendiente';
     }
 
@@ -589,6 +592,8 @@
             case 'EnDevolucion': return 'En devolución';
             case 'Devuelto': return 'Devuelto';
             case 'Extraviado': return 'Extraviado';
+            case 'EntregadoParcialmente': return 'Entregado parcialmente';
+            case 'Cancelado': return 'Cancelado';
             default: return estadoNorm;
         }
     }
@@ -725,7 +730,7 @@
         var tieneCamionActivo = false;
         var colorLinea = estadoNorm === 'Entregado'
             ? '#15803D'
-            : (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado' ? '#B91C1C' : '#64748B');
+            : (estadoNorm === 'NoEntregado' || estadoNorm === 'Extraviado' ? '#B91C1C' : (estadoNorm === 'EntregadoParcialmente' ? '#B45309' : '#64748B'));
 
         trazarRutaOSRM(mapa, [
             [DEPOSITO_CENTRAL.lat, DEPOSITO_CENTRAL.lng],

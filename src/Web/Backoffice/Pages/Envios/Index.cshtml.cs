@@ -30,7 +30,7 @@ public class IndexModel : PageModel
     public string Busqueda { get; set; } = string.Empty;
 
     [BindProperty(SupportsGet = true)]
-    public string EstadoFiltro { get; set; } = "Todos"; // "Todos", "CandidatosExtravio", "EnDeposito", "EnTransito", "Extraviado"
+    public string EstadoFiltro { get; set; } = "Todos"; // "Todos", "CandidatosExtravio", "EnDeposito", "EnTransito", "EntregadoParcialmente", "Extraviado"
 
     [BindProperty]
     public DeclararExtraviadoDto DeclaracionInput { get; set; } = new();
@@ -79,6 +79,10 @@ public class IndexModel : PageModel
         else if (EstadoFiltro == "EnTransito")
         {
             filtrados = filtrados.Where(e => e.Estado == EstadoEnvioDto.EnTransito);
+        }
+        else if (EstadoFiltro == "EntregadoParcialmente")
+        {
+            filtrados = filtrados.Where(e => e.Estado == EstadoEnvioDto.EntregadoParcialmente);
         }
         else if (EstadoFiltro == "Extraviado")
         {
