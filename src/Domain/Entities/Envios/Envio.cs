@@ -1133,7 +1133,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         {
             estadoFinal = EstadoEnvio.EnDevolucion;
             tipoEventoPaso2 = "ResolucionReglaOperativa_EnDevolucion";
-            payloadPaso2 = $"Superado el límite de {reglaOperativa.MaxIntentosEntrega} intentos permitidos ({intentosAcumulados} registrados). Activando política de devolución: '{reglaOperativa.PoliticaDevolucion}'.";
+            payloadPaso2 = $"Superado el límite de {reglaOperativa.MaxIntentosEntrega} intentos permitidos ({intentosAcumulados} registrados). Activando política de devolución: {ReglaOperativa.DescribirPoliticaDevolucion(reglaOperativa.PoliticaDevolucion)}.";
         }
         else
         {

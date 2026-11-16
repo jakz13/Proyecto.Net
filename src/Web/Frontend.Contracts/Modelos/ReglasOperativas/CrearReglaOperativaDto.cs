@@ -22,10 +22,10 @@ public record CrearReglaOperativaDto
     [Display(Name = "Tipo de prueba de entrega exigida")]
     public string TipoPruebaEntregaExigida { get; set; } = "Firma digital y Foto del paquete en puerta";
 
-    [Required(ErrorMessage = "Debe definir la política de devolución aplicable.")]
-    [StringLength(300, ErrorMessage = "La política de devolución no puede superar 300 caracteres.")]
-    [Display(Name = "Política de devolución")]
-    public string PoliticaDevolucion { get; set; } = "Custodia por 72 horas en depósito central antes de retorno al comercio remitente";
+    [Required(ErrorMessage = "Debe indicar las horas de custodia antes de devolver al comercio.")]
+    [RegularExpression(@"^\d{1,3}$", ErrorMessage = "La política de devolución debe ser un número entero de horas (0 = devolución inmediata).")]
+    [Display(Name = "Horas de custodia antes de devolver")]
+    public string PoliticaDevolucion { get; set; } = "72";
 
     [Required(ErrorMessage = "Debe definir el plazo SLA para envíos Estándar.")]
     [Range(1, 240, ErrorMessage = "El plazo comprometido estándar debe estar entre 1 y 240 horas.")]

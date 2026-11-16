@@ -149,7 +149,7 @@ public static class DatabaseSeeder
                 maxIntentosEntrega: 3,
                 plazoEntreIntentos: TimeSpan.FromHours(24),
                 tipoPruebaEntregaExigida: "Firma digital y documento del receptor",
-                politicaDevolucion: "Retorno a depósito central al alcanzar 3 intentos fallidos",
+                politicaDevolucion: "72",
                 plazoComprometidoEstandar: TimeSpan.FromHours(48),
                 plazoComprometidoUrgente: TimeSpan.FromHours(24)
             );
@@ -490,7 +490,7 @@ public static class DatabaseSeeder
                 maxIntentosEntrega: 2, // Configuración distinta: 2 intentos (vs 3 de Operador 1)
                 plazoEntreIntentos: TimeSpan.FromHours(12),
                 tipoPruebaEntregaExigida: "Firma digital y fotografía de fachada",
-                politicaDevolucion: "Retorno a depósito central al alcanzar 2 intentos fallidos",
+                politicaDevolucion: "48",
                 plazoComprometidoEstandar: TimeSpan.FromHours(72), // Configuración distinta: 72h (vs 48h de Operador 1)
                 plazoComprometidoUrgente: TimeSpan.FromHours(36)
             );

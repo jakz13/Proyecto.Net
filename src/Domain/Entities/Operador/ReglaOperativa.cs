@@ -17,6 +17,26 @@ public class ReglaOperativa : Entity, IMustHaveTenant
             PoliticaDevolucionAlComercio
         };
 
+    /// <summary>Máximo de horas de custodia en depósito antes de devolver al comercio (30 días).</summary>
+    public const int MaxHorasCustodiaDevolucion = 720;
+
+    /// <summary>
+    /// La política de devolución es un número: las horas que el envío queda en custodia en el depósito antes de volver al comercio remitente (0 = devolución inmediata).
+    /// Las versiones antiguas guardaban un texto libre; se muestra tal cual.
+    /// </summary>
+    public static bool EsPoliticaDevolucionNumerica(string? politica, out int horas)
+    {
+        horas = 0;
+        return !string.IsNullOrWhiteSpace(politica)
+               && int.TryParse(politica.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out horas)
+               && horas <= MaxHorasCustodiaDevolucion;
+    }
+
+    public static string DescribirPoliticaDevolucion(string? politica)
+        => EsPoliticaDevolucionNumerica(politica, out var horas)
+            ? (horas == 0 ? "devolución inmediata al comercio" : $"custodia de {horas} h en depósito antes de devolver al comercio")
+            : politica?.Trim() ?? string.Empty;
+
     public Guid OperadorId { get; private set; }
     public int Version { get; private set; }
     public DateTime VigenteDesde { get; private set; }

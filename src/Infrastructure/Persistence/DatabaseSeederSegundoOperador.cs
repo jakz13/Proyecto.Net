@@ -83,7 +83,7 @@ public static class DatabaseSeederSegundoOperador
                 maxIntentosEntrega: 2,
                 plazoEntreIntentos: TimeSpan.FromHours(12),
                 tipoPruebaEntregaExigida: "Foto del bulto entregado",
-                politicaDevolucion: "Retorno a depósito al alcanzar 2 intentos fallidos",
+                politicaDevolucion: "48",
                 plazoComprometidoEstandar: TimeSpan.FromHours(72),
                 plazoComprometidoUrgente: TimeSpan.FromHours(24)), ct);
         }

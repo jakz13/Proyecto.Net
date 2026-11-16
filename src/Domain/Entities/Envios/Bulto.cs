@@ -58,8 +58,8 @@ public class Bulto : Entity
         if (string.IsNullOrWhiteSpace(identificacion))
             throw new DomainValidationException("La identificación del bulto no puede ser vacía.");
 
-        if (peso < 0.1m)
-            throw new DomainValidationException("El peso del bulto debe ser mayor o igual a 0.1 Kg.");
+        if (peso <= 0)
+            throw new DomainValidationException("El peso del bulto debe ser mayor a cero.");
 
         if (alto <= 0 || ancho <= 0 || profundo <= 0)
             throw new DomainValidationException("Las dimensiones del bulto deben ser mayores a cero.");

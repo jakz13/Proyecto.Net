@@ -64,6 +64,9 @@ public class EditarModel : PageModel
             return Page();
         }
 
+        // "Todos los días" se convierte en una franja por cada día de la semana
+        Franjas = FranjasTodosLosDias.Expandir(Franjas);
+
         // Validación de superposiciones inconsistentes
         var (esValido, mensajeError) = await _zonasApi.ValidarSuperposicionFranjasAsync(Franjas);
         if (!esValido)

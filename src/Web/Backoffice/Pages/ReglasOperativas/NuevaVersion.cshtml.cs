@@ -35,7 +35,8 @@ public class NuevaVersionModel : PageModel
                 MaxIntentosEntrega = VersionActual.MaxIntentosEntrega,
                 HorasEntreIntentos = VersionActual.HorasEntreIntentos,
                 TipoPruebaEntregaExigida = VersionActual.TipoPruebaEntregaExigida,
-                PoliticaDevolucion = VersionActual.PoliticaDevolucion,
+                // Las versiones antiguas tenían un texto libre: el campo ahora es numérico, se parte del valor habitual
+                PoliticaDevolucion = int.TryParse(VersionActual.PoliticaDevolucion, out _) ? VersionActual.PoliticaDevolucion : "72",
                 HorasPlazoComprometidoEstandar = VersionActual.HorasPlazoComprometidoEstandar,
                 HorasPlazoComprometidoUrgente = VersionActual.HorasPlazoComprometidoUrgente,
                 VigenteDesde = DateTime.UtcNow,
