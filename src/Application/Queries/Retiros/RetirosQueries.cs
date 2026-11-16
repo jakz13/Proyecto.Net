@@ -22,11 +22,13 @@ public class ListarRetirosDelComercioQueryHandler : IRequestHandler<ListarRetiro
 
     private readonly IRetiroRepository _retiros;
     private readonly ICurrentTenant _tenant;
+    private readonly IZonaCoberturaRepository? _zonas;
 
-    public ListarRetirosDelComercioQueryHandler(IRetiroRepository retiros, ICurrentTenant tenant)
+    public ListarRetirosDelComercioQueryHandler(IRetiroRepository retiros, ICurrentTenant tenant, IZonaCoberturaRepository? zonas = null)
     {
         _retiros = retiros;
         _tenant = tenant;
+        _zonas = zonas;
     }
 
     public async Task<PaginaRetirosDto> Handle(ListarRetirosDelComercioQuery request, CancellationToken cancellationToken)
@@ -41,7 +43,23 @@ public class ListarRetirosDelComercioQueryHandler : IRequestHandler<ListarRetiro
         var (items, total) = await _retiros.BuscarPorComercioAsync(
             _tenant.OperadorId, comercioOperadorId, request.Estado, pagina, tamano, cancellationToken);
 
-        return new PaginaRetirosDto(items.Select(RetiroMapper.Resumir).ToList(), total, pagina, tamano);
+        IReadOnlyList<FranjaRetiroDisponibleDto>? franjas = null;
+        if (_zonas is not null)
+        {
+            var zonasActivas = await _zonas.ListarZonasDelOperadorAsync(_tenant.OperadorId, null, true, cancellationToken);
+            franjas = zonasActivas
+                .SelectMany(z => z.FranjasHorarias.Where(f => f.Activa).Select(f => new FranjaRetiroDisponibleDto(
+                    f.Id,
+                    z.Nombre,
+                    f.DiaSemana.ToString(),
+                    $"{z.Nombre} · {f.HoraInicio:HH\\:mm} - {f.HoraFin:HH\\:mm}")))
+                .GroupBy(f => f.VentanaTexto)
+                .Select(g => g.First())
+                .OrderBy(f => f.VentanaTexto)
+                .ToList();
+        }
+
+        return new PaginaRetirosDto(items.Select(RetiroMapper.Resumir).ToList(), total, pagina, tamano, franjas);
     }
 }
 

@@ -33,7 +33,8 @@ public record NotificacionDestinatario(
     string NombreDestinatario,
     string Canal,
     string Contacto,
-    EstadoEnvio Estado);
+    EstadoEnvio Estado,
+    string? ResumenBultosTexto = null);
 
 /// <summary>Puerto de envío de notificaciones al destinatario por correo o mensajería.</summary>
 public interface INotificacionDestinatarioService

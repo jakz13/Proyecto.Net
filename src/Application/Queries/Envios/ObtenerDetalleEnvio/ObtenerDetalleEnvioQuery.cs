@@ -20,7 +20,13 @@ public record DetalleEnvioDto(
     IReadOnlyList<DetalleEventoDto> Eventos,
     IReadOnlyList<DetalleIntentoDto> Intentos);
 
-public record DetalleBultoDto(Guid BultoId, string Identificacion, decimal PesoKg, string EstadoBulto, string? Prioridad);
+public record DetalleBultoDto(
+    Guid BultoId,
+    string Identificacion,
+    decimal PesoKg,
+    string EstadoBulto,
+    string? Prioridad,
+    string? MotivoNoEntregaCodigo = null);
 
 public record DetalleEventoDto(
     DateTime Fecha,

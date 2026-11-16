@@ -87,8 +87,18 @@
                 </div>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label asp-for="NuevoUsuario.Documento" class="form-label small fw-semibold">Cédula / DNI *</label>
-                        <input asp-for="NuevoUsuario.Documento" id="inputDocumentoRepartidor" class="form-control form-control-sm font-monospace" placeholder="Ej: 45129803 (8 dígitos)" maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
+                        <label asp-for="NuevoUsuario.Documento" class="form-label small fw-semibold">Cédula *</label>
+                        <input asp-for="NuevoUsuario.Documento"
+                               id="inputDocumentoRepartidor"
+                               type="text"
+                               inputmode="numeric"
+                               pattern="[0-9]{8}"
+                               maxlength="8"
+                               autocomplete="off"
+                               class="form-control form-control-sm font-monospace js-solo-cedula"
+                               placeholder="Ej: 12345678"
+                               title="Ingrese 8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678)." />
+                        <div class="form-text" style="font-size: 0.725rem;">8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678).</div>
                         <span asp-validation-for="NuevoUsuario.Documento" class="text-danger small"></span>
                     </div>
                     <div class="col-md-6">
@@ -166,6 +176,7 @@
             }
             if (inputDoc) {
                 inputDoc.required = esRepartidor;
+                if (!esRepartidor) inputDoc.value = '';
             }
             if (inputTel) {
                 inputTel.required = esRepartidor;
@@ -179,6 +190,16 @@
                 }
             }
         }
-        document.addEventListener('DOMContentLoaded', actualizarCamposSegunRol);
+        document.addEventListener('DOMContentLoaded', function () {
+            actualizarCamposSegunRol();
+            document.querySelectorAll('.js-solo-cedula').forEach(function (campo) {
+                campo.addEventListener('input', function () {
+                    var soloDigitos = this.value.replace(/\D+/g, '').slice(0, 8);
+                    if (this.value !== soloDigitos) {
+                        this.value = soloDigitos;
+                    }
+                });
+            });
+        });
     </script>
 }

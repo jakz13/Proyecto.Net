@@ -53,8 +53,13 @@ public class ConfirmarDevolucionCommandHandler : IRequestHandler<ConfirmarDevolu
 
         var devolucion = await _devolucionRepository.GetByEnvioIdAsync(envio.Id, cancellationToken);
 
+        var yaConfirmadaTotal = envio.EstadoActual == EstadoEnvio.Devuelto;
+        var yaConfirmadaParcial = envio.EstadoActual == EstadoEnvio.EntregadoParcialmente
+            && envio.Bultos.Any(b => b.EstadoBulto == Domain.Entities.Envios.MaquinaEstadosBulto.Devuelto)
+            && !envio.Bultos.Any(b => b.EstadoBulto == Domain.Entities.Envios.MaquinaEstadosBulto.EnRetornoADeposito);
+
         // Idempotencia: confirmar una devolución ya cerrada no repite transiciones
-        if (envio.EstadoActual == EstadoEnvio.Devuelto)
+        if (yaConfirmadaTotal || yaConfirmadaParcial)
         {
             return new ConfirmarDevolucionResultDto(
                 envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString(), devolucion?.Estado ?? Devolucion.EstadoDevuelto,

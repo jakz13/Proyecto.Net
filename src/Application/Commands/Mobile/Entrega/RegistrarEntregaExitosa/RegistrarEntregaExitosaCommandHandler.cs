@@ -104,19 +104,16 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
-        // Tolerancia de secuencia offline: si la hoja de ruta ya tenía carga confirmada o despacho pendiente
-        // de iniciar recorrido, se promueve automáticamente a EnTransito antes de evaluar conflictos o entrega.
-        if (ruta.Estado == "EnCarga")
+        // Si el envío pertenece a esta hoja de ruta activa y aún figura como AsignadoARuta (o la ruta estaba en Liberada/Planificada/EnCarga/Despachada),
+        // se aplica automáticamente la transición válida AsignadoARuta -> EnTransito antes de registrar la entrega física con evidencia.
+        if (parada.Estado != "Cancelada" && envio.EstadoActual == EstadoEnvio.AsignadoARuta && (envio.HojaDeRutaId == ruta.Id || envio.HojaDeRutaId is null))
         {
-            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
-                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega móvil");
-            ruta.Despachar();
+            envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega móvil en calle");
         }
-        if (ruta.Estado == "Despachada")
+
+        if (parada.Estado != "Cancelada" && ruta.Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
         {
-            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
-                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega móvil");
-            ruta.IniciarRecorrido();
+            ruta.AsegurarEnTransitoParaOperacionEnCalle();
         }
 
         // Manejo explícito de conflictos de sincronización:

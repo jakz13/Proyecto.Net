@@ -43,6 +43,7 @@ public interface ILocalDatabaseService
     Task<List<HojaDeRutaSelectorItem>> ListarHojasDeRutaParaSelectorAsync(Guid? seleccionadaId = null);
     Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId);
     Task ActualizarEstadoParadaLocalAsync(Guid paradaId, string nuevoEstado);
+    Task RevertirEstadoParadaLocalAsync(Guid paradaId, string estadoPrevio = "Pendiente");
     Task MarcarEntregaParcialLocalAsync(Guid paradaId, IReadOnlyCollection<string> codigosEntregados);
     Task ActualizarEstadoHojaDeRutaAsync(Guid hojaDeRutaId, string nuevoEstado);
     Task MarcarBultoVerificadoCargaAsync(Guid bultoId, bool verificado);
@@ -334,7 +335,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             TipoOperacion = tipoOperacion,
             PayloadJson = payloadJson,
             FechaCreacionUtc = DateTime.UtcNow,
-            Sincronizado = false
+            Sincronizado = false,
+            CorrelationId = Guid.NewGuid().ToString("N")
         };
 
         return await Db.InsertAsync(operacion);
@@ -553,6 +555,10 @@ public class LocalDatabaseService : ILocalDatabaseService
             bool ordenOptimizadoLocalmente = Preferences.Default.Get($"RutaOrdenOptimizadoLocal_{hojaDeRutaId:N}", false);
 
             // 2. Paradas que el servidor ya no incluye (reasignadas o retiradas de la ruta) y que no tienen nada pendiente de enviar
+            var operacionesPendientesCola = conn.Table<OperacionOfflineLocal>()
+                .Where(o => !o.Sincronizado)
+                .ToList();
+
             var idsServidor = paradas.Where(p => p.ParadaId != Guid.Empty).Select(p => p.ParadaId).ToHashSet();
             var obsoletas = conn.Table<ParadaLocal>()
                 .Where(p => p.HojaDeRutaId == hojaDeRutaId)
@@ -592,8 +598,16 @@ public class LocalDatabaseService : ILocalDatabaseService
                     paradaLocal.Orden = p.Orden;
                 paradaLocal.OrdenVisita = isNew || paradaLocal.OrdenVisita <= 0 ? p.Orden : paradaLocal.OrdenVisita;
 
-                // Lo completado en el dispositivo y todavía no sincronizado no se pisa con el estado viejo del servidor
-                if (isNew || paradaLocal.Estado is not ("Entregado" or "Fallido" or "EnDevolucion" or "Cancelada"))
+                var paradaIdConGuiones = paradaId.ToString("D");
+                var paradaIdSinGuiones = paradaId.ToString("N");
+                bool tieneOperacionPendienteLocal = operacionesPendientesCola.Any(o =>
+                    !string.IsNullOrWhiteSpace(o.PayloadJson) &&
+                    (o.PayloadJson.Contains(paradaIdConGuiones, StringComparison.OrdinalIgnoreCase) ||
+                     o.PayloadJson.Contains(paradaIdSinGuiones, StringComparison.OrdinalIgnoreCase)));
+
+                // Reconciliación autoritativa: si no existe ninguna operación pendiente en OperacionOfflineLocal para esta parada,
+                // se sobrescribe siempre con el estado real del servidor (destrabando cualquier estado optimista huérfano).
+                if (isNew || !tieneOperacionPendienteLocal || paradaLocal.Estado is not ("Entregado" or "EntregadaParcialmente" or "Fallido" or "EnDevolucion" or "Cancelada"))
                     paradaLocal.Estado = MapearEstadoParada(p.EstadoParada);
 
                 paradaLocal.CodigoSeguimiento = p.CodigoSeguimiento ?? string.Empty;
@@ -608,6 +622,10 @@ public class LocalDatabaseService : ILocalDatabaseService
                 paradaLocal.VentanaHoraria = p.VentanaHoraria;
                 paradaLocal.HoraEstimada = string.Empty;
                 paradaLocal.CantidadBultos = p.ResumenBultos?.CantidadBultos ?? 0;
+                var faltantesDesdeServidor = p.ResumenBultos?.CantidadBultosFaltantesEnCarga ?? 0;
+                paradaLocal.CantidadBultosFaltantesEnCarga = tieneOperacionPendienteLocal
+                    ? Math.Max(faltantesDesdeServidor, paradaLocal.CantidadBultosFaltantesEnCarga)
+                    : faltantesDesdeServidor;
                 paradaLocal.EsParadaActual = p.EsParadaActual;
 
                 if (isNew)
@@ -615,7 +633,7 @@ public class LocalDatabaseService : ILocalDatabaseService
                 else
                     conn.Update(paradaLocal);
 
-                bool bultoYaCargado = rutaYaDespachada || paradaLocal.Estado is "Entregado" or "Fallido" or "EnDevolucion";
+                bool bultoYaCargado = rutaYaDespachada || paradaLocal.Estado is "Entregado" or "EntregadaParcialmente" or "Fallido" or "EnDevolucion";
 
                 // Envío (solo de las entregas)
                 if (!esRetiro)
@@ -705,14 +723,21 @@ public class LocalDatabaseService : ILocalDatabaseService
                         if (pesoPorBulto > 0)
                             bultoExistente.Peso = pesoPorBulto;
 
-                        // Lo escaneado en el dispositivo se conserva; solo se sube la marca si el servidor ya despachó la ruta
-                        if (bultoYaCargado)
-                            bultoExistente.VerificadoEnCarga = true;
+                        // Si existe una confirmación de carga local pendiente de sincronizar y este bulto se marcó faltante en carga,
+                        // no sobrescribirlo como verificado en carga ni borrarlo hasta que el servidor procese la cola.
+                        if (!(tieneOperacionPendienteLocal && bultoExistente.FaltanteEnCarga))
+                        {
+                            bultoExistente.FaltanteEnCarga = false;
+                            if (bultoYaCargado)
+                                bultoExistente.VerificadoEnCarga = true;
+                        }
+                        if (!tieneOperacionPendienteLocal)
+                            bultoExistente.VerificadoEnEntrega = paradaLocal.Estado == "Entregado";
                         conn.Update(bultoExistente);
                     }
                 }
 
-                foreach (var sobrante in disponibles.Where(b => !b.VerificadoEnEntrega && !b.VerificadoEnCarga))
+                foreach (var sobrante in disponibles.Where(b => !b.VerificadoEnEntrega && (!b.VerificadoEnCarga || b.FaltanteEnCarga)))
                     conn.Delete(sobrante);
             }
 
@@ -968,18 +993,22 @@ public class LocalDatabaseService : ILocalDatabaseService
             bool esRetiro = string.Equals(p.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase)
                 || (p.RetiroId.HasValue && p.RetiroId.Value != Guid.Empty);
 
-            bool bultoDebeEstarCargado = !esRetiro && (rutaYaDespachada || p.Estado is "Entregado" or "Fallido" or "EnDevolucion");
+            bool bultoDebeEstarCargado = !esRetiro && (rutaYaDespachada || p.Estado is "Entregado" or "EntregadaParcialmente" or "Fallido" or "EnDevolucion");
 
             foreach (var b in bultos)
             {
-                if (bultoDebeEstarCargado && !b.VerificadoEnCarga)
+                if (bultoDebeEstarCargado && !b.VerificadoEnCarga && !b.FaltanteEnCarga)
                 {
                     b.VerificadoEnCarga = true;
                     await Db.UpdateAsync(b);
                 }
             }
 
-            var bultoItems = bultos.Select(b => new BultoItemViewModel
+            var bultosVisibles = (!esRetiro && !enPrecarga)
+                ? bultos.Where(b => !b.FaltanteEnCarga).ToList()
+                : bultos;
+
+            var bultoItems = bultosVisibles.Select(b => new BultoItemViewModel
             {
                 Id = b.Id,
                 ParadaId = p.Id,
@@ -991,6 +1020,10 @@ public class LocalDatabaseService : ILocalDatabaseService
                 VerificadoEnCarga = b.VerificadoEnCarga,
                 VerificadoEnEntrega = b.VerificadoEnEntrega
             }).ToList();
+
+            var faltantesCargaParada = p.CantidadBultosFaltantesEnCarga > 0
+                ? p.CantidadBultosFaltantesEnCarga
+                : bultos.Count(b => b.FaltanteEnCarga);
 
             resultParadas.Add(new ParadaItemViewModel
             {
@@ -1004,7 +1037,8 @@ public class LocalDatabaseService : ILocalDatabaseService
                 Ciudad = p.Ciudad,
                 Destinatario = p.DestinatarioNombre,
                 Telefono = p.DestinatarioTelefono ?? string.Empty,
-                CantidadBultos = p.CantidadBultos > 0 ? p.CantidadBultos : bultoItems.Count,
+                CantidadBultos = bultoItems.Count > 0 ? bultoItems.Count : p.CantidadBultos,
+                CantidadBultosFaltantesEnCarga = faltantesCargaParada,
                 Estado = p.Estado,
                 EnPrecarga = !esRetiro && enPrecarga,
                 HoraEstimada = p.HoraEstimada,
@@ -1087,6 +1121,43 @@ public class LocalDatabaseService : ILocalDatabaseService
         }
     }
 
+    public async Task RevertirEstadoParadaLocalAsync(Guid paradaId, string estadoPrevio = "Pendiente")
+    {
+        await InitAsync();
+        var parada = await Db.FindAsync<ParadaLocal>(paradaId);
+        if (parada == null)
+            return;
+
+        parada.Estado = MapearEstadoParada(estadoPrevio);
+        await Db.UpdateAsync(parada);
+
+        var envio = await Db.Table<EnvioLocal>()
+            .Where(e => e.ParadaId == paradaId)
+            .FirstOrDefaultAsync();
+        if (envio != null)
+        {
+            envio.Estado = parada.Estado == "Pendiente" ? "EnTransito" : parada.Estado;
+            await Db.UpdateAsync(envio);
+        }
+
+        if (parada.Estado == "Pendiente")
+        {
+            var bultos = await Db.Table<BultoLocal>()
+                .Where(b => b.ParadaId == paradaId)
+                .ToListAsync();
+            foreach (var b in bultos)
+            {
+                if (b.VerificadoEnEntrega)
+                {
+                    b.VerificadoEnEntrega = false;
+                    await Db.UpdateAsync(b);
+                }
+            }
+        }
+
+        await ActualizarFirmaRutaLocalEnPreferenciasAsync(parada.HojaDeRutaId);
+    }
+
     /// <summary>
     /// Entrega parcial: la parada se da por atendida y solo los bultos entregados quedan marcados como tales;
     /// los demás siguen pendientes (el servidor aplica la política del operador: nueva visita o devolución).
@@ -1100,11 +1171,14 @@ public class LocalDatabaseService : ILocalDatabaseService
         if (parada == null)
             return;
 
-        parada.Estado = "Entregado";
+        parada.Estado = "EntregadaParcialmente";
         await Db.UpdateAsync(parada);
 
         foreach (var bulto in await Db.Table<BultoLocal>().Where(b => b.ParadaId == paradaId).ToListAsync())
         {
+            if (bulto.FaltanteEnCarga)
+                continue;
+
             bulto.VerificadoEnEntrega = entregados.Contains(bulto.Codigo.Trim());
             await Db.UpdateAsync(bulto);
         }
@@ -1186,7 +1260,7 @@ public class LocalDatabaseService : ILocalDatabaseService
             return;
 
         var paradas = await Db.Table<ParadaLocal>().Where(p => p.HojaDeRutaId == ruta.Id).ToListAsync();
-        var estadoBultosPorParada = new List<(ParadaLocal Parada, List<BultoLocal> Bultos, bool TodosCargados)>();
+        var estadoBultosPorParada = new List<(ParadaLocal Parada, List<BultoLocal> Bultos, int CargadosCount, int FaltantesCount)>();
 
         foreach (var parada in paradas)
         {
@@ -1197,6 +1271,9 @@ public class LocalDatabaseService : ILocalDatabaseService
                 .Where(b => b.ParadaId == parada.Id)
                 .OrderByDescending(b => b.VerificadoEnCarga)
                 .ToListAsync();
+
+            var cargadosCount = 0;
+            var faltantesCount = 0;
 
             if (!esRetiro)
             {
@@ -1210,33 +1287,38 @@ public class LocalDatabaseService : ILocalDatabaseService
                         codigosRestantes.RemoveAt(idx);
                         b.VerificadoEnCarga = true;
                         b.Cargado = true;
+                        b.FaltanteEnCarga = false;
                         await Db.UpdateAsync(b);
+                        cargadosCount++;
                     }
                     else
                     {
                         b.VerificadoEnCarga = false;
                         b.Cargado = false;
+                        b.FaltanteEnCarga = true;
                         await Db.UpdateAsync(b);
+                        faltantesCount++;
                     }
                 }
             }
 
-            var todosCargados = esRetiro || (bultosParada.Count > 0 && bultosParada.All(b => b.VerificadoEnCarga));
-            estadoBultosPorParada.Add((parada, bultosParada, todosCargados));
+            estadoBultosPorParada.Add((parada, bultosParada, cargadosCount, faltantesCount));
         }
 
-        var hayAlMenosUnaParadaCompleta = estadoBultosPorParada.Count == 0
-            || estadoBultosPorParada.Any(x => x.TodosCargados && x.Parada.Estado != "Cancelada");
+        var hayAlMenosUnaParadaViajante = estadoBultosPorParada.Count == 0
+            || estadoBultosPorParada.Any(x =>
+                x.Parada.Estado != "Cancelada" &&
+                (string.Equals(x.Parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase) || x.CargadosCount > 0));
 
-        if (hayAlMenosUnaParadaCompleta)
+        if (hayAlMenosUnaParadaViajante)
         {
-            foreach (var (parada, bultosParada, todosCargados) in estadoBultosPorParada)
+            foreach (var (parada, bultosParada, cargadosCount, faltantesCount) in estadoBultosPorParada)
             {
                 if (parada.Estado == "Cancelada")
                     continue;
 
                 var esRetiro = string.Equals(parada.Tipo, "Retiro", StringComparison.OrdinalIgnoreCase);
-                if (!esRetiro && bultosParada.Count > 0 && !todosCargados)
+                if (!esRetiro && bultosParada.Count > 0 && cargadosCount == 0)
                 {
                     parada.Estado = "Cancelada";
                     await Db.UpdateAsync(parada);
@@ -1251,13 +1333,20 @@ public class LocalDatabaseService : ILocalDatabaseService
                         }
                     }
                 }
-                else if (!esRetiro && todosCargados && parada.EnvioId != Guid.Empty)
+                else if (!esRetiro && cargadosCount > 0)
                 {
-                    var envioCompleto = await Db.FindAsync<EnvioLocal>(parada.EnvioId);
-                    if (envioCompleto != null && envioCompleto.Estado is "AsignadoARuta" or "EnDeposito" or "Pendiente")
+                    parada.CantidadBultos = cargadosCount;
+                    parada.CantidadBultosFaltantesEnCarga = faltantesCount;
+                    await Db.UpdateAsync(parada);
+
+                    if (parada.EnvioId != Guid.Empty)
                     {
-                        envioCompleto.Estado = "EnTransito";
-                        await Db.UpdateAsync(envioCompleto);
+                        var envioParcial = await Db.FindAsync<EnvioLocal>(parada.EnvioId);
+                        if (envioParcial != null && envioParcial.Estado is "AsignadoARuta" or "EnDeposito" or "Pendiente")
+                        {
+                            envioParcial.Estado = "EnTransito";
+                            await Db.UpdateAsync(envioParcial);
+                        }
                     }
                 }
             }
@@ -1344,6 +1433,7 @@ public class LocalDatabaseService : ILocalDatabaseService
         return estado switch
         {
             "Completada" or "Entregada" or "Entregado" or "Retirada" or "Retirado" => "Entregado",
+            "EntregadaParcialmente" or "EntregaParcial" => "EntregadaParcialmente",
             "Fallida" or "Fallido" or "NoEntregado" or "NoRetirada" or "NoRetirado" => "Fallido",
             "Reprogramado" => "Fallido",
             "EnDevolucion" or "EnRetornoADeposito" => "EnDevolucion",

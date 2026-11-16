@@ -160,10 +160,10 @@ public class ControlCargaYEntregaEnPuertaTests
     // =========================================================================
 
     [Fact]
-    public async Task ConfirmarEntrega_RutaEnLiberada_LanzaDomainValidationException()
+    public async Task ConfirmarEntrega_RutaEnBorrador_LanzaDomainValidationException()
     {
         // Arrange
-        var (_, _, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "Liberada");
+        var (_, _, rutaRepo, envioRepo, outbox, uow, cache, clock, tenant) = CrearEscenario(estadoRuta: "Borrador");
         var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
 
         var command = new RegistrarEntregaExitosaCommand(
@@ -530,6 +530,55 @@ public class ControlCargaYEntregaEnPuertaTests
         Assert.Equal(0, result.TotalBultosFaltantes);
         Assert.Equal("Pendiente", paradaRetiro.Estado);
         Assert.True(paradaRetiro.EsRetiro);
+    }
+
+    [Fact]
+    public async Task RegistrarEntregaExitosa_EnvioEnAsignadoARuta_PromueveAEnTransitoYCompletaEntrega()
+    {
+        var ruta = new HojaDeRuta(HojaDeRutaId, OperadorId, DateOnly.FromDateTime(DateTime.UtcNow), "Liberada");
+        ruta.AgregarParada(Parada1Id, Envio1Id, 1, Direccion1Id, null, "Pendiente");
+
+        var envio = new Envio(
+            Envio1Id,
+            ComercioId,
+            "Av. 18 de Julio 1450, Centro, Montevideo",
+            "Martín Rodríguez",
+            "ENV-2026-00999",
+            OperadorId);
+        envio.AgregarBulto("BLT-999-A", 1.2m);
+        envio.RecepcionarEnDeposito(new[] { "BLT-999-A" }, null, null, UsuarioRepartidorId);
+        envio.ClasificarBultos(new[] { new ClasificacionBulto("BLT-999-A", PrioridadBulto.Normal) }, UsuarioRepartidorId);
+        envio.AsignarRuta(HojaDeRutaId);
+
+        var rutaRepo = new FakeRutaRepository();
+        rutaRepo.Rutas.Add(ruta);
+        var envioRepo = new FakeEnvioRepository();
+        envioRepo.Envios.Add(envio);
+        var outbox = new FakeOutboxStorage();
+        var uow = new FakeUnitOfWork();
+        var cache = new FakeCacheService();
+        var clock = new FakeClock();
+        var tenant = new FakeCurrentTenant { OperadorId = OperadorId, UsuarioId = UsuarioRepartidorId };
+
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-ASIGNADO-RUTA-001",
+            "Martín Rodríguez",
+            "41234567",
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: "foto_base_64",
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal("Entregado", result.EstadoEnvio);
+        Assert.Equal(EstadoEnvio.Entregado, envio.EstadoActual);
+        Assert.Equal("Finalizada", ruta.Estado);
     }
 
     private sealed class FakeCacheService : IDistributedCacheService

@@ -16,7 +16,8 @@ public record DetalleConfiguracionAvisosDto(
     bool Activa,
     bool EstaConfigurado,
     IReadOnlyList<EventoDisponibleDto> CatalogoEventos,
-    IReadOnlyList<AvisoHistorialItemDto> HistorialReciente);
+    IReadOnlyList<AvisoHistorialItemDto> HistorialReciente,
+    string VersionContrato = "v1");
 
 public record EventoDisponibleDto(
     string Codigo,

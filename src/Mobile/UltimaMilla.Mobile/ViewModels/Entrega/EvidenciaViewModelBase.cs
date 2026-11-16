@@ -245,6 +245,36 @@ public abstract partial class EvidenciaViewModelBase : ObservableObject, ICorpor
         return string.IsNullOrWhiteSpace(firma) ? null : firma;
     }
 
+    protected void SincronizarOpcionesMotivoTarjetas()
+    {
+        var opciones = ObtenerOpcionesMotivoModal()
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        MotivosModalOpciones.Clear();
+        foreach (var opcion in opciones)
+        {
+            var esActual = !string.IsNullOrWhiteSpace(MotivoSeleccionado) &&
+                           string.Equals(opcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase);
+            MotivosModalOpciones.Add(new OpcionSeleccionableItem(opcion, esActual));
+        }
+    }
+
+    [RelayCommand]
+    private void SeleccionarMotivoDirecto(OpcionSeleccionableItem? opcion)
+    {
+        if (opcion is null)
+            return;
+
+        MotivoSeleccionado = opcion.Texto;
+        _motivoTemporalSeleccionado = opcion.Texto;
+        foreach (var item in MotivosModalOpciones)
+        {
+            item.EsSeleccionada = string.Equals(item.Texto, opcion.Texto, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [RelayCommand]
     private void AbrirSelectorMotivo()
     {

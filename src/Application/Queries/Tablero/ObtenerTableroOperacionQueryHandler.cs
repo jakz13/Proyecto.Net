@@ -239,9 +239,9 @@ public class ObtenerTableroOperacionQueryHandler : IRequestHandler<ObtenerTabler
 
     private static string EstadoParadaPublico(string estado) => estado switch
     {
-        "Entregada" => "Entregado",
+        "Entregada" or "EntregadaParcialmente" or "Retirada" => "Entregado",
         "EnCamino" or "EnSitio" => "EnCurso",
-        "Fallida" or "NoVisitada" => "NoEntregado",
+        "Fallida" or "NoVisitada" or "NoRetirada" => "NoEntregado",
         _ => "Pendiente"
     };
 

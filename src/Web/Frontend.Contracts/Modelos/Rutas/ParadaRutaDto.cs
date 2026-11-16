@@ -8,6 +8,9 @@ public record ParadaRutaDto
     public Guid Id { get; init; }
     public int Orden { get; init; }
     public Guid EnvioId { get; init; }
+    public string TipoParada { get; init; } = "Entrega";
+    public Guid? RetiroId { get; init; }
+    public bool EsRetiro => string.Equals(TipoParada, "Retiro", StringComparison.OrdinalIgnoreCase) || (RetiroId.HasValue && RetiroId.Value != Guid.Empty);
     public string CodigoSeguimiento { get; init; } = string.Empty;
     public string Destinatario { get; init; } = string.Empty;
     public string Direccion { get; init; } = string.Empty;

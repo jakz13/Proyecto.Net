@@ -340,10 +340,10 @@ public class MockFlotaApi : IFlotaApi
     {
         lock (_bloqueo)
         {
-            var documentoNormalizado = dto.Documento.Trim();
+            var documentoNormalizado = ValidarYNormalizarCedula(dto.Documento);
             if (_repartidores.Any(r => r.Documento.Equals(documentoNormalizado, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ApiExcepcion($"Ya existe un repartidor registrado con el documento '{documentoNormalizado}'.");
+                throw new ApiExcepcion($"Ya existe un repartidor registrado con la cédula '{documentoNormalizado}'.");
             }
 
             var emailNormalizado = dto.Email.Trim().ToLowerInvariant();
@@ -411,10 +411,10 @@ public class MockFlotaApi : IFlotaApi
                 throw new ApiExcepcion("El repartidor no fue encontrado en el sistema.");
             }
 
-            var documentoNormalizado = dto.Documento.Trim();
+            var documentoNormalizado = ValidarYNormalizarCedula(dto.Documento);
             if (_repartidores.Any(r => r.Id != dto.Id && r.Documento.Equals(documentoNormalizado, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ApiExcepcion($"El documento '{documentoNormalizado}' ya pertenece a otro repartidor.");
+                throw new ApiExcepcion($"La cédula '{documentoNormalizado}' ya pertenece a otro repartidor.");
             }
 
             var emailNormalizado = dto.Email.Trim().ToLowerInvariant();
@@ -606,5 +606,21 @@ public class MockFlotaApi : IFlotaApi
                 };
             }
         }
+    }
+
+    private static string ValidarYNormalizarCedula(string? documento)
+    {
+        var normalizado = (documento ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(normalizado))
+        {
+            throw new ApiExcepcion("La cédula del repartidor es obligatoria.");
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(normalizado, @"^[0-9]{8}$"))
+        {
+            throw new ApiExcepcion("La cédula debe tener exactamente 8 dígitos numéricos, sin puntos ni guiones (ejemplo: 12345678).");
+        }
+
+        return normalizado;
     }
 }

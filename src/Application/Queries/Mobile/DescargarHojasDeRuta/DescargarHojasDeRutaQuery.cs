@@ -43,7 +43,9 @@ public record ParadaDescargaDto(
     IReadOnlyList<BultoDescargaDto> Bultos,
     string Tipo = "Entrega",
     Guid? RetiroId = null,
-    string? MotivoRetiro = null);
+    string? MotivoRetiro = null,
+    int CantidadBultosFaltantesEnCarga = 0,
+    IReadOnlyList<string>? CodigosBultosFaltantesEnCarga = null);
 
 public record DireccionDescargaDto(
     string Texto,

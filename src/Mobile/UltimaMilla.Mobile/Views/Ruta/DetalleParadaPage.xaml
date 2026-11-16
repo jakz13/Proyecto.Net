@@ -274,14 +274,31 @@
                         HeightRequest="46"
                         FontSize="14.5" />
 
-                <!-- 1b. Retiro en domicilio: escaneo de bultos, foto y firma -->
-                <Button Text="Registrar Retiro"
-                        Style="{StaticResource SuccessButton}"
-                        Command="{Binding IrARegistrarRetiroCommand}"
-                        IsEnabled="{Binding PuedeConfirmarEntrega}"
-                        IsVisible="{Binding EsRetiro}"
-                        HeightRequest="46"
-                        FontSize="14.5" />
+                <!-- 1b. Retiro en domicilio: acciones simétricas de retiro exitoso y no retirado -->
+                <Grid ColumnDefinitions="*, *"
+                      ColumnSpacing="10"
+                      IsVisible="{Binding EsRetiro}">
+                    <Button Grid.Column="0"
+                            Text="Registrar retiro"
+                            Style="{StaticResource SuccessButton}"
+                            Command="{Binding IrARegistrarRetiroCommand}"
+                            IsEnabled="{Binding PuedeConfirmarEntrega}"
+                            HeightRequest="46"
+                            FontSize="14" />
+
+                    <Button Grid.Column="1"
+                            Text="No retirado"
+                            BackgroundColor="#FEF2F2"
+                            TextColor="#DC2626"
+                            BorderColor="#EF4444"
+                            BorderWidth="1.2"
+                            CornerRadius="8"
+                            FontAttributes="Bold"
+                            Command="{Binding IrARegistrarNoRetiradoCommand}"
+                            IsEnabled="{Binding PuedeAccionar}"
+                            HeightRequest="46"
+                            FontSize="14" />
+                </Grid>
 
                 <!-- 2. Acción de Fallo / Incidencia: Fallo de Entrega (Abajo) -->
                 <Button Text="Fallo de Entrega"

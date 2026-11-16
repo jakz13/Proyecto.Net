@@ -42,11 +42,12 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
         ArgumentNullException.ThrowIfNull(notificacion);
 
         _logger.LogInformation(
-            "Notificación al destinatario por {Canal} a {Contacto}: el envío {Codigo} pasó a {Estado}.",
+            "Notificación al destinatario por {Canal} a {Contacto}: el envío {Codigo} pasó a {Estado}. {DetalleBultos}",
             notificacion.Canal,
             Enmascarar(notificacion.Contacto),
             notificacion.CodigoSeguimiento,
-            notificacion.Estado);
+            notificacion.Estado,
+            notificacion.ResumenBultosTexto ?? string.Empty);
 
         if (!string.Equals(notificacion.Canal, "Email", StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(notificacion.Contacto)
@@ -221,6 +222,7 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
             {
                 var envio = await db.Envios
                     .AsNoTracking()
+                    .Include(e => e.Bultos)
                     .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(e => e.Id == envioId, cancellationToken);
 
@@ -228,6 +230,23 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
                 {
                     operadorId = envio.OperadorId;
                     contexto.ModalidadServicio = envio.ModalidadServicio.ToString();
+                    if (envio.Bultos.Count > 0)
+                    {
+                        var operativos = envio.Bultos.Where(b => b.EstadoBulto != "FaltanteEnRecepcion").ToList();
+                        var entregados = operativos.Where(b => b.EstaEntregado).Select(b => b.Identificacion).ToList();
+                        var pendientes = operativos
+                            .Where(b => !b.EstaEntregado)
+                            .Select(b => string.IsNullOrWhiteSpace(b.MotivoNoEntregaCodigo)
+                                ? b.Identificacion
+                                : $"{b.Identificacion} (motivo: {b.MotivoNoEntregaCodigo})")
+                            .ToList();
+
+                        if (entregados.Count > 0 && pendientes.Count > 0)
+                        {
+                            contexto.ResumenBultos = $"Bultos entregados ({entregados.Count}/{operativos.Count}): {string.Join(", ", entregados)}. " +
+                                                     $"Bultos pendientes ({pendientes.Count}): {string.Join(", ", pendientes)}.";
+                        }
+                    }
                     if (!string.IsNullOrWhiteSpace(envio.DireccionDestino))
                     {
                         contexto.DireccionEntrega = envio.DireccionDestino;
@@ -358,6 +377,12 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
         }
         sb.AppendLine();
         sb.AppendLine(ObtenerMensajeEstado(notificacion.Estado));
+        var detalleBultos = notificacion.ResumenBultosTexto ?? contexto.ResumenBultos;
+        if (!string.IsNullOrWhiteSpace(detalleBultos))
+        {
+            sb.AppendLine();
+            sb.AppendLine(detalleBultos);
+        }
         sb.AppendLine();
         sb.AppendLine("Consultá el estado en vivo y gestioná tu entrega desde el siguiente enlace público:");
         sb.AppendLine(urlSeguimiento);
@@ -377,7 +402,11 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
         string urlSeguimiento)
     {
         var tituloEstado = WebUtility.HtmlEncode(ObtenerTituloEstado(notificacion.Estado));
-        var mensajeEstado = WebUtility.HtmlEncode(ObtenerMensajeEstado(notificacion.Estado));
+        var detalleBultos = notificacion.ResumenBultosTexto ?? contexto.ResumenBultos;
+        var textoMensaje = string.IsNullOrWhiteSpace(detalleBultos)
+            ? ObtenerMensajeEstado(notificacion.Estado)
+            : $"{ObtenerMensajeEstado(notificacion.Estado)} {detalleBultos}";
+        var mensajeEstado = WebUtility.HtmlEncode(textoMensaje);
         var nombreDestinatario = WebUtility.HtmlEncode(notificacion.NombreDestinatario);
         var codigo = WebUtility.HtmlEncode(notificacion.CodigoSeguimiento);
         var nombreOperador = WebUtility.HtmlEncode(contexto.NombreOperador);
@@ -527,5 +556,6 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
         public string? MensajeComunicaciones { get; set; }
         public string? DireccionEntrega { get; set; }
         public string? ModalidadServicio { get; set; }
+        public string? ResumenBultos { get; set; }
     }
 }

@@ -142,6 +142,17 @@
                                 Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Firma-Sha256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
                             </div>
                         </div>
+
+                        <!-- Versión de Contrato del Webhook (v1 vs v2) -->
+                        <div class="mt-3 pt-2 border-top">
+                            <label for="versionContratoSelect" class="form-label small fw-semibold text-secondary mb-1">
+                                Versión de Contrato del Payload JSON
+                            </label>
+                            <select id="versionContratoSelect" class="form-select form-select-sm" @bind="versionContrato">
+                                <option value="v1">v1 — Contrato original (estado general del envío)</option>
+                                <option value="v2">v2 — Con desglose de avance y motivos por bulto (RF 35 / RF 36)</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -523,6 +534,7 @@
     private string urlWebhook = string.Empty;
     private string claveFirma = string.Empty;
     private bool suscripcionActiva = true;
+    private string versionContrato = "v2";
     private HashSet<string> eventosSeleccionados = new(StringComparer.OrdinalIgnoreCase);
 
     private string filtroEstado = "todos";
@@ -549,6 +561,7 @@
             urlWebhook = config.UrlWebhook;
             claveFirma = config.ClaveFirma;
             suscripcionActiva = config.Activa;
+            versionContrato = string.IsNullOrWhiteSpace(config.VersionContrato) ? "v2" : config.VersionContrato;
             eventosSeleccionados = new HashSet<string>(config.EventosSuscritos, StringComparer.OrdinalIgnoreCase);
             catalogoEventos = config.CatalogoEventos;
 
@@ -648,13 +661,15 @@
                 UrlWebhook = urlWebhook.Trim(),
                 Eventos = eventosSeleccionados.ToList(),
                 ClaveFirma = claveFirma.Trim(),
-                Activa = suscripcionActiva
+                Activa = suscripcionActiva,
+                VersionContrato = versionContrato
             };
 
             var guardado = await AvisosApi.GuardarConfiguracionAsync(dto);
             urlWebhook = guardado.UrlWebhook;
             claveFirma = guardado.ClaveFirma;
             suscripcionActiva = guardado.Activa;
+            versionContrato = string.IsNullOrWhiteSpace(guardado.VersionContrato) ? versionContrato : guardado.VersionContrato;
             eventosSeleccionados = new HashSet<string>(guardado.EventosSuscritos, StringComparer.OrdinalIgnoreCase);
             mensajeExito = "Suscripción de avisos guardada con éxito.";
             await FiltrarHistorialAsync();

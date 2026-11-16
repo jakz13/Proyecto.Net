@@ -55,7 +55,9 @@ public record ParadaDetalleDto(
     decimal VolumenM3,
     // Coordenadas reales de la dirección (si se conocen): el mapa las usa en lugar de estimarlas
     double? Latitud = null,
-    double? Longitud = null);
+    double? Longitud = null,
+    string TipoParada = "Entrega",
+    Guid? RetiroId = null);
 
 public record EnvioPendienteDeRutaDto(
     Guid EnvioId,

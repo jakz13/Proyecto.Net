@@ -4,8 +4,8 @@ Cada registro tiene cuatro partes: contexto y restricciones, decisión, alternat
 
 | Decisión (tema obligatorio de la letra §8.2) | Registro | Responsable |
 |---|---|---|
-| Estilo arquitectónico y organización del código | ADR 01 en [`Documento de Análisis y Diseño.md`](../../Documento%20de%20An%C3%A1lisis%20y%20Dise%C3%B1o.md) | Equipo |
-| Estrategia de multitenancy | Primera sección del [`Documento de Análisis y Diseño.md`](../../Documento%20de%20An%C3%A1lisis%20y%20Dise%C3%B1o.md) | Equipo |
+| Estilo arquitectónico y organización del código | ADR 01 en [`Documento de Análisis y Diseño.md`](../../Documento%20de%20An%C3%A1lisis%20y%20Dise%C3%B1o.md) | Anthony Curbelo |
+| Estrategia de multitenancy | Primera sección del [`Documento de Análisis y Diseño.md`](../../Documento%20de%20An%C3%A1lisis%20y%20Dise%C3%B1o.md) | Francisco Lema |
 | Modo de renderizado de Blazor | ADR 02 en [`Documento de Análisis y Diseño.md`](../../Documento%20de%20An%C3%A1lisis%20y%20Dise%C3%B1o.md) | Felipe Bernardi |
 | Política de resolución de conflictos de sincronización | [ADR-001](ADR-001-resolucion-conflictos-sincronizacion.md) | Joaquín Bassini |
 | Estrategia de caché e invalidación | [ADR-003](ADR-003-cache-distribuido-e-invalidacion.md) | Francisco Lema |

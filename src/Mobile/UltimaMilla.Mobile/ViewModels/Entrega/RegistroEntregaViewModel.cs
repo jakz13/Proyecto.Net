@@ -24,13 +24,47 @@ public partial class BultoEntregaItemViewModel : ObservableObject
 }
 
 [QueryProperty(nameof(ParadaSeleccionada), "Parada")]
+[QueryProperty(nameof(ModoFallo), "ModoFallo")]
 public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 {
     private readonly ILocalDatabaseService? _localDatabaseService;
     private readonly ISyncService? _syncService;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EsRetiro))]
+    [NotifyPropertyChangedFor(nameof(MostrarFormularioEvidencia))]
+    [NotifyPropertyChangedFor(nameof(MostrarFormularioNoRetirado))]
+    [NotifyPropertyChangedFor(nameof(TituloGuardar))]
     private ParadaItemViewModel? _paradaSeleccionada;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarFormularioEvidencia))]
+    [NotifyPropertyChangedFor(nameof(MostrarFormularioNoRetirado))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoBgColor))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoTextColor))]
+    [NotifyPropertyChangedFor(nameof(TabExitosoBorderColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloBgColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloTextColor))]
+    [NotifyPropertyChangedFor(nameof(TabFalloBorderColor))]
+    private bool _modoFallo;
+
+    public bool EsRetiro => ParadaSeleccionada?.EsRetiro == true;
+    public bool MostrarFormularioEvidencia => !EsRetiro || !ModoFallo;
+    public bool MostrarFormularioNoRetirado => EsRetiro && ModoFallo;
+
+    public Color TabExitosoBgColor => !ModoFallo ? Color.FromArgb("#16A34A") : Color.FromArgb("#F8FAFC");
+    public Color TabExitosoTextColor => !ModoFallo ? Color.FromArgb("#FFFFFF") : Color.FromArgb("#475569");
+    public Color TabExitosoBorderColor => !ModoFallo ? Color.FromArgb("#16A34A") : Color.FromArgb("#CBD5E1");
+
+    public Color TabFalloBgColor => ModoFallo ? Color.FromArgb("#DC2626") : Color.FromArgb("#FEF2F2");
+    public Color TabFalloTextColor => ModoFallo ? Color.FromArgb("#FFFFFF") : Color.FromArgb("#DC2626");
+    public Color TabFalloBorderColor => ModoFallo ? Color.FromArgb("#DC2626") : Color.FromArgb("#EF4444");
+
+    [RelayCommand]
+    private void SeleccionarModoRetiroExitoso() => ModoFallo = false;
+
+    [RelayCommand]
+    private void SeleccionarModoNoRetirado() => ModoFallo = true;
 
     [ObservableProperty]
     private string _nombreReceptor = string.Empty;
@@ -75,6 +109,7 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ResumenBultosTexto))]
+    [NotifyPropertyChangedFor(nameof(HayBultosNoEntregadosEnDomicilio))]
     [NotifyPropertyChangedFor(nameof(EsEntregaParcial))]
     [NotifyPropertyChangedFor(nameof(TituloGuardar))]
     private int _bultosMarcados;
@@ -85,16 +120,33 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
     private readonly List<MotivoNoEntregaLocal> _motivosCatalogo = new();
 
-    /// <summary>La selección por bulto solo se ofrece si el operador tiene habilitada la entrega parcial.</summary>
-    public bool TieneVariosBultos => Bultos.Count > 1 && (_syncService?.FuncionalidadHabilitada("entrega-parcial") ?? true);
+    public int CantidadBultosFaltantesEnCarga => ParadaSeleccionada?.CantidadBultosFaltantesEnCarga ?? 0;
 
-    public bool EsEntregaParcial => Bultos.Count > 0 && BultosMarcados > 0 && BultosMarcados < Bultos.Count;
+    public bool TieneBultosFaltantesDesdeCarga => !EsRetiro && CantidadBultosFaltantesEnCarga > 0;
+
+    public string AvisoFaltanteEnCargaTexto => CantidadBultosFaltantesEnCarga == 1
+        ? "1 bulto faltó durante la carga en depósito y no viaja en el vehículo; se registrará como entrega parcial."
+        : $"{CantidadBultosFaltantesEnCarga} bultos faltaron durante la carga en depósito y no viajan en el vehículo; se registrará como entrega parcial.";
+
+    /// <summary>La selección por bulto solo se ofrece si el operador tiene habilitada la entrega parcial.</summary>
+    public bool TieneVariosBultos => !EsRetiro
+        && (Bultos.Count > 1 || TieneBultosFaltantesDesdeCarga)
+        && (_syncService?.FuncionalidadHabilitada("entrega-parcial") ?? true);
+
+    public bool HayBultosNoEntregadosEnDomicilio => !EsRetiro && Bultos.Count > 0 && BultosMarcados < Bultos.Count;
+
+    public bool EsEntregaParcial => !EsRetiro && Bultos.Count > 0 && BultosMarcados > 0
+        && (BultosMarcados < Bultos.Count || TieneBultosFaltantesDesdeCarga);
 
     public string ResumenBultosTexto => Bultos.Count == 0
         ? "Esta parada no tiene bultos informados."
-        : $"{BultosMarcados} de {Bultos.Count} bulto(s) se entregan ahora";
+        : (TieneBultosFaltantesDesdeCarga
+            ? $"{BultosMarcados} de {Bultos.Count} bulto(s) cargados se entregan ahora"
+            : $"{BultosMarcados} de {Bultos.Count} bulto(s) se entregan ahora");
 
-    public string TituloGuardar => EsEntregaParcial ? "Guardar entrega parcial" : "Guardar entrega";
+    public string TituloGuardar => EsRetiro
+        ? "Confirmar retiro"
+        : (EsEntregaParcial ? "Guardar entrega parcial" : "Guardar entrega");
 
     public RegistroEntregaViewModel() : this(null, null)
     {
@@ -149,8 +201,15 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
             Bultos.Add(item);
         }
 
+        ObservacionesPendientes = string.Empty;
+        OnPropertyChanged(nameof(CantidadBultosFaltantesEnCarga));
+        OnPropertyChanged(nameof(TieneBultosFaltantesDesdeCarga));
+        OnPropertyChanged(nameof(AvisoFaltanteEnCargaTexto));
         OnPropertyChanged(nameof(TieneVariosBultos));
         RecalcularMarcados();
+        OnPropertyChanged(nameof(HayBultosNoEntregadosEnDomicilio));
+        OnPropertyChanged(nameof(EsEntregaParcial));
+        OnPropertyChanged(nameof(TituloGuardar));
         _ = CargarMotivosAsync();
     }
 
@@ -173,6 +232,8 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
             if (string.IsNullOrEmpty(MotivoSeleccionado) && MotivosNoEntrega.Count > 0)
                 MotivoSeleccionado = MotivosNoEntrega[0];
+
+            SincronizarOpcionesMotivoTarjetas();
         }
         catch (Exception ex)
         {
@@ -228,6 +289,83 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
     }
 
     [RelayCommand]
+    private async Task ConfirmarRetiroNoRealizadoAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var parada = ParadaSeleccionada;
+        if (parada is null || parada.Id == Guid.Empty || parada.RetiroId is not { } retiroId || retiroId == Guid.Empty)
+        {
+            await AvisarAsync("Retiro no disponible", "No se pudo identificar el retiro. Vuelva a la hoja de ruta e intente nuevamente.");
+            return;
+        }
+
+        var motivo = _motivosCatalogo.FirstOrDefault(m => string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
+        if (motivo is null)
+        {
+            await AvisarAsync(
+                "Motivo requerido",
+                "Seleccione el motivo por el que no se pudo realizar el retiro.");
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await ActualizarUbicacionYFechaAsync();
+
+            var payload = new RetiroNoRealizadoOfflinePayload
+            {
+                HojaDeRutaId = parada.HojaDeRutaId,
+                ParadaId = parada.Id,
+                RetiroId = retiroId,
+                IdempotencyKey = $"RETIRO-NO-{retiroId:N}-{DateTime.UtcNow.Ticks}",
+                MotivoCodigo = motivo.Codigo,
+                MotivoNoEntregaId = motivo.Id,
+                Observaciones = string.IsNullOrWhiteSpace(ObservacionesPendientes) ? null : ObservacionesPendientes.Trim(),
+                Latitud = LatitudActual,
+                Longitud = LongitudActual,
+                FechaHoraDispositivoUtc = FechaHoraDispositivoUtc
+            };
+
+            if (_localDatabaseService is not null)
+            {
+                await _localDatabaseService.EncolarOperacionAsync(
+                    TiposOperacionOffline.RetiroNoRealizado,
+                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
+                await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, "Fallido");
+            }
+
+            parada.Estado = "Fallido";
+
+            if (_syncService?.IsOnline == true)
+            {
+                try
+                {
+                    await _syncService.SincronizarOperacionesPendientesAsync();
+                    await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Sincronización retiro no realizado: {ex.Message}");
+                }
+            }
+
+            await AvisarAsync(
+                "Retiro no realizado",
+                $"Quedó registrado el motivo: {motivo.Descripcion}.",
+                subtitulo: "Actualizado",
+                textoBoton: "Volver a la Ruta",
+                navegarAlCerrarRuta: "//RutaDiaPage");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
     private async Task GuardarEntregaAsync()
     {
         if (IsBusy)
@@ -271,8 +409,9 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
         }
 
         var parcial = EsEntregaParcial;
+        var faltanBultosEnDomicilio = HayBultosNoEntregadosEnDomicilio;
         MotivoNoEntregaLocal? motivo = null;
-        if (parcial)
+        if (faltanBultosEnDomicilio)
         {
             motivo = _motivosCatalogo.FirstOrDefault(m => string.Equals(m.Descripcion, MotivoSeleccionado, StringComparison.OrdinalIgnoreCase));
             if (motivo is null)
@@ -313,6 +452,7 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                 await AvisarAsync("Fotografía requerida", "La regla operativa del operador exige capturar una fotografía como evidencia de entrega.");
                 return;
             }
+            var estadoAnterior = parada.Estado;
             var idempotencyKey = $"ENTREGA-{parada.Id:N}";
 
             string tipoOperacion;
@@ -329,13 +469,15 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                     EnvioId = parada.EnvioId,
                     IdempotencyKey = idempotencyKey,
                     CodigosBultosEntregados = entregados,
-                    BultosNoEntregados = Bultos.Where(b => !b.Entregado).Select(b => new BultoNoEntregadoOfflinePayload
-                    {
-                        CodigoBulto = b.Codigo,
-                        MotivoCodigo = motivo!.Codigo,
-                        MotivoNoEntregaId = motivo.Id,
-                        Observaciones = string.IsNullOrWhiteSpace(ObservacionesPendientes) ? null : ObservacionesPendientes.Trim()
-                    }).ToList(),
+                    BultosNoEntregados = faltanBultosEnDomicilio && motivo is not null
+                        ? Bultos.Where(b => !b.Entregado).Select(b => new BultoNoEntregadoOfflinePayload
+                        {
+                            CodigoBulto = b.Codigo,
+                            MotivoCodigo = motivo.Codigo,
+                            MotivoNoEntregaId = motivo.Id,
+                            Observaciones = string.IsNullOrWhiteSpace(ObservacionesPendientes) ? null : ObservacionesPendientes.Trim()
+                        }).ToList()
+                        : new List<BultoNoEntregadoOfflinePayload>(),
                     NombreReceptor = NombreReceptor.Trim(),
                     DocumentoReceptor = DocumentoReceptor.Trim(),
                     FirmaDigitalBase64 = firmaBase64,
@@ -379,7 +521,7 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                 }
             }
 
-            parada.Estado = "Entregado";
+            parada.Estado = parcial ? "EntregadaParcialmente" : "Entregado";
 
             bool? syncExitoso = null;
             string? motivoRechazoServidor = null;
@@ -395,14 +537,17 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                     if (completada == syncTask)
                     {
                         var resultado = await syncTask;
-                        if (resultado.ErroresNegocio > 0 && resultado.DetallesErrores is { Count: > 0 })
+                        if (resultado.ErroresNegocio > 0)
                         {
                             syncExitoso = false;
-                            motivoRechazoServidor = string.Join("\n", resultado.DetallesErrores.Take(3));
+                            motivoRechazoServidor = resultado.DetallesErrores is { Count: > 0 }
+                                ? string.Join("\n", resultado.DetallesErrores.Take(3))
+                                : resultado.Mensaje;
                         }
                         else
                         {
                             syncExitoso = true;
+                            await _syncService.DescargarYActualizarRutasDelServidorAsync();
                         }
                     }
                 }
@@ -414,6 +559,24 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
 
             if (syncExitoso == false && !string.IsNullOrWhiteSpace(motivoRechazoServidor))
             {
+                parada.Estado = string.IsNullOrWhiteSpace(estadoAnterior) ? "Pendiente" : estadoAnterior;
+                if (_localDatabaseService is not null)
+                {
+                    await _localDatabaseService.RevertirEstadoParadaLocalAsync(parada.Id, parada.Estado);
+                }
+
+                if (_syncService?.IsOnline == true)
+                {
+                    try
+                    {
+                        await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[RegistroEntregaViewModel] Refresco tras rechazo: {ex.Message}");
+                    }
+                }
+
                 await AvisarAsync(
                     "Observación del Servidor",
                     motivoRechazoServidor,
@@ -430,7 +593,9 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
                         : "Guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.");
                 var titulo = parcial ? "Entrega Parcial Registrada" : "Entrega Registrada";
                 var detalle = parcial
-                    ? $"Se entregaron {BultosMarcados} de {Bultos.Count} bulto(s) a {NombreReceptor.Trim()}. El resto queda pendiente según la política del operador."
+                    ? (TieneBultosFaltantesDesdeCarga && !faltanBultosEnDomicilio
+                        ? $"Se entregaron los {BultosMarcados} bulto(s) cargados a {NombreReceptor.Trim()} ({CantidadBultosFaltantesEnCarga} faltante(s) desde la carga)."
+                        : $"Se entregaron {BultosMarcados} de {Bultos.Count} bulto(s) cargados a {NombreReceptor.Trim()}. El resto queda pendiente según la política del operador.")
                     : $"Entrega registrada para {NombreReceptor.Trim()}.";
 
                 await AvisarAsync(

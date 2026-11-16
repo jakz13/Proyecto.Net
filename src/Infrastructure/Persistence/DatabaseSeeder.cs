@@ -83,6 +83,7 @@ public static class DatabaseSeeder
         if (rutaExiste)
         {
             logger.LogInformation("DatabaseSeeder: Los datos semilla ya están presentes en PostgreSQL (HojaDeRuta '{RutaId}'). Omitiendo inicialización.", DefaultHojaDeRutaId);
+            await NormalizarDocumentoRepartidorDemoAsync(context, cancellationToken);
             await SembrarOperacionAsync(context, logger, cancellationToken);
             await SembrarGeolocalizacionRutaDemoAsync(context, logger, cancellationToken);
             await SembrarIdentidadYMultitenancyAsync(context, logger, cancellationToken);
@@ -557,5 +558,20 @@ public static class DatabaseSeeder
         }
 
         logger.LogInformation("DatabaseSeeder: Perfiles, segundo operador y usuarios sembrados con éxito.");
+    }
+
+    private static async Task NormalizarDocumentoRepartidorDemoAsync(AppDbContext context, CancellationToken cancellationToken)
+    {
+        var repartidorDemo = await context.Repartidores.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Id == DefaultRepartidorId, cancellationToken);
+        if (repartidorDemo is null || UltimaMilla.Domain.Common.Cedula.EsValida(repartidorDemo.Documento))
+            return;
+
+        var digitos = new string(repartidorDemo.Documento.Where(char.IsAsciiDigit).ToArray());
+        if (UltimaMilla.Domain.Common.Cedula.EsValida(digitos))
+        {
+            repartidorDemo.ActualizarDocumento(digitos);
+            await context.SaveChangesAsync(cancellationToken);
+        }
     }
 }

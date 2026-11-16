@@ -185,6 +185,8 @@ public static class FlotaEndpoints
             if (estado is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El estado del repartidor no es válido.");
 
+            Repartidor.ValidarDocumento(dto.Documento);
+
             var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
             if (await db.Usuarios.AnyAsync(u => u.Email == email, ct))
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "Ya existe un usuario registrado con ese correo electrónico.");
@@ -242,6 +244,8 @@ public static class FlotaEndpoints
             var estado = NormalizarEstado(dto.Estado);
             if (estado is null)
                 return RespuestasBackoffice.Error(StatusCodes.Status400BadRequest, "El estado del repartidor no es válido.");
+
+            Repartidor.ValidarDocumento(dto.Documento);
 
             var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == repartidor.UsuarioId, ct);
             var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();

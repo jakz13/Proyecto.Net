@@ -268,13 +268,25 @@ public partial class IntentoFallidoViewModel : EvidenciaViewModelBase
 
             if (syncExitoso == false && !string.IsNullOrWhiteSpace(motivoRechazoServidor))
             {
-                parada.Estado = estadoAnterior;
+                parada.Estado = string.IsNullOrWhiteSpace(estadoAnterior) ? "Pendiente" : estadoAnterior;
                 if (_localDatabaseService is not null)
                 {
-                    await _localDatabaseService.ActualizarEstadoParadaLocalAsync(parada.Id, estadoAnterior);
+                    await _localDatabaseService.RevertirEstadoParadaLocalAsync(parada.Id, parada.Estado);
                 }
 
-                await AvisarAsync("Observación del servidor", motivoRechazoServidor);
+                if (_syncService?.IsOnline == true)
+                {
+                    try
+                    {
+                        await _syncService.DescargarYActualizarRutasDelServidorAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[IntentoFallidoViewModel] Refresco tras rechazo: {ex.Message}");
+                    }
+                }
+
+                await AvisarAsync("Observación del servidor", motivoRechazoServidor, navegarAlCerrarRuta: "//RutaDiaPage");
                 return;
             }
 

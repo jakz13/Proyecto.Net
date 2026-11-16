@@ -70,7 +70,6 @@ public class HttpRutasApi : IRutasApi
     public async Task<IReadOnlyList<EnvioPendienteRutaDto>> ListarEnviosPendientesAsync(CancellationToken cancelacion = default)
     {
         var zonas = await CatalogosHttp.ZonasAsync(_http, cancelacion);
-        await AsegurarEnviosEnDepositoClasificadosAsync(zonas, cancelacion);
 
         var respuesta = await _http.GetAsync("/api/planificacion/envios-pendientes", cancelacion);
         await AsegurarExitoAsync(respuesta, cancelacion);
@@ -300,21 +299,30 @@ public class HttpRutasApi : IRutasApi
         var repartidores = await CatalogosHttp.RepartidoresAsync(_http, ct);
         var zonas = await CatalogosHttp.ZonasAsync(_http, ct);
 
-        var paradas = detalle.Paradas.OrderBy(p => p.Orden).Select(p => new ParadaRutaDto
+        var paradas = detalle.Paradas.OrderBy(p => p.Orden).Select(p =>
         {
-            Id = p.ParadaId,
-            Orden = p.Orden,
-            EnvioId = p.EnvioId,
-            CodigoSeguimiento = p.CodigoSeguimiento,
-            Destinatario = p.Destinatario,
-            Direccion = p.Direccion,
-            Zona = NombreDeZona(zonas, p.ZonaId),
-            FranjaHoraria = string.IsNullOrWhiteSpace(p.VentanaHoraria) ? "Sin franja" : p.VentanaHoraria,
-            PesoKg = p.PesoKg,
-            VolumenM3 = p.VolumenM3,
-            Latitud = p.Latitud,
-            Longitud = p.Longitud,
-            Estado = p.EstadoParada
+            var esRetiro = string.Equals(p.TipoParada, "Retiro", StringComparison.OrdinalIgnoreCase)
+                || (p.RetiroId.HasValue && p.RetiroId.Value != Guid.Empty)
+                || p.CodigoSeguimiento.StartsWith("RET-", StringComparison.OrdinalIgnoreCase);
+
+            return new ParadaRutaDto
+            {
+                Id = p.ParadaId,
+                Orden = p.Orden,
+                EnvioId = esRetiro ? Guid.Empty : p.EnvioId,
+                TipoParada = esRetiro ? "Retiro" : "Entrega",
+                RetiroId = esRetiro ? (p.RetiroId ?? (p.EnvioId != Guid.Empty ? p.EnvioId : null)) : null,
+                CodigoSeguimiento = p.CodigoSeguimiento,
+                Destinatario = p.Destinatario,
+                Direccion = p.Direccion,
+                Zona = NombreDeZona(zonas, p.ZonaId),
+                FranjaHoraria = string.IsNullOrWhiteSpace(p.VentanaHoraria) ? "Sin franja" : p.VentanaHoraria,
+                PesoKg = p.PesoKg,
+                VolumenM3 = p.VolumenM3,
+                Latitud = p.Latitud,
+                Longitud = p.Longitud,
+                Estado = p.EstadoParada
+            };
         }).ToList();
 
         return MapearRuta(detalle.Ruta, repartidores, paradas);
@@ -423,7 +431,8 @@ public class HttpRutasApi : IRutasApi
 
     private record ParadaApi(
         Guid ParadaId, int Orden, Guid EnvioId, string CodigoSeguimiento, string EstadoEnvio, string EstadoParada, string Destinatario,
-        string Direccion, Guid? ZonaId, string? VentanaHoraria, decimal PesoKg, decimal VolumenM3, double? Latitud = null, double? Longitud = null);
+        string Direccion, Guid? ZonaId, string? VentanaHoraria, decimal PesoKg, decimal VolumenM3, double? Latitud = null, double? Longitud = null,
+        string? TipoParada = null, Guid? RetiroId = null);
 
     private record PendienteApi(
         Guid EnvioId, string CodigoSeguimiento, string Destinatario, string Direccion, Guid? ZonaId, string? Prioridad,

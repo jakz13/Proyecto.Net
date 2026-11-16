@@ -92,21 +92,25 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         if (await _rutaRepository.ExisteRutaSinRendirAsync(ruta.RepartidorId!.Value, ruta.Id, cancellationToken))
             throw new DomainValidationException("El repartidor tiene otra hoja de ruta despachada sin rendir.");
 
-        // Un envío viaja solo si todos sus bultos disponibles para ruta fueron cargados
-        var aDespachar = new List<Envio>();
+        // Viajan todos los envíos que tengan al menos un bulto cargado; los bultos no cargados quedan como FaltanteEnCarga.
+        // Solo si ningún bulto del envío subió al vehículo, el envío se retira de la ruta y vuelve a depósito.
+        var aDespachar = new List<(Envio Envio, List<Bulto> Faltantes)>();
         var aRetirar = new List<Envio>();
         foreach (var envio in envios.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))
         {
             var esperados = envio.Bultos.Where(b => b.EstaDisponibleParaRuta).ToList();
-            if (esperados.Count > 0 && esperados.All(b => ruta.BultoFueCargado(b.Id)))
-                aDespachar.Add(envio);
+            var cargadosDelEnvio = esperados.Where(b => ruta.BultoFueCargado(b.Id)).ToList();
+            var noCargadosDelEnvio = esperados.Where(b => !ruta.BultoFueCargado(b.Id)).ToList();
+
+            if (cargadosDelEnvio.Count > 0)
+                aDespachar.Add((envio, noCargadosDelEnvio));
             else
                 aRetirar.Add(envio);
         }
 
         // Sin entregas cargadas, la ruta solo puede salir si tiene retiros que hacer
         if (aDespachar.Count == 0 && !tieneRetiros)
-            throw new DomainValidationException("Ningún envío de la hoja de ruta tiene todos sus bultos cargados: no se puede despachar.");
+            throw new DomainValidationException("Ningún envío de la hoja de ruta tiene bultos cargados: no se puede despachar.");
 
         var mensajes = new List<OutboxMessage>();
         foreach (var envio in aRetirar)
@@ -123,9 +127,12 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
             }));
         }
 
-        foreach (var envio in aDespachar)
+        foreach (var (envio, bultosFaltantes) in aDespachar)
         {
-            envio.DespacharEnRuta(ruta.Id, usuarioId, request.Observaciones);
+            if (bultosFaltantes.Count > 0)
+                envio.DespacharEnRutaParcial(ruta.Id, bultosFaltantes.Select(b => b.Id), usuarioId, request.Observaciones);
+            else
+                envio.DespacharEnRuta(ruta.Id, usuarioId, request.Observaciones);
 
             mensajes.Add(CrearMensaje(nameof(Envio), envio.Id, "EnvioEnTransitoIntegrationEvent", new
             {
@@ -134,6 +141,8 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
                 RepartidorId = ruta.RepartidorId,
                 VehiculoId = ruta.VehiculoId,
                 Estado = EstadoEnvio.EnTransito.ToString(),
+                BultosCargados = envio.Bultos.Where(b => b.EstadoBulto == MaquinaEstadosBulto.CargadoEnVehiculo).Select(b => b.Identificacion).ToList(),
+                BultosFaltantesEnCarga = bultosFaltantes.Select(b => b.Identificacion).ToList(),
                 Timestamp = _clock.UtcNow
             }));
         }
@@ -151,7 +160,7 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         }));
 
         await _rutaRepository.UpdateAsync(ruta, cancellationToken);
-        await _envioRepository.UpdateRangeAsync(aDespachar.Concat(aRetirar), cancellationToken);
+        await _envioRepository.UpdateRangeAsync(aDespachar.Select(x => x.Envio).Concat(aRetirar), cancellationToken);
         await _outboxStorage.SaveRangeAsync(mensajes, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

@@ -116,22 +116,44 @@ public class DespachoYCargaCommandHandlerTests
     }
 
     [Fact]
-    public async Task Carga_ConEnvioCompletoYOtroIncompleto_DespachaCompletoYRetiraIncompletoADeposito()
+    public async Task Carga_ConEnvioCompletoYParcial_DespachaAmbosYMarcaBultoNoCargadoComoFaltante()
     {
         var completo = CrearEnvioClasificado();
-        var incompleto = CrearEnvioClasificado(bultos: 2);
-        var ruta = CrearRutaLiberada(completo, incompleto);
+        var parcial = CrearEnvioClasificado(bultos: 2);
+        var bultoCargado = parcial.Bultos.First();
+        var bultoFaltante = parcial.Bultos.Last();
+        var ruta = CrearRutaLiberada(completo, parcial);
 
-        var resultado = await Cargar(ruta, CodigosDe(completo).Append(incompleto.Bultos.First().Identificacion));
+        var resultado = await Cargar(ruta, CodigosDe(completo).Append(bultoCargado.Identificacion));
+
+        Assert.Equal("EnTransito", resultado.EstadoRuta);
+        Assert.Equal(2, resultado.EnviosEnTransito);
+        Assert.Empty(resultado.EnviosRetiradosIds ?? Array.Empty<Guid>());
+        Assert.Equal(EstadoEnvio.EnTransito, completo.EstadoActual);
+        Assert.Equal(EstadoEnvio.EnTransito, parcial.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.CargadoEnVehiculo, bultoCargado.EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, bultoFaltante.EstadoBulto);
+        Assert.Single(parcial.Discrepancias, d => d.BultoId == bultoFaltante.Id && d.TipoDiscrepancia == "FaltanteEnCarga");
+        Assert.Equal("Pendiente", ruta.Paradas.Single(p => p.EnvioId == parcial.Id).Estado);
+    }
+
+    [Fact]
+    public async Task Carga_ConEnvioSinNingunBultoCargado_DespachaCargadoYRetiraSinCargaADeposito()
+    {
+        var completo = CrearEnvioClasificado();
+        var sinCarga = CrearEnvioClasificado(bultos: 2);
+        var ruta = CrearRutaLiberada(completo, sinCarga);
+
+        var resultado = await Cargar(ruta, CodigosDe(completo));
 
         Assert.Equal("EnTransito", resultado.EstadoRuta);
         Assert.Equal(1, resultado.EnviosEnTransito);
         Assert.NotNull(resultado.EnviosRetiradosIds);
-        Assert.Single(resultado.EnviosRetiradosIds!, incompleto.Id);
+        Assert.Single(resultado.EnviosRetiradosIds!, sinCarga.Id);
         Assert.Equal(EstadoEnvio.EnTransito, completo.EstadoActual);
-        Assert.Equal(EstadoEnvio.EnDeposito, incompleto.EstadoActual);
-        Assert.Null(incompleto.HojaDeRutaId);
-        Assert.Equal("Cancelada", ruta.Paradas.Single(p => p.EnvioId == incompleto.Id).Estado);
+        Assert.Equal(EstadoEnvio.EnDeposito, sinCarga.EstadoActual);
+        Assert.Null(sinCarga.HojaDeRutaId);
+        Assert.Equal("Cancelada", ruta.Paradas.Single(p => p.EnvioId == sinCarga.Id).Estado);
     }
 
     [Fact]
@@ -166,7 +188,7 @@ public class DespachoYCargaCommandHandlerTests
     {
         var a = CrearEnvioClasificado(bultos: 2);
         var ruta = CrearRutaLiberada(a);
-        await Cargar(ruta, new[] { a.Bultos.First().Identificacion });
+        await CargarSoloEscaneo(ruta, new[] { a.Bultos.First().Identificacion });
 
         var resultado = await Cargar(ruta, CodigosDe(a));
 
@@ -291,24 +313,44 @@ public class DespachoYCargaCommandHandlerTests
     }
 
     [Fact]
-    public async Task Despacho_ConBultoNoCargado_RetiraElEnvioYVuelveADeposito()
+    public async Task Despacho_ConEnvioSinBultosCargados_RetiraElEnvioYVuelveADeposito()
     {
         var completo = CrearEnvioClasificado();
-        var incompleto = CrearEnvioClasificado(bultos: 2);
-        var ruta = CrearRutaLiberada(completo, incompleto);
-        await CargarSoloEscaneo(ruta, CodigosDe(completo).Append(incompleto.Bultos.First().Identificacion));
+        var sinCarga = CrearEnvioClasificado(bultos: 2);
+        var ruta = CrearRutaLiberada(completo, sinCarga);
+        await CargarSoloEscaneo(ruta, CodigosDe(completo));
 
         var resultado = await Despachar(ruta);
 
         Assert.Equal(1, resultado.EnviosEnTransito);
         var retirado = Assert.Single(resultado.EnviosRetirados);
-        Assert.Equal(incompleto.Id, retirado.EnvioId);
+        Assert.Equal(sinCarga.Id, retirado.EnvioId);
         Assert.Equal(EstadoEnvio.EnTransito, completo.EstadoActual);
-        Assert.Equal(EstadoEnvio.EnDeposito, incompleto.EstadoActual);
-        Assert.Null(incompleto.HojaDeRutaId);
-        Assert.False(ruta.Asignaciones.Single(x => x.EnvioId == incompleto.Id).Vigente);
-        Assert.Equal("Cancelada", ruta.Paradas.Single(p => p.EnvioId == incompleto.Id).Estado);
+        Assert.Equal(EstadoEnvio.EnDeposito, sinCarga.EstadoActual);
+        Assert.Null(sinCarga.HojaDeRutaId);
+        Assert.False(ruta.Asignaciones.Single(x => x.EnvioId == sinCarga.Id).Vigente);
+        Assert.Equal("Cancelada", ruta.Paradas.Single(p => p.EnvioId == sinCarga.Id).Estado);
         Assert.Contains(_outbox.Mensajes, m => m.TipoEvento == "EnvioDesasignadoPorFaltanteIntegrationEvent");
+    }
+
+    [Fact]
+    public async Task Despacho_ConCargaParcialDeBultos_DespachaCargadoYMarcaFaltanteEnCarga()
+    {
+        var completo = CrearEnvioClasificado();
+        var parcial = CrearEnvioClasificado(bultos: 2);
+        var cargado = parcial.Bultos.First();
+        var faltante = parcial.Bultos.Last();
+        var ruta = CrearRutaLiberada(completo, parcial);
+        await CargarSoloEscaneo(ruta, CodigosDe(completo).Append(cargado.Identificacion));
+
+        var resultado = await Despachar(ruta);
+
+        Assert.Equal(2, resultado.EnviosEnTransito);
+        Assert.Empty(resultado.EnviosRetirados);
+        Assert.Equal(EstadoEnvio.EnTransito, parcial.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.CargadoEnVehiculo, cargado.EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.FaltanteEnCarga, faltante.EstadoBulto);
+        Assert.Equal("Pendiente", ruta.Paradas.Single(p => p.EnvioId == parcial.Id).Estado);
     }
 
     [Fact]
@@ -325,11 +367,13 @@ public class DespachoYCargaCommandHandlerTests
     }
 
     [Fact]
-    public async Task Despacho_NingunEnvioCompleto_LanzaDomainValidationExceptionSinCambios()
+    public async Task Despacho_NingunEnvioConBultosCargados_LanzaDomainValidationExceptionSinCambios()
     {
-        var a = CrearEnvioClasificado(bultos: 2);
-        var ruta = CrearRutaLiberada(a);
-        await CargarSoloEscaneo(ruta, new[] { a.Bultos.First().Identificacion });
+        var a = CrearEnvioClasificado();
+        var b = CrearEnvioClasificado();
+        var ruta = CrearRutaLiberada(a, b);
+        await CargarSoloEscaneo(ruta, CodigosDe(b));
+        b.MarcarExtraviado("Extravío en andén previo al despacho", _tenant.UsuarioId!.Value);
         var confirmaciones = _uow.Confirmaciones;
 
         await Assert.ThrowsAsync<DomainValidationException>(() => Despachar(ruta));

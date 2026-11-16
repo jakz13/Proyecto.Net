@@ -44,7 +44,9 @@ public class ValidarEscaneoCargaCommandHandler : IRequestHandler<ValidarEscaneoC
 
         var bultosAsignados = envios
             .SelectMany(e => e.Bultos
-                .Where(b => !b.EstaEntregado && b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion)
+                .Where(b => !b.EstaEntregado
+                    && b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnRecepcion
+                    && b.EstadoBulto != MaquinaEstadosBulto.FaltanteEnCarga)
                 .Select(b => new { Envio = e, Bulto = b }))
             .ToList();
 
