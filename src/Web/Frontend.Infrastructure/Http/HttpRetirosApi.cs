@@ -33,6 +33,7 @@ public class HttpRetirosApi : IRetirosApi
             ciudad = solicitud.Ciudad,
             referencia = solicitud.Referencia,
             motivo = solicitud.Motivo,
+            franjaHorariaId = solicitud.FranjaHorariaId,
             fechaSolicitada = solicitud.FechaSolicitada?.ToString("yyyy-MM-dd"),
             referenciaExterna = solicitud.ReferenciaExterna,
             bultos = solicitud.Bultos.Select(b => new { descripcion = b.Descripcion, peso = b.Peso, alto = b.Alto, ancho = b.Ancho, profundo = b.Profundo })

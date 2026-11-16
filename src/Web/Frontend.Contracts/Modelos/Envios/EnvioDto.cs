@@ -20,6 +20,7 @@ public record EnvioDto
     public decimal? Tarifa { get; init; }
     public string? ModalidadServicio { get; init; }
     public IReadOnlyList<string>? BultosIdentificaciones { get; init; }
+    public IReadOnlyList<BultoEstadoEnvioDto>? BultosDetalle { get; init; }
 
     public string? ComercioNombre { get; init; }
     public string? OperadorNombre { get; init; }
@@ -34,3 +35,11 @@ public record EnvioDto
     /// </summary>
     public string SelloModificacion { get; init; } = string.Empty;
 }
+
+/// <summary>Estado individual de cada bulto de un envío en el Portal del Comercio y Backoffice.</summary>
+public record BultoEstadoEnvioDto(
+    Guid BultoId,
+    string Identificacion,
+    decimal PesoKg,
+    string EstadoBulto,
+    string? MotivoNoEntregaCodigo = null);

@@ -1,6 +1,10 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using UltimaMilla.Frontend.Contracts.Interfaces;
+using UltimaMilla.Frontend.Contracts.Modelos.MotivosNoEntrega;
 using Xunit;
 
 namespace UltimaMilla.Backoffice.Tests;
@@ -87,6 +91,55 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         var cuerpo = await respuesta.Content.ReadAsStringAsync();
         var aviso = Regex.Match(cuerpo, "(Por favor[^<]{0,400}|Error al[^<]{0,160})").Groups[1].Value + " / HTTP " + (int)respuesta.StatusCode;
         Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, "No redirigió: " + aviso);
+    }
+
+    [Fact]
+    public async Task MotivosNoEntrega_Listado_NoMuestraAltaCeroUnoCeroUnoCeroCeroCeroUno()
+    {
+        var fechaValida = new DateTime(2026, 11, 10, 15, 30, 0, DateTimeKind.Utc);
+        using var fabrica = _fabrica.WithWebHostBuilder(constructor => constructor.ConfigureServices(servicios =>
+        {
+            servicios.RemoveAll<IMotivosNoEntregaApi>();
+            servicios.AddSingleton<IMotivosNoEntregaApi>(new StubMotivosNoEntregaApi(
+                new MotivoNoEntregaDto { Id = Guid.NewGuid(), Codigo = "SIN_FECHA", Descripcion = "Motivo sin fecha", Activo = true, FechaAlta = default },
+                new MotivoNoEntregaDto { Id = Guid.NewGuid(), Codigo = "CON_FECHA", Descripcion = "Motivo con fecha", Activo = true, FechaAlta = fechaValida }
+            ));
+        }));
+
+        var cliente = fabrica.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        var loginHtml = await (await cliente.GetAsync("/Login")).Content.ReadAsStringAsync();
+        var login = await cliente.PostAsync("/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["RolSeleccionado"] = "Administrador",
+            ["NombreUsuario"] = "Prueba Administrador",
+            ["__RequestVerificationToken"] = Token.Match(loginHtml).Groups[1].Value
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+        var html = WebUtility.HtmlDecode(await (await cliente.GetAsync("/MotivosNoEntrega")).Content.ReadAsStringAsync());
+
+        Assert.Contains("Motivo sin fecha", html);
+        Assert.Contains("Motivo con fecha", html);
+        Assert.DoesNotContain("01/01/0001", html);
+        Assert.Contains($"Alta: {fechaValida.ToLocalTime():dd/MM/yyyy}", html);
+    }
+
+    private sealed class StubMotivosNoEntregaApi(params MotivoNoEntregaDto[] motivos) : IMotivosNoEntregaApi
+    {
+        public Task<IReadOnlyList<MotivoNoEntregaDto>> ListarMotivosAsync(FiltroMotivosNoEntregaDto? filtro = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MotivoNoEntregaDto>>(motivos);
+        public Task<MotivoNoEntregaDto?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(motivos.FirstOrDefault(m => m.Id == id));
+        public Task<MotivoNoEntregaDto> CrearMotivoAsync(CrearMotivoNoEntregaDto dto, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+        public Task<MotivoNoEntregaDto> ActualizarMotivoAsync(ActualizarMotivoNoEntregaDto dto, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+        public Task CambiarEstadoAsync(Guid id, bool activo, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+        public Task<ResumenMotivosNoEntregaDto> ObtenerResumenAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ResumenMotivosNoEntregaDto { TotalMotivos = motivos.Length, MotivosActivosParaMovil = motivos.Count(m => m.Activo), MotivosInactivos = motivos.Count(m => !m.Activo) });
+        public Task<IReadOnlyList<MotivoNoEntregaDto>> ObtenerMotivosParaSincronizacionMovilAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MotivoNoEntregaDto>>(motivos.Where(m => m.Activo).ToList());
     }
 
     [Fact]
@@ -238,6 +291,18 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task TarifaNuevaVersion_IncluyePanelDeConfirmacionParaPublicarNuevaVersion()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = WebUtility.HtmlDecode(await (await cliente.GetAsync("/Tarifas/NuevaVersion")).Content.ReadAsStringAsync());
+
+        Assert.Contains("id=\"modalConfirmarPublicacion\"", html);
+        Assert.Contains("¿Confirma la publicación de esta nueva versión? La versión anterior cerrará su vigencia y los nuevos envíos se tarifarán con estas reglas.", html);
+        Assert.Contains("id=\"btnConfirmarPublicacionModal\"", html);
+        Assert.DoesNotContain("onclick=\"return confirm(", html);
+    }
+
+    [Fact]
     public async Task Recepcion_SiElOperarioDesmarcaTodosLosBultos_NoSeDaElEnvioPorRecibido()
     {
         // Antes, una lista vacía se interpretaba como "llegaron todos" y el envío quedaba En Depósito sin discrepancias
@@ -261,6 +326,76 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         var cuerpo = await respuesta.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         Assert.Contains("No hay ningún bulto marcado", WebUtility.HtmlDecode(cuerpo));
+    }
+
+    [Fact]
+    public async Task ZonaNueva_ConTodosLosDias_CreaLaZonaYExpandeLasFranjas()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Zonas/Nueva")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        var nombreZona = "Zona Todos Los Dias " + Guid.NewGuid().ToString("N")[..6];
+        datos["NuevaZona.Nombre"] = nombreZona;
+        datos["NuevaZona.PoligonoGeografico"] = "[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9180, -56.1480], [-34.9080, -56.2120]]";
+        datos["Franjas[0].DiaSemana"] = "-1";
+        datos["Franjas[0].HoraInicio"] = "09:00";
+        datos["Franjas[0].HoraFin"] = "13:00";
+        datos["Franjas[0].CapacidadMaximaEnvios"] = "35";
+        datos.Remove("Franjas[1].DiaSemana");
+        datos.Remove("Franjas[1].HoraInicio");
+        datos.Remove("Franjas[1].HoraFin");
+        datos.Remove("Franjas[1].CapacidadMaximaEnvios");
+
+        var respuesta = await cliente.PostAsync("/Zonas/Nueva", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {cuerpo[..Math.Min(cuerpo.Length, 1200)]}");
+
+        var listado = WebUtility.HtmlDecode(await (await cliente.GetAsync("/Zonas")).Content.ReadAsStringAsync());
+        Assert.Contains(nombreZona, listado);
+        Assert.Contains("7 franjas horarias", listado);
+    }
+
+    [Fact]
+    public async Task ZonaNueva_ConNombreMuyCortoYTodosLosDias_MuestraElErrorEnLaPagina()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var html = await (await cliente.GetAsync("/Zonas/Nueva")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        datos["NuevaZona.Nombre"] = "AB"; // menor a 3 caracteres
+        datos["Franjas[0].DiaSemana"] = "-1";
+
+        var respuesta = await cliente.PostAsync("/Zonas/Nueva", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("Error de validación:", cuerpo);
+        Assert.Contains("entre 3 y 100 caracteres", cuerpo);
+    }
+
+    [Fact]
+    public async Task ZonaEditar_ConTodosLosDias_ActualizaLaZonaYExpandeLasFranjas()
+    {
+        var cliente = await SesionDeAdministradorAsync();
+        var listado = await (await cliente.GetAsync("/Zonas")).Content.ReadAsStringAsync();
+        var zonaId = Regex.Match(listado, @"/Zonas/Editar/([0-9a-f-]{36})", RegexOptions.IgnoreCase).Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(zonaId), "No se encontró ninguna zona editable.");
+
+        var html = await (await cliente.GetAsync($"/Zonas/Editar/{zonaId}")).Content.ReadAsStringAsync();
+        var datos = DatosDelFormulario(html);
+        foreach (var clave in datos.Keys.Where(k => k.StartsWith("Franjas[", StringComparison.Ordinal)).ToList())
+            datos.Remove(clave);
+
+        datos["Zona.PoligonoGeografico"] = "[[-34.9080, -56.2120], [-34.9030, -56.1780], [-34.9180, -56.1480], [-34.9080, -56.2120]]";
+        datos["Franjas[0].DiaSemana"] = "-1";
+        datos["Franjas[0].HoraInicio"] = "08:00";
+        datos["Franjas[0].HoraFin"] = "12:00";
+        datos["Franjas[0].CapacidadMaximaEnvios"] = "25";
+
+        var respuesta = await cliente.PostAsync($"/Zonas/Editar/{zonaId}", new FormUrlEncodedContent(datos));
+
+        var cuerpo = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+        Assert.True(respuesta.StatusCode == HttpStatusCode.Redirect, $"No redirigió (HTTP {(int)respuesta.StatusCode}): {cuerpo[..Math.Min(cuerpo.Length, 1200)]}");
     }
 
     [Fact]

@@ -249,6 +249,10 @@ else
                                     <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.75rem;">
                                         @p.CodigoSeguimiento
                                     </span>
+                                    @if (p.EsRetiro)
+                                    {
+                                        <span class="badge bg-dark-subtle text-dark border ms-1" style="font-size: 0.68rem;">Retiro</span>
+                                    }
                                     @if (!string.IsNullOrEmpty(p.HistorialReasignacion))
                                     {
                                         <div class="text-muted small mt-1" style="font-size: 0.68rem;" title="@p.HistorialReasignacion">
@@ -275,18 +279,22 @@ else
                                     <div class="text-secondary" style="font-size: 0.68rem;">@p.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                 </td>
                                 <td class="text-center">
-                                    @if (p.Estado == "NoEntregado")
+                                    @if (p.Estado is "NoEntregado" or "Fallida" or "NoRetirada")
                                     {
-                                        <span class="estado-fallo">No Entregado</span>
+                                        <span class="estado-fallo">@(p.EsRetiro ? "No Retirado" : "No Entregado")</span>
                                         <div class="text-danger small mt-1" style="font-size: 0.68rem;">
                                             @p.MotivoNoEntrega
                                         </div>
                                     }
-                                    else if (p.Estado == "Entregado")
+                                    else if (p.Estado is "Entregado" or "Entregada" or "Retirada")
                                     {
-                                        <span class="estado-entregado">Entregado</span>
+                                        <span class="estado-entregado">@(p.EsRetiro ? "Retirado" : "Entregado")</span>
                                     }
-                                    else if (p.Estado == "EnTransito")
+                                    else if (p.Estado is "EntregadaParcialmente" or "EntregadoParcialmente")
+                                    {
+                                        <span class="estado-intermedio">Entrega Parcial</span>
+                                    }
+                                    else if (p.Estado is "EnTransito" or "EnCamino" or "EnSitio")
                                     {
                                         <span class="estado-intermedio">En Tránsito</span>
                                     }
@@ -297,19 +305,30 @@ else
                                 </td>
                                 <td class="text-center">
                                     <div class="d-inline-flex align-items-center justify-content-center gap-1">
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
-                                                title="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
-                                                aria-label="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
-                                                onclick="abrirModalEtiquetasRuta('@ruta.Id', '@p.EnvioId', '@p.CodigoSeguimiento')">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <path d="M3 5v14"></path>
-                                                <path d="M8 5v14"></path>
-                                                <path d="M12 5v14"></path>
-                                                <path d="M17 5v14"></path>
-                                                <path d="M21 5v14"></path>
-                                            </svg>
-                                        </button>
+                                        @if (!p.EsRetiro && p.EnvioId != Guid.Empty)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-outline-primary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                                    title="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
+                                                    aria-label="Ver e Imprimir Etiquetas / Códigos de Barras de @p.CodigoSeguimiento"
+                                                    onclick="abrirModalEtiquetasRuta('@ruta.Id', '@p.EnvioId', '@p.CodigoSeguimiento')">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M3 5v14"></path>
+                                                    <path d="M8 5v14"></path>
+                                                    <path d="M12 5v14"></path>
+                                                    <path d="M17 5v14"></path>
+                                                    <path d="M21 5v14"></path>
+                                                </svg>
+                                            </button>
+                                        }
+                                        else if (p.EsRetiro && p.RetiroId.HasValue)
+                                        {
+                                            <a asp-page="/Retiros/Index"
+                                               class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
+                                               title="Ver orden de retiro @p.CodigoSeguimiento">
+                                                <span style="font-size: 0.7rem;">Retiro</span>
+                                            </a>
+                                        }
                                         <button type="button"
                                                 class="btn btn-outline-secondary btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center text-dark"
                                                 title="Ubicar parada #@p.Orden en el mapa"
@@ -320,7 +339,7 @@ else
                                                 <circle cx="12" cy="10" r="3"></circle>
                                             </svg>
                                         </button>
-                                        @if (p.Estado != "NoEntregado")
+                                        @if (!p.EsRetiro && p.EnvioId != Guid.Empty && p.Estado != "NoEntregado")
                                         {
                                             <button type="button" 
                                                     class="btn btn-outline-danger btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center btn-reasignar"
@@ -342,7 +361,7 @@ else
                                                 </svg>
                                             </button>
                                         }
-                                        else
+                                        else if (!p.EsRetiro)
                                         {
                                             <span class="text-muted small">En retorno</span>
                                         }

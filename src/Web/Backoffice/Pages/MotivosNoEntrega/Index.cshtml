@@ -170,9 +170,12 @@
                                     </td>
                                     <td>
                                         <div class="fw-semibold text-dark small">@motivo.Descripcion</div>
-                                        <div class="text-muted" style="font-size: 0.725rem;">
-                                            Alta: @motivo.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")
-                                        </div>
+                                        @if (motivo.FechaAlta.Year > 1)
+                                        {
+                                            <div class="text-muted" style="font-size: 0.725rem;">
+                                                Alta: @motivo.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")
+                                            </div>
+                                        }
                                     </td>
                                     <td class="text-center">
                                         <span class="text-dark fw-semibold">@motivo.CantidadUsos</span>

@@ -110,7 +110,8 @@ public static class AvisosComercioEndpoints
                     request.UrlWebhook,
                     request.Eventos ?? Array.Empty<string>(),
                     request.ClaveFirma,
-                    request.Activa);
+                    request.Activa,
+                    request.VersionContrato ?? "v1");
 
                 var resultado = await mediator.Send(comando, ct);
                 return Results.Ok(resultado);
@@ -165,7 +166,8 @@ public record ConfigurarAvisosRequest(
     string UrlWebhook,
     IReadOnlyList<string> Eventos,
     string? ClaveFirma,
-    bool Activa = true);
+    bool Activa = true,
+    string? VersionContrato = "v1");
 
 public record ProbarWebhookRequest(
     string? UrlWebhook);

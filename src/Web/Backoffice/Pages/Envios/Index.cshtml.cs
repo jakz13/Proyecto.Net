@@ -202,7 +202,16 @@ public class IndexModel : PageModel
         try
         {
             var respuesta = await _enviosApi.GenerarEtiquetasEnviosAsync(new[] { id });
-            return new JsonResult(respuesta);
+            var detalleEnvio = await _enviosApi.ObtenerPorIdAsync(id);
+            return new JsonResult(new
+            {
+                respuesta.Etiquetas,
+                respuesta.TotalEnviosSeleccionados,
+                respuesta.TotalEtiquetasGeneradas,
+                respuesta.NombreArchivoDescarga,
+                respuesta.ContenidoHtmlDescargable,
+                BultosDetalle = detalleEnvio?.BultosDetalle
+            });
         }
         catch
         {
@@ -237,7 +246,15 @@ public class IndexModel : PageModel
                 FechaAdmision: envio.FechaCreacion)).ToList();
 
             var html = GeneradorDocumentoEtiquetas.ConstruirHtmlDescargable(etiquetas);
-            return new JsonResult(new ResultadoGeneracionEtiquetasDto(etiquetas, 1, etiquetas.Count, $"etiquetas-{envio.CodigoSeguimiento}.html", html));
+            return new JsonResult(new
+            {
+                Etiquetas = etiquetas,
+                TotalEnviosSeleccionados = 1,
+                TotalEtiquetasGeneradas = etiquetas.Count,
+                NombreArchivoDescarga = $"etiquetas-{envio.CodigoSeguimiento}.html",
+                ContenidoHtmlDescargable = html,
+                BultosDetalle = envio.BultosDetalle
+            });
         }
     }
 }

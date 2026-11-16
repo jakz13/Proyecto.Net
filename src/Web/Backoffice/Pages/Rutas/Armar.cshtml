@@ -173,13 +173,10 @@ else if (Model.ErroresValidacion.Count > 0)
                         <div class="col-6 col-md-4">
                             <select id="filtroZona" class="form-select form-select-sm" onchange="filtrarTablaEnvios()">
                                 <option value="">Todas las zonas</option>
-                                <option value="Centro / Cordón">Centro / Cordón</option>
-                                <option value="Pocitos / Punta Carretas">Pocitos / Punta Carretas</option>
-                                <option value="Ciudad Vieja">Ciudad Vieja</option>
-                                <option value="Carrasco / Paso Carrasco">Carrasco / Paso Carrasco</option>
-                                <option value="Paso Molino / Prado">Paso Molino / Prado</option>
-                                <option value="Unión / Maroñas">Unión / Maroñas</option>
-                                <option value="Costa de Oro / Canelones">Costa de Oro / Canelones</option>
+                                @foreach (var zona in Model.ZonasDisponibles)
+                                {
+                                    <option value="@zona">@zona</option>
+                                }
                             </select>
                         </div>
                         <div class="col-6 col-md-3">

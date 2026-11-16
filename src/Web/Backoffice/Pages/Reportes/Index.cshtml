@@ -171,6 +171,9 @@
     }
     else if (tipo == "MotivosNoEntrega")
     {
+        var principalMotivo = Model.Reporte.ItemsMotivos.OrderByDescending(m => m.CantidadOcurrencias).FirstOrDefault();
+        var pctExternos = Model.Reporte.ItemsMotivos.Where(m => m.Categoria == "ExternoDestinatario").Sum(m => m.PorcentajeDelTotal);
+        var pctInternos = Model.Reporte.ItemsMotivos.Where(m => m.Categoria != "ExternoDestinatario").Sum(m => m.PorcentajeDelTotal);
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Total Fallos de Entrega</span>
@@ -181,22 +184,53 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Principal Causa</span>
-                <div class="h5 fw-bold mb-0 text-danger">Destinatario Ausente</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Representa el 46.7% de los casos</div>
+                <div class="h5 fw-bold mb-0 text-danger">@(principalMotivo?.DescripcionMotivo ?? "Sin ocurrencias")</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Representa el @((principalMotivo?.PorcentajeDelTotal ?? 0m).ToString("N1", UltimaMilla.Backoffice.Formato.UY))% de los casos</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Causas Externas</span>
-                <div class="h3 fw-bold mb-0 text-primary">70.0%</div>
+                <div class="h3 fw-bold mb-0 text-primary">@pctExternos.ToString("N1", UltimaMilla.Backoffice.Formato.UY)%</div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Ausencia de cliente o dirección errónea</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Causas Operativas</span>
-                <div class="h3 fw-bold mb-0 text-warning">23.3%</div>
+                <div class="h3 fw-bold mb-0 text-warning">@pctInternos.ToString("N1", UltimaMilla.Backoffice.Formato.UY)%</div>
                 <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Averías mecánicas o daño de embalaje</div>
+            </div>
+        </div>
+    }
+    else if (tipo == "RetirosEnDomicilio")
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Retiros Solicitados</span>
+                <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsRetiros.Sum(r => r.Solicitados)</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En el período seleccionado</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Retirados en Domicilio</span>
+                <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.ItemsRetiros.Sum(r => r.Retirados)</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Bultos recogidos por repartidores</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
+                <span class="text-secondary small fw-semibold mb-1">Entregados al Comercio</span>
+                <div class="h3 fw-bold mb-0 text-success">@Model.Reporte.ItemsRetiros.Sum(r => r.EntregadosAlComercio)</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Flujo de retiro completado</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-success border-4">
+                <span class="text-secondary small fw-semibold mb-1">Total Facturado Retiros</span>
+                <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.ItemsRetiros.Sum(r => r.TotalFacturado).ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
+                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Por retiros entregados al comercio</div>
             </div>
         </div>
     }

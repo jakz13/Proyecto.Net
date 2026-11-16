@@ -301,6 +301,97 @@ public class EntregaParcialDominioTests
     }
 
     [Fact]
+    public void ReglaOperativa_TipoPruebaCompleta_ExigeFirmaFotoYDocumento()
+    {
+        var regla = CrearReglaOperativa(tipoPrueba: "Completa");
+
+        Assert.Throws<DomainValidationException>(() => regla.ValidarPruebaEntrega(null, "foto-ok", "41112223"));
+        Assert.Throws<DomainValidationException>(() => regla.ValidarPruebaEntrega("firma-ok", null, "41112223"));
+        Assert.Throws<DomainValidationException>(() => regla.ValidarPruebaEntrega("firma-ok", "foto-ok", null));
+
+        regla.ValidarPruebaEntrega("firma-ok", "foto-ok", "41112223");
+    }
+
+    [Fact]
+    public void EntregaParcial_PoliticaDevolucionAlComercio_PermiteConfirmarRecepcionDeBultosDevueltosMantenidoEstadoParcial()
+    {
+        var envio = CrearEnvioEnTransitoConTresBultos(out _);
+        var regla = CrearReglaOperativa(
+            admiteEntregaParcial: true,
+            politicaEntregaParcial: ReglaOperativa.PoliticaDevolucionAlComercio);
+        var motivo = new MotivoNoEntrega(Guid.NewGuid(), envio.OperadorId, "RECHAZADO", "Rechazado por destinatario", false);
+
+        envio.RegistrarEntregaParcial(
+            Guid.NewGuid(),
+            regla,
+            new[] { "BUL-001" },
+            new[]
+            {
+                new BultoNoEntregadoInput("BUL-002", motivo),
+                new BultoNoEntregadoInput("BUL-003", motivo)
+            },
+            "María Rodríguez",
+            "41112223",
+            firmaDigitalBase64: "firma-1",
+            fotoEvidenciaBase64: null,
+            latitud: null,
+            longitud: null,
+            fechaHoraDispositivoUtc: DateTime.UtcNow);
+
+        envio.ConfirmarDevolucionRecibida(Guid.NewGuid());
+
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, envio.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-001").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.Devuelto, envio.Bultos.Single(b => b.Identificacion == "BUL-002").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.Devuelto, envio.Bultos.Single(b => b.Identificacion == "BUL-003").EstadoBulto);
+    }
+
+    [Fact]
+    public void EntregaParcial_SegundaVisitaFallida_PreservaEstadoEntregadoParcialmente()
+    {
+        var envio = CrearEnvioEnTransitoConTresBultos(out _);
+        var regla = CrearReglaOperativa(admiteEntregaParcial: true, politicaEntregaParcial: ReglaOperativa.PoliticaNuevaVisitaSinRecargo);
+        var motivo = new MotivoNoEntrega(Guid.NewGuid(), envio.OperadorId, "AUSENTE", "Destinatario ausente", false);
+
+        envio.RegistrarEntregaParcial(
+            Guid.NewGuid(),
+            regla,
+            new[] { "BUL-001" },
+            new[]
+            {
+                new BultoNoEntregadoInput("BUL-002", motivo),
+                new BultoNoEntregadoInput("BUL-003", motivo)
+            },
+            "María Rodríguez",
+            "41112223",
+            firmaDigitalBase64: "firma-1",
+            fotoEvidenciaBase64: null,
+            latitud: null,
+            longitud: null,
+            fechaHoraDispositivoUtc: DateTime.UtcNow);
+
+        envio.ReintegrarADepositoPorRendicion(Guid.NewGuid());
+        var ruta2Id = Guid.NewGuid();
+        envio.AsignarRuta(ruta2Id, Guid.NewGuid());
+        envio.DespacharEnRuta(ruta2Id, Guid.NewGuid());
+
+        var (_, estadoFinal, _) = envio.RegistrarIntentoFallido(
+            Guid.NewGuid(),
+            motivo,
+            regla,
+            "No atendió en la segunda visita",
+            null,
+            null,
+            null,
+            DateTime.UtcNow);
+
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, estadoFinal);
+        Assert.Equal(EstadoEnvio.EntregadoParcialmente, envio.EstadoActual);
+        Assert.Equal(MaquinaEstadosBulto.Entregado, envio.Bultos.Single(b => b.Identificacion == "BUL-001").EstadoBulto);
+        Assert.Equal(MaquinaEstadosBulto.PendienteReenvio, envio.Bultos.Single(b => b.Identificacion == "BUL-002").EstadoBulto);
+    }
+
+    [Fact]
     public void DespacharEnRutaParcial_ConBultoFaltante_DespachaCargadoYMarcaFaltanteEnCargaConDiscrepancia()
     {
         var envio = new Envio(
@@ -378,7 +469,7 @@ public class EntregaParcialDominioTests
             new[] { "BUL-C1" },
             Array.Empty<BultoNoEntregadoInput>(),
             "María Rodríguez",
-            "4.111.222-3",
+            "41112223",
             firmaDigitalBase64: "firma-1",
             fotoEvidenciaBase64: null,
             latitud: -34.9,
@@ -407,7 +498,7 @@ public class EntregaParcialDominioTests
             new[] { "BUL-C1" },
             Array.Empty<BultoNoEntregadoInput>(),
             "María Rodríguez",
-            "4.111.222-3",
+            "41112223",
             firmaDigitalBase64: "firma-1",
             fotoEvidenciaBase64: null,
             latitud: null,
@@ -430,7 +521,7 @@ public class EntregaParcialDominioTests
                 Guid.NewGuid(),
                 regla,
                 "María Rodríguez",
-                "4.111.222-3",
+                "41112223",
                 firmaDigitalBase64: "firma-1",
                 fotoEvidenciaBase64: null,
                 latitud: null,
@@ -481,7 +572,7 @@ public class EntregaParcialDominioTests
             new[] { "BUL-1" },
             new[] { new BultoNoEntregadoInput("BUL-2", motivo, "No se ubicó en el furgón") },
             "Lucía Gómez",
-            "4.222.333-4",
+            "42223334",
             firmaDigitalBase64: "firma-ok",
             fotoEvidenciaBase64: null,
             latitud: null,

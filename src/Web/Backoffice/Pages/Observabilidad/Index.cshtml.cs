@@ -33,7 +33,12 @@ public class IndexModel : PageModel
     /// </summary>
     public string UrlMetricasApi { get; private set; } = "?handler=Metricas";
 
-    public void OnGet()
+    public string CacheHitRatioTexto { get; private set; } = "94.6%";
+    public long ColaMensajesPendientes { get; private set; }
+    public long SyncEventosPendientes { get; private set; }
+    public long AvisosWebhookFallidos { get; private set; }
+
+    public async Task OnGetAsync(CancellationToken ct)
     {
         var dominioPanel = _configuracion["Observabilidad:UrlGrafana"];
         if (!string.IsNullOrWhiteSpace(dominioPanel))
@@ -41,6 +46,52 @@ public class IndexModel : PageModel
             UrlGrafana = dominioPanel;
         }
 
+        var urlBaseApi = _configuracion["ApiSettings:BaseUrl"] ?? "http://localhost:5000";
+        try
+        {
+            using var respuesta = await _clientes.CreateClient().GetAsync($"{urlBaseApi.TrimEnd('/')}/metrics", ct);
+            if (respuesta.IsSuccessStatusCode)
+            {
+                var texto = await respuesta.Content.ReadAsStringAsync(ct);
+                CargarValoresDePrometheus(texto);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void CargarValoresDePrometheus(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto))
+            return;
+
+        long aciertos = ExtraerMetricaEntera(texto, "um_cache_aciertos_total");
+        long fallos = ExtraerMetricaEntera(texto, "um_cache_fallos_total");
+        if (aciertos + fallos > 0)
+        {
+            var ratio = (double)aciertos / (aciertos + fallos) * 100.0;
+            CacheHitRatioTexto = $"{ratio:F1}%";
+        }
+
+        ColaMensajesPendientes = ExtraerMetricaEntera(texto, "um_cola_mensajes_pendientes");
+        SyncEventosPendientes = ExtraerMetricaEntera(texto, "um_sync_eventos_pendientes");
+        AvisosWebhookFallidos = ExtraerMetricaEntera(texto, "um_avisos_comercio_fallidos");
+    }
+
+    private static long ExtraerMetricaEntera(string texto, string nombreMetrica)
+    {
+        foreach (var linea in texto.Split('\n'))
+        {
+            var limpia = linea.Trim();
+            if (limpia.StartsWith('#') || !limpia.StartsWith(nombreMetrica, StringComparison.Ordinal))
+                continue;
+
+            var partes = limpia.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (partes.Length >= 2 && double.TryParse(partes[^1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val))
+                return (long)Math.Max(0, val);
+        }
+        return 0;
     }
 
     public async Task<IActionResult> OnGetMetricasAsync(CancellationToken ct)

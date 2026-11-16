@@ -82,7 +82,8 @@ public class ObtenerConfiguracionAvisosQueryHandler : IRequestHandler<ObtenerCon
             Activa: activa,
             EstaConfigurado: true,
             CatalogoEventos: CatalogoCompleto,
-            HistorialReciente: historial);
+            HistorialReciente: historial,
+            VersionContrato: primera.VersionContrato);
     }
 }
 

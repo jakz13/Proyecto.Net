@@ -365,13 +365,39 @@ internal sealed class ConstructorReportes
 
     private async Task<List<ItemReporteLiquidacionDto>> LiquidacionAsync(CancellationToken ct)
     {
-        var entregados = await _db.IntentosEntrega.AsNoTracking()
+        var enviosExitosos = await _db.IntentosEntrega.AsNoTracking()
             .Where(i => i.Resultado == "Exitoso" && i.Timestamp >= _desdeUtc && i.Timestamp < _hastaUtc)
             .Join(_db.Envios.AsNoTracking().Where(e => e.OperadorId == _operadorId
                         && (_filtro.ComercioId == null || e.ComercioOperadorId == _filtro.ComercioId)),
                 i => i.EnvioId, e => e.Id, (i, e) => new { e.Id, e.ComercioOperadorId, e.ReglaTarifaAplicadaId, e.TarifaCalculada })
             .Distinct()
             .ToListAsync(ct);
+
+        var enviosParcialesCerrados = await _db.IntentosEntrega.AsNoTracking()
+            .Where(i => i.Resultado == "Parcial" && i.Timestamp >= _desdeUtc && i.Timestamp < _hastaUtc)
+            .Join(_db.Envios.AsNoTracking().Where(e => e.OperadorId == _operadorId
+                        && e.EstadoActual == EstadoEnvio.EntregadoParcialmente
+                        && !e.Bultos.Any(b => b.EstadoBulto == "PendienteReenvio" || b.EstadoBulto == "CargadoEnVehiculo")
+                        && (_filtro.ComercioId == null || e.ComercioOperadorId == _filtro.ComercioId)),
+                i => i.EnvioId, e => e.Id, (i, e) => new { e.Id, e.ComercioOperadorId, e.ReglaTarifaAplicadaId, e.TarifaCalculada })
+            .Distinct()
+            .ToListAsync(ct);
+
+        var retirosCompletados = await _db.Retiros.AsNoTracking()
+            .Where(r => r.OperadorId == _operadorId
+                        && r.EstadoActual == EstadoRetiro.EntregadoAlComercio
+                        && (_filtro.ComercioId == null || r.ComercioOperadorId == _filtro.ComercioId)
+                        && r.Eventos.Any(ev => ev.EstadoNuevo == EstadoRetiro.EntregadoAlComercio && ev.Timestamp >= _desdeUtc && ev.Timestamp < _hastaUtc))
+            .Select(r => new { r.Id, r.ComercioOperadorId, r.ReglaTarifaAplicadaId, r.TarifaCalculada })
+            .ToListAsync(ct);
+
+        var entregados = enviosExitosos
+            .Concat(enviosParcialesCerrados)
+            .Concat(retirosCompletados)
+            .GroupBy(e => e.Id)
+            .Select(g => g.First())
+            .ToList();
+
         if (entregados.Count == 0)
             return new List<ItemReporteLiquidacionDto>();
 
@@ -389,8 +415,10 @@ internal sealed class ConstructorReportes
                 {
                     if (envio.ReglaTarifaAplicadaId is { } rid && reglas.TryGetValue(rid, out var regla))
                     {
+                        var netoRegla = Math.Max(0, regla.PrecioBase + regla.Recargo - regla.Bonificacion);
+                        var diferenciaRecargo = Math.Max(0, envio.TarifaCalculada - netoRegla);
                         baseTotal += regla.PrecioBase;
-                        recargo += regla.Recargo;
+                        recargo += regla.Recargo + diferenciaRecargo;
                         descuento += regla.Bonificacion;
                     }
                     else

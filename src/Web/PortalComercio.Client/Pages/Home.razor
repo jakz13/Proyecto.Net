@@ -163,13 +163,13 @@
             var resultado = await EnviosApi.ListarEnviosAsync(new FiltroEnviosDto
             {
                 Pagina = 1,
-                TamanoPagina = 20,
+                TamanoPagina = 100,
                 SoloEnviosPropiosComercio = true
             });
             totalEnvios = resultado.TotalRegistros;
             enTransito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnTransito);
-            entregados = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.Entregado);
-            enDeposito = resultado.Elementos.Count(e => e.Estado == EstadoEnvioDto.EnDeposito);
+            entregados = resultado.Elementos.Count(e => e.Estado is EstadoEnvioDto.Entregado or EstadoEnvioDto.EntregadoParcialmente);
+            enDeposito = resultado.Elementos.Count(e => e.Estado is EstadoEnvioDto.EnDeposito or EstadoEnvioDto.AsignadoARuta);
             enviosRecientes = resultado.Elementos.Take(5).ToList();
         }
         catch
