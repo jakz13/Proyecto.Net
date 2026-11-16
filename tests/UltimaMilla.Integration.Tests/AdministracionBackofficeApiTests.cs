@@ -329,7 +329,7 @@ public class AdministracionBackofficeApiTests
         var actualizada = await api.ActualizarIdentidadVisualAsync(new ActualizarIdentidadVisualDto
         {
             NombreComercial = "Última Milla Express", ColorPrimario = "#0f766e", ColorSecundario = "#facc15",
-            EmailContacto = "Hola@UltimaMilla.com.uy", TelefonoContacto = "+598 2000 0000",
+            EmailContacto = "Hola@UltimaMilla.com.uy", TelefonoContacto = "099000000",
             SitioWeb = "https://ultimamilla.com.uy", MensajeComunicaciones = "¡Gracias!"
         });
         Assert.Equal("#0F766E", actualizada.ColorPrimario);

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos.Usuarios;
 
@@ -16,7 +17,8 @@ public record CrearUsuarioDto
     public string Apellido { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El correo electrónico es obligatorio.")]
-    [EmailAddress(ErrorMessage = "El formato del correo electrónico no es válido.")]
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string Email { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "La contraseña provisional es obligatoria.")]
@@ -40,7 +42,7 @@ public record CrearUsuarioDto
     /// <summary>
     /// Teléfono celular de contacto cuando el rol asignado es Repartidor.
     /// </summary>
-    [StringLength(30, ErrorMessage = "El teléfono no puede superar los 30 caracteres.")]
+    [TelefonoNueveDigitos]
     public string? Telefono { get; init; }
 
     /// <summary>

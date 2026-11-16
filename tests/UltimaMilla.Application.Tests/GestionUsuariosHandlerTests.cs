@@ -78,7 +78,7 @@ public class GestionUsuariosHandlerTests
     public async Task CrearUsuario_ConComercioAsociadoValido_AsociaComercioExitosamente()
     {
         // Arrange
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Uno", "123456789012", "c1@test.com", "099");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Uno", "123456789012", "c1@test.com", "099000000");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var vinculo = new ComercioOperador(Guid.NewGuid(), comercio.Id, _inquilinoActual.OperadorId, "clave");
@@ -111,7 +111,7 @@ public class GestionUsuariosHandlerTests
     public async Task CrearUsuario_ConComercioPeroPerfilQueNoEsAdministradorDeComercio_SeRechaza()
     {
         // Un repartidor, despachador u operario es personal del operador: no se le puede asignar un comercio
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Uno", "123456789012", "c1@test.com", "099");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Uno", "123456789012", "c1@test.com", "099000000");
         _comercioRepositorio.Comercios.Add(comercio);
         _comercioOperadorRepositorio.Relaciones.Add(new ComercioOperador(Guid.NewGuid(), comercio.Id, _inquilinoActual.OperadorId, "clave"));
 
@@ -140,7 +140,7 @@ public class GestionUsuariosHandlerTests
     public async Task CrearUsuario_ConComercioDeOtroOperador_LanzaDomainValidationException()
     {
         // Arrange
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Ajeno", "123456789012", "c@test.com", "099");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Comercio Ajeno", "123456789012", "c@test.com", "099000000");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var otroOperadorId = Guid.NewGuid();

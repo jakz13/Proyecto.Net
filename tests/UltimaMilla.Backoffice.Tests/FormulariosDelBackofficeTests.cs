@@ -427,7 +427,7 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
             ["NuevoRepartidor.NombreCompleto"] = "Juan Repartidor",
             ["NuevoRepartidor.Email"] = $"repartidor.{Guid.NewGuid():N}@operador.uy",
             ["NuevoRepartidor.Documento"] = cedulaInvalida,
-            ["NuevoRepartidor.Telefono"] = "+598 99 111 222",
+            ["NuevoRepartidor.Telefono"] = "099111222",
             ["NuevoRepartidor.Password"] = "Segura.2026!",
             ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
         }));
@@ -450,7 +450,7 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
             ["NuevoRepartidor.NombreCompleto"] = "Repartidor Válido " + sufijo,
             ["NuevoRepartidor.Email"] = $"valido.{sufijo}@operador.uy",
             ["NuevoRepartidor.Documento"] = cedulaUnica,
-            ["NuevoRepartidor.Telefono"] = "+598 99 111 222",
+            ["NuevoRepartidor.Telefono"] = "099111222",
             ["NuevoRepartidor.Password"] = "Segura.2026!",
             ["__RequestVerificationToken"] = Token.Match(html).Groups[1].Value
         }));

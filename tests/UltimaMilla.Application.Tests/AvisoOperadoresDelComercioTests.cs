@@ -39,11 +39,11 @@ public class AvisoOperadoresDelComercioTests
     private CrearComercioCommandHandler Crear() => new(_comercios, _vinculos, _tenant, _uow, _notificador);
 
     private static CrearComercioCommand Comando(string rut) =>
-        new("Empresa Global SRL", "Global", rut, "info@global.com", "29001122", "Calle 1");
+        new("Empresa Global SRL", "Global", rut, "info@global.com", "099001122", "Calle 1");
 
     private ComercioEntidad ComercioExistente(string rut)
     {
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Empresa Global SRL", rut, "info@global.com", "29001122", "Global");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Empresa Global SRL", rut, "info@global.com", "099001122", "Global");
         _comercios.Comercios.Add(comercio);
         return comercio;
     }

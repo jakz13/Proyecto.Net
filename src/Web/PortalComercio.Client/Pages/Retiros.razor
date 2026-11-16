@@ -84,34 +84,41 @@
                     <div class="mb-2">
                         <label class="form-label small fw-semibold">Quién entrega los bultos</label>
                         <InputText class="form-control form-control-sm" @bind-Value="solicitud.NombreContacto" placeholder="Nombre y apellido" />
+                        <ValidationMessage For="@(() => solicitud.NombreContacto)" class="text-danger small" />
                     </div>
                     <div class="row g-2 mb-2">
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Teléfono</label>
                             <InputText class="form-control form-control-sm" @bind-Value="solicitud.TelefonoContacto" />
+                            <ValidationMessage For="@(() => solicitud.TelefonoContacto)" class="text-danger small" />
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Correo</label>
                             <InputText class="form-control form-control-sm" @bind-Value="solicitud.EmailContacto" />
+                            <ValidationMessage For="@(() => solicitud.EmailContacto)" class="text-danger small" />
                         </div>
                     </div>
                     <div class="row g-2 mb-2">
                         <div class="col-7">
                             <label class="form-label small fw-semibold">Calle</label>
                             <InputText class="form-control form-control-sm" @bind-Value="solicitud.Calle" />
+                            <ValidationMessage For="@(() => solicitud.Calle)" class="text-danger small" />
                         </div>
                         <div class="col-5">
                             <label class="form-label small fw-semibold">Número</label>
                             <InputText class="form-control form-control-sm" @bind-Value="solicitud.Numero" />
+                            <ValidationMessage For="@(() => solicitud.Numero)" class="text-danger small" />
                         </div>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small fw-semibold">Ciudad</label>
                         <InputText class="form-control form-control-sm" @bind-Value="solicitud.Ciudad" />
+                        <ValidationMessage For="@(() => solicitud.Ciudad)" class="text-danger small" />
                     </div>
                     <div class="mb-2">
                         <label class="form-label small fw-semibold">Motivo del retiro</label>
                         <InputText class="form-control form-control-sm" @bind-Value="solicitud.Motivo" placeholder="Cambio de talle, producto defectuoso..." />
+                        <ValidationMessage For="@(() => solicitud.Motivo)" class="text-danger small" />
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">

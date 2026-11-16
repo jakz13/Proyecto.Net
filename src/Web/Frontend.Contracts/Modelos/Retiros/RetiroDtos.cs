@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 namespace UltimaMilla.Frontend.Contracts.Modelos.Retiros;
 
 /// <summary>Bulto que se pide retirar: descripción, peso en kg y dimensiones en centímetros.</summary>
@@ -13,13 +15,34 @@ public record BultoRetiroSolicitudDto
 /// <summary>Solicitud de retiro en domicilio que hace el comercio desde su portal.</summary>
 public record SolicitarRetiroDto
 {
+    [Required(ErrorMessage = "El nombre de contacto es obligatorio.")]
+    [StringLength(200, ErrorMessage = "El nombre no puede superar los 200 caracteres.")]
+    [SinMarcado]
     public string NombreContacto { get; set; } = string.Empty;
+
+    [TelefonoNueveDigitos]
     public string? TelefonoContacto { get; set; }
+
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string? EmailContacto { get; set; }
+
+    [Required(ErrorMessage = "La calle es obligatoria.")]
+    [StringLength(200, ErrorMessage = "La calle no puede superar los 200 caracteres.")]
+    [DireccionValida]
     public string Calle { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El número de puerta es obligatorio.")]
+    [NumeroPuertaValido]
     public string Numero { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La ciudad es obligatoria.")]
+    [CiudadValida]
     public string Ciudad { get; set; } = "Montevideo";
     public string? Referencia { get; set; }
+    [Required(ErrorMessage = "Indique el motivo del retiro.")]
+    [StringLength(300, ErrorMessage = "El motivo no puede superar los 300 caracteres.")]
+    [SinMarcado]
     public string Motivo { get; set; } = string.Empty;
     public Guid? FranjaHorariaId { get; set; }
     public DateOnly? FechaSolicitada { get; set; }

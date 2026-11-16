@@ -68,7 +68,7 @@ public class GestionComerciosHandlerTests
             "Empresa Global SRL",
             "123456789012",
             "info@global.com",
-            "29001122",
+            "099001122",
             "Global Store");
         _comercioRepositorio.Comercios.Add(comercioExistente);
 
@@ -83,7 +83,7 @@ public class GestionComerciosHandlerTests
             "Global Store",
             "123456789012",
             "info@global.com",
-            "29001122",
+            "099001122",
             "Calle Central 456");
 
         // Act
@@ -105,7 +105,7 @@ public class GestionComerciosHandlerTests
             "Empresa Existente SRL",
             "123456789012",
             "info@existente.com",
-            "29001122");
+            "099001122");
         _comercioRepositorio.Comercios.Add(comercioExistente);
 
         var vinculo = new ComercioOperador(
@@ -126,7 +126,7 @@ public class GestionComerciosHandlerTests
             "Existente",
             "123456789012",
             "info@existente.com",
-            "29001122",
+            "099001122",
             "Calle 1");
 
         // Act & Assert
@@ -245,7 +245,7 @@ public class GestionComerciosHandlerTests
     public async Task ActualizarComercio_SelloConcurrenciaDesfasado_LanzaConflictoDeConcurrenciaException()
     {
         // Arrange
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Razon", "123456789012", "mail@test.com", "099");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Razon", "123456789012", "mail@test.com", "099000000");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var vinculo = new ComercioOperador(Guid.NewGuid(), comercio.Id, _inquilinoActual.OperadorId, "clave123");
@@ -276,7 +276,7 @@ public class GestionComerciosHandlerTests
     public async Task ActualizarComercio_ComercioDeOtroOperador_LanzaNotFoundException_AntiIdor()
     {
         // Arrange
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Razon", "123456789012", "mail@test.com", "099");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Razon", "123456789012", "mail@test.com", "099000000");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var otroOperadorId = Guid.NewGuid();
@@ -411,8 +411,8 @@ public class GestionComerciosHandlerTests
     public async Task ListarComercios_ConFiltrosYPaginacion_RetornaElementosEsperados()
     {
         // Arrange
-        var c1 = new ComercioEntidad(Guid.NewGuid(), "Alfa Distribuidora", "111111111111", "alfa@correo.com", "099");
-        var c2 = new ComercioEntidad(Guid.NewGuid(), "Beta Logistica", "222222222222", "beta@correo.com", "098");
+        var c1 = new ComercioEntidad(Guid.NewGuid(), "Alfa Distribuidora", "111111111111", "alfa@correo.com", "099000000");
+        var c2 = new ComercioEntidad(Guid.NewGuid(), "Beta Logistica", "222222222222", "beta@correo.com", "098000000");
         _comercioOperadorRepositorio.Comercios.AddRange(new[] { c1, c2 });
 
         var rel1 = new ComercioOperador(Guid.NewGuid(), c1.Id, _inquilinoActual.OperadorId, "clave1", "Activo");
@@ -456,7 +456,7 @@ public class GestionComerciosHandlerTests
     public async Task ObtenerComercioPorId_ComercioValido_RetornaDetalle()
     {
         // Arrange
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Super Tienda", "333333333333", "super@tienda.com", "24001122");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Super Tienda", "333333333333", "super@tienda.com", "099001122");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var rel = new ComercioOperador(Guid.NewGuid(), comercio.Id, _inquilinoActual.OperadorId, "clave", "Activo");
@@ -476,7 +476,7 @@ public class GestionComerciosHandlerTests
     [Fact]
     public async Task ObtenerComercioPorId_ComercioDeOtroOperador_LanzaNotFoundException_AntiIdor()
     {
-        var comercio = new ComercioEntidad(Guid.NewGuid(), "Super Tienda", "333333333333", "super@tienda.com", "24001122");
+        var comercio = new ComercioEntidad(Guid.NewGuid(), "Super Tienda", "333333333333", "super@tienda.com", "099001122");
         _comercioRepositorio.Comercios.Add(comercio);
 
         var rel = new ComercioOperador(Guid.NewGuid(), comercio.Id, Guid.NewGuid(), "clave", "Activo");

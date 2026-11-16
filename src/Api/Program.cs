@@ -320,6 +320,15 @@ app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
         return;
     }
 
+    // Cuerpo ilegible (JSON cortado, un arreglo donde va un objeto, tipos que no coinciden): es un error del cliente, no del servidor.
+    // En producción el framework ya contesta 400; con ThrowOnBadRequest (desarrollo y pruebas) lanza la excepción y llegaba acá como 500.
+    if (error is Microsoft.AspNetCore.Http.BadHttpRequestException cuerpoInvalido)
+    {
+        contexto.Response.StatusCode = cuerpoInvalido.StatusCode is >= 400 and < 500 ? cuerpoInvalido.StatusCode : StatusCodes.Status400BadRequest;
+        await contexto.Response.WriteAsJsonAsync(new { error = "El cuerpo de la solicitud no es válido." });
+        return;
+    }
+
     if (error is UnauthorizedAccessException)
     {
         contexto.Response.StatusCode = StatusCodes.Status403Forbidden;

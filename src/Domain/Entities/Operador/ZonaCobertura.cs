@@ -35,9 +35,13 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
         if (string.IsNullOrWhiteSpace(poligonoGeografico))
             throw new DomainValidationException("El polígono geográfico de la zona no puede ser vacío.");
 
+        ValidacionTexto.LargoMaximo(nombre, 100, "El nombre de la zona");
+        if (nombre.Any(c => c is '<' or '>' || char.IsControl(c)))
+            throw new DomainValidationException("El nombre de la zona contiene caracteres no permitidos.");
+
         OperadorId = operadorId;
         Nombre = nombre.Trim();
-        PoligonoGeografico = poligonoGeografico.Trim();
+        PoligonoGeografico = ContactoValidacion.ValidarPoligono(poligonoGeografico);
         Activa = true;
     }
 
@@ -56,9 +60,13 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
         if (string.IsNullOrWhiteSpace(nombre))
             throw new DomainValidationException("El nombre de la zona de cobertura no puede ser vacío.");
 
+        ValidacionTexto.LargoMaximo(nombre, 100, "El nombre de la zona");
+        if (nombre.Any(c => c is '<' or '>' || char.IsControl(c)))
+            throw new DomainValidationException("El nombre de la zona contiene caracteres no permitidos.");
+
         Nombre = nombre.Trim();
         if (!string.IsNullOrWhiteSpace(colorHex))
-            ColorHex = colorHex.Trim();
+            ColorHex = ContactoValidacion.ValidarColorHex(colorHex);
     }
 
     public void QuitarFranjasHorarias()
@@ -71,7 +79,7 @@ public class ZonaCobertura : AggregateRoot, IMustHaveTenant
         if (string.IsNullOrWhiteSpace(nuevoPoligono))
             throw new DomainValidationException("El polígono geográfico no puede ser vacío.");
 
-        PoligonoGeografico = nuevoPoligono.Trim();
+        PoligonoGeografico = ContactoValidacion.ValidarPoligono(nuevoPoligono);
     }
 
     /// <summary>

@@ -40,6 +40,9 @@ public class Direccion : Entity
         if (string.IsNullOrWhiteSpace(ciudad))
             throw new DomainValidationException("La ciudad de la dirección no puede ser vacía.");
 
+        if ((latitud is double la && !double.IsFinite(la)) || (longitud is double lo && !double.IsFinite(lo)))
+            throw new DomainValidationException("Las coordenadas deben ser números válidos.");
+
         if (latitud is < -90 or > 90)
             throw new DomainValidationException("La latitud debe estar entre -90 y 90.");
 
@@ -54,9 +57,9 @@ public class Direccion : Entity
         ValidacionTexto.LargoMaximo(ciudad, 100, "La ciudad");
         ValidacionTexto.LargoMaximo(referencia, 300, "La referencia de la dirección");
 
-        Calle = calle.Trim();
-        Numero = numero.Trim();
-        Ciudad = ciudad.Trim();
+        Calle = ContactoValidacion.ValidarCalle(calle);
+        Numero = ContactoValidacion.ValidarNumeroPuerta(numero);
+        Ciudad = ContactoValidacion.ValidarCiudad(ciudad);
         ZonaCoberturaId = zonaCoberturaId;
         Latitud = latitud;
         Longitud = longitud;

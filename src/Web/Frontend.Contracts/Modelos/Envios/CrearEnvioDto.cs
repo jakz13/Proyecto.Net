@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
@@ -10,22 +11,31 @@ public record CrearEnvioDto
 {
     [Required(ErrorMessage = "El nombre del destinatario es obligatorio.")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "El nombre debe contener al menos 2 caracteres.")]
+    [SinMarcado]
     public string NombreDestinatario { get; set; } = string.Empty;
 
     [RegularExpression(@"^\d{8}$", ErrorMessage = "La cédula debe tener exactamente 8 dígitos, solo números (sin puntos ni guiones).")]
     public string? DocumentoDestinatario { get; set; }
 
     [StringLength(200, ErrorMessage = "La dirección no puede superar los 200 caracteres.")]
+    [DireccionValida]
     public string DireccionDestino { get; set; } = string.Empty;
 
+    [StringLength(200, ErrorMessage = "La calle no puede superar los 200 caracteres.")]
+    [DireccionValida]
     public string? Calle { get; set; }
+
+    [NumeroPuertaValido]
     public string? Numero { get; set; }
+
+    [CiudadValida]
     public string Ciudad { get; set; } = "Montevideo";
 
-    [Phone(ErrorMessage = "Ingrese un número telefónico válido.")]
+    [TelefonoNueveDigitos]
     public string? TelefonoDestinatario { get; set; }
 
-    [EmailAddress(ErrorMessage = "Ingrese un correo electrónico válido.")]
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string? EmailDestinatario { get; set; }
 
     [Required(ErrorMessage = "Seleccione la modalidad de servicio.")]

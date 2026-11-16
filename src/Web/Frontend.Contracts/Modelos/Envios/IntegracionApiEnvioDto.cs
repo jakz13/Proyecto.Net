@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos.Envios;
 
@@ -23,22 +24,29 @@ public record SolicitudAltaEnvioApiDto
 
     [Required(ErrorMessage = "El nombre del destinatario es obligatorio.")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "El nombre debe contener entre 2 y 100 caracteres.")]
+    [SinMarcado]
     public string NombreDestinatario { get; set; } = string.Empty;
 
     public string? Documento { get; set; }
 
-    [EmailAddress(ErrorMessage = "Ingrese un correo electrónico válido.")]
+    [EmailValido]
+    [StringLength(200, ErrorMessage = "El correo no puede superar los 200 caracteres.")]
     public string? Email { get; set; }
 
+    [TelefonoNueveDigitos]
     public string? Telefono { get; set; }
 
     [Required(ErrorMessage = "La calle de destino es obligatoria.")]
+    [StringLength(200, ErrorMessage = "La calle no puede superar los 200 caracteres.")]
+    [DireccionValida]
     public string Calle { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El número de puerta es obligatorio.")]
+    [NumeroPuertaValido]
     public string Numero { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "La ciudad es obligatoria.")]
+    [CiudadValida]
     public string Ciudad { get; set; } = "Montevideo";
 
     public string? Referencia { get; set; }

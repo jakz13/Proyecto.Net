@@ -551,7 +551,7 @@ public sealed class RegistroNotificacionDestinatarioService : INotificacionDesti
         public string ColorPrimario { get; set; } = "#1D4ED8";
         public string ColorSecundario { get; set; } = "#F97316";
         public string EmailContacto { get; set; } = "contacto@translogistica.uy";
-        public string TelefonoContacto { get; set; } = "+598 2900 1122";
+        public string TelefonoContacto { get; set; } = "099001122";
         public string? SitioWeb { get; set; } = "https://shippingbox.duckdns.org";
         public string? MensajeComunicaciones { get; set; }
         public string? DireccionEntrega { get; set; }

@@ -51,8 +51,8 @@ public class IdentidadVisual : Entity, IMustHaveTenant
         OperadorId = operadorId;
         ColorPrimario = colorPrimario.Trim();
         ColorSecundario = colorSecundario.Trim();
-        EmailContacto = emailContacto.Trim().ToLowerInvariant();
-        TelefonoContacto = telefonoContacto.Trim();
+        EmailContacto = ContactoValidacion.ValidarEmail(emailContacto, "de contacto");
+        TelefonoContacto = ContactoValidacion.ValidarTelefono(telefonoContacto, "de contacto");
         LogoUrl = ValidarLogo(logoUrl);
     }
 
@@ -76,8 +76,10 @@ public class IdentidadVisual : Entity, IMustHaveTenant
         if (string.IsNullOrWhiteSpace(telefonoContacto))
             throw new DomainValidationException("El teléfono de contacto no puede ser vacío.");
 
-        EmailContacto = emailContacto.Trim().ToLowerInvariant();
-        TelefonoContacto = telefonoContacto.Trim();
+        var emailValido = ContactoValidacion.ValidarEmail(emailContacto, "de contacto");
+        var telefonoValido = ContactoValidacion.ValidarTelefono(telefonoContacto, "de contacto");
+        EmailContacto = emailValido;
+        TelefonoContacto = telefonoValido;
     }
 
     public void ActualizarComunicaciones(string? sitioWeb, string? mensajeComunicaciones)
@@ -93,9 +95,7 @@ public class IdentidadVisual : Entity, IMustHaveTenant
     /// <summary>Cambia la dirección del depósito y su ubicación (latitud y longitud van juntas o ninguna). Sin dirección se limpia todo.</summary>
     public void ActualizarDeposito(string? direccion, double? latitud, double? longitud)
     {
-        var texto = string.IsNullOrWhiteSpace(direccion) ? null : direccion.Trim();
-        if (texto is { Length: > 300 })
-            throw new DomainValidationException("La dirección del depósito no puede superar los 300 caracteres.");
+        var texto = string.IsNullOrWhiteSpace(direccion) ? null : ContactoValidacion.ValidarDireccionTexto(direccion, "La dirección del depósito", 5, 300);
 
         if (texto is null)
         {

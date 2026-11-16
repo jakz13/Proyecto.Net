@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UltimaMilla.Frontend.Contracts.Validaciones;
 
 namespace UltimaMilla.Frontend.Contracts.Modelos.Funcionalidades;
 
@@ -18,7 +19,7 @@ public class CrearOperadorDto
     public string AdministradorNombre { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El correo del administrador inicial es obligatorio.")]
-    [EmailAddress(ErrorMessage = "Ingrese un correo válido.")]
+    [EmailValido]
     [StringLength(200)]
     public string AdministradorEmail { get; set; } = string.Empty;
 

@@ -28,11 +28,11 @@ public class GestionTarifasHandlerTests
         _inquilinoActual.OperadorId = _operadorIdPrincipal;
 
         // Zona válida del operador principal
-        var zonaCentro = new ZonaCobertura(_zonaCentroId, _operadorIdPrincipal, "Centro Montevideo", "[[-34.90, -56.18]]");
+        var zonaCentro = new ZonaCobertura(_zonaCentroId, _operadorIdPrincipal, "Centro Montevideo", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         _zonaRepositorio.Zonas.Add(zonaCentro);
 
         // Zona de otro operador para pruebas de aislamiento Anti-IDOR
-        var zonaAjena = new ZonaCobertura(_zonaAjenaId, _operadorIdAjeno, "Zona Ajena Secreta", "[[-34.80, -56.10]]");
+        var zonaAjena = new ZonaCobertura(_zonaAjenaId, _operadorIdAjeno, "Zona Ajena Secreta", "[[-34.90, -56.18], [-34.90, -56.10], [-34.85, -56.14]]");
         _zonaRepositorio.Zonas.Add(zonaAjena);
     }
 
