@@ -1,4 +1,5 @@
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Application.Services;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Operador;
 using UltimaMilla.Domain.Entities.Retiros;
@@ -23,14 +24,17 @@ public class SolicitarRetiroProcesador
     private readonly ICuadroTarifarioRepository _cuadroTarifarioRepository;
     private readonly IClock _clock;
     private readonly IFuncionalidadesService? _funcionalidades;
+    private readonly VerificadorCobertura? _verificadorCobertura;
 
     public SolicitarRetiroProcesador(
         IRetiroRepository retiroRepository,
         IDireccionRepository direccionRepository,
         ICuadroTarifarioRepository cuadroTarifarioRepository,
         IClock clock,
-        IFuncionalidadesService? funcionalidades = null)
+        IFuncionalidadesService? funcionalidades = null,
+        VerificadorCobertura? verificadorCobertura = null)
     {
+        _verificadorCobertura = verificadorCobertura;
         _funcionalidades = funcionalidades;
         _retiroRepository = retiroRepository;
         _direccionRepository = direccionRepository;
@@ -76,15 +80,35 @@ public class SolicitarRetiroProcesador
         if (request.FechaSolicitada.HasValue && request.FechaSolicitada.Value < DateOnly.FromDateTime(_clock.UtcNow).AddDays(-1))
             throw new DomainValidationException("La fecha pedida para el retiro no puede estar en el pasado.");
 
+        // El domicilio de retiro debe estar dentro de las zonas de cobertura del operador (igual que la entrega de un envío)
+        var zonaId = request.Direccion.ZonaCoberturaId;
+        var latitud = request.Direccion.Latitud;
+        var longitud = request.Direccion.Longitud;
+        if (_verificadorCobertura is not null)
+        {
+            var cobertura = await _verificadorCobertura.VerificarAsync(
+                operadorId,
+                request.Direccion.Calle,
+                request.Direccion.Numero,
+                request.Direccion.Ciudad,
+                zonaId,
+                latitud,
+                longitud,
+                cancellationToken);
+            zonaId = cobertura.ZonaCoberturaId;
+            latitud = cobertura.Latitud ?? latitud;
+            longitud = cobertura.Longitud ?? longitud;
+        }
+
         // Se construyen y validan todas las entidades antes de tocar los repositorios
         var direccion = new Direccion(
             Guid.NewGuid(),
             request.Direccion.Calle,
             request.Direccion.Numero,
             request.Direccion.Ciudad,
-            request.Direccion.ZonaCoberturaId,
-            request.Direccion.Latitud,
-            request.Direccion.Longitud,
+            zonaId,
+            latitud,
+            longitud,
             request.Direccion.Referencia);
 
         var codigo = await GenerarCodigoSeguimientoUnicoAsync(cancellationToken);

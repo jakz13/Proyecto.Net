@@ -39,6 +39,11 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
             || request.PlazoComprometidoUrgente < TimeSpan.Zero)
             throw new DomainValidationException("Los plazos no pueden ser negativos.");
 
+        // La política de devolución es un número de horas de custodia (no texto libre)
+        var politicaDevolucion = request.PoliticaDevolucion?.Trim() ?? string.Empty;
+        if (!ReglaOperativa.EsPoliticaDevolucionNumerica(politicaDevolucion, out _))
+            throw new DomainValidationException($"La política de devolución debe ser un número entero de horas de custodia entre 0 y {ReglaOperativa.MaxHorasCustodiaDevolucion} (0 = devolución inmediata).");
+
         var ahora = _clock.UtcNow;
         var operadorId = _currentTenant.OperadorId;
 
@@ -54,7 +59,7 @@ public class PublicarReglaOperativaCommandHandler : IRequestHandler<PublicarRegl
             request.MaxIntentosEntrega,
             request.PlazoEntreIntentos,
             tipoCanonico,
-            request.PoliticaDevolucion ?? string.Empty,
+            politicaDevolucion,
             request.PlazoComprometidoEstandar,
             request.PlazoComprometidoUrgente,
             null,

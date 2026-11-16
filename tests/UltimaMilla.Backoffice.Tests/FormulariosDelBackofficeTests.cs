@@ -172,7 +172,7 @@ public class FormulariosDelBackofficeTests : IClassFixture<WebApplicationFactory
         foreach (var (campo, esperado) in new[]
                  {
                      ("NuevaVersion.TipoPruebaEntregaExigida", "Firma digital y documento del receptor"),
-                     ("NuevaVersion.PoliticaDevolucion", "Retorno a depósito central al alcanzar 3 intentos fallidos")
+                     ("NuevaVersion.PoliticaDevolucion", "72")
                  })
         {
             var valores = pares.Where(p => p.Nombre == campo).Select(p => p.Valor).ToList();

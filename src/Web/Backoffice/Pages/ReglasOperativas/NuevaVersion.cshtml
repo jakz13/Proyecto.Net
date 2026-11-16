@@ -11,14 +11,7 @@
         ("Foto del paquete entregado en puerta o buzón", "Foto del paquete en puerta"),
         ("Código PIN OTP de seguridad y Documento de Identidad", "Código PIN OTP + Documento")
     };
-    var devolucionesHabituales = new (string Valor, string Etiqueta)[]
-    {
-        ("Custodia por 72 horas en depósito central antes de retorno definitivo al comercio remitente", "Custodia 72h en depósito central antes de retorno"),
-        ("Devolución automática e inmediata al comercio remitente", "Devolución inmediata al comercio remitente"),
-        ("Custodia temporal por 5 días hábiles en punto Pickup cercano", "Custodia 5 días en punto Pickup")
-    };
     var pruebaActual = Model.NuevaVersion.TipoPruebaEntregaExigida ?? string.Empty;
-    var devolucionActual = Model.NuevaVersion.PoliticaDevolucion ?? string.Empty;
 }
 
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -133,15 +126,9 @@
                 </div>
 
                 <div class="col-md-6">
-                    <label asp-for="NuevaVersion.PoliticaDevolucion" class="form-label small fw-semibold">Política de Devolución al Agotar Intentos</label>
-                    <select class="form-select form-select-sm mb-2" id="selectorDevolucion" aria-label="Políticas de devolución habituales" onchange="actualizarDevolucionTexto(this)">
-                        @foreach (var d in devolucionesHabituales)
-                        {
-                            <option value="@d.Valor" selected="@(d.Valor == devolucionActual)">@d.Etiqueta</option>
-                        }
-                        <option value="personalizado" selected="@(!devolucionesHabituales.Any(d => d.Valor == devolucionActual))">Otro (especificar texto libre)...</option>
-                    </select>
-                    <input asp-for="NuevaVersion.PoliticaDevolucion" class="form-control form-control-sm" id="inputDevolucionTexto" required />
+                    <label asp-for="NuevaVersion.PoliticaDevolucion" class="form-label small fw-semibold">Política de Devolución al Agotar Intentos (horas de custodia en depósito)</label>
+                    <input asp-for="NuevaVersion.PoliticaDevolucion" type="number" min="0" max="720" step="1" inputmode="numeric" class="form-control form-control-sm" id="inputDevolucionTexto" required />
+                    <div class="form-text">Horas que el envío queda en el depósito antes de volver al comercio remitente. 0 = devolución inmediata.</div>
                     <span asp-validation-for="NuevaVersion.PoliticaDevolucion" class="text-danger small"></span>
                 </div>
 
@@ -215,12 +202,6 @@
         function actualizarPruebaTexto(select) {
             if (select.value !== 'personalizado') {
                 document.getElementById('inputPruebaTexto').value = select.value;
-            }
-        }
-
-        function actualizarDevolucionTexto(select) {
-            if (select.value !== 'personalizado') {
-                document.getElementById('inputDevolucionTexto').value = select.value;
             }
         }
     </script>

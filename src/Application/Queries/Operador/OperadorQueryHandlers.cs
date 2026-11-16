@@ -87,7 +87,7 @@ public class SimularReglaOperativaQueryHandler(IReglaOperativaRepository reglas,
         if (superaMaximo)
         {
             puedeReintentarAhora = false;
-            accionSugerida = $"Se alcanzó el máximo de {vigente.MaxIntentosEntrega} intentos fallidos. Debe activarse la política de devolución: {vigente.PoliticaDevolucion}.";
+            accionSugerida = $"Se alcanzó el máximo de {vigente.MaxIntentosEntrega} intentos fallidos. Debe activarse la política de devolución: {UltimaMilla.Domain.Entities.Operador.ReglaOperativa.DescribirPoliticaDevolucion(vigente.PoliticaDevolucion)}.";
         }
         else if (request.FechaUltimoIntento.HasValue)
         {

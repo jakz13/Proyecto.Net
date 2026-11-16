@@ -21,7 +21,7 @@ public class MockReglasOperativasApi : IReglasOperativasApi
             MaxIntentosEntrega = 3,
             PlazoEntreIntentos = TimeSpan.FromHours(24),
             TipoPruebaEntregaExigida = "Firma digital y documento del receptor",
-            PoliticaDevolucion = "Retorno a depósito central al alcanzar 3 intentos fallidos",
+            PoliticaDevolucion = "72",
             PlazoComprometidoEstandar = TimeSpan.FromHours(48),
             PlazoComprometidoUrgente = TimeSpan.FromHours(12),
             Comentario = "Ajuste de SLA para envíos urgentes y exigencia de doble factor de entrega (firma + foto)"

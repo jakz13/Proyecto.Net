@@ -24,7 +24,7 @@ public class OperadorConfiguracionHandlerTests
     private CambiarEstadoMotivoNoEntregaCommandHandler CambiarEstado() => new(_motivos, _tenant, _uow);
 
     private static PublicarReglaOperativaCommand Regla(
-        int intentos = 3, string? tipo = "Firma", string? politica = "Devolver al comercio",
+        int intentos = 3, string? tipo = "Firma", string? politica = "72",
         TimeSpan? entreIntentos = null, TimeSpan? estandar = null, TimeSpan? urgente = null, int paradas = 50) =>
         new(intentos, entreIntentos ?? TimeSpan.FromHours(4), tipo, politica,
             estandar ?? TimeSpan.FromHours(48), urgente ?? TimeSpan.FromHours(12), paradas);
@@ -109,6 +109,26 @@ public class OperadorConfiguracionHandlerTests
     [InlineData("  ")]
     public async Task Publicar_PoliticaDevolucionVaciaONula_LanzaDomainValidation(string? politica) =>
         await AssertRechazaSinArchivar(Regla(politica: politica));
+
+    [Theory]
+    [InlineData("Devolver al comercio")]
+    [InlineData("72 horas")]
+    [InlineData("-5")]
+    [InlineData("721")]
+    [InlineData("3.5")]
+    public async Task Publicar_PoliticaDevolucionNoNumerica_LanzaDomainValidation(string politica) =>
+        await AssertRechazaSinArchivar(Regla(politica: politica));
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("72")]
+    [InlineData(" 720 ")]
+    public async Task Publicar_PoliticaDevolucionNumerica_SeAcepta(string politica)
+    {
+        var dto = await Publicar().Handle(Regla(politica: politica), default);
+
+        Assert.Equal(politica.Trim(), dto.PoliticaDevolucion);
+    }
 
     [Fact]
     public async Task Publicar_ComandoNulo_LanzaArgumentNull() =>
