@@ -139,6 +139,16 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
             );
         }
 
+        if (parada.Estado != "Cancelada" && envio.EstadoActual == EstadoEnvio.AsignadoARuta && (envio.HojaDeRutaId == ruta.Id || envio.HojaDeRutaId is null))
+        {
+            envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de entrega parcial móvil en calle");
+        }
+
+        if (parada.Estado != "Cancelada" && ruta.Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
+        {
+            ruta.AsegurarEnTransitoParaOperacionEnCalle();
+        }
+
         var inputsNoEntregados = new List<BultoNoEntregadoInput>();
         foreach (var item in request.BultosNoEntregados ?? Array.Empty<BultoNoEntregadoRequestDto>())
         {

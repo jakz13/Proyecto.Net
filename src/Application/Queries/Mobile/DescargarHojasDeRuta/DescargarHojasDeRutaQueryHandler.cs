@@ -203,6 +203,12 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
                 .Where(b => b.EstadoBulto is not ("FaltanteEnRecepcion" or "FaltanteEnCarga" or "Entregado" or "Devuelto"))
                 .OrderBy(b => b.Identificacion)
                 .Select(b => new BultoDescargaDto(b.Id, b.Identificacion, b.Peso, b.Prioridad?.ToString()))
+                .ToList(),
+            CantidadBultosFaltantesEnCarga: envio.Bultos.Count(b => b.EstadoBulto == "FaltanteEnCarga"),
+            CodigosBultosFaltantesEnCarga: envio.Bultos
+                .Where(b => b.EstadoBulto == "FaltanteEnCarga")
+                .OrderBy(b => b.Identificacion)
+                .Select(b => b.Identificacion)
                 .ToList());
     }
 }

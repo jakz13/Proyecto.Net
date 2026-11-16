@@ -99,18 +99,16 @@ public class RegistrarIntentoFallidoCommandHandler : IRequestHandler<RegistrarIn
             );
         }
 
-        // Tolerancia de secuencia offline: promover rutas en carga o despachadas a EnTransito automáticamente
-        if (ruta.Estado == "EnCarga")
+        // Si el envío pertenece a esta hoja de ruta activa y aún figura como AsignadoARuta (o la ruta estaba en Liberada/Planificada/EnCarga/Despachada),
+        // se aplica automáticamente la transición válida AsignadoARuta -> EnTransito antes de registrar el intento fallido en calle.
+        if (parada.Estado != "Cancelada" && envio.EstadoActual == EstadoEnvio.AsignadoARuta && (envio.HojaDeRutaId == ruta.Id || envio.HojaDeRutaId is null))
         {
-            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
-                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de intento fallido móvil");
-            ruta.Despachar();
+            envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de intento fallido móvil en calle");
         }
-        if (ruta.Estado == "Despachada")
+
+        if (parada.Estado != "Cancelada" && ruta.Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
         {
-            if (envio.EstadoActual == EstadoEnvio.AsignadoARuta)
-                envio.DespacharEnRuta(ruta.Id, _currentTenant.UsuarioId, "Despacho automático desde registro de intento fallido móvil");
-            ruta.IniciarRecorrido();
+            ruta.AsegurarEnTransitoParaOperacionEnCalle();
         }
 
         // Manejo explícito de conflictos de sincronización (Punto 7):

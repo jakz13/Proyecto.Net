@@ -145,16 +145,17 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
 
         if (request.DespacharAutomaticamente)
         {
-            var aDespachar = new List<Envio>();
+            var aDespachar = new List<(Envio Envio, List<Bulto> Faltantes)>();
             var aRetirar = new List<(Envio Envio, List<Bulto> Faltantes)>();
 
             foreach (var envio in envios.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))
             {
                 var esperados = envio.Bultos.Where(b => b.EstaDisponibleParaRuta).ToList();
+                var bultosCargadosDelEnvio = esperados.Where(b => ruta.BultoFueCargado(b.Id)).ToList();
                 var bultosNoCargados = esperados.Where(b => !ruta.BultoFueCargado(b.Id)).ToList();
 
-                if (esperados.Count > 0 && bultosNoCargados.Count == 0)
-                    aDespachar.Add(envio);
+                if (bultosCargadosDelEnvio.Count > 0)
+                    aDespachar.Add((envio, bultosNoCargados));
                 else
                     aRetirar.Add((envio, bultosNoCargados));
             }
@@ -197,9 +198,13 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
                     ? "Salida a reparto confirmada desde aplicación móvil tras verificación de carga."
                     : $"Salida a reparto confirmada desde aplicación móvil. Observaciones: {request.ObservacionesDiscrepancia.Trim()}";
 
-                foreach (var envio in aDespachar)
+                foreach (var (envio, bultosFaltantes) in aDespachar)
                 {
-                    envio.DespacharEnRuta(ruta.Id, usuarioId, detalleSalida);
+                    if (bultosFaltantes.Count > 0)
+                        envio.DespacharEnRutaParcial(ruta.Id, bultosFaltantes.Select(b => b.Id), usuarioId, detalleSalida);
+                    else
+                        envio.DespacharEnRuta(ruta.Id, usuarioId, detalleSalida);
+
                     await _envioRepository.UpdateAsync(envio, cancellationToken);
 
                     await _outboxStorage.SaveAsync(EventosIntegracion.DeEnvio(
@@ -214,6 +219,9 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
                             Estado = EstadoEnvio.EnTransito.ToString(),
                             BultosCargados = envio.Bultos
                                 .Where(b => b.EstadoBulto == "CargadoEnVehiculo")
+                                .Select(b => b.Identificacion)
+                                .ToList(),
+                            BultosFaltantesEnCarga = bultosFaltantes
                                 .Select(b => b.Identificacion)
                                 .ToList(),
                             Timestamp = ahora

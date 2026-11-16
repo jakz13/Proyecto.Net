@@ -1107,8 +1107,35 @@ public class SyncService : ISyncService, IDisposable
 
                                 var url = $"/api/mobile/v1/rutas/{payload.HojaDeRutaId}/paradas/{payload.ParadaId}/entrega-parcial";
                                 var response = await client.PostAsJsonAsync(url, req, cancellationToken);
-                                bool ok = await ProcesarRespuestaHttpAsync(op, response, "EntregaParcial", detallesErrores, cancellationToken);
-                                if (ok) exitosas++; else erroresNegocio++;
+
+                                if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                                {
+                                    await _localDatabaseService.MarcarComoSincronizadoAsync(op.Id);
+                                    await _localDatabaseService.MarcarEntregaParcialLocalAsync(payload.ParadaId, payload.CodigosBultosEntregados);
+                                    exitosas++;
+                                }
+                                else
+                                {
+                                    var (ok, _, yaEntregado) = await ManejarErrorHttpOperacionAsync(
+                                        op,
+                                        response,
+                                        $"Entrega Parcial Parada {payload.ParadaId:N} (Envío {payload.EnvioId:N})",
+                                        payload.HojaDeRutaId,
+                                        detallesErrores,
+                                        rutasRendidasEnLote,
+                                        cancellationToken);
+
+                                    if (ok)
+                                    {
+                                        if (yaEntregado)
+                                            await _localDatabaseService.MarcarEntregaParcialLocalAsync(payload.ParadaId, payload.CodigosBultosEntregados);
+                                        exitosas++;
+                                    }
+                                    else
+                                    {
+                                        erroresNegocio++;
+                                    }
+                                }
                             }
                             break;
                         }
@@ -1518,17 +1545,23 @@ public class SyncService : ISyncService, IDisposable
             throw new HttpRequestException("Sesión no autorizada o desplazada en otro dispositivo (401).");
         }
 
-        bool esDefinitivo = status is 400 or 404 or 409;
+        bool esDefinitivo = status is 400 or 404 or 409 or 422;
         bool mencionaRendidaOCerrada =
             error.Contains("Rendida", StringComparison.OrdinalIgnoreCase) ||
             error.Contains("Cerrada", StringComparison.OrdinalIgnoreCase) ||
             error.Contains("Finalizada", StringComparison.OrdinalIgnoreCase);
 
         bool mencionaYaEntregado =
-            error.Contains("Entregado", StringComparison.OrdinalIgnoreCase) ||
-            error.Contains("Entregada", StringComparison.OrdinalIgnoreCase) ||
-            error.Contains("Retirado", StringComparison.OrdinalIgnoreCase) ||
-            error.Contains("Retirada", StringComparison.OrdinalIgnoreCase);
+            error.Contains("ya se encontraba registrada", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya se encontraba registrado", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya fue entregad", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya fue retirad", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya está entregad", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("ya está retirad", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("estado 'Entregado'", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("estado 'Retirado'", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("estado 'Retirada'", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("operación idempotente", StringComparison.OrdinalIgnoreCase);
 
         bool mencionaEnTransito =
             error.Contains("EnTransito", StringComparison.OrdinalIgnoreCase) ||
@@ -1583,6 +1616,12 @@ public class SyncService : ISyncService, IDisposable
                 return (true, false, mencionaYaEntregado);
             }
 
+            var paradaIdRechazada = ExtraerParadaId(op.PayloadJson);
+            if (paradaIdRechazada.HasValue && paradaIdRechazada.Value != Guid.Empty)
+            {
+                await _localDatabaseService.RevertirEstadoParadaLocalAsync(paradaIdRechazada.Value, "Pendiente");
+            }
+
             _logger.LogWarning("Operación definitiva rechazada y purgada en {Nombre}: {Detalle}", nombreOp, detalle);
             detallesErrores.Add(detalle);
             return (false, false, false);
@@ -1592,6 +1631,30 @@ public class SyncService : ISyncService, IDisposable
         await _localDatabaseService.RegistrarErrorAsync(op.Id, detalle);
         detallesErrores.Add(detalle);
         return (false, false, false);
+    }
+
+    private static Guid? ExtraerParadaId(string payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payloadJson);
+            if (doc.RootElement.TryGetProperty("ParadaId", out var prop) &&
+                prop.ValueKind == JsonValueKind.String &&
+                Guid.TryParse(prop.GetString(), out var guid) &&
+                guid != Guid.Empty)
+            {
+                return guid;
+            }
+        }
+        catch
+        {
+            // JSON malformado ignorado
+        }
+
+        return null;
     }
 
     private static Guid? ExtraerHojaDeRutaId(string payloadJson)
