@@ -12,11 +12,19 @@ Un único despliegue atiende a varios operadores logísticos con aislamiento est
 | API (monolito modular) | ASP.NET Core 10, Minimal APIs, SignalR | `src/Api` | `5000` |
 | Backoffice del operador | ASP.NET Core Razor Pages | `src/Web/Backoffice` | `5002` |
 | Portal del comercio | Blazor WebAssembly | `src/Web/PortalComercio*` | `5003` |
-| Seguimiento público | Blazor WebAssembly (sin login) | `src/Web/SeguimientoPublico` | `5004` |
+| Seguimiento público | Blazor WebAssembly, sin autenticación | `src/Web/SeguimientoPublico` | `5004` |
 | Aplicación del repartidor | .NET MAUI (MVVM, SQLite + SQLCipher) | `src/Mobile/UltimaMilla.Mobile` | — |
 | Worker en segundo plano | .NET Worker Service (Outbox + RabbitMQ + Webhooks) | `src/Worker` | — |
 
 Arquitectura limpia por capas (`Domain` <- `Application` <- `Infrastructure` / `Api` / `Worker`), con reglas de dependencias verificadas automáticamente en `tests/UltimaMilla.Architecture.Tests`. Ver registros de decisión en [`docs/adr/README.md`](docs/adr/README.md).
+
+## Comportamientos a tener en cuenta
+
+- **Tiempo real:** toda escritura en la API se anuncia por SignalR y el Backoffice, el Portal y el seguimiento público se actualizan solos, incluidos los paneles abiertos (por ejemplo la línea de vida de un envío). Solo las pantallas de alta y edición quedan fuera, para no pisar un formulario en uso.
+- **Sesión única:** una cuenta solo tiene una sesión activa; iniciar sesión en otro lugar deja sin efecto la anterior (`401 SESION_DESPLAZADA`) y cada aplicación la lleva al inicio de sesión con un aviso. Con cuentas compartidas, la segunda persona expulsa a la primera.
+- **Cédula:** exactamente 8 dígitos, solo números (destinatarios, repartidores y usuarios).
+- **Modalidad Express:** se tarifica con la regla "Urgente" del cuadro tarifario del operador.
+- **Cobertura:** los envíos y los retiros a domicilio solo se aceptan dentro de las zonas activas del operador.
 
 ## Requisitos
 
@@ -149,7 +157,7 @@ bash scripts/desplegar.sh                       # Todos los servicios
 bash scripts/desplegar.sh api backoffice portal # Servicios puntuales
 ```
 
-### 3. Publicación OTA del APK Android
+### 3. Actualización de la app del repartidor (OTA)
 
 Caddy sirve el APK firmado y `version.json` desde `~/shippingbox/descargas` en la VM (montado solo lectura). Para publicar una nueva versión tras compilar y firmar el APK en `artifacts\UltimaMilla-Release-Signed.apk` con un `ApplicationVersion` incremental en `UltimaMilla.Mobile.csproj`:
 
@@ -159,9 +167,14 @@ Caddy sirve el APK firmado y `version.json` desde `~/shippingbox/descargas` en l
 .\scripts\publicar-apk.ps1 -Notas "Descripción de la actualización"
 ```
 
-El script valida firma/paquete, calcula SHA-256 y tamaño, sube primero el APK y al final `version.json` con `Cache-Control: no-store`, y verifica ambos endpoints por HTTPS.
+El script valida firma y paquete, calcula SHA-256 y tamaño, sube primero el APK y al final `version.json` con `Cache-Control: no-store`, y verifica ambos endpoints por HTTPS. Tras reconstruir la VM con `scripts\reconstruir.ps1` debe volver a publicarse el APK. Detalle en [`docs/adr/ADR-007-despliegue-iac-y-balanceo.md`](docs/adr/ADR-007-despliegue-iac-y-balanceo.md) y [`docs/Pendientes_Mobile.md`](docs/Pendientes_Mobile.md).
 
-### 4. Infraestructura como Código (destrucción y reconstrucción total)
+### 4. Correo SMTP y persistencia de claves de sesión
+
+- **Correo a destinatarios (SMTP):** las credenciales viven únicamente en `~/shippingbox/.env.prod` de la VM (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SSL`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`), nunca en el repositorio. Si no están definidas, el correo no se envía y no bloquea la operación. Al reconstruir con `scripts\reconstruir.ps1`, conviene exportarlas como variables de entorno en la PC para copiarlas automáticamente a la VM nueva. El enlace del correo apunta al dominio de seguimiento público (`DOMINIO_SEGUIMIENTO`).
+- **Claves de sesión:** el Backoffice y el Portal del Comercio guardan sus claves de Data Protection en volúmenes Docker (`backoffice_keys`, `portal_keys`) para que un redespliegue no invalide formularios ni sesiones abiertas.
+
+### 5. Infraestructura como Código (destrucción y reconstrucción total)
 
 Definida con Terraform en `infra/terraform-azure` (`rg-ultimamilla-prod`, VNet, subred, NSG con puertos 22/80/443 únicamente, IP pública estática, VM Linux con `cloud-init.yaml.tftpl` que instala Docker y genera secretos aleatorios en `~/shippingbox/.env.prod`).
 
