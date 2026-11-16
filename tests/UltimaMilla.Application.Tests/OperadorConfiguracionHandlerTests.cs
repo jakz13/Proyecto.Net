@@ -403,6 +403,15 @@ public class OperadorConfiguracionHandlerTests
         Assert.Equal("Completa", dto.TipoPruebaEntregaExigida);
     }
 
+    [Theory]
+    [InlineData("Firma digital y documento del receptor", "Firma y Documento")]
+    [InlineData("Foto del paquete y documento de identidad", "Foto y Documento")]
+    public async Task Publicar_TipoPruebaConDocumento_PreservaCombinacionConDocumento(string entrada, string esperado)
+    {
+        var dto = await Publicar().Handle(Regla(tipo: entrada), default);
+        Assert.Equal(esperado, dto.TipoPruebaEntregaExigida);
+    }
+
     [Fact]
     public async Task ActualizarMotivo_ConCambioDeEstado_ActualizaDescripcionYActivo()
     {

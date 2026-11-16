@@ -154,6 +154,7 @@ internal static class ConstructorTablero
             .ToList();
         var paradas = rutas.SelectMany(r => r.Paradas).Where(p => p.Estado != "Cancelada").ToList();
         var envioIds = paradas.Where(p => p.EnvioId.HasValue).Select(p => p.EnvioId!.Value).Distinct().ToList();
+        var retiroIds = paradas.Where(p => p.RetiroId.HasValue).Select(p => p.RetiroId!.Value).Distinct().ToList();
         var direccionIds = paradas.Select(p => p.DireccionId).Distinct().ToList();
 
         var todosVehiculoIds = vehiculoIds.Union(ultimasPosicionesOperador.Select(p => p.VehiculoId)).Distinct().ToList();
@@ -176,6 +177,9 @@ internal static class ConstructorTablero
         var nombres = await db.Usuarios.AsNoTracking().Where(u => usuarioIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Nombre, ct);
         var vehiculos = await db.Vehiculos.AsNoTracking().Where(v => todosVehiculoIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
         var envios = await db.Envios.AsNoTracking().Where(e => envioIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, ct);
+        var retiros = retiroIds.Count > 0
+            ? await db.Retiros.AsNoTracking().Where(r => retiroIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct)
+            : new Dictionary<Guid, Domain.Entities.Retiros.Retiro>();
         var destinatarioIds = envios.Values.Select(e => e.DestinatarioId).Distinct().ToList();
         var telefonos = await db.Destinatarios.AsNoTracking().Where(d => destinatarioIds.Contains(d.Id))
             .ToDictionaryAsync(d => d.Id, d => d.Telefono ?? string.Empty, ct);
@@ -232,9 +236,12 @@ internal static class ConstructorTablero
                 Envio? envio = null;
                 if (parada.EnvioId.HasValue)
                     envios.TryGetValue(parada.EnvioId.Value, out envio);
+                Domain.Entities.Retiros.Retiro? retiro = null;
+                if (parada.RetiroId.HasValue)
+                    retiros.TryGetValue(parada.RetiroId.Value, out retiro);
                 direcciones.TryGetValue(parada.DireccionId, out var direccion);
 
-                var franjaIdEfectiva = parada.FranjaHorariaId ?? envio?.FranjaHorariaComprometidaId;
+                var franjaIdEfectiva = parada.FranjaHorariaId ?? envio?.FranjaHorariaComprometidaId ?? retiro?.FranjaHorariaId;
                 var franja = franjaIdEfectiva.HasValue ? franjas.GetValueOrDefault(franjaIdEfectiva.Value) : null;
                 var ventana = ResolverVentanaParada(franja, franjaIdEfectiva);
 
@@ -273,14 +280,16 @@ internal static class ConstructorTablero
                     {
                         enRiesgo.Add(new EnvioRiesgoDto
                         {
-                            EnvioId = parada.EnvioId ?? Guid.Empty,
+                            EnvioId = parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
                             HojaDeRutaId = ruta.Id,
                             RepartidorId = ruta.RepartidorId ?? Guid.Empty,
                             NumeroRuta = numero,
-                            CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
-                            Destinatario = envio?.NombreDestinatario ?? string.Empty,
-                            DestinatarioTelefono = envio is not null ? telefonos.GetValueOrDefault(envio.DestinatarioId) ?? string.Empty : string.Empty,
-                            Direccion = envio?.DireccionDestino ?? FormatearDireccion(direccion) ?? string.Empty,
+                            CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? string.Empty,
+                            Destinatario = envio?.NombreDestinatario ?? retiro?.NombreContacto ?? string.Empty,
+                            DestinatarioTelefono = envio is not null
+                                ? telefonos.GetValueOrDefault(envio.DestinatarioId) ?? string.Empty
+                                : retiro?.TelefonoContacto ?? string.Empty,
+                            Direccion = envio?.DireccionDestino ?? retiro?.DireccionRetiro ?? FormatearDireccion(direccion) ?? string.Empty,
                             Zona = zona,
                             FranjaHoraria = textoFranja,
                             HoraLimiteVentana = limite,
@@ -300,10 +309,10 @@ internal static class ConstructorTablero
                 paradasDto.Add(new ParadaEnVivoDto
                 {
                     EnvioId = parada.EnvioId ?? parada.RetiroId ?? Guid.Empty,
-                    CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? string.Empty,
+                    CodigoSeguimiento = envio?.CodigoSeguimientoPublico ?? retiro?.CodigoSeguimientoPublico ?? string.Empty,
                     Orden = parada.Orden,
-                    Destinatario = envio?.NombreDestinatario ?? string.Empty,
-                    Direccion = envio?.DireccionDestino ?? FormatearDireccion(direccion) ?? string.Empty,
+                    Destinatario = envio?.NombreDestinatario ?? retiro?.NombreContacto ?? string.Empty,
+                    Direccion = envio?.DireccionDestino ?? retiro?.DireccionRetiro ?? FormatearDireccion(direccion) ?? string.Empty,
                     Latitud = direccion?.Latitud ?? latitudBase,
                     Longitud = direccion?.Longitud ?? longitudBase,
                     FranjaHoraria = textoFranja,
@@ -315,6 +324,7 @@ internal static class ConstructorTablero
 
             var actual = vigentes.FirstOrDefault(p => p.Estado is "EnCamino" or "EnSitio") ?? pendientes.FirstOrDefault() ?? vigentes.LastOrDefault();
             var actualEnvio = actual?.EnvioId is { } actualEnvioId ? envios.GetValueOrDefault(actualEnvioId) : null;
+            var actualRetiro = actual?.RetiroId is { } actualRetiroId ? retiros.GetValueOrDefault(actualRetiroId) : null;
             var actualDireccion = actual is null ? null : direcciones.GetValueOrDefault(actual.DireccionId);
             var zonaActual = actualDireccion?.ZonaCoberturaId is { } z ? zonas.GetValueOrDefault(z) ?? string.Empty : string.Empty;
             if (string.IsNullOrWhiteSpace(zonaActual))
@@ -336,16 +346,16 @@ internal static class ConstructorTablero
                 VehiculoModelo = vehiculo?.Tipo ?? string.Empty,
                 Latitud = posicion?.Latitud ?? actualDireccion?.Latitud ?? latitudBase,
                 Longitud = posicion?.Longitud ?? actualDireccion?.Longitud ?? longitudBase,
-                DireccionAproximada = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
+                DireccionAproximada = actualEnvio?.DireccionDestino ?? actualRetiro?.DireccionRetiro ?? FormatearDireccion(actualDireccion) ?? "En recorrido operativo",
                 ZonaActual = zonaActual,
                 NivelBateriaPct = bateriaEfectiva,
                 VelocidadKmh = (int)Math.Round(velocidadEfectiva),
                 UltimaActualizacion = timestampEfectivo,
                 EstadoOperativo = EstadoOperativo(ahora, posicion?.Timestamp, velocidadEfectiva, actual?.Estado, ruta.Estado),
-                ParadasCompletadas = vigentes.Count(p => p.Estado is "Entregada" or "Fallida" or "NoVisitada"),
+                ParadasCompletadas = vigentes.Count(p => p.Estado is "Entregada" or "Entregado" or "Fallida" or "Fallido" or "NoVisitada" or "Retirada" or "Retirado" or "NoRetirada" or "NoRetirado"),
                 TotalParadas = vigentes.Count,
-                ParadaActualCodigo = actualEnvio?.CodigoSeguimientoPublico,
-                ParadaActualDireccion = actualEnvio?.DireccionDestino ?? FormatearDireccion(actualDireccion),
+                ParadaActualCodigo = actualEnvio?.CodigoSeguimientoPublico ?? actualRetiro?.CodigoSeguimientoPublico,
+                ParadaActualDireccion = actualEnvio?.DireccionDestino ?? actualRetiro?.DireccionRetiro ?? FormatearDireccion(actualDireccion),
                 TieneAlertasRiesgo = enRiesgo.Count > 0,
                 CantidadEnviosEnRiesgo = enRiesgo.Count,
                 EnviosEnRiesgo = enRiesgo,
@@ -494,8 +504,8 @@ internal static class ConstructorTablero
 
     private static string EstadoParada(string estado) => estado switch
     {
-        "Entregada" => "Entregado",
-        "Fallida" => "NoEntregado",
+        "Entregada" or "Entregado" or "Retirada" or "Retirado" => "Entregado",
+        "Fallida" or "Fallido" or "NoRetirada" or "NoRetirado" => "NoEntregado",
         "EnCamino" or "EnSitio" => "EnCurso",
         _ => "Pendiente"
     };

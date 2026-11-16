@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="ModeloEstadosActualizado" name="ModeloEstados Entrega">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1650" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e-title" parent="1" value="1. Ciclo de vida: Envío (MaquinaEstadosEnvio)" style="text;html=1;align=left;verticalAlign=middle;fontStyle=1;fontSize=15;fontColor=#1a202c;" vertex="1">
+          <mxGeometry x="60" y="30" width="450" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e-start" parent="1" value="" style="ellipse;fillColor=#000000;strokeColor=none;" vertex="1">
+          <mxGeometry x="60" y="285" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e-adm" parent="1" value="Admitido" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="150" y="280" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-dep" parent="1" value="EnDeposito" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="370" y="280" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-asig" parent="1" value="AsignadoARuta" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="590" y="280" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-tran" parent="1" value="EnTransito" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="830" y="280" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ep" parent="1" value="EntregadoParcialmente" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="1100" y="280" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ent" parent="1" value="Entregado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1370" y="140" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-endent" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1550" y="145" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e-canc" parent="1" value="Cancelado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="250" y="100" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-endcan" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="160" y="105" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ext" parent="1" value="Extraviado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1">
+          <mxGeometry x="600" y="100" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-endext" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#9673a6;" vertex="1">
+          <mxGeometry x="780" y="105" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e-note" parent="1" value="Extraviado también alcanzable desde todo estado no terminal (Admitido, AsignadoARuta, EntregadoParcialmente, NoEntregado, Reprogramado, EnDevolucion)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9fb;strokeColor=#9673a6;dashed=1;fontSize=10;align=left;spacingLeft=8;spacingRight=8;" vertex="1">
+          <mxGeometry x="910" y="80" width="410" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ne" parent="1" value="NoEntregado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="1110" y="470" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-rep" parent="1" value="Reprogramado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="690" y="560" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-edev" parent="1" value="EnDevolucion" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="490" y="660" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-dev" parent="1" value="Devuelto" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="270" y="660" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e-enddev" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="170" y="665" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-1" parent="1" source="e-start" target="e-adm" value="Alta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-2" parent="1" source="e-adm" target="e-dep" value="Escaneo recepción" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-3" parent="1" source="e-dep" target="e-asig" value="Asignar ruta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-4" parent="1" source="e-asig" target="e-dep" value="Desasignar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.25;exitY=1;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="623" y="365" />
+              <mxPoint x="460" y="365" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-5" parent="1" source="e-asig" target="e-tran" value="Despacho ruta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-6" parent="1" source="e-tran" target="e-ent" value="Entrega [Prueba válida]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.7;exitY=0;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="0.25" y="-10">
+            <Array as="points">
+              <mxPoint x="921" y="160" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-7" parent="1" source="e-tran" target="e-ep" value="Entrega parcial" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-8" parent="1" source="e-ep" target="e-ent" value="Entrega restante" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="0" y="-10">
+            <Array as="points">
+              <mxPoint x="1180" y="220" />
+              <mxPoint x="1430" y="220" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-9" parent="1" source="e-ent" target="e-endent" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-10" parent="1" source="e-ep" target="e-asig" value="Reasignar pendientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.25;exitY=0;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1140" y="200" />
+              <mxPoint x="655" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-11" parent="1" source="e-ep" target="e-tran" value="Despacho pendientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#d6b656;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.15;exitY=0;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1124" y="240" />
+              <mxPoint x="895" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-12" parent="1" source="e-tran" target="e-ne" value="Fallo [Motivo catálogo]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.8;exitY=1;entryX=0;entryY=0.3;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="934" y="482" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-13" parent="1" source="e-ep" target="e-rep" value="Reprogramar pendientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.2;exitY=1;entryX=1;entryY=0.35;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1132" y="360" />
+              <mxPoint x="1015" y="360" />
+              <mxPoint x="1015" y="574" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-14" parent="1" source="e-ep" target="e-dep" value="Reintegro pendientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0.25;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="-0.15" y="-10">
+            <Array as="points">
+              <mxPoint x="1320" y="300" />
+              <mxPoint x="1320" y="730" />
+              <mxPoint x="400" y="730" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-15" parent="1" source="e-ep" target="e-edev" value="Devolución pendientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.85;exitY=1;entryX=1;entryY=0.7;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="0.15" y="-10">
+            <Array as="points">
+              <mxPoint x="1236" y="360" />
+              <mxPoint x="1290" y="360" />
+              <mxPoint x="1290" y="688" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-16" parent="1" source="e-ne" target="e-rep" value="[Intentos &lt; MaxIntentos]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.35;exitY=1;entryX=1;entryY=0.65;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1155" y="586" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-17" parent="1" source="e-ne" target="e-edev" value="[Intentos &gt;= MaxIntentos]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.7;exitY=1;entryX=1;entryY=0.35;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1201" y="674" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-18" parent="1" source="e-ne" target="e-dep" value="Retorno depósito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0;exitY=0.7;entryX=0.45;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="0.2" y="-10">
+            <Array as="points">
+              <mxPoint x="424" y="498" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-19" parent="1" source="e-rep" target="e-dep" value="Rendición depósito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=0.6;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry" x="-0.2" y="-10">
+            <Array as="points">
+              <mxPoint x="442" y="580" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-20" parent="1" source="e-rep" target="e-asig" value="Reasignar ruta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.6;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="755" y="440" />
+              <mxPoint x="668" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-21" parent="1" source="e-rep" target="e-edev" value="[Intentos &gt;= Max]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.3;exitY=1;entryX=0.6;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="729" y="630" />
+              <mxPoint x="568" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-22" parent="1" source="e-dep" target="e-edev" value="Devolución directa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.85;exitY=1;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="472" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-23" parent="1" source="e-tran" target="e-dep" value="Retorno sin intento" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.3;exitY=1;entryX=0.92;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="869" y="405" />
+              <mxPoint x="480" y="405" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-24" parent="1" source="e-edev" target="e-dev" value="Entrega a comercio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-25" parent="1" source="e-dev" target="e-enddev" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-26" parent="1" source="e-adm" target="e-canc" value="Cancelar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.25;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="200" />
+              <mxPoint x="280" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-27" parent="1" source="e-dep" target="e-canc" value="Cancelar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.25;exitY=0;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="200" />
+              <mxPoint x="340" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-28" parent="1" source="e-canc" target="e-endcan" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ee-29" parent="1" source="e-dep" target="e-ext" value="Discrepancia / Pérdida" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#76608a;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.75;exitY=0;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-30" parent="1" source="e-tran" target="e-ext" value="Incidencia irreversible" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#76608a;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.2;exitY=0;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="856" y="175" />
+              <mxPoint x="690" y="175" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ee-31" parent="1" source="e-ext" target="e-endext" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r-title" parent="1" value="2. Ciclo de vida: Retiro en Domicilio (MaquinaEstadosRetiro)" style="text;html=1;align=left;verticalAlign=middle;fontStyle=1;fontSize=15;fontColor=#1a202c;" vertex="1">
+          <mxGeometry x="60" y="785" width="520" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r-endcan" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="160" y="835" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r-canc" parent="1" value="Cancelado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="250" y="830" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-note" parent="1" value="Conflictos offline (TablaTransicionesPorConflicto): desde Solicitado o Cancelado se admite transición directa a Retirado / NoRetirado si prevalece la evidencia física en domicilio." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9fb;strokeColor=#9673a6;dashed=1;fontSize=10;align=left;spacingLeft=8;spacingRight=8;" vertex="1">
+          <mxGeometry x="740" y="822" width="570" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="r-start" parent="1" value="" style="ellipse;fillColor=#000000;strokeColor=none;" vertex="1">
+          <mxGeometry x="60" y="945" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r-sol" parent="1" value="Solicitado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="150" y="940" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-asig" parent="1" value="AsignadoARuta" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="390" y="940" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-ret" parent="1" value="Retirado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="640" y="940" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-dep" parent="1" value="EnDeposito" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="880" y="940" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-ent" parent="1" value="EntregadoAlComercio" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1120" y="940" width="155" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-endok" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1335" y="945" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r-noret" parent="1" value="NoRetirado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="395" y="1070" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="re-1" parent="1" source="r-start" target="r-sol" value="Alta retiro" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-2" parent="1" source="r-sol" target="r-asig" value="Asignar ruta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-3" parent="1" source="r-asig" target="r-sol" value="Desasignar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.25;exitY=1;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="423" y="1015" />
+              <mxPoint x="240" y="1015" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="re-4" parent="1" source="r-asig" target="r-ret" value="Retiro exitoso" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-5" parent="1" source="r-ret" target="r-dep" value="Rendición depósito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-6" parent="1" source="r-dep" target="r-ent" value="Entrega a comercio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-7" parent="1" source="r-ent" target="r-endok" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-8" parent="1" source="r-asig" target="r-noret" value="Fallo retiro" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="re-9" parent="1" source="r-noret" target="r-sol" value="Nueva visita" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=0.45;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="204" y="1090" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="re-10" parent="1" source="r-sol" target="r-canc" value="Cancelar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.25;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="900" />
+              <mxPoint x="280" y="900" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="re-11" parent="1" source="r-asig" target="r-canc" value="Cancelar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.35;exitY=0;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="435" y="900" />
+              <mxPoint x="340" y="900" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="re-12" parent="1" source="r-noret" target="r-canc" value="Cancelar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="580" y="1090" />
+              <mxPoint x="580" y="850" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="re-13" parent="1" source="r-canc" target="r-endcan" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="b-title" parent="1" value="3. Ciclo de vida: Bulto (MaquinaEstadosBulto — deriva EstadoEnvio)" style="text;html=1;align=left;verticalAlign=middle;fontStyle=1;fontSize=15;fontColor=#1a202c;" vertex="1">
+          <mxGeometry x="60" y="1175" width="620" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="b-start" parent="1" value="" style="ellipse;fillColor=#000000;strokeColor=none;" vertex="1">
+          <mxGeometry x="60" y="1385" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="b-ing" parent="1" value="Ingresado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="150" y="1380" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-frec" parent="1" value="FaltanteEnRecepcion" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="130" y="1550" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-dan" parent="1" value="Danado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="440" y="1230" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-rec" parent="1" value="Recibido" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1">
+          <mxGeometry x="440" y="1380" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-fcar" parent="1" value="FaltanteEnCarga" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="760" y="1230" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-car" parent="1" value="CargadoEnVehiculo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="755" y="1380" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-ent" parent="1" value="Entregado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1100" y="1230" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-endent" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="1300" y="1235" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="b-ne" parent="1" value="NoEntregado" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="1100" y="1380" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-pend" parent="1" value="PendienteReenvio" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1">
+          <mxGeometry x="1090" y="1550" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-ret" parent="1" value="EnRetornoADeposito" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1">
+          <mxGeometry x="750" y="1550" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-dev" parent="1" value="Devuelto" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="440" y="1680" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b-enddev" parent="1" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#82b366;" vertex="1">
+          <mxGeometry x="290" y="1685" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="b-note" parent="1" value="DerivarEstadoEnvio (ignora FaltanteEnRecepcion): todos Entregado → Entregado; alguno Entregado + otros → EntregadoParcialmente; todos Devuelto → Devuelto; todos EnRetorno → EnDevolucion; NoEntregado / PendienteReenvio → NoEntregado." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9fb;strokeColor=#9673a6;dashed=1;fontSize=10;align=left;spacingLeft=8;spacingRight=8;" vertex="1">
+          <mxGeometry x="810" y="1665" width="560" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="be-1" parent="1" source="b-start" target="b-ing" value="Alta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-2" parent="1" source="b-ing" target="b-rec" value="Recepción OK" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-3" parent="1" source="b-ing" target="b-dan" value="Dañado" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="1250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-4" parent="1" source="b-dan" target="b-rec" value="Reclasificar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-5" parent="1" source="b-ing" target="b-frec" value="No arribó" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-6" parent="1" source="b-frec" target="b-rec" value="Hallazgo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=1;exitY=0.5;entryX=0.2;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="464" y="1570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-7" parent="1" source="b-rec" target="b-car" value="Escaneo carga" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-8" parent="1" source="b-dan" target="b-car" value="Carga c/daño" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.75;entryX=0.25;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="665" y="1260" />
+              <mxPoint x="665" y="1350" />
+              <mxPoint x="793" y="1350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-9" parent="1" source="b-rec" target="b-fcar" value="Faltante carga" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.8;exitY=0;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="536" y="1315" />
+              <mxPoint x="695" y="1315" />
+              <mxPoint x="695" y="1250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-10" parent="1" source="b-fcar" target="b-car" value="Reintento carga" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-11" parent="1" source="b-car" target="b-ent" value="Entrega bulto" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.8;exitY=0;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="945" y="1350" />
+              <mxPoint x="945" y="1250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-12" parent="1" source="b-ent" target="b-endent" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-13" parent="1" source="b-car" target="b-ne" value="No entregado" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-14" parent="1" source="b-ne" target="b-pend" value="Reintentar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b46504;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-15" parent="1" source="b-pend" target="b-car" value="Recarga" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.2;exitY=0;entryX=0.85;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="1485" />
+              <mxPoint x="965" y="1485" />
+              <mxPoint x="965" y="1445" />
+              <mxPoint x="883" y="1445" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-16" parent="1" source="b-ne" target="b-ret" value="Retorno depósito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.8;entryX=0.7;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1030" y="1412" />
+              <mxPoint x="1030" y="1515" />
+              <mxPoint x="862" y="1515" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-17" parent="1" source="b-pend" target="b-ret" value="A devolución" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-18" parent="1" source="b-ret" target="b-rec" value="Reingreso depósito" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#666666;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;dashed=1;exitX=0.2;exitY=0;entryX=0.75;entryY=1;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="782" y="1510" />
+              <mxPoint x="530" y="1510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-19" parent="1" source="b-ret" target="b-dev" value="Entrega comercio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#274e13;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.1;exitY=1;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="766" y="1700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="be-20" parent="1" source="b-rec" target="b-dev" value="Devolución directa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#b85450;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-21" parent="1" source="b-dev" target="b-enddev" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeColor=#000000;strokeWidth=1.5;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -292,6 +292,41 @@ app.UseExceptionHandler(manejador => manejador.Run(async contexto =>
     }
 
     contexto.Response.ContentType = "application/json";
+    if (error is UltimaMilla.Domain.Exceptions.DomainValidationException validacionEx)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await contexto.Response.WriteAsJsonAsync(new { error = validacionEx.Message });
+        return;
+    }
+
+    if (error is UltimaMilla.Application.Exceptions.NotFoundException notFoundEx)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status404NotFound;
+        await contexto.Response.WriteAsJsonAsync(new { error = notFoundEx.Message });
+        return;
+    }
+
+    if (error is UltimaMilla.Application.Exceptions.ConflictoDeConcurrenciaException conflictoEx)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status409Conflict;
+        await contexto.Response.WriteAsJsonAsync(new { error = conflictoEx.Message });
+        return;
+    }
+
+    if (error is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status409Conflict;
+        await contexto.Response.WriteAsJsonAsync(new { error = "Los datos fueron modificados por otra operación simultánea. Recargue la información e intente nuevamente." });
+        return;
+    }
+
+    if (error is UnauthorizedAccessException)
+    {
+        contexto.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await contexto.Response.WriteAsJsonAsync(new { error = "Acceso denegado." });
+        return;
+    }
+
     if (datoInvalidoDelCliente)
     {
         contexto.Response.StatusCode = StatusCodes.Status400BadRequest;

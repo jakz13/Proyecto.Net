@@ -1526,7 +1526,9 @@ public class SyncService : ISyncService, IDisposable
 
         bool mencionaYaEntregado =
             error.Contains("Entregado", StringComparison.OrdinalIgnoreCase) ||
-            error.Contains("Entregada", StringComparison.OrdinalIgnoreCase);
+            error.Contains("Entregada", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Retirado", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Retirada", StringComparison.OrdinalIgnoreCase);
 
         bool mencionaEnTransito =
             error.Contains("EnTransito", StringComparison.OrdinalIgnoreCase) ||
@@ -1569,7 +1571,7 @@ public class SyncService : ISyncService, IDisposable
 
             bool esIdempotenteSilencioso =
                 (op.TipoOperacion == TiposOperacionOffline.IniciarRecorrido && (mencionaEnTransito || status is 400 or 404 or 409)) ||
-                (mencionaYaEntregado && op.TipoOperacion is TiposOperacionOffline.EntregaExitosa or TiposOperacionOffline.EntregaParcial) ||
+                (mencionaYaEntregado && op.TipoOperacion is TiposOperacionOffline.EntregaExitosa or TiposOperacionOffline.EntregaParcial or TiposOperacionOffline.RetiroRealizado) ||
                 op.TipoOperacion is TiposOperacionOffline.TelemetriaGps
                     or TiposOperacionOffline.EventoGeocerca
                     or TiposOperacionOffline.SeleccionarParada
