@@ -1154,9 +1154,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
         int pendientes = Paradas.Count(p => p.Estado == "Pendiente");
 
         var bultosRetorno = Paradas
-            .Where(p => !p.EsRetiro && p.Estado is "Fallido" or "EnDevolucion")
-            .SelectMany(p => p.Bultos)
-            .Select(b => b.Codigo)
+            .Where(p => !p.EsRetiro)
+            .SelectMany(p => p.Bultos
+                .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado == "Entregado" && !b.VerificadoEnEntrega))
+                .Select(b => b.Codigo))
             .Distinct()
             .ToList();
 
@@ -1207,9 +1208,10 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
             IsBusy = true;
 
             var bultosRetorno = Paradas
-                .Where(p => p.Estado is "Fallido" or "EnDevolucion")
-                .SelectMany(p => p.Bultos)
-                .Select(b => b.Codigo)
+                .Where(p => !p.EsRetiro)
+                .SelectMany(p => p.Bultos
+                    .Where(b => p.Estado is "Fallido" or "EnDevolucion" || (p.Estado == "Entregado" && !b.VerificadoEnEntrega))
+                    .Select(b => b.Codigo))
                 .Distinct()
                 .ToList();
 

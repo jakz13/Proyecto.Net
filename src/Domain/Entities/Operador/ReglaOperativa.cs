@@ -170,18 +170,19 @@ public class ReglaOperativa : Entity, IMustHaveTenant
     public void ValidarPruebaEntrega(string? firmaBase64, string? fotoBase64, string? documentoReceptor)
     {
         var regla = TipoPruebaEntregaExigida.ToUpperInvariant();
+        var esCompleta = regla.Contains("COMPLETA");
 
-        if (regla.Contains("FIRMA") && string.IsNullOrWhiteSpace(firmaDigitalOrFallback(firmaBase64)))
+        if ((esCompleta || regla.Contains("FIRMA")) && string.IsNullOrWhiteSpace(firmaDigitalOrFallback(firmaBase64)))
         {
             throw new DomainValidationException($"La regla operativa vigente exige firma digital del receptor ({TipoPruebaEntregaExigida}).");
         }
 
-        if (regla.Contains("FOTO") && string.IsNullOrWhiteSpace(fotoBase64))
+        if ((esCompleta || regla.Contains("FOTO")) && string.IsNullOrWhiteSpace(fotoBase64))
         {
             throw new DomainValidationException($"La regla operativa vigente exige fotografía de evidencia ({TipoPruebaEntregaExigida}).");
         }
 
-        if (regla.Contains("DOCUMENTO") && string.IsNullOrWhiteSpace(documentoReceptor))
+        if ((esCompleta || regla.Contains("DOCUMENTO")) && string.IsNullOrWhiteSpace(documentoReceptor))
         {
             throw new DomainValidationException($"La regla operativa vigente exige documento de identidad del receptor ({TipoPruebaEntregaExigida}).");
         }

@@ -11,6 +11,7 @@ public record ConfiguracionAvisosDto
     public string ClaveFirma { get; init; } = string.Empty;
     public bool Activa { get; init; } = true;
     public bool EstaConfigurado { get; init; }
+    public string VersionContrato { get; init; } = "v1";
     public IReadOnlyList<EventoDisponibleDto> CatalogoEventos { get; init; } = Array.Empty<EventoDisponibleDto>();
     public IReadOnlyList<AvisoHistorialDto> HistorialReciente { get; init; } = Array.Empty<AvisoHistorialDto>();
 }
@@ -21,6 +22,7 @@ public record GuardarConfiguracionAvisosDto
     public IReadOnlyList<string> Eventos { get; init; } = Array.Empty<string>();
     public string? ClaveFirma { get; init; }
     public bool Activa { get; init; } = true;
+    public string VersionContrato { get; init; } = "v1";
 }
 
 public record EventoDisponibleDto(

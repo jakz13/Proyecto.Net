@@ -14,16 +14,20 @@ public class ArmarModel : PageModel
     private readonly IRutasApi _rutasApi;
     private readonly IFlotaApi _flotaApi;
     private readonly IRetirosApi _retirosApi;
+    private readonly IZonasCoberturaApi? _zonasApi;
 
-    public ArmarModel(IRutasApi rutasApi, IFlotaApi flotaApi, IRetirosApi retirosApi)
+    public ArmarModel(IRutasApi rutasApi, IFlotaApi flotaApi, IRetirosApi retirosApi, IZonasCoberturaApi? zonasApi = null)
     {
         _rutasApi = rutasApi;
         _flotaApi = flotaApi;
         _retirosApi = retirosApi;
+        _zonasApi = zonasApi;
     }
 
     /// <summary>Retiros en domicilio pendientes de asignar: pueden sumarse a la ruta, que pasa a ser mixta.</summary>
     public IReadOnlyList<RetiroResumenDto> RetirosPendientes { get; private set; } = new List<RetiroResumenDto>();
+
+    public IReadOnlyList<string> ZonasDisponibles { get; private set; } = new List<string>();
 
     [BindProperty]
     public ArmarRutaFormInput Formulario { get; set; } = new();
@@ -141,6 +145,21 @@ public class ArmarModel : PageModel
         VehiculosDisponibles = await _flotaApi.ListarVehiculosAsync(soloActivos: true);
         EnviosEnDeposito = await _rutasApi.ListarEnviosPendientesAsync();
         RetirosPendientes = (await _retirosApi.ListarDelOperadorAsync("Solicitado")).Items;
+
+        var zonasDeEnvios = EnviosEnDeposito.Select(e => e.Zona).Where(z => !string.IsNullOrWhiteSpace(z) && z != "Sin zona");
+        var zonasConfiguradas = Enumerable.Empty<string>();
+        if (_zonasApi is not null)
+        {
+            try
+            {
+                zonasConfiguradas = (await _zonasApi.ListarZonasAsync(new UltimaMilla.Frontend.Contracts.Modelos.Zonas.FiltroZonasDto { SoloActivas = true }))
+                    .Select(z => z.Nombre);
+            }
+            catch
+            {
+            }
+        }
+        ZonasDisponibles = zonasConfiguradas.Concat(zonasDeEnvios).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(z => z).ToList();
     }
 
     public class ArmarRutaFormInput

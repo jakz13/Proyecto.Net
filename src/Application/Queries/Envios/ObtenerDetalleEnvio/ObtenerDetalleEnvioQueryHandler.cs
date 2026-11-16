@@ -47,7 +47,7 @@ public class ObtenerDetalleEnvioQueryHandler : IRequestHandler<ObtenerDetalleEnv
             envio.FechaAlta,
             envio.Bultos
                 .OrderBy(b => b.Identificacion)
-                .Select(b => new DetalleBultoDto(b.Id, b.Identificacion, b.Peso, b.EstadoBulto, b.Prioridad?.ToString()))
+                .Select(b => new DetalleBultoDto(b.Id, b.Identificacion, b.Peso, b.EstadoBulto, b.Prioridad?.ToString(), b.MotivoNoEntregaCodigo))
                 .ToList(),
             envio.Eventos
                 .OrderBy(e => e.Timestamp)

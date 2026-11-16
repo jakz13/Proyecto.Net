@@ -247,7 +247,7 @@ public class ObtenerRutaActivaRepartidorQueryHandler :
             );
 
             var bultosVigentes = envio?.Bultos
-                .Where(b => b.EstadoBulto is not "FaltanteEnRecepcion")
+                .Where(b => b.EstadoBulto is not "FaltanteEnRecepcion" and not "Entregado" and not "Devuelto")
                 .OrderBy(b => b.Identificacion)
                 .ToList();
 

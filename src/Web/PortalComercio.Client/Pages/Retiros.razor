@@ -113,9 +113,21 @@
                         <label class="form-label small fw-semibold">Motivo del retiro</label>
                         <InputText class="form-control form-control-sm" @bind-Value="solicitud.Motivo" placeholder="Cambio de talle, producto defectuoso..." />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Fecha pedida (opcional)</label>
-                        <InputDate class="form-control form-control-sm" @bind-Value="solicitud.FechaSolicitada" />
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fecha pedida (opcional)</label>
+                            <InputDate class="form-control form-control-sm" @bind-Value="solicitud.FechaSolicitada" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ventana horaria (opcional)</label>
+                            <select class="form-select form-select-sm" @bind="franjaSeleccionadaTexto">
+                                <option value="">Cualquier franja disponible</option>
+                                @foreach (var franja in franjasDisponibles)
+                                {
+                                    <option value="@franja.Id">@franja.VentanaTexto</option>
+                                }
+                            </select>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -197,6 +209,8 @@
 @code {
     private SolicitarRetiroDto solicitud = new();
     private List<RetiroResumenDto> retiros = new();
+    private List<FranjaRetiroDisponibleDto> franjasDisponibles = new();
+    private string franjaSeleccionadaTexto = string.Empty;
     private bool cargando = true;
     private bool enviando;
     private string? mensajeExito;
@@ -342,7 +356,10 @@
             cargando = true;
         try
         {
-            retiros = (await RetirosApi.ListarDelComercioAsync()).Items.ToList();
+            var pagina = await RetirosApi.ListarDelComercioAsync();
+            retiros = pagina.Items.ToList();
+            if (pagina.FranjasDisponibles is { Count: > 0 })
+                franjasDisponibles = pagina.FranjasDisponibles.ToList();
         }
         catch (ApiExcepcion ex)
         {
@@ -368,9 +385,11 @@
         mensajeError = null;
         try
         {
+            solicitud.FranjaHorariaId = Guid.TryParse(franjaSeleccionadaTexto, out var fid) && fid != Guid.Empty ? fid : null;
             var resultado = await RetirosApi.SolicitarAsync(solicitud);
             mensajeExito = $"Retiro {resultado.CodigoSeguimiento} solicitado. Tarifa: $ {resultado.Tarifa:N2}. El comprador puede seguirlo con ese código en el enlace público de seguimiento.";
             solicitud = new SolicitarRetiroDto();
+            franjaSeleccionadaTexto = string.Empty;
             await CargarAsync();
         }
         catch (ApiExcepcion ex)

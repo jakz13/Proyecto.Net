@@ -200,7 +200,7 @@ public class DescargarHojasDeRutaQueryHandler : IRequestHandler<DescargarHojasDe
                 destinatario?.Telefono,
                 destinatario?.Email),
             envio.Bultos
-                .Where(b => b.EstadoBulto is not "FaltanteEnRecepcion")
+                .Where(b => b.EstadoBulto is not "FaltanteEnRecepcion" and not "Entregado" and not "Devuelto")
                 .OrderBy(b => b.Identificacion)
                 .Select(b => new BultoDescargaDto(b.Id, b.Identificacion, b.Peso, b.Prioridad?.ToString()))
                 .ToList());

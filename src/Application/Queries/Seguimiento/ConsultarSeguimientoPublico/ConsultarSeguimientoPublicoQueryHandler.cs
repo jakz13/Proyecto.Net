@@ -176,6 +176,21 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             .Select(e => new HitoSeguimientoDto(e.Timestamp, EstadoEnvio.Admitido, DescribirHitoRetiro(e), e.EstadoNuevo.ToString()))
             .ToList();
 
+        string? operadorNombre = null;
+        string? colorPrimario = null;
+        string? colorSecundario = null;
+        string? logoUrl = null;
+
+        if (_operadorRepository is not null && retiro.OperadorId != Guid.Empty)
+        {
+            var operador = await _operadorRepository.GetByIdAsync(retiro.OperadorId, cancellationToken);
+            var identidad = await _operadorRepository.ObtenerIdentidadAsync(retiro.OperadorId, cancellationToken);
+            operadorNombre = operador?.NombreComercial;
+            colorPrimario = identidad?.ColorPrimario;
+            colorSecundario = identidad?.ColorSecundario;
+            logoUrl = identidad?.LogoUrl;
+        }
+
         var resultado = new SeguimientoPublicoDto(
             retiro.CodigoSeguimientoPublico,
             EstadoEnvio.Admitido,
@@ -189,7 +204,11 @@ public class ConsultarSeguimientoPublicoQueryHandler : IRequestHandler<Consultar
             $"{retirados} de {total} bultos retirados",
             "Retiro",
             retiro.EstadoActual.ToString(),
-            DescribirEstadoRetiro(retiro.EstadoActual));
+            DescribirEstadoRetiro(retiro.EstadoActual),
+            OperadorNombre: operadorNombre,
+            OperadorColorPrimario: colorPrimario,
+            OperadorColorSecundario: colorSecundario,
+            OperadorLogoUrl: logoUrl);
 
         if (_cacheService is not null)
         {

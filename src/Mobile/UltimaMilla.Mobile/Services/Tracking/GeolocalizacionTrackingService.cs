@@ -166,8 +166,8 @@ public class GeolocalizacionTrackingService : IGeolocalizacionTrackingService
                 Location? location = null;
                 try
                 {
-                    // Intento primario con precisión equilibrada (Medium) y timeout de 8s para no fallar bajo techo (interiores)
-                    var request = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8));
+                    // Usa la precisión adaptativa calculada según distancia a geocerca y nivel de batería
+                    var request = new GeolocationRequest(_precisionActual, TimeSpan.FromSeconds(8));
                     location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
                 }
                 catch (Exception exGps)

@@ -669,9 +669,16 @@
             return Code128.svg(codigo, 54);
         }
 
-        function renderizarTarjetasEtiquetas(etiquetas) {
+        function renderizarTarjetasEtiquetas(etiquetas, bultosDetalle) {
             if (!etiquetas || etiquetas.length === 0) {
                 return '<div class="col-12 text-secondary small">No se registraron bultos para este envío.</div>';
+            }
+            var mapaEstado = {};
+            if (Array.isArray(bultosDetalle)) {
+                bultosDetalle.forEach(function (b) {
+                    var id = (b.identificacion || b.Identificacion || '').toUpperCase();
+                    if (id) mapaEstado[id] = b;
+                });
             }
             var html = '';
             etiquetas.forEach(function (et) {
@@ -680,10 +687,23 @@
                 var totBultos = et.totalBultos || et.TotalBultos || 1;
                 var destinatario = et.nombreDestinatario || et.NombreDestinatario || '';
                 var direccion = et.direccionDestino || et.DireccionDestino || '';
+                var infoBulto = mapaEstado[codBulto.toUpperCase()];
+                var estadoBulto = infoBulto ? (infoBulto.estadoBulto || infoBulto.EstadoBulto || '') : '';
+                var motivoBulto = infoBulto ? (infoBulto.motivoNoEntregaCodigo || infoBulto.MotivoNoEntregaCodigo || '') : '';
+                var badgeEstado = '';
+                if (estadoBulto) {
+                    var claseBadge = estadoBulto === 'Entregado'
+                        ? 'bg-success-subtle text-success border border-success-subtle'
+                        : (estadoBulto === 'NoEntregado' || estadoBulto === 'PendienteReenvio' || estadoBulto === 'EnRetornoADeposito'
+                            ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+                            : 'bg-secondary-subtle text-secondary border');
+                    var textoEstado = escapeHtml(estadoBulto) + (motivoBulto ? ' (' + escapeHtml(motivoBulto) + ')' : '');
+                    badgeEstado = '<span class="badge ' + claseBadge + ' ms-1">' + textoEstado + '</span>';
+                }
                 html += '<div class="col-12 col-md-6">';
                 html += '  <div class="border rounded-3 p-3 bg-white shadow-xs h-100">';
-                html += '    <div class="d-flex justify-content-between align-items-center mb-2">';
-                html += '      <span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>';
+                html += '    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">';
+                html += '      <div><span class="badge bg-dark">Bulto ' + numBulto + ' de ' + totBultos + '</span>' + badgeEstado + '</div>';
                 html += '      <span class="small text-secondary font-monospace">' + escapeHtml(et.codigoSeguimiento || et.CodigoSeguimiento || '') + '</span>';
                 html += '    </div>';
                 html += '    <div class="mb-2">' + calcularSvgBarras(codBulto) + '</div>';
@@ -703,8 +723,9 @@
                 .then(function (r) { if (!r.ok) throw new Error('Error'); return r.json(); })
                 .then(function (resp) {
                     var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    var bultosDetalle = resp.bultosDetalle || resp.BultosDetalle || [];
                     ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
-                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas, bultosDetalle);
                 })
                 .catch(function () {
                     contenedor.innerHTML = '<div class="col-12 text-danger small">No se pudieron cargar los códigos de barras de los bultos.</div>';
@@ -729,8 +750,9 @@
                 .then(function (resp) {
                     cargando.style.display = 'none';
                     var etiquetas = resp.etiquetas || resp.Etiquetas || [];
+                    var bultosDetalle = resp.bultosDetalle || resp.BultosDetalle || [];
                     ultimoHtmlImprimibleEtiquetas = resp.contenidoHtmlDescargable || resp.ContenidoHtmlDescargable || resp.contenidoHtmlImprimible || resp.ContenidoHtmlImprimible || '';
-                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas);
+                    contenedor.innerHTML = renderizarTarjetasEtiquetas(etiquetas, bultosDetalle);
                     contenedor.style.display = 'flex';
                 })
                 .catch(function () {

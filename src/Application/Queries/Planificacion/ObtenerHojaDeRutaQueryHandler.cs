@@ -90,15 +90,18 @@ public class ObtenerHojaDeRutaQueryHandler : IRequestHandler<ObtenerHojaDeRutaQu
                     p.Id, p.Orden, envio.Id, envio.CodigoSeguimientoPublico, envio.EstadoActual.ToString(), p.Estado,
                     envio.NombreDestinatario, envio.DireccionDestino, envio.ZonaClasificadaId, ventana,
                     envio.PesoTotal, envio.VolumenTotal,
-                    direcciones.GetValueOrDefault(p.DireccionId)?.Latitud, direcciones.GetValueOrDefault(p.DireccionId)?.Longitud));
+                    direcciones.GetValueOrDefault(p.DireccionId)?.Latitud, direcciones.GetValueOrDefault(p.DireccionId)?.Longitud,
+                    Parada.TipoEntrega, null));
             }
             else if (p.RetiroId.HasValue && retiros.TryGetValue(p.RetiroId.Value, out var retiro))
             {
+                var dirRetiro = direcciones.GetValueOrDefault(p.DireccionId);
                 detalleParadas.Add(new ParadaDetalleDto(
-                    p.Id, p.Orden, retiro.Id, retiro.CodigoSeguimientoPublico, retiro.EstadoActual.ToString(), p.Estado,
-                    retiro.NombreContacto, retiro.DireccionRetiro, null, ventana,
+                    p.Id, p.Orden, Guid.Empty, retiro.CodigoSeguimientoPublico, retiro.EstadoActual.ToString(), p.Estado,
+                    retiro.NombreContacto, retiro.DireccionRetiro, dirRetiro?.ZonaCoberturaId, ventana,
                     retiro.PesoTotal, retiro.VolumenTotal,
-                    direcciones.GetValueOrDefault(p.DireccionId)?.Latitud, direcciones.GetValueOrDefault(p.DireccionId)?.Longitud));
+                    dirRetiro?.Latitud, dirRetiro?.Longitud,
+                    Parada.TipoRetiro, retiro.Id));
             }
         }
 

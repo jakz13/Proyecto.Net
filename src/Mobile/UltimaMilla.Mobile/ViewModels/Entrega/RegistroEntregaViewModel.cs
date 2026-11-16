@@ -110,9 +110,10 @@ public partial class RegistroEntregaViewModel : EvidenciaViewModelBase
     public void CargarReglasOperativas()
     {
         var regla = (Preferences.Default.Get("ReglaOperativa_TipoPruebaEntrega", "Firma digital y documento del receptor") ?? "").ToUpperInvariant();
+        var esCompleta = regla.Contains("COMPLETA");
 
-        RequiereFirma = regla.Contains("FIRMA") || (!regla.Contains("FOTO") && !regla.Contains("PIN"));
-        RequiereFoto = regla.Contains("FOTO");
+        RequiereFirma = esCompleta || regla.Contains("FIRMA") || (!regla.Contains("FOTO") && !regla.Contains("PIN"));
+        RequiereFoto = esCompleta || regla.Contains("FOTO");
         RequiereDocumento = true;
 
         TextoEtiquetaFirma = RequiereFirma

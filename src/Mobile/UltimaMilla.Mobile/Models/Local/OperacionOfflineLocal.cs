@@ -22,4 +22,6 @@ public class OperacionOfflineLocal
     public bool Sincronizado { get; set; } = false;
 
     public string? UltimoError { get; set; }
+
+    public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
 }

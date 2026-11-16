@@ -150,15 +150,45 @@ public static class LiquidacionesEndpoints
         var desdeUtc = ZonaHorariaOperador.InicioDelDiaUtc(peticion.Desde);
         var hastaUtc = ZonaHorariaOperador.InicioDelDiaUtc(peticion.Hasta.AddDays(1));
 
-        var pendientes = await db.IntentosEntrega.AsNoTracking()
+        var enviosExitosos = await db.IntentosEntrega.AsNoTracking()
             .Where(i => i.Resultado == "Exitoso" && i.Timestamp >= desdeUtc && i.Timestamp < hastaUtc)
             .Join(db.Envios.AsNoTracking().Where(e => e.OperadorId == operadorId && e.TarifaCalculada > 0
                         && (peticion.ComercioOperadorId == null || e.ComercioOperadorId == peticion.ComercioOperadorId)
                         && !db.MovimientosCuentaCorriente.Any(m => m.EnvioId == e.Id && m.LiquidacionId != null)),
                 i => i.EnvioId, e => e.Id,
-                (i, e) => new { e.Id, e.ComercioOperadorId, e.CodigoSeguimientoPublico, e.TarifaCalculada })
+                (i, e) => new { e.Id, e.ComercioOperadorId, Concepto = $"Envío {e.CodigoSeguimientoPublico}", e.CodigoSeguimientoPublico, e.TarifaCalculada })
             .Distinct()
             .ToListAsync(ct);
+
+        // Entregas parciales cuyo ciclo se cerró sin bultos pendientes de reenvío (bultos restantes en devolución/devueltos al comercio)
+        var enviosParcialesCerrados = await db.IntentosEntrega.AsNoTracking()
+            .Where(i => i.Resultado == "Parcial" && i.Timestamp >= desdeUtc && i.Timestamp < hastaUtc)
+            .Join(db.Envios.AsNoTracking().Where(e => e.OperadorId == operadorId && e.TarifaCalculada > 0
+                        && e.EstadoActual == Domain.Enums.EstadoEnvio.EntregadoParcialmente
+                        && !e.Bultos.Any(b => b.EstadoBulto == "PendienteReenvio" || b.EstadoBulto == "CargadoEnVehiculo")
+                        && (peticion.ComercioOperadorId == null || e.ComercioOperadorId == peticion.ComercioOperadorId)
+                        && !db.MovimientosCuentaCorriente.Any(m => m.EnvioId == e.Id && m.LiquidacionId != null)),
+                i => i.EnvioId, e => e.Id,
+                (i, e) => new { e.Id, e.ComercioOperadorId, Concepto = $"Envío {e.CodigoSeguimientoPublico}", e.CodigoSeguimientoPublico, e.TarifaCalculada })
+            .Distinct()
+            .ToListAsync(ct);
+
+        // Retiros en domicilio completados (EntregadoAlComercio) en el período
+        var retirosCompletados = await db.Retiros.AsNoTracking()
+            .Where(r => r.OperadorId == operadorId && r.TarifaCalculada > 0
+                        && r.EstadoActual == Domain.Enums.EstadoRetiro.EntregadoAlComercio
+                        && (peticion.ComercioOperadorId == null || r.ComercioOperadorId == peticion.ComercioOperadorId)
+                        && r.Eventos.Any(ev => ev.EstadoNuevo == Domain.Enums.EstadoRetiro.EntregadoAlComercio && ev.Timestamp >= desdeUtc && ev.Timestamp < hastaUtc)
+                        && !db.MovimientosCuentaCorriente.Any(m => m.EnvioId == r.Id && m.LiquidacionId != null))
+            .Select(r => new { r.Id, r.ComercioOperadorId, Concepto = $"Retiro {r.CodigoSeguimientoPublico}", r.CodigoSeguimientoPublico, r.TarifaCalculada })
+            .ToListAsync(ct);
+
+        var pendientes = enviosExitosos
+            .Concat(enviosParcialesCerrados)
+            .Concat(retirosCompletados)
+            .GroupBy(p => p.Id)
+            .Select(g => g.First())
+            .ToList();
 
         if (pendientes.Count == 0)
         {
@@ -185,8 +215,8 @@ public static class LiquidacionesEndpoints
                 db.CuentasCorrientes.Add(cuenta);
             }
 
-            foreach (var envio in grupo.OrderBy(p => p.CodigoSeguimientoPublico))
-                cuenta.RegistrarMovimiento($"Envío {envio.CodigoSeguimientoPublico}", envio.TarifaCalculada, envio.Id, liquidacion.Id);
+            foreach (var item in grupo.OrderBy(p => p.CodigoSeguimientoPublico))
+                cuenta.RegistrarMovimiento(item.Concepto, item.TarifaCalculada, item.Id, liquidacion.Id);
 
             cuenta.RegistrarMovimiento($"IVA {TasaIva:P0} de la liquidación del {peticion.Desde:dd/MM/yyyy} al {peticion.Hasta:dd/MM/yyyy}", iva, liquidacionId: liquidacion.Id);
 

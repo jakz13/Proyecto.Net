@@ -334,7 +334,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             TipoOperacion = tipoOperacion,
             PayloadJson = payloadJson,
             FechaCreacionUtc = DateTime.UtcNow,
-            Sincronizado = false
+            Sincronizado = false,
+            CorrelationId = Guid.NewGuid().ToString("N")
         };
 
         return await Db.InsertAsync(operacion);

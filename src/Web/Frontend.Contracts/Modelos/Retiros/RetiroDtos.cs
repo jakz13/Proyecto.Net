@@ -21,9 +21,18 @@ public record SolicitarRetiroDto
     public string Ciudad { get; set; } = "Montevideo";
     public string? Referencia { get; set; }
     public string Motivo { get; set; } = string.Empty;
+    public Guid? FranjaHorariaId { get; set; }
     public DateOnly? FechaSolicitada { get; set; }
     public string? ReferenciaExterna { get; set; }
     public List<BultoRetiroSolicitudDto> Bultos { get; set; } = new() { new BultoRetiroSolicitudDto() };
+}
+
+public record FranjaRetiroDisponibleDto
+{
+    public Guid Id { get; init; }
+    public string ZonaNombre { get; init; } = string.Empty;
+    public string DiaTexto { get; init; } = string.Empty;
+    public string VentanaTexto { get; init; } = string.Empty;
 }
 
 public record ResultadoSolicitudRetiroDto
@@ -80,6 +89,7 @@ public record PaginaRetirosDto
 {
     public IReadOnlyList<RetiroResumenDto> Items { get; init; } = Array.Empty<RetiroResumenDto>();
     public int Total { get; init; }
+    public IReadOnlyList<FranjaRetiroDisponibleDto>? FranjasDisponibles { get; init; }
 }
 
 /// <summary>Retiros del operador con el conteo por estado, para el tablero y los reportes.</summary>

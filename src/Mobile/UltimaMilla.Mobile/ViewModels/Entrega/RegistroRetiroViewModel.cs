@@ -208,6 +208,12 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
             return;
         }
 
+        if (_syncService?.FuncionalidadHabilitada("retiro-en-domicilio") == false)
+        {
+            await AvisarAsync("Funcionalidad deshabilitada", "El retiro en domicilio se encuentra deshabilitado para este operador.");
+            return;
+        }
+
         if (!TodosEscaneados && Bultos.Count > 0)
         {
             foreach (var b in Bultos)
