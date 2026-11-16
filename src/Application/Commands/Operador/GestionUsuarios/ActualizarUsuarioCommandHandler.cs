@@ -84,6 +84,9 @@ public class ActualizarUsuarioCommandHandler : IRequestHandler<ActualizarUsuario
             usuario.Desactivar();
         }
 
+        if (!string.IsNullOrWhiteSpace(solicitud.Documento))
+            UltimaMilla.Domain.Common.Cedula.Validar(solicitud.Documento);
+
         await _usuarioRepositorio.ActualizarAsync(usuario, cancellationToken);
         await _usuarioRepositorio.SincronizarRepartidorDeUsuarioAsync(
             usuario,

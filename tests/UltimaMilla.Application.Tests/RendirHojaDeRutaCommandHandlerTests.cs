@@ -86,7 +86,7 @@ public class RendirHojaDeRutaCommandHandlerTests
 
         var paradaId = (Envio e) => ruta.Paradas.Single(p => p.EnvioId == e.Id).Id;
 
-        entregado.RegistrarEntregaExitosa(paradaId(entregado), Regla(3), "Juan", "1.234.567-8", "firma", null, null, null, DateTime.UtcNow);
+        entregado.RegistrarEntregaExitosa(paradaId(entregado), Regla(3), "Juan", "12345678", "firma", null, null, null, DateTime.UtcNow);
         ruta.RegistrarEntregaExitosaEnParada(paradaId(entregado));
 
         reprogramado.RegistrarIntentoFallido(paradaId(reprogramado), _motivoCalle, Regla(3), "Nadie atendió", null, null, null, DateTime.UtcNow);

@@ -60,7 +60,7 @@ public class AltaEnvioCommandHandlerTests
         new(
             comercioId ?? ComercioDeSesion,
             modalidad,
-            destinatario ?? new DestinatarioAltaDto("Ana Gomez", "1.234.567-8", "ana@correo.com", "099123456"),
+            destinatario ?? new DestinatarioAltaDto("Ana Gomez", "12345678", "ana@correo.com", "099123456"),
             direccion ?? new DireccionAltaDto("18 de Julio", "1234", "Montevideo"),
             bultos ?? new List<BultoAltaDto> { new(2m, 10m, 10m, 10m) },
             franja);

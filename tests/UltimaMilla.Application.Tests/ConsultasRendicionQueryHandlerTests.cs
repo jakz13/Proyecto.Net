@@ -85,7 +85,7 @@ public class ConsultasRendicionQueryHandlerTests
         var paradaId = (Envio e) => ruta.Paradas.Single(p => p.EnvioId == e.Id).Id;
 
         // Entregado exitoso
-        entregado.RegistrarEntregaExitosa(paradaId(entregado), Regla(3), "Receptor", "4.123.456-7", "firma-base64", null, null, null, DateTime.UtcNow);
+        entregado.RegistrarEntregaExitosa(paradaId(entregado), Regla(3), "Receptor", "41234567", "firma-base64", null, null, null, DateTime.UtcNow);
         ruta.RegistrarEntregaExitosaEnParada(paradaId(entregado));
 
         // Reprogramado por intento fallido

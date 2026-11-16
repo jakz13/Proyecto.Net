@@ -25,7 +25,7 @@ public record ActualizarUsuarioDto
     /// <summary>
     /// Cédula o documento de identidad cuando el rol asignado es Repartidor.
     /// </summary>
-    [StringLength(30, ErrorMessage = "El documento no puede superar los 30 caracteres.")]
+    [RegularExpression(@"^\d{8}$", ErrorMessage = "La cédula debe tener exactamente 8 dígitos, solo números (sin puntos ni guiones).")]
     public string? Documento { get; init; }
 
     /// <summary>

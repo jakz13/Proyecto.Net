@@ -27,7 +27,7 @@ public class HttpDespachoApiTests
                 "fecha": "2026-10-22",
                 "estado": "EnCarga",
                 "repartidorId": "66666666-6666-6666-6666-666666666666",
-                "repartidorDocumento": "CI 4.888.777-1",
+                "repartidorDocumento": "48887771",
                 "vehiculoId": "55555555-5555-5555-5555-555555555555",
                 "vehiculoPatente": "STX-1234",
                 "vehiculoTipo": "Furgoneta Utilitaria",

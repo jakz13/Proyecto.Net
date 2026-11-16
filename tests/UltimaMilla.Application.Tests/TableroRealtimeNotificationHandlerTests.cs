@@ -53,7 +53,7 @@ public class TableroRealtimeNotificationHandlerTests
     public TableroRealtimeNotificationHandlerTests()
     {
         _notifier = new FakeTableroRealtimeNotifier(_uow);
-        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), _tenant.UsuarioId!.Value, _tenant.OperadorId, "11111111", "099111111");
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB1234", "Furgoneta", 500m, 100000m);
         _repartidores.Repartidores.Add(_repartidor);
         _vehiculos.Vehiculos.Add(_vehiculo);
@@ -266,7 +266,7 @@ public class TableroRealtimeNotificationHandlerTests
             envio.Id,
             "idem-entrega-1",
             "María Pérez",
-            "4.123.456-7",
+            "41234567",
             "data:image/png;base64,iVBORw0KGgo=",
             null,
             -34.9011,
@@ -308,7 +308,7 @@ public class TableroRealtimeNotificationHandlerTests
             envio.Id,
             "idem-entrega-resiliente",
             "María Pérez",
-            "4.123.456-7",
+            "41234567",
             "data:image/png;base64,iVBORw0KGgo=",
             null,
             -34.9011,

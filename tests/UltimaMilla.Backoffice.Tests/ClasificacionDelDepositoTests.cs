@@ -37,4 +37,19 @@ public class ClasificacionDelDepositoTests
         Assert.Matches(@"Prioridad\s*<span[^>]*>\(opcional, por defecto Normal\)</span>", vista);
         Assert.Matches(@"Tipo Operativo\s*<span[^>]*>\(opcional, por defecto Est.ndar\)</span>", vista);
     }
+
+    [Fact]
+    public void ConTodosLosBultosClasificados_LaPaginaVuelveALaListaSinEnvioSeleccionado()
+    {
+        // Antes se volvía a mostrar el formulario con los datos ya guardados y se podía seguir editando una clasificación terminada.
+        var carpeta = new DirectoryInfo(AppContext.BaseDirectory);
+        while (carpeta is not null && !File.Exists(Path.Combine(carpeta.FullName, "docker-compose.prod.yml")))
+            carpeta = carpeta.Parent;
+        Assert.NotNull(carpeta);
+        var codigo = File.ReadAllText(Path.Combine(carpeta!.FullName, "src/Web/Backoffice/Pages/Deposito/Clasificacion.cshtml.cs"));
+
+        var listo = codigo.IndexOf("if (Resultado.ListoParaHojaDeRuta)", StringComparison.Ordinal);
+        Assert.True(listo >= 0, "No se encontró el caso de clasificación completa.");
+        Assert.Contains("RedirectToPage(\"/Deposito/Clasificacion\"", codigo.Substring(listo, 600));
+    }
 }

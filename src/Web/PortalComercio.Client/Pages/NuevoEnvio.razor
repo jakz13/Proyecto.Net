@@ -153,7 +153,7 @@ else
                                 <label for="documentoDestinatario" class="form-label small fw-semibold text-dark">
                                     Documento / C.I. (opcional)
                                 </label>
-                                <InputText id="documentoDestinatario" class="form-control" placeholder="Ej: 4.876.543-2" @bind-Value="modelo.DocumentoDestinatario" />
+                                <InputText id="documentoDestinatario" class="form-control" placeholder="Ej: 48765432 (8 dígitos)" maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" @bind-Value="modelo.DocumentoDestinatario" />
                                 <ValidationMessage For="@(() => modelo.DocumentoDestinatario)" class="text-danger small" />
                             </div>
                             <div class="col-md-6">

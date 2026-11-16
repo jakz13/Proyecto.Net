@@ -45,16 +45,15 @@ public class Repartidor : Entity, IMustHaveTenant
         Estado = string.IsNullOrWhiteSpace(estado) ? "Disponible" : estado.Trim();
     }
 
-    /// <summary>La cédula es obligatoria y debe tener al menos 8 dígitos (se ignoran puntos, guiones y espacios).</summary>
-    public const int MinimoDigitosDocumento = 8;
+    /// <summary>La cédula es obligatoria: exactamente 8 dígitos, solo números.</summary>
+    public const int DigitosDocumento = Cedula.Digitos;
 
     public static void ValidarDocumento(string? documento)
     {
         if (string.IsNullOrWhiteSpace(documento))
             throw new DomainValidationException("La cédula del repartidor es obligatoria.");
 
-        if (documento.Count(char.IsDigit) < MinimoDigitosDocumento)
-            throw new DomainValidationException($"La cédula del repartidor debe tener al menos {MinimoDigitosDocumento} dígitos.");
+        Cedula.Validar(documento, "del repartidor");
     }
 
     /// <summary>Cédula provisoria de 8 dígitos para repartidores que se crean sin una (se corrige después desde Flota).</summary>

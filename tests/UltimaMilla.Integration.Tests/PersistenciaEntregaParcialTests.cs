@@ -102,7 +102,7 @@ public class PersistenciaEntregaParcialTests
 
             var intento = new IntentoEntrega(Guid.NewGuid(), DatabaseSeeder.Parada1Id, DatabaseSeeder.Envio1Id,
                 resultado: "Exitoso", origenDatos: "MobileApp", motivoNoEntregaId: null, latitud: -34.9, longitud: -56.1);
-            var prueba = new PruebaDeEntrega(intento.Id, "Firma", nombreReceptor: "Receptor", documentoReceptor: "1.234.567-8",
+            var prueba = new PruebaDeEntrega(intento.Id, "Firma", nombreReceptor: "Receptor", documentoReceptor: "12345678",
                 codigosBultosEntregados: new[] { $"PERSIST-{sufijo}-2" });
             intento.AdjuntarPruebaEntrega(prueba);
             pruebaId = prueba.Id;

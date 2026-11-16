@@ -76,7 +76,7 @@ public class ListarEnviosQueryHandlerTests
             repartidorId,
             usuarioId,
             _tenant.OperadorId,
-            "4.321.987-6",
+            "43219876",
             "+598 99 123 456"
         );
 
@@ -180,7 +180,7 @@ public class ListarEnviosQueryHandlerTests
             repartidorId,
             Guid.NewGuid(),
             _tenant.OperadorId,
-            "1.234.567-8",
+            "12345678",
             "+598 99 999 999"
         );
 
@@ -196,6 +196,6 @@ public class ListarEnviosQueryHandlerTests
         var resultado = await handler.Handle(new ListarEnviosQuery(), default);
 
         var dto = Assert.Single(resultado);
-        Assert.Equal("Doc. 1.234.567-8", dto.RepartidorNombre);
+        Assert.Equal("Doc. 12345678", dto.RepartidorNombre);
     }
 }

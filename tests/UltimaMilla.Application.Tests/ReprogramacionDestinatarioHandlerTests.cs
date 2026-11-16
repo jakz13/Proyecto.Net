@@ -56,7 +56,7 @@ public class ReprogramacionDestinatarioHandlerTests
 
         Assert.True(resultado.Aceptada);
         Assert.Equal("Aprobada", resultado.Estado);
-        Assert.Equal("Monday 14:00-18:00", resultado.FranjaAsignada);
+        Assert.Equal("Lunes 14:00-18:00", resultado.FranjaAsignada);
         Assert.Equal(_tarde.Id, _envio.FranjaHorariaComprometidaId);
         Assert.Equal(EstadoEnvio.EnDeposito, _envio.EstadoActual);
         Assert.Equal("ReprogramacionSolicitadaPorDestinatario", _envio.Eventos.Last().TipoEvento);

@@ -29,7 +29,7 @@ public class RetiroDominioTests
     private static string[] Codigos(Retiro retiro) => retiro.Bultos.Select(b => b.Identificacion).ToArray();
 
     private static void Retirar(Retiro retiro) =>
-        retiro.RegistrarRetiro(Codigos(retiro), "foto", "firma", "Ana Pérez", "1.234.567-8", -34.9, -56.1, DateTime.UtcNow);
+        retiro.RegistrarRetiro(Codigos(retiro), "foto", "firma", "Ana Pérez", "12345678", -34.9, -56.1, DateTime.UtcNow);
 
     // ---------- Alta ----------
 
@@ -238,7 +238,7 @@ public class RetiroDominioTests
         var retiro = EnRuta();
         var instante = new DateTime(2026, 11, 9, 14, 30, 0, DateTimeKind.Utc);
 
-        retiro.RegistrarRetiro(Codigos(retiro), "foto", "firma", "Ana Pérez", "1.234.567-8", -34.9, -56.1, instante);
+        retiro.RegistrarRetiro(Codigos(retiro), "foto", "firma", "Ana Pérez", "12345678", -34.9, -56.1, instante);
 
         Assert.Equal(EstadoRetiro.Retirado, retiro.EstadoActual);
         Assert.Equal("Ana Pérez", retiro.NombreEntrega);

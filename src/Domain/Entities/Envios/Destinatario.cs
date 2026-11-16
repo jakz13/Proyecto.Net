@@ -27,6 +27,8 @@ public class Destinatario : Entity
 
         ValidacionTexto.LargoMaximo(nombre, 200, "El nombre del destinatario");
         ValidacionTexto.LargoMaximo(documento, 50, "El documento");
+        if (!string.IsNullOrWhiteSpace(documento))
+            Cedula.Validar(documento, "del destinatario");
         ValidacionTexto.LargoMaximo(email, 200, "El email");
         ValidacionTexto.LargoMaximo(telefono, 50, "El teléfono");
 

@@ -71,7 +71,7 @@ public class SeedingDomainTests
             Parada1Id,
             reglaOperativa,
             nombreReceptor: "Martín Rodríguez",
-            documentoReceptor: "4.321.987-6",
+            documentoReceptor: "43219876",
             firmaDigitalBase64: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
             fotoEvidenciaBase64: null,
             latitud: -34.9056,

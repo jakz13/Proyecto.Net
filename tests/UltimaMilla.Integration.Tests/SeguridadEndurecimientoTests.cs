@@ -134,13 +134,13 @@ public class SeguridadEndurecimientoTests
         var sufijo = Guid.NewGuid().ToString("N")[..8];
         var sinPassword = await cliente.PostAsJsonAsync("/api/v1/flota/repartidores", new
         {
-            nombreCompleto = "Sin clave " + sufijo, email = $"sc.{sufijo}@ultimamilla.com.uy", documento = "1.111.111-1", telefono = "099111111"
+            nombreCompleto = "Sin clave " + sufijo, email = $"sc.{sufijo}@ultimamilla.com.uy", documento = "11111111", telefono = "099111111"
         });
         Assert.Equal(HttpStatusCode.BadRequest, sinPassword.StatusCode);
 
         var clavesCorta = await cliente.PostAsJsonAsync("/api/v1/flota/repartidores", new
         {
-            nombreCompleto = "Corta " + sufijo, email = $"co.{sufijo}@ultimamilla.com.uy", documento = "1.111.111-1", telefono = "099111111", password = "123"
+            nombreCompleto = "Corta " + sufijo, email = $"co.{sufijo}@ultimamilla.com.uy", documento = "11111111", telefono = "099111111", password = "123"
         });
         Assert.Equal(HttpStatusCode.BadRequest, clavesCorta.StatusCode);
     }

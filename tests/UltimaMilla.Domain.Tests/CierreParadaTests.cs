@@ -57,7 +57,7 @@ public class CierreParadaTests
             paradaId,
             regla,
             nombreReceptor: "Juan Pérez",
-            documentoReceptor: "1.234.567-8",
+            documentoReceptor: "12345678",
             firmaDigitalBase64: "base64_data_signature",
             fotoEvidenciaBase64: null,
             latitud: -34.9011,
@@ -69,7 +69,7 @@ public class CierreParadaTests
         Assert.Equal("Exitoso", intento.Resultado);
         Assert.NotNull(intento.PruebaDeEntrega);
         Assert.Equal("Juan Pérez", intento.PruebaDeEntrega.NombreReceptor);
-        Assert.Equal("1.234.567-8", intento.PruebaDeEntrega.DocumentoReceptor);
+        Assert.Equal("12345678", intento.PruebaDeEntrega.DocumentoReceptor);
         Assert.Equal("base64_data_signature", intento.PruebaDeEntrega.FirmaImagenUrl);
         Assert.Single(envio.IntentosEntrega);
 
@@ -95,7 +95,7 @@ public class CierreParadaTests
                 paradaId,
                 regla,
                 nombreReceptor: "Juan Pérez",
-                documentoReceptor: "1.234.567-8",
+                documentoReceptor: "12345678",
                 firmaDigitalBase64: null, // Falta firma requerida
                 fotoEvidenciaBase64: null,
                 latitud: -34.9011,

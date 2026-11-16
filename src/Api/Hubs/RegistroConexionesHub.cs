@@ -69,7 +69,7 @@ public static class RegistroConexionesHub
 
         var usuarioId = Guid.TryParse(rawUserId, out var parsed) ? parsed : Guid.Empty;
 
-        // Sesión única activa solo para repartidores: para el resto no hay identidad que registrar ni validar
+        // Sesión única activa para todos los perfiles con rol; sin rol no hay identidad que registrar ni validar
         if (!PoliticaSesionUnica.AplicaA(principal))
             return (Guid.Empty, null);
 

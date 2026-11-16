@@ -391,7 +391,7 @@
                                 <label asp-for="NuevoRepartidor.Documento" class="form-label small fw-semibold">
                                     Cédula / DNI <span class="text-danger">*</span>
                                 </label>
-                                <input asp-for="NuevoRepartidor.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 4.512.980-3" required maxlength="30" />
+                                <input asp-for="NuevoRepartidor.Documento" class="form-control form-control-sm font-monospace" placeholder="Ej: 45129803 (8 dígitos)" required maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
                                 <span asp-validation-for="NuevoRepartidor.Documento" class="text-danger small"></span>
                             </div>
                             <div class="col-md-6">
@@ -473,7 +473,7 @@
                                 <label asp-for="EdicionRepartidor.Documento" class="form-label small fw-semibold">
                                     Cédula / DNI <span class="text-danger">*</span>
                                 </label>
-                                <input asp-for="EdicionRepartidor.Documento" id="editRepartidorDocumento" class="form-control form-control-sm font-monospace" required maxlength="30" />
+                                <input asp-for="EdicionRepartidor.Documento" id="editRepartidorDocumento" class="form-control form-control-sm font-monospace" required maxlength="8" inputmode="numeric" pattern="[0-9]{8}" title="8 dígitos, solo números" />
                                 <span asp-validation-for="EdicionRepartidor.Documento" class="text-danger small"></span>
                             </div>
                             <div class="col-md-6">

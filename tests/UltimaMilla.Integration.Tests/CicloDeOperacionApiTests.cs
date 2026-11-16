@@ -137,7 +137,7 @@ public class CicloDeOperacionApiTests
             envioId,
             idempotencyKey = Guid.NewGuid().ToString(),
             nombreReceptor = "Ana Gomez",
-            documentoReceptor = "1.234.567-8",
+            documentoReceptor = "12345678",
             firmaDigitalBase64 = "firma",
             fotoEvidenciaBase64 = "foto"
         });
@@ -151,7 +151,7 @@ public class CicloDeOperacionApiTests
         Assert.Equal("Entregado", EstadoComoTexto(seguimiento.GetProperty("estadoActual")));
 
         var publico = seguimiento.GetRawText();
-        Assert.DoesNotContain("1.234.567-8", publico);
+        Assert.DoesNotContain("12345678", publico);
         Assert.DoesNotContain("18 de Julio", publico);
 
         // Reportes de gestión con el cliente real del backoffice: el envío entregado aparece en cada reporte

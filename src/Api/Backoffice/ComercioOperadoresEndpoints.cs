@@ -90,7 +90,7 @@ public static class ComercioOperadoresEndpoints
                 operadorId: operadorId,
                 sessionId: sessionId);
 
-            // Sesión única activa: solo repartidores; un usuario de comercio puede tener varias sesiones a la vez
+            // Sesión única activa: rige para todos los perfiles, también para el usuario de comercio
             var aplicaSesionUnica = UltimaMilla.Application.Common.PoliticaSesionUnica.AplicaAlPerfil(perfil?.Nombre);
             if (aplicaSesionUnica)
             {

@@ -252,7 +252,7 @@ public class ConsultasEnvioQueryHandlerTests
     {
         _tenant.ComercioOperadorId = null; // vista del personal del operador
         var envio = LlevarAEnTransito(CrearEnvio());
-        envio.RegistrarEntregaExitosa(Guid.NewGuid(), Regla(_tenant.OperadorId), "Juan Pérez", "1.234.567-8", "firma-base64", null, -34.9, -56.1, DateTime.UtcNow);
+        envio.RegistrarEntregaExitosa(Guid.NewGuid(), Regla(_tenant.OperadorId), "Juan Pérez", "12345678", "firma-base64", null, -34.9, -56.1, DateTime.UtcNow);
 
         var detalle = await HandlerDetalle().Handle(new ObtenerDetalleEnvioQuery(envio.Id), default);
 
@@ -264,7 +264,7 @@ public class ConsultasEnvioQueryHandlerTests
         var intento = Assert.Single(detalle.Intentos);
         Assert.Equal("Exitoso", intento.Resultado);
         Assert.Equal("Juan Pérez", intento.Prueba!.NombreReceptor);
-        Assert.Equal("1.234.567-8", intento.Prueba.DocumentoReceptor);
+        Assert.Equal("12345678", intento.Prueba.DocumentoReceptor);
         Assert.True(intento.Prueba.TieneFirma);
         Assert.False(intento.Prueba.TieneFoto);
         Assert.Single(detalle.Bultos);

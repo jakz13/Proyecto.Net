@@ -113,7 +113,15 @@ public class ClasificacionModel : PageModel
         {
             Resultado = await _depositoApi.ClasificarBultosAsync(Formulario.EnvioId, solicitud, cancelacion);
 
-            // La página se vuelve a mostrar sin redirigir: el mensaje va en la propiedad (TempData recién aparecería en la próxima visita)
+            // Con todos los bultos clasificados el envío ya salió de la lista de pendientes: se vuelve a la pantalla sin envío seleccionado
+            // (el mensaje viaja en TempData) para que no quede el formulario abierto y editable con los datos ya guardados.
+            if (Resultado.ListoParaHojaDeRuta)
+            {
+                MensajeExito = $"Clasificación registrada con éxito para el envío '{Resultado.CodigoSeguimiento}'. El envío quedó listo para su inclusión en una hoja de ruta.";
+                return RedirectToPage("/Deposito/Clasificacion", new { Vista });
+            }
+
+            // Quedan bultos pendientes: la página se vuelve a mostrar sin redirigir para seguir clasificándolos
             MensajeExito = $"Clasificación registrada con éxito para el envío '{Resultado.CodigoSeguimiento}'. {(Resultado.ListoParaHojaDeRuta ? "El envío quedó listo para su inclusión en una hoja de ruta." : "Quedan bultos pendientes de clasificar.")}";
 
             // Los helpers de formulario prefieren lo posteado (ModelState) a lo recargado: sin limpiarlo se ven valores viejos

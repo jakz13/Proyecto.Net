@@ -92,6 +92,9 @@ public class CrearUsuarioCommandHandler : IRequestHandler<CrearUsuarioCommand, U
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(solicitud.Documento))
+            UltimaMilla.Domain.Common.Cedula.Validar(solicitud.Documento);
+
         var nombreCompleto = string.IsNullOrWhiteSpace(solicitud.Apellido)
             ? (solicitud.Nombre ?? string.Empty).Trim()
             : $"{(solicitud.Nombre ?? string.Empty).Trim()} {solicitud.Apellido.Trim()}";

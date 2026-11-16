@@ -26,7 +26,7 @@ public class ConsultasPlanificacionQueryHandlerTests
 
     public ConsultasPlanificacionQueryHandlerTests()
     {
-        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "1.111.111-1", "099111111");
+        _repartidor = new Repartidor(Guid.NewGuid(), Guid.NewGuid(), _tenant.OperadorId, "11111111", "099111111");
         _vehiculo = new Vehiculo(Guid.NewGuid(), _tenant.OperadorId, "SAB1234", "Furgoneta", 500m, 10m);
         _repartidores.Repartidores.Add(_repartidor);
         _vehiculos.Vehiculos.Add(_vehiculo);
@@ -103,7 +103,7 @@ public class ConsultasPlanificacionQueryHandlerTests
         Assert.Equal(0.002m, resumen.VolumenTotalM3);
         Assert.Equal("SAB1234", resumen.VehiculoPatente);
         Assert.Equal(500m, resumen.CapacidadPesoKg);
-        Assert.Equal("1.111.111-1", resumen.RepartidorDocumento);
+        Assert.Equal("11111111", resumen.RepartidorDocumento);
         Assert.Equal(ruta.SelloModificacion, resumen.SelloModificacion);
     }
 

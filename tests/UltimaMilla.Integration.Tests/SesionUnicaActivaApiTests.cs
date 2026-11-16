@@ -6,8 +6,7 @@ using System.Text.Json;
 namespace UltimaMilla.Integration.Tests;
 
 /// <summary>
-/// Política de sesión única activa: SOLO para repartidores (app móvil en un único dispositivo). Un nuevo inicio de sesión de un repartidor deja sin efecto sus tokens
-/// anteriores (401 SESION_DESPLAZADA); el resto de los perfiles puede tener varias sesiones a la vez con la misma cuenta (dos navegadores, cuentas de demostración).
+/// Política de sesión única activa para TODOS los perfiles: un nuevo inicio de sesión deja sin efecto los tokens anteriores de esa cuenta (401 SESION_DESPLAZADA).
 /// La fábrica de integración la desactiva por defecto (las cuentas de prueba son compartidas); estas pruebas la activan con <c>Pruebas:SesionUnicaReal=true</c>.
 /// </summary>
 [Collection(ColeccionApi.Nombre)]
@@ -84,7 +83,7 @@ public class SesionUnicaActivaApiTests
     }
 
     [FactPostgres]
-    public async Task LosDemasPerfiles_PuedenTenerVariasSesionesALaVezConLaMismaCuenta()
+    public async Task EnTodosLosPerfiles_UnNuevoInicioDeSesionDejaSinEfectoElTokenAnterior()
     {
         var cuentas = new[]
         {
@@ -96,21 +95,14 @@ public class SesionUnicaActivaApiTests
         foreach (var (email, password, ruta) in cuentas)
         {
             var cliente = ClienteConPoliticaReal();
-            var tokens = new[]
-            {
-                await IniciarSesionAsync(cliente, email, password),
-                await IniciarSesionAsync(cliente, email, password),
-                await IniciarSesionAsync(cliente, email, password)
-            };
+            var primero = await IniciarSesionAsync(cliente, email, password);
+            var segundo = await IniciarSesionAsync(cliente, email, password);
 
-            // Ningún token queda desplazado: el middleware corre antes del enrutado, así que un 401 por sesión se vería aunque la ruta no exista
-            foreach (var token in tokens)
-            {
-                var respuesta = await ConsultarAsync(cliente, token, ruta);
-                var texto = await respuesta.Content.ReadAsStringAsync();
-                Assert.False(texto.Contains("SESION_DESPLAZADA"), $"{email}: una sesión anterior quedó desplazada.");
-                Assert.NotEqual(HttpStatusCode.Unauthorized, respuesta.StatusCode);
-            }
+            var desplazada = await ConsultarAsync(cliente, primero, ruta);
+            Assert.Equal(HttpStatusCode.Unauthorized, desplazada.StatusCode);
+            var cuerpo = await desplazada.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("SESION_DESPLAZADA", cuerpo.GetProperty("codigo").GetString());
+            Assert.NotEqual(HttpStatusCode.Unauthorized, (await ConsultarAsync(cliente, segundo, ruta)).StatusCode);
         }
     }
 

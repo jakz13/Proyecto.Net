@@ -41,7 +41,7 @@ public class CanalesDeAltaHandlerTests
     private AltaEnvioPorApiCommand ComandoApi(string? clave = ClaveApi, string? referencia = "PED-1") => new(
         clave,
         "Estandar",
-        new DestinatarioAltaDto("Ana Gomez", "1.234.567-8", "ana@correo.com", "099123456"),
+        new DestinatarioAltaDto("Ana Gomez", "12345678", "ana@correo.com", "099123456"),
         new DireccionAltaDto("18 de Julio", "1234", "Montevideo"),
         new List<BultoAltaDto> { new(2m, 10m, 10m, 10m) },
         null,
