@@ -25,6 +25,13 @@ public partial class RegistroRetiroPage : ContentPage
         if (BindingContext is RegistroRetiroViewModel vm)
         {
             _ = vm.ActualizarUbicacionYFechaAsync();
+            vm.IniciarVigilanciaDeRuta();
         }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        (BindingContext as RegistroRetiroViewModel)?.DetenerVigilanciaDeRuta();
     }
 }

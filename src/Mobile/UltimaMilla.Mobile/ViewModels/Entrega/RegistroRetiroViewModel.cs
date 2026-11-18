@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.ViewModels.Ruta;
 using UltimaMilla.Mobile.Views.Carga;
@@ -103,10 +104,13 @@ public partial class RegistroRetiroViewModel : EvidenciaViewModelBase
     {
     }
 
-    public RegistroRetiroViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null)
+    protected override Guid HojaDeRutaVigilada => Parada?.HojaDeRutaId ?? Guid.Empty;
+
+    public RegistroRetiroViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null, IRealtimeTrackingService? realtimeTrackingService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
+        ConfigurarVigilanciaDeRuta(realtimeTrackingService, localDatabaseService);
     }
 
     partial void OnParadaChanged(ParadaItemViewModel? value)

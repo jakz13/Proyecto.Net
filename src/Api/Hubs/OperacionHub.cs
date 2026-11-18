@@ -147,6 +147,9 @@ public class OperacionHub : Hub
 
     public static string GrupoRepartidor(Guid repartidorId) => $"repartidor_{repartidorId}";
 
+    /// <summary>Grupo con las conexiones del personal y los repartidores de un operador (nunca usuarios de comercio).</summary>
+    public static string GrupoOperador(Guid operadorId) => $"operador-{operadorId}";
+
     /// <summary>
     /// Registra la conexion del repartidor en su grupo individual para notificaciones directas desde el Backoffice.
     /// </summary>

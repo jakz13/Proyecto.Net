@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Local;
 using UltimaMilla.Mobile.Services.Media;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Views.Components;
 
 namespace UltimaMilla.Mobile.ViewModels.Entrega;
@@ -336,6 +338,76 @@ public abstract partial class EvidenciaViewModelBase : ObservableObject, ICorpor
     private void CerrarMotivoModal()
     {
         MostrarModalMotivos = false;
+    }
+
+    // =========================================================================
+    // VIGILANCIA DE LA HOJA DE RUTA: si el depósito la rinde (o se cierra) mientras el repartidor tiene la pantalla abierta,
+    // se le avisa en el momento y no recién al confirmar la entrega.
+    // =========================================================================
+    private IRealtimeTrackingService? _realtimeVigilancia;
+    private ILocalDatabaseService? _localDbVigilancia;
+    private bool _vigilando;
+
+    /// <summary>Hoja de ruta de la parada abierta; <see cref="Guid.Empty"/> si todavía no hay parada.</summary>
+    protected abstract Guid HojaDeRutaVigilada { get; }
+
+    /// <summary>Verdadero cuando la hoja de ruta ya fue rendida o cerrada: no admite más entregas, intentos ni retiros.</summary>
+    [ObservableProperty]
+    private bool _rutaYaNoAdmiteCambios;
+
+    protected void ConfigurarVigilanciaDeRuta(IRealtimeTrackingService? realtime, ILocalDatabaseService? localDb)
+    {
+        _realtimeVigilancia = realtime;
+        _localDbVigilancia = localDb;
+    }
+
+    /// <summary>Se llama al mostrarse la pantalla: se suscribe al aviso de ruta actualizada y comprueba el estado ya mismo (por si cambió antes de abrirla).</summary>
+    public void IniciarVigilanciaDeRuta()
+    {
+        RutaYaNoAdmiteCambios = false;
+
+        if (_realtimeVigilancia is not null && !_vigilando)
+        {
+            _realtimeVigilancia.RutaActualizadaEnTiempoReal += OnRutaActualizadaVigilancia;
+            _vigilando = true;
+        }
+
+        _ = ComprobarRutaVigenteAsync();
+    }
+
+    /// <summary>Se llama al ocultarse la pantalla: libera la suscripción para no dejar el ViewModel retenido por el servicio de tiempo real.</summary>
+    public void DetenerVigilanciaDeRuta()
+    {
+        if (_realtimeVigilancia is not null && _vigilando)
+            _realtimeVigilancia.RutaActualizadaEnTiempoReal -= OnRutaActualizadaVigilancia;
+        _vigilando = false;
+    }
+
+    private void OnRutaActualizadaVigilancia(object? sender, EventArgs e) => _ = ComprobarRutaVigenteAsync();
+
+    private async Task ComprobarRutaVigenteAsync()
+    {
+        try
+        {
+            var hojaId = HojaDeRutaVigilada;
+            if (_localDbVigilancia is null || hojaId == Guid.Empty || RutaYaNoAdmiteCambios)
+                return;
+
+            var ruta = await _localDbVigilancia.ObtenerHojaDeRutaLocalPorIdAsync(hojaId);
+            if (ruta?.Estado is not ("Rendida" or "Cerrada"))
+                return;
+
+            RutaYaNoAdmiteCambios = true;
+            var mensaje = ruta.Estado == "Rendida"
+                ? "El depósito ya rindió esta hoja de ruta. No se pueden registrar más entregas, intentos ni retiros en ella."
+                : "Esta hoja de ruta ya está cerrada. No se pueden registrar más entregas, intentos ni retiros en ella.";
+            await AvisarAsync("Hoja de ruta cerrada", mensaje, navegarAlCerrarRuta: "..");
+        }
+        catch (Exception ex)
+        {
+            // Una falla de lectura local no debe romper la pantalla: la verificación del servidor al confirmar sigue vigente
+            System.Diagnostics.Debug.WriteLine($"[EvidenciaViewModelBase] No se pudo comprobar la hoja de ruta vigente: {ex.Message}");
+        }
     }
 
     protected Task AvisarAsync(

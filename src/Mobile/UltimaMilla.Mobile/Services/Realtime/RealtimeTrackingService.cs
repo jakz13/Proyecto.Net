@@ -187,6 +187,10 @@ public class RealtimeTrackingService : IRealtimeTrackingService
             await RefrescarRutasSilenciosamenteAsync();
         });
 
+        // Aviso genérico de la API: algo cambió en el operador (una hoja rendida, un envío reasignado o cancelado, etc.). Se vuelve a pedir la ruta
+        // sin esperar a la próxima acción del repartidor; varios avisos seguidos se juntan en una sola descarga.
+        _hubConnection.On<JsonElement>("DatosCambiaron", _ => ProgramarRefrescoPorAvisoGenerico());
+
         _hubConnection.On<JsonElement>("IdentidadVisualActualizada", async (_) =>
         {
             _logger.LogInformation("SignalR: IdentidadVisualActualizada recibida. Actualizando tema visual del operador...");
@@ -331,6 +335,30 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         {
             return null;
         }
+    }
+
+    private static readonly TimeSpan EsperaAgrupacionAvisos = TimeSpan.FromSeconds(1.5);
+    private int _refrescoGenericoProgramado;
+
+    private void ProgramarRefrescoPorAvisoGenerico()
+    {
+        // Si ya hay una descarga esperando, este aviso ya queda cubierto por ella
+        if (Interlocked.Exchange(ref _refrescoGenericoProgramado, 1) == 1)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(EsperaAgrupacionAvisos);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _refrescoGenericoProgramado, 0);
+            }
+
+            await RefrescarRutasSilenciosamenteAsync();
+        });
     }
 
     private async Task RefrescarRutasSilenciosamenteAsync()

@@ -17,5 +17,12 @@ public partial class IntentoFallidoPage : ContentPage
     {
         base.OnAppearing();
         await _viewModel.CargarMotivosAsync();
+        _viewModel.IniciarVigilanciaDeRuta();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _viewModel.DetenerVigilanciaDeRuta();
     }
 }

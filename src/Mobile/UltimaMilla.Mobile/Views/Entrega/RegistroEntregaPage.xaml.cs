@@ -69,7 +69,14 @@ public partial class RegistroEntregaPage : ContentPage
         {
             vm.CargarReglasOperativas();
             _ = vm.ActualizarUbicacionYFechaAsync();
+            vm.IniciarVigilanciaDeRuta();
         }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        (BindingContext as RegistroEntregaViewModel)?.DetenerVigilanciaDeRuta();
     }
 
     protected override void OnHandlerChanged()

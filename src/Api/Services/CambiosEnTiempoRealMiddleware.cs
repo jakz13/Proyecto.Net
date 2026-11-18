@@ -23,7 +23,7 @@ public sealed class CambiosEnTiempoRealMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext contexto, IHubContext<TableroHub> hub, ICurrentTenant tenant)
+    public async Task InvokeAsync(HttpContext contexto, IHubContext<TableroHub> hub, ICurrentTenant tenant, IHubContext<OperacionHub> hubOperacion)
     {
         await _siguiente(contexto);
 
@@ -37,7 +37,22 @@ public sealed class CambiosEnTiempoRealMiddleware
 
         try
         {
-            var aviso = new { area = AreaDe(contexto.Request.Path), accion = contexto.Request.Method, timestamp = DateTime.UtcNow };
+            var area = AreaDe(contexto.Request.Path);
+            var aviso = new { area, accion = contexto.Request.Method, timestamp = DateTime.UtcNow };
+
+            // La app del repartidor escucha el hub de operación: se entera de que algo cambió (una hoja rendida, un envío reasignado o cancelado)
+            // sin esperar a su próxima acción. Las escrituras de otros repartidores (/api/mobile) no le conciernen. Un fallo aquí no frena el aviso web.
+            if (DebeAvisarAlMovil(area))
+            {
+                try
+                {
+                    await hubOperacion.Clients.Group(OperacionHub.GrupoOperador(operadorId)).SendAsync(EventoDatosCambiaron, aviso, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "No se pudo emitir el aviso de datos cambiados al hub de operación.");
+                }
+            }
 
             // El personal del operador ve todo lo de su operador; un comercio solo lo suyo
             await hub.Clients.Group(TableroHub.GrupoOperador(operadorId)).SendAsync(EventoDatosCambiaron, aviso, CancellationToken.None);
@@ -69,7 +84,10 @@ public sealed class CambiosEnTiempoRealMiddleware
               || ruta.StartsWithSegments("/api/mobile/v1/posiciones"));
     }
 
-    /// <summary>"/api/v1/flota/vehiculos" → "flota"; "/api/envios/123" → "envios".</summary>
+    /// <summary>Los cambios hechos desde el propio móvil (entregas, cargas, retiros) ya los refleja cada app localmente; solo se avisa de lo que se hizo desde la central.</summary>
+    public static bool DebeAvisarAlMovil(string area) => !string.Equals(area, "mobile", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"/api/v1/flota/vehiculos" → "flota";"/api/envios/123" → "envios".</summary>
     public static string AreaDe(PathString ruta)
     {
         var segmentos = (ruta.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
