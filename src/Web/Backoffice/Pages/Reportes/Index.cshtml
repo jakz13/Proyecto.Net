@@ -144,28 +144,28 @@
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Total Envíos Asignados</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalEnviosProcesados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En el período seleccionado</div>
+                <div class="text-secondary small mt-1 fs-micro">En el período seleccionado</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Efectividad en Plazo (SLA)</span>
                 <div class="h3 fw-bold mb-0 text-success">@Model.Reporte.TasaEfectividadGlobal%</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Entregados dentro de la ventana</div>
+                <div class="text-secondary small mt-1 fs-micro">Entregados dentro de la ventana</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Entregados Totales</span>
                 <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.TotalEntregados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En plazo + con demora justificada</div>
+                <div class="text-secondary small mt-1 fs-micro">En plazo + con demora justificada</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">No Entregados / Reasignados</span>
                 <div class="h3 fw-bold mb-0 text-danger">@Model.Reporte.TotalNoEntregados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Requirieron reprogramación o devolución</div>
+                <div class="text-secondary small mt-1 fs-micro">Requirieron reprogramación o devolución</div>
             </div>
         </div>
     }
@@ -178,28 +178,28 @@
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Total Fallos de Entrega</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalNoEntregados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Ocurrencias registradas en rendición</div>
+                <div class="text-secondary small mt-1 fs-micro">Ocurrencias registradas en rendición</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Principal Causa</span>
                 <div class="h5 fw-bold mb-0 text-danger">@(principalMotivo?.DescripcionMotivo ?? "Sin ocurrencias")</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Representa el @((principalMotivo?.PorcentajeDelTotal ?? 0m).ToString("N1", UltimaMilla.Backoffice.Formato.UY))% de los casos</div>
+                <div class="text-secondary small mt-1 fs-micro">Representa el @((principalMotivo?.PorcentajeDelTotal ?? 0m).ToString("N1", UltimaMilla.Backoffice.Formato.UY))% de los casos</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Causas Externas</span>
                 <div class="h3 fw-bold mb-0 text-primary">@pctExternos.ToString("N1", UltimaMilla.Backoffice.Formato.UY)%</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Ausencia de cliente o dirección errónea</div>
+                <div class="text-secondary small mt-1 fs-micro">Ausencia de cliente o dirección errónea</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Causas Operativas</span>
                 <div class="h3 fw-bold mb-0 text-warning">@pctInternos.ToString("N1", UltimaMilla.Backoffice.Formato.UY)%</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Averías mecánicas o daño de embalaje</div>
+                <div class="text-secondary small mt-1 fs-micro">Averías mecánicas o daño de embalaje</div>
             </div>
         </div>
     }
@@ -209,28 +209,28 @@
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Retiros Solicitados</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsRetiros.Sum(r => r.Solicitados)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">En el período seleccionado</div>
+                <div class="text-secondary small mt-1 fs-micro">En el período seleccionado</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Retirados en Domicilio</span>
                 <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.ItemsRetiros.Sum(r => r.Retirados)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Bultos recogidos por repartidores</div>
+                <div class="text-secondary small mt-1 fs-micro">Bultos recogidos por repartidores</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Entregados al Comercio</span>
                 <div class="h3 fw-bold mb-0 text-success">@Model.Reporte.ItemsRetiros.Sum(r => r.EntregadosAlComercio)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Flujo de retiro completado</div>
+                <div class="text-secondary small mt-1 fs-micro">Flujo de retiro completado</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-success border-4">
                 <span class="text-secondary small fw-semibold mb-1">Total Facturado Retiros</span>
                 <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.ItemsRetiros.Sum(r => r.TotalFacturado).ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Por retiros entregados al comercio</div>
+                <div class="text-secondary small mt-1 fs-micro">Por retiros entregados al comercio</div>
             </div>
         </div>
     }
@@ -240,28 +240,28 @@
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Total Guías Despachadas</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.TotalEnviosProcesados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Envíos únicos en el período</div>
+                <div class="text-secondary small mt-1 fs-micro">Envíos únicos en el período</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Bultos Movilizados</span>
                 <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.ItemsVolumen.Sum(v => v.CantidadBultos)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Paquetes físicos procesados</div>
+                <div class="text-secondary small mt-1 fs-micro">Paquetes físicos procesados</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Peso Total Transportado</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.PesoTotalKg).ToString("N1", UltimaMilla.Backoffice.Formato.UY) <span class="fs-6 text-muted">kg</span></div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Carga pesada en depósito</div>
+                <div class="text-secondary small mt-1 fs-micro">Carga pesada en depósito</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Volumen Cúbico Total</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsVolumen.Sum(v => v.VolumenTotalM3).ToString("N2", UltimaMilla.Backoffice.Formato.UY) <span class="fs-6 text-muted">m³</span></div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Capacidad de estiba ocupada</div>
+                <div class="text-secondary small mt-1 fs-micro">Capacidad de estiba ocupada</div>
             </div>
         </div>
     }
@@ -271,28 +271,28 @@
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Comercios Liquidados</span>
                 <div class="h3 fw-bold mb-0 text-dark">@Model.Reporte.ItemsLiquidacion.Count</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Cuentas activas en el período</div>
+                <div class="text-secondary small mt-1 fs-micro">Cuentas activas en el período</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Envíos Facturados</span>
                 <div class="h3 fw-bold mb-0 text-primary">@Model.Reporte.TotalEnviosProcesados</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Entregas completadas a liquidar</div>
+                <div class="text-secondary small mt-1 fs-micro">Entregas completadas a liquidar</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
                 <span class="text-secondary small fw-semibold mb-1">Subtotal Neto</span>
                 <div class="h3 fw-bold mb-0 text-dark font-monospace">$@Model.Reporte.ItemsLiquidacion.Sum(l => l.Subtotal).ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Base + recargos - bonificaciones</div>
+                <div class="text-secondary small mt-1 fs-micro">Base + recargos - bonificaciones</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white border-start border-success border-4">
                 <span class="text-secondary small fw-semibold mb-1">Total Facturación (c/IVA)</span>
                 <div class="h3 fw-bold mb-0 text-success font-monospace">$@Model.Reporte.TotalFacturadoLiquidacion.ToString("N2", UltimaMilla.Backoffice.Formato.UY)</div>
-                <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Total final en pesos uruguayos</div>
+                <div class="text-secondary small mt-1 fs-micro">Total final en pesos uruguayos</div>
             </div>
         </div>
     }

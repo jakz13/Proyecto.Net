@@ -192,7 +192,7 @@
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
                                         <a asp-page="/Comercios/Editar" asp-route-id="@comercio.Id"
-                                           class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                           class="btn btn-outline-secondary btn-sm py-0 px-2 fs-tamano-xs">
                                             Editar
                                         </a>
 
@@ -206,16 +206,14 @@
 
                                             @if (comercio.Activo)
                                             {
-                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                        style="font-size: 0.775rem;" title="Dar de baja lógica"
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fs-tamano-xs" title="Dar de baja lógica"
                                                         onclick="return confirm('¿Está seguro de que desea dar de baja este comercio? No podrá despachar nuevos envíos.');">
                                                     Dar de baja
                                                 </button>
                                             }
                                             else
                                             {
-                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2"
-                                                        style="font-size: 0.775rem;" title="Reactivar comercio">
+                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2 fs-tamano-xs" title="Reactivar comercio">
                                                     Reactivar
                                                 </button>
                                             }
@@ -369,7 +367,7 @@ else
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
                                         <a asp-page="/Usuarios/Editar" asp-route-id="@usuario.Id"
-                                           class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                           class="btn btn-outline-secondary btn-sm py-0 px-2 fs-tamano-xs">
                                             Editar y Rol
                                         </a>
 
@@ -384,16 +382,14 @@ else
 
                                             @if (usuario.Activo)
                                             {
-                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                        style="font-size: 0.775rem;" title="Dar de baja usuario"
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fs-tamano-xs" title="Dar de baja usuario"
                                                         onclick="return confirm('¿Está seguro de que desea inactivar este usuario? No podrá iniciar sesión en la plataforma.');">
                                                     Dar de baja
                                                 </button>
                                             }
                                             else
                                             {
-                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2"
-                                                        style="font-size: 0.775rem;" title="Reactivar usuario">
+                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2 fs-tamano-xs" title="Reactivar usuario">
                                                     Reactivar
                                                 </button>
                                             }

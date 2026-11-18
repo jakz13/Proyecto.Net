@@ -9,7 +9,7 @@
 
 <PageTitle>LittleBox Envíos — Seguimiento de Envíos</PageTitle>
 
-<div class="container py-4 py-md-5" style="max-width: 720px;">
+<div class="container py-4 py-md-5 seguimiento-contenedor">
     <!-- Componente Modular: Buscador con protección contra código malicioso -->
     <BuscadorEnvio CodigoInicial="@codigoBuscado"
                    EstaCargando="@estaCargando"
@@ -82,7 +82,7 @@
 
                 <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
                     <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
-                    <div class="small text-secondary" style="font-size: 0.775rem;">
+                    <div class="small text-secondary fs-metadata">
                         <strong>Privacidad garantizada:</strong> este seguimiento no muestra datos personales, domicilios ni contactos.
                     </div>
                 </div>
@@ -106,7 +106,7 @@
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs bg-white" @onclick="CopiarEnlace" title="Copiar enlace directo de seguimiento">
                         <Icono Nombre="copiar" Tamano="13" />
-                        <span style="font-size: 0.75rem;">@(enlaceCopiado ? "¡Copiado!" : "Copiar enlace")</span>
+                        <span class="fs-tamano-xs">@(enlaceCopiado ? "¡Copiado!" : "Copiar enlace")</span>
                     </button>
                 </div>
 
@@ -179,7 +179,7 @@
                 <!-- Garantía de Privacidad Explícita -->
                 <div class="p-3 bg-light rounded-3 border mt-4 d-flex align-items-center gap-2">
                     <Icono Nombre="seguridad" Tamano="18" Clase="text-secondary flex-shrink-0" />
-                    <div class="small text-secondary" style="font-size: 0.775rem;">
+                    <div class="small text-secondary fs-metadata">
                         <strong>Privacidad garantizada:</strong> Este seguimiento público protege tu privacidad y la de terceros. No se exhiben datos personales, direcciones completas ni contactos en este enlace.
                     </div>
                 </div>

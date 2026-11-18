@@ -75,7 +75,7 @@ else if (Model.ErroresValidacion.Count > 0)
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
                     <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1" style="font-size: 0.75rem;">1</span>
+                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1 fs-tamano-xs">1</span>
                         <span>Recursos y Jornada de Entrega</span>
                     </h2>
                 </div>
@@ -92,7 +92,7 @@ else if (Model.ErroresValidacion.Count > 0)
                                 <option value="2">Viaje 2 (Segundo viaje)</option>
                                 <option value="3">Viaje 3 (Viaje adicional)</option>
                             </select>
-                            <div class="form-text small" style="font-size: 0.72rem;">
+                            <div class="form-text small fs-micro">
                                 Permite armar más de un viaje para el mismo repartidor. Cada uno se valida de forma independiente.
                             </div>
                         </div>
@@ -103,7 +103,7 @@ else if (Model.ErroresValidacion.Count > 0)
                                 <option value="Tarde" data-fin="@(18 * 60)">Tarde (14:00 - 18:00)</option>
                                 <option value="Jornada Completa" data-fin="@(18 * 60)">Jornada Completa (09:00 - 18:00)</option>
                             </select>
-                            <div class="form-text small text-danger" id="avisoTurnoTerminado" style="display: none; font-size: 0.72rem;">
+                            <div class="form-text small text-danger fs-micro" id="avisoTurnoTerminado" style="display: none;">
                                 No es posible crear una hoja de ruta para una franja horaria anterior a la hora actual.
                             </div>
                         </div>
@@ -132,7 +132,7 @@ else if (Model.ErroresValidacion.Count > 0)
                             <input type="hidden" asp-for="Formulario.VehiculoId" id="inputVehiculoId" />
                             <div class="border rounded-3 bg-light px-3 py-2" id="panelVehiculo">
                                 <div class="fw-semibold small text-dark" id="txtVehiculoDetalle">—</div>
-                                <div class="text-muted" style="font-size: 0.75rem;" id="txtVehiculoCapacidad"></div>
+                                <div class="text-muted fs-metadata" id="txtVehiculoCapacidad"></div>
                             </div>
                         </div>
                     </div>
@@ -143,7 +143,7 @@ else if (Model.ErroresValidacion.Count > 0)
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h2 class="h6 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1" style="font-size: 0.75rem;">2</span>
+                        <span class="badge bg-secondary-subtle text-dark border rounded-circle px-2 py-1 fs-tamano-xs">2</span>
                         <span>Envíos en Depósito Disponibles (@Model.EnviosEnDeposito.Count)</span>
                     </h2>
                     <div class="d-flex align-items-center gap-2">
@@ -237,45 +237,45 @@ else if (Model.ErroresValidacion.Count > 0)
                                                    onchange="onCambioSeleccionFila(this)" />
                                         </td>
                                         <td>
-                                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.725rem;">
+                                            <span class="badge bg-light text-secondary border font-monospace fs-micro">
                                                 @envio.CodigoSeguimiento
                                             </span>
                                         </td>
                                         <td>
                                             <div class="fw-semibold text-dark small">@envio.Destinatario</div>
-                                            <div class="text-muted" style="font-size: 0.725rem;">@envio.Direccion</div>
+                                            <div class="text-muted fs-micro">@envio.Direccion</div>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.7rem;">
+                                            <span class="badge bg-secondary-subtle text-secondary border fs-micro">
                                                 @envio.Zona
                                             </span>
                                         </td>
                                         <td>
                                             @if (envio.Turno == "Mañana")
                                             {
-                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.7rem;">
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-micro">
                                                     ☀ @envio.FranjaHoraria
                                                 </span>
                                             }
                                             else if (envio.Turno == "Tarde")
                                             {
-                                                <span class="badge bg-warning-subtle border border-warning-subtle fw-semibold" style="font-size: 0.7rem; color: #92400E !important;">
+                                                <span class="badge bg-warning-subtle border border-warning-subtle fw-semibold fs-micro aviso-operativo-ambar">
                                                     🌆 @envio.FranjaHoraria
                                                 </span>
                                             }
                                             else
                                             {
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-micro">
                                                     ⏱ @envio.FranjaHoraria
                                                 </span>
                                             }
                                         </td>
                                         <td class="text-end">
                                             <div class="small fw-semibold text-dark">@envio.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">@envio.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
+                                            <div class="text-muted fs-micro">@envio.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.68rem;">
+                                            <span class="badge bg-light text-secondary border px-2 py-1 fs-micro">
                                                 En Depósito
                                             </span>
                                         </td>
@@ -310,7 +310,7 @@ else if (Model.ErroresValidacion.Count > 0)
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar bg-success" id="barraProgresoPeso" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
-                        <div class="small text-danger mt-1 fw-bold" id="alertaExcesoPeso" style="display: none; font-size: 0.75rem;">
+                        <div class="small text-danger mt-1 fw-bold fs-tamano-xs" id="alertaExcesoPeso" style="display: none;">
                             ⚠️ Capacidad de peso excedida
                         </div>
                     </div>
@@ -324,7 +324,7 @@ else if (Model.ErroresValidacion.Count > 0)
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar bg-info" id="barraProgresoVolumen" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
-                        <div class="small text-danger mt-1 fw-bold" id="alertaExcesoVolumen" style="display: none; font-size: 0.75rem;">
+                        <div class="small text-danger mt-1 fw-bold fs-tamano-xs" id="alertaExcesoVolumen" style="display: none;">
                             ⚠️ Capacidad de volumen excedida
                         </div>
                     </div>
@@ -332,7 +332,7 @@ else if (Model.ErroresValidacion.Count > 0)
                     <!-- Alerta de Compatibilidad de Franja Horaria Comprometida -->
                     <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3" id="alertaIncompatibilidadFranja" style="display: none;">
                         <div class="fw-bold mb-1">⚠️ Incompatibilidad de Horario</div>
-                        <div id="txtDetalleIncompatibilidad" style="font-size: 0.75rem;">
+                        <div class="fs-tamano-xs" id="txtDetalleIncompatibilidad">
                             Uno o más paquetes seleccionados tienen franja horaria no compatible con el turno.
                         </div>
                     </div>
@@ -346,21 +346,21 @@ else if (Model.ErroresValidacion.Count > 0)
                             <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioFranja" value="FranjaHoraria" checked onchange="actualizarSecuenciaPrevisualizada()">
                             <label class="form-check-label small" for="criterioFranja">
                                 <strong>Por franja horaria comprometida</strong>
-                                <div class="text-muted" style="font-size: 0.7rem;">Prioriza entregas según ventana pactada con el cliente.</div>
+                                <div class="text-muted fs-micro">Prioriza entregas según ventana pactada con el cliente.</div>
                             </label>
                         </div>
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioGeografico" value="OptimoGeografico" onchange="actualizarSecuenciaPrevisualizada()">
                             <label class="form-check-label small" for="criterioGeografico">
                                 <strong>Secuencia geográfica optimizada</strong>
-                                <div class="text-muted" style="font-size: 0.7rem;">Agrupa entregas por proximidad de zona para reducir recorrido.</div>
+                                <div class="text-muted fs-micro">Agrupa entregas por proximidad de zona para reducir recorrido.</div>
                             </label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" asp-for="Formulario.CriterioOrdenamiento" id="criterioManual" value="Manual" onchange="actualizarSecuenciaPrevisualizada()">
                             <label class="form-check-label small" for="criterioManual">
                                 <strong>Orden manual de selección</strong>
-                                <div class="text-muted" style="font-size: 0.7rem;">Mantiene la secuencia según el orden en que se seleccionaron.</div>
+                                <div class="text-muted fs-micro">Mantiene la secuencia según el orden en que se seleccionaron.</div>
                             </label>
                         </div>
                     </div>
@@ -384,7 +384,7 @@ else if (Model.ErroresValidacion.Count > 0)
                         <span>Confirmar y Liberar Hoja de Ruta</span>
                     </button>
                     <div class="text-center mt-2">
-                        <span class="text-muted" style="font-size: 0.72rem;">La ruta quedará liberada para la app del repartidor.</span>
+                        <span class="text-muted fs-micro">La ruta quedará liberada para la app del repartidor.</span>
                     </div>
                 </div>
             </div>
@@ -706,8 +706,8 @@ else if (Model.ErroresValidacion.Count > 0)
                 var li = document.createElement('li');
                 li.className = 'mb-1';
                 li.innerHTML = '<span class="fw-semibold text-dark">' + escaparHtmlTexto(it.dest) + '</span> ' +
-                    '<span class="text-muted" style="font-size: 0.72rem;">(' + escaparHtmlTexto(it.dir) + ')</span> ' +
-                    '<span class="badge ' + (it.esRetiro ? 'bg-warning-subtle text-dark border border-warning-subtle' : 'bg-secondary-subtle text-secondary') + '" style="font-size: 0.65rem;">' + escaparHtmlTexto(it.franja) + '</span>';
+                    '<span class="text-muted fs-micro">(' + escaparHtmlTexto(it.dir) + ')</span> ' +
+                    '<span class="badge ' + (it.esRetiro ? 'bg-warning-subtle text-dark border border-warning-subtle' : 'bg-secondary-subtle text-secondary') + ' fs-micro">' + escaparHtmlTexto(it.franja) + '</span>';
                 lista.appendChild(li);
             });
         }

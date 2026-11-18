@@ -91,7 +91,7 @@ else if (resultado is null)
                                class="form-control form-control-sm"
                                placeholder="Ej: LOTE-2026-OCT-01 (si se omite, se calcula por hash SHA-256 del archivo)"
                                @bind="claveIdempotenciaPersonalizada" />
-                        <div class="form-text small" style="font-size: 0.75rem;">
+                        <div class="form-text small fs-metadata">
                             La clave previene la duplicación accidental si se reimporta el mismo archivo o se cae la conexión.
                         </div>
                     </div>
@@ -188,25 +188,25 @@ else
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
-                <span class="text-uppercase text-secondary fw-semibold small" style="font-size: 0.72rem;">Total Registros</span>
+                <span class="text-uppercase text-secondary fw-semibold small fs-micro">Total Registros</span>
                 <span class="fs-3 fw-bold text-dark mt-1">@resultado.TotalRegistros</span>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
-                <span class="text-uppercase text-success fw-semibold small" style="font-size: 0.72rem;">Procesados con Éxito</span>
+                <span class="text-uppercase text-success fw-semibold small fs-micro">Procesados con Éxito</span>
                 <span class="fs-3 fw-bold text-success mt-1">@resultado.Creados</span>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
-                <span class="text-uppercase text-warning fw-semibold small" style="font-size: 0.72rem;">Duplicados / Omitidos</span>
+                <span class="text-uppercase text-warning fw-semibold small fs-micro">Duplicados / Omitidos</span>
                 <span class="fs-3 fw-bold text-warning mt-1">@resultado.Duplicados</span>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm rounded-4 p-3 text-center bg-white">
-                <span class="text-uppercase text-danger fw-semibold small" style="font-size: 0.72rem;">Con Errores</span>
+                <span class="text-uppercase text-danger fw-semibold small fs-micro">Con Errores</span>
                 <span class="fs-3 fw-bold text-danger mt-1">@resultado.ConError</span>
             </div>
         </div>

@@ -5,26 +5,6 @@
     ViewData["Title"] = "Cola de Mensajes Fallidos";
 }
 
-<style>
-    /* Reglas para asegurar visibilidad y correcta superposición del offcanvas lateral */
-    #offcanvasDetalleMensaje {
-        background-color: #ffffff !important;
-        z-index: 1055 !important;
-    }
-    #offcanvasDetalleMensaje.showing,
-    #offcanvasDetalleMensaje.show:not(.hiding) {
-        transform: none !important;
-        visibility: visible !important;
-    }
-    #offcanvasDetalleMensaje.hiding {
-        visibility: visible !important;
-    }
-    #modalDescartarMensaje,
-    #modalConfirmarReintento {
-        z-index: 1070 !important;
-    }
-</style>
-
 <!-- Encabezado Principal -->
 <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div class="d-flex align-items-center gap-2">
@@ -129,10 +109,10 @@
                 @if (Entorno.IsDevelopment())
                 {
                     <div class="d-flex align-items-center gap-2 bg-light border border-warning-subtle rounded px-2 py-1 shadow-sm">
-                        <span class="badge bg-warning text-dark me-1" style="font-size: 0.65rem;">DEV</span>
+                        <span class="badge bg-warning text-dark me-1 fs-micro">DEV</span>
                         <div class="form-check form-switch mb-0">
                             <input class="form-check-input" type="checkbox" id="checkSimularFallo" onchange="alternarSimulacionFallo(this.checked)" />
-                            <label class="form-check-label small fw-semibold text-dark" for="checkSimularFallo" style="font-size: 0.775rem;">
+                            <label class="form-check-label small fw-semibold text-dark fs-tamano-xs" for="checkSimularFallo">
                                 Solo desarrollo: fuerza que el reintento falle de nuevo
                             </label>
                         </div>
@@ -269,12 +249,12 @@
                                             }
                                         </td>
                                         <td>
-                                            <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.725rem;">
+                                            <span class="badge bg-light text-dark border font-monospace fs-micro">
                                                 #@mensaje.Id.ToString()[..8]
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-dark-subtle text-dark border px-2 py-1 text-wrap" style="font-size: 0.75rem;">
+                                            <span class="badge bg-dark-subtle text-dark border px-2 py-1 text-wrap fs-tamano-xs">
                                                 @mensaje.TipoLegible
                                             </span>
                                         </td>
@@ -282,7 +262,7 @@
                                             <div class="text-dark small fw-semibold" style="line-height: 1.35;">
                                                 @mensaje.MotivoDigerible
                                             </div>
-                                            <div class="text-muted small" style="font-size: 0.7rem;">
+                                            <div class="text-muted small fs-micro">
                                                 Primera falla: @mensaje.PrimerFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                                 @if (esDescartado && !string.IsNullOrWhiteSpace(mensaje.MotivoDescarte))
                                                 {
@@ -291,31 +271,31 @@
                                             </div>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge @(mensaje.Intentos >= 4 ? "bg-danger text-white" : "bg-warning text-dark") px-2 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                            <span class="badge fs-tamano-xs @(mensaje.Intentos >= 4 ? "bg-danger text-white" : "bg-warning text-dark") px-2 py-1 fw-semibold">
                                                 @mensaje.Intentos @(mensaje.Intentos == 1 ? "intento" : "intentos")
                                             </span>
                                         </td>
                                         <td>
-                                            <div class="small text-dark font-monospace" style="font-size: 0.75rem;">
+                                            <div class="small text-dark font-monospace fs-tamano-xs">
                                                 @mensaje.UltimoFallo.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
                                             </div>
                                         </td>
                                         <td class="text-center">
                                             @if (esPendiente)
                                             {
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-bold fs-micro">
                                                     ● Pendiente
                                                 </span>
                                             }
                                             else if (esReintentado)
                                             {
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold fs-micro">
                                                     ✓ Reintentado
                                                 </span>
                                             }
                                             else
                                             {
-                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 fw-bold" style="font-size: 0.725rem;">
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 fw-bold fs-micro">
                                                     ⊘ Descartado
                                                 </span>
                                             }
@@ -345,7 +325,7 @@
                                                 <!-- Reintento directo individual (abre panel/modal de confirmación) -->
                                                 @if (esPendiente)
                                                 {
-                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="abrirModalReintentoIndividual(@System.Text.Json.JsonSerializer.Serialize(mensaje.Id))" title="Reintentar procesamiento">
+                                                    <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 fw-semibold fs-tamano-xs" onclick="abrirModalReintentoIndividual(@System.Text.Json.JsonSerializer.Serialize(mensaje.Id))" title="Reintentar procesamiento">
                                                         Reintentar
                                                     </button>
                                                 }
@@ -375,7 +355,7 @@
             <h2 class="h6 fw-bold mb-0 text-dark text-truncate" id="offcanvasDetalleTitulo">
                 Inspección: <span id="spanDetalleTipo" class="text-primary"></span>
             </h2>
-            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1" id="spanDetalleIdCorto" style="font-size: 0.7rem;"></span>
+            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1 fs-micro" id="spanDetalleIdCorto"></span>
         </div>
         <!-- ÚNICO botón de cerrar en todo el panel -->
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar panel de inspección"></button>
@@ -425,7 +405,7 @@
                         🔍 Detalle técnico (solo en desarrollo)
                     </summary>
                     <div class="mt-2 pt-2 border-top">
-                        <pre class="bg-light text-dark p-2 rounded font-monospace small mb-0 border" style="max-height: 160px; overflow-y: auto; font-size: 0.72rem; white-space: pre-wrap;" id="lblDetalleExcepcion">-</pre>
+                        <pre class="bg-light text-dark p-2 rounded font-monospace small mb-0 border bloque-codigo-scroll" id="lblDetalleExcepcion">-</pre>
                     </div>
                 </details>
             </div>
@@ -435,11 +415,11 @@
         <div class="flex-grow-1 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="small fw-bold text-dark">Carga Útil del Evento (Payload JSON):</span>
-                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.725rem;" onclick="copiarPayload()">
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fs-micro" onclick="copiarPayload()">
                     Copiar JSON
                 </button>
             </div>
-            <pre class="bg-dark text-light p-3 rounded font-monospace flex-grow-1 mb-0 border" style="max-height: 280px; overflow-y: auto; font-size: 0.75rem;" id="lblDetallePayload">-</pre>
+            <pre class="bg-dark text-light p-3 rounded font-monospace flex-grow-1 mb-0 border bloque-payload-scroll" id="lblDetallePayload">-</pre>
         </div>
     </div>
 
@@ -496,7 +476,7 @@
                         </label>
                         <textarea class="form-control form-control-sm" id="textareaMotivoDescarte" name="motivo" rows="3" placeholder="Ej: Error subsanado manualmente por el soporte técnico; el comercio ya procesó la orden..." required maxlength="300"></textarea>
                         <div class="invalid-feedback small">El motivo de descarte es obligatorio para auditoría.</div>
-                        <div class="form-text" style="font-size: 0.725rem;">
+                        <div class="form-text fs-micro">
                             Este motivo quedará visible para el equipo en el historial de fallos archivados.
                         </div>
                     </div>

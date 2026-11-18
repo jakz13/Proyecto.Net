@@ -83,7 +83,7 @@
             <div id="bloqueDatosRepartidor" class="p-3 mb-3 rounded-3 border bg-light" style="display: none;">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="small fw-bold text-dark">Datos Operativos del Repartidor (Sincronizado con Flota)</span>
-                    <span class="badge bg-dark-subtle text-dark border" style="font-size: 0.7rem;">Padrón de Repartidores</span>
+                    <span class="badge bg-dark-subtle text-dark border fs-micro">Padrón de Repartidores</span>
                 </div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -98,7 +98,7 @@
                                class="form-control form-control-sm font-monospace js-solo-cedula"
                                placeholder="Ej: 12345678"
                                title="Ingrese 8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678)." />
-                        <div class="form-text" style="font-size: 0.725rem;">8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678).</div>
+                        <div class="form-text fs-micro">8 dígitos numéricos, sin puntos ni guiones (ej.: 12345678).</div>
                         <span asp-validation-for="NuevoUsuario.Documento" class="text-danger small"></span>
                     </div>
                     <div class="col-md-6">
@@ -117,7 +117,7 @@
                                 </option>
                             }
                         </select>
-                        <div class="form-text small" style="font-size: 0.725rem;">
+                        <div class="form-text small fs-micro">
                             El repartidor quedará registrado automáticamente en el panel de Repartidores y Vehículos.
                         </div>
                     </div>
@@ -134,7 +134,7 @@
                         <option value="@comercio.Id">Comercio: @comercio.NombreFantasia (@comercio.RazonSocial)</option>
                     }
                 </select>
-                <div class="form-text small" style="font-size: 0.725rem;">
+                <div class="form-text small fs-micro">
                     El administrador de comercio gestiona los envíos y retiros de este comercio.
                 </div>
             </div>

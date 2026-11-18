@@ -169,21 +169,21 @@ else
         <div class="card-body p-0">
             <div id="mapaDetalleRutaLeaflet" class="um-mapa-leaflet" style="height: 360px;"></div>
         </div>
-        <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center gap-3 small" style="font-size: 0.725rem;">
+        <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center gap-3 fs-micro">
             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span> Depósito de salida
+                <span class="rounded-1 punto-leyenda punto-leyenda-deposito"></span> Depósito de salida
             </span>
             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span> Parada entregada
+                <span class="rounded-circle punto-leyenda punto-leyenda-exito"></span> Parada entregada
             </span>
             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #1D4ED8;"></span> Parada en tránsito / Unidad de reparto
+                <span class="rounded-circle punto-leyenda punto-leyenda-primario"></span> Parada en tránsito / Unidad de reparto
             </span>
             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #475569;"></span> Parada pendiente
+                <span class="rounded-circle punto-leyenda punto-leyenda-neutro"></span> Parada pendiente
             </span>
             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B91C1C;"></span> Parada no entregada
+                <span class="rounded-circle punto-leyenda punto-leyenda-error"></span> Parada no entregada
             </span>
         </div>
     </div>
@@ -240,22 +240,21 @@ else
                         {
                             <tr class="@(p.Estado == "NoEntregado" ? "table-light opacity-75" : "")">
                                 <td class="text-center">
-                                    <span class="badge bg-light text-dark border rounded-circle d-inline-flex align-items-center justify-content-center fw-bold" 
-                                          style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                    <span class="badge bg-light text-dark border rounded-circle d-inline-flex align-items-center justify-content-center fw-bold badge-orden-parada">
                                         @p.Orden
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.75rem;">
+                                    <span class="badge bg-light text-secondary border font-monospace fs-tamano-xs">
                                         @p.CodigoSeguimiento
                                     </span>
                                     @if (p.EsRetiro)
                                     {
-                                        <span class="badge bg-dark-subtle text-dark border ms-1" style="font-size: 0.68rem;">Retiro</span>
+                                        <span class="badge bg-dark-subtle text-dark border ms-1 fs-micro">Retiro</span>
                                     }
                                     @if (!string.IsNullOrEmpty(p.HistorialReasignacion))
                                     {
-                                        <div class="text-muted small mt-1" style="font-size: 0.68rem;" title="@p.HistorialReasignacion">
+                                        <div class="text-muted small mt-1 fs-micro" title="@p.HistorialReasignacion">
                                             @p.HistorialReasignacion
                                         </div>
                                     }
@@ -265,24 +264,24 @@ else
                                 </td>
                                 <td>
                                     <div class="text-dark small">@p.Direccion</div>
-                                    <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.68rem;">
+                                    <span class="badge bg-secondary-subtle text-secondary border fs-micro">
                                         @p.Zona
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.725rem;">
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-micro">
                                         @p.FranjaHoraria
                                     </span>
                                 </td>
                                 <td class="text-end">
                                     <div class="small fw-semibold text-dark">@p.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
-                                    <div class="text-secondary" style="font-size: 0.68rem;">@p.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
+                                    <div class="text-secondary fs-micro">@p.VolumenM3.ToString("N3", UltimaMilla.Backoffice.Formato.UY) m³</div>
                                 </td>
                                 <td class="text-center">
                                     @if (p.Estado is "NoEntregado" or "Fallida" or "NoRetirada")
                                     {
                                         <span class="estado-fallo">@(p.EsRetiro ? "No Retirado" : "No Entregado")</span>
-                                        <div class="text-danger small mt-1" style="font-size: 0.68rem;">
+                                        <div class="text-danger small mt-1 fs-micro">
                                             @p.MotivoNoEntrega
                                         </div>
                                     }
@@ -326,7 +325,7 @@ else
                                             <a asp-page="/Retiros/Index"
                                                class="btn btn-outline-dark btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center"
                                                title="Ver orden de retiro @p.CodigoSeguimiento">
-                                                <span style="font-size: 0.7rem;">Retiro</span>
+                                                <span class="fs-micro">Retiro</span>
                                             </a>
                                         }
                                         <button type="button"
@@ -397,7 +396,7 @@ else
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <table class="table table-hover align-middle mb-0 fs-tamano-sm">
                         <thead class="table-light">
                             <tr>
                                 <th style="width: 14%;" class="text-dark">Fecha / Hora</th>
@@ -414,7 +413,7 @@ else
                                 <tr>
                                     <td class="text-secondary small">
                                         @ev.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                                        <div class="text-muted" style="font-size: 0.72rem;">Por: @ev.DespachadorUsuario</div>
+                                        <div class="text-muted fs-micro">Por: @ev.DespachadorUsuario</div>
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-secondary border font-monospace">
@@ -428,19 +427,19 @@ else
                                         <div class="text-dark">@ev.Motivo</div>
                                         @if (!string.IsNullOrEmpty(ev.Detalle))
                                         {
-                                            <div class="text-secondary small" style="font-size: 0.72rem;">@ev.Detalle</div>
+                                            <div class="text-secondary small fs-micro">@ev.Detalle</div>
                                         }
                                     </td>
                                     <td>
                                         <span class="badge bg-secondary-subtle text-secondary border d-inline-block mb-1">
                                             @ev.AccionRealizada
                                         </span>
-                                        <div class="text-dark small fw-semibold" style="font-size: 0.75rem;">
+                                        <div class="text-dark small fw-semibold fs-tamano-xs">
                                             @ev.DestinoNuevo
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="text-secondary small" style="font-size: 0.75rem;">
+                                        <div class="text-secondary small fs-metadata">
                                             @ev.NotificacionRepartidor
                                         </div>
                                     </td>
@@ -575,7 +574,7 @@ else
                                             <div class="form-check m-0">
                                                 <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optReasignarOtraRuta" value="ReasignarOtraRuta" checked onchange="actualizarOpcionesAccion()" />
                                                 <span class="form-check-label text-dark fw-semibold small d-block">Reasignar ruta</span>
-                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Transferir a otra hoja activa</span>
+                                                <span class="text-secondary small d-block fs-micro">Transferir a otra hoja activa</span>
                                             </div>
                                         </label>
                                     </div>
@@ -584,7 +583,7 @@ else
                                             <div class="form-check m-0">
                                                 <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optReprogramarFranja" value="ReprogramarFranja" onchange="actualizarOpcionesAccion()" />
                                                 <span class="form-check-label text-dark fw-semibold small d-block">Reprogramar</span>
-                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Nueva fecha o franja horaria</span>
+                                                <span class="text-secondary small d-block fs-micro">Nueva fecha o franja horaria</span>
                                             </div>
                                         </label>
                                     </div>
@@ -593,7 +592,7 @@ else
                                             <div class="form-check m-0">
                                                 <input class="form-check-input" type="radio" name="ReasignacionInput.AccionDestino" id="optVolverADeposito" value="VolverADeposito" onchange="actualizarOpcionesAccion()" />
                                                 <span class="form-check-label text-dark fw-semibold small d-block">A depósito</span>
-                                                <span class="text-secondary small d-block" style="font-size: 0.72rem;">Retirar de la ruta actual</span>
+                                                <span class="text-secondary small d-block fs-micro">Retirar de la ruta actual</span>
                                             </div>
                                         </label>
                                     </div>

@@ -38,8 +38,7 @@
                             }
                             else
                             {
-                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave"
-                                     style="width: 32px; height: 32px; font-size: 0.95rem;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave avatar-operador-header">
                                     @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
                                 </div>
                             }
@@ -56,7 +55,7 @@
                             <div class="dropdown-backdrop-transparente" @onclick="CerrarMenuOperadores"></div>
 
                             <div class="dropdown-menu dropdown-menu-start show shadow-lg border-0 rounded-3 mt-2 p-2 menu-operadores-flotante">
-                                <div class="px-3 py-1 mb-1 text-uppercase text-muted fw-bold" style="font-size: 0.68rem; letter-spacing: 0.05em;">
+                                <div class="px-3 py-1 mb-1 text-uppercase text-muted fw-bold fs-micro espaciado-etiqueta">
                                     Operadores Disponibles (@operadoresDisponibles.Count)
                                 </div>
                                 @foreach (var operador in operadoresDisponibles)
@@ -91,8 +90,7 @@
                         }
                         else
                         {
-                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave"
-                                 style="width: 32px; height: 32px; font-size: 0.95rem;">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-white text-dark fw-bold shadow-sm transicion-suave avatar-operador-header">
                                 @(identidad.NombreComercial.Length > 0 ? identidad.NombreComercial[0] : 'O')
                             </div>
                         }
@@ -106,7 +104,7 @@
                 <AuthorizeView>
                     <Authorized>
                         <div class="d-none d-sm-block text-end text-white">
-                            <div class="fw-semibold" style="font-size: 0.88rem;">@context.User.Identity?.Name</div>
+                            <div class="fw-semibold fs-tamano-base">@context.User.Identity?.Name</div>
                         </div>
                         @if (!modoDemo)
                         {

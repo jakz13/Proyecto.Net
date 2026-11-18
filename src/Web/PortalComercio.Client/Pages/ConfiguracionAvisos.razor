@@ -105,7 +105,7 @@
                                    class="form-control form-control-sm font-monospace"
                                    placeholder="https://api.sucomercio.com/webhooks/ultimamilla"
                                    @bind="urlWebhook" />
-                            <div class="form-text small" style="font-size: 0.75rem;">
+                            <div class="form-text small fs-metadata">
                                 Debe ser una URL accesible vía HTTP o HTTPS (POST). El sistema enviará un payload JSON cada vez que un evento configurado ocurra.
                             </div>
                         </div>
@@ -138,7 +138,7 @@
                                     <span>Regenerar</span>
                                 </button>
                             </div>
-                            <div class="form-text small" style="font-size: 0.75rem;">
+                            <div class="form-text small fs-metadata">
                                 Cada aviso incluirá el encabezado HTTP <code class="text-primary font-monospace">X-Hub-Signature-256: sha256=&lt;hash&gt;</code> para verificar que el mensaje proviene legítimamente de la plataforma.
                             </div>
                         </div>
@@ -180,7 +180,7 @@
                         </button>
                     </div>
                     <div class="card-body p-3">
-                        <p class="text-secondary small mb-2" style="font-size: 0.8rem;">
+                        <p class="text-secondary small mb-2 fs-secundario">
                             Envíe un payload simulado con un paquete de muestra para certificar que su servidor responde con <span class="badge bg-success-subtle text-success border">HTTP 200 OK</span> y valida la firma correctamente.
                         </p>
 
@@ -193,18 +193,18 @@
                                         HTTP @resultadoPrueba.CodigoHttp @(resultadoPrueba.Exitoso ? "OK" : "ERROR")
                                     </span>
                                 </div>
-                                <div class="small text-secondary mb-2" style="font-size: 0.76rem;">
+                                <div class="small text-secondary mb-2 fs-metadata">
                                     @resultadoPrueba.Mensaje
                                 </div>
                                 <div class="mb-1">
-                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Cabecera X-Hub-Signature-256 generada:</span>
-                                    <div class="font-monospace text-dark bg-white p-1 rounded border text-break small" style="font-size: 0.7rem;">
+                                    <span class="small fw-semibold text-secondary fs-micro">Cabecera X-Hub-Signature-256 generada:</span>
+                                    <div class="font-monospace text-dark bg-white p-1 rounded border text-break small fs-micro">
                                         @resultadoPrueba.FirmaGenerada
                                     </div>
                                 </div>
                                 <div>
-                                    <span class="small fw-semibold text-secondary" style="font-size: 0.72rem;">Payload JSON enviado:</span>
-                                    <pre class="bg-dark text-light p-2 rounded small mb-0 font-monospace text-break" style="max-height: 140px; overflow-y: auto; font-size: 0.7rem;">@resultadoPrueba.PayloadEnviado</pre>
+                                    <span class="small fw-semibold text-secondary fs-micro">Payload JSON enviado:</span>
+                                    <pre class="bg-dark text-light p-2 rounded small mb-0 font-monospace text-break bloque-codigo-scroll">@resultadoPrueba.PayloadEnviado</pre>
                                 </div>
                             </div>
                         }
@@ -235,7 +235,7 @@
                         </div>
                     </div>
                     <div class="card-body p-3">
-                        <p class="text-secondary small mb-2" style="font-size: 0.8rem;">
+                        <p class="text-secondary small mb-2 fs-secundario">
                             Marque los cambios de estado ante los cuales su sistema desea recibir un aviso automático:
                         </p>
 
@@ -258,11 +258,11 @@
                                             <label class="form-check-label fw-bold text-dark small mb-0" for="chk_@ev.Codigo">
                                                 @ev.Titulo
                                             </label>
-                                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.65rem;">
+                                            <span class="badge bg-secondary-subtle text-secondary border fs-micro">
                                                 @ev.Categoria
                                             </span>
                                         </div>
-                                        <div class="text-secondary" style="font-size: 0.76rem; line-height: 1.3;">
+                                        <div class="text-secondary fs-tamano-xs">
                                             @ev.Descripcion
                                         </div>
                                     </div>
@@ -282,7 +282,7 @@
                         <Icono Nombre="reloj" Tamano="16" />
                         <span>Historial de Entregas de Avisos y Reintentos</span>
                     </h2>
-                    <div class="small text-secondary mt-1" style="font-size: 0.78rem;">
+                    <div class="small text-secondary mt-1 fs-metadata">
                         Consulte los avisos enviados, verifique su estado HTTP y solicite el reenvío manual ante fallos o entregas agotadas.
                     </div>
                 </div>
@@ -321,7 +321,7 @@
             <!-- Tabla de avisos -->
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 small">
-                    <thead class="table-light text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                    <thead class="table-light text-secondary text-uppercase fs-micro espaciado-etiqueta">
                         <tr>
                             <th class="ps-3 py-2">Fecha y Hora</th>
                             <th class="py-2">Evento</th>
@@ -356,7 +356,7 @@
                             {
                                 var esFallido = item.Estado != "Entregado";
                                 <tr>
-                                    <td class="ps-3 text-secondary" style="font-size: 0.78rem;">
+                                    <td class="ps-3 text-secondary fs-metadata">
                                         @item.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
                                     </td>
                                     <td>
@@ -366,7 +366,7 @@
                                         <span class="font-monospace fw-bold text-dark">@item.CodigoSeguimiento</span>
                                     </td>
                                     <td>
-                                        <span class="badge @(item.CodigoRespuestaHttp == 200 ? "bg-success" : "bg-danger")" style="font-size: 0.72rem;">
+                                        <span class="badge fs-micro @(item.CodigoRespuestaHttp == 200 ? "bg-success" : "bg-danger")">
                                             @item.CodigoRespuestaHttp @(item.CodigoRespuestaHttp == 200 ? "OK" : "ERROR")
                                         </span>
                                     </td>
@@ -376,25 +376,25 @@
                                     <td>
                                         @if (item.Estado == "Entregado")
                                         {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold" style="font-size: 0.72rem;">
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold fs-micro">
                                                 Entregado
                                             </span>
                                         }
                                         else if (item.Estado == "Fallido")
                                         {
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold" style="font-size: 0.72rem;">
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold fs-micro">
                                                 Fallido
                                             </span>
                                         }
                                         else if (item.Estado == "Agotado")
                                         {
-                                            <span class="badge bg-dark text-white fw-semibold" style="font-size: 0.72rem;">
+                                            <span class="badge bg-dark text-white fw-semibold fs-micro">
                                                 Agotado
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle fw-semibold" style="font-size: 0.72rem;">
+                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle fw-semibold fs-micro">
                                                 @item.Estado
                                             </span>
                                         }
@@ -402,8 +402,7 @@
                                     <td class="pe-3 text-end">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <button type="button"
-                                                    class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                                    style="font-size: 0.75rem;"
+                                                    class="btn btn-outline-secondary btn-sm py-0 px-2 fs-tamano-xs"
                                                     title="Ver Payload y Respuesta HTTP"
                                                     @onclick="() => AbrirDetalleAviso(item)">
                                                 <Icono Nombre="ver" Tamano="13" />
@@ -413,8 +412,7 @@
                                             @if (esFallido)
                                             {
                                                 <button type="button"
-                                                        class="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
-                                                        style="font-size: 0.75rem;"
+                                                        class="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1 fs-tamano-xs"
                                                         disabled="@(idAvisoReintentando == item.Id)"
                                                         @onclick="() => ReintentarAvisoAsync(item.Id)">
                                                     @if (idAvisoReintentando == item.Id)
@@ -496,7 +494,7 @@
                     <div class="mb-1">
                         <span class="small fw-bold text-secondary">Payload JSON Emitido:</span>
                     </div>
-                    <pre class="bg-dark text-light p-3 rounded small font-monospace mb-0" style="max-height: 250px; overflow-y: auto; font-size: 0.75rem;">@avisoSeleccionadoParaVer.Payload</pre>
+                    <pre class="bg-dark text-light p-3 rounded small font-monospace mb-0 bloque-payload-scroll">@avisoSeleccionadoParaVer.Payload</pre>
                 </div>
                 <div class="modal-footer py-2 px-3 bg-light border-top d-flex justify-content-between">
                     <div>

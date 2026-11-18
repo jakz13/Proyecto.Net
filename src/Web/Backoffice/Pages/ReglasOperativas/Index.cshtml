@@ -102,7 +102,7 @@
                     <h2 class="h6 fw-bold mb-0 text-dark">Políticas y Reglas Operativas Vigentes</h2>
                     <partial name="_BotonAyuda" model='"Rige actualmente para todos los envíos despachados desde esta fecha."' />
                 </div>
-                <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
+                <a asp-page="/ReglasOperativas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2 fs-tamano-xs">
                     Crear versión a partir de esta
                 </a>
             </div>
@@ -185,7 +185,7 @@
             </div>
             <div class="panel-estandar-footer text-secondary small d-flex justify-content-between align-items-center">
                 <span>Estado: <strong class="text-success">Vigente y Activa</strong></span>
-                <span style="font-size: 0.725rem;">Reglas inmutables protegidas por versionado</span>
+                <span class="fs-micro">Reglas inmutables protegidas por versionado</span>
             </div>
         </div>
 
@@ -242,7 +242,7 @@
                                         @(hist.Comentario ?? "Sin observaciones registradas")
                                     </td>
                                     <td class="text-end">
-                                        <a asp-page="/ReglasOperativas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                        <a asp-page="/ReglasOperativas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2 fs-tamano-xs">
                                             Ver Archivo
                                         </a>
                                     </td>

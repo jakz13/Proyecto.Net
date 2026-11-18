@@ -50,6 +50,11 @@
 .fs-secundario      { font-size: var(--fs-sm) !important; line-height: 1.4; color: var(--color-texto-secundario-base); }
 .fs-metadata        { font-size: var(--fs-xs) !important; line-height: 1.35; color: #64748B; }
 .fs-micro           { font-size: var(--fs-micro) !important; line-height: 1.3; }
+.fs-tamano-h2       { font-size: var(--fs-h2) !important; }
+.fs-tamano-h3       { font-size: var(--fs-h3) !important; }
+.fs-tamano-base     { font-size: var(--fs-base) !important; }
+.fs-tamano-sm       { font-size: var(--fs-sm) !important; }
+.fs-tamano-xs       { font-size: var(--fs-xs) !important; line-height: 1.35; }
 
 html, body {
     background-color: var(--color-fondo);
@@ -694,5 +699,55 @@ header.navbar,
     background-color: var(--color-primario) !important;
     border-color: var(--color-primario) !important;
     color: var(--color-texto-primario) !important;
+}
+
+/* ==========================================================================
+   Utilidades Centralizadas de Marca, Leyendas y Componentes (Portal)
+   ========================================================================== */
+.avatar-operador-header {
+    width: 32px;
+    height: 32px;
+    font-size: var(--fs-h3);
+}
+
+.espaciado-etiqueta {
+    letter-spacing: 0.04em;
+}
+
+.punto-leyenda {
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.punto-leyenda-deposito { background-color: var(--color-texto); }
+.punto-leyenda-primario { background-color: var(--color-primario); }
+.punto-leyenda-exito    { background-color: var(--color-exito); }
+
+.bloque-codigo-scroll {
+    max-height: 140px;
+    overflow-y: auto;
+    font-size: var(--fs-micro);
+}
+
+.bloque-payload-scroll {
+    max-height: 250px;
+    overflow-y: auto;
+    font-size: var(--fs-xs);
+}
+
+.tarjeta-login-portal {
+    max-width: 440px;
+    width: 100%;
+}
+
+.icono-login-portal {
+    width: 48px;
+    height: 48px;
+}
+
+.contenedor-resumen-sticky {
+    top: 20px;
 }
 

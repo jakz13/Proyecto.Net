@@ -141,7 +141,7 @@
                         <tr>
                             <td>
                                 <div class="fw-bold text-dark font-monospace">@inc.NumeroIncidencia</div>
-                                <div class="text-secondary small" style="font-size: 0.725rem;">
+                                <div class="text-secondary small fs-micro">
                                     @inc.FechaRegistro.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                 </div>
                             </td>
@@ -172,19 +172,19 @@
                                     </div>
                                     @if (!string.IsNullOrEmpty(inc.DestinatarioEnvio))
                                     {
-                                        <div class="text-secondary small" style="font-size: 0.7rem;">@inc.DestinatarioEnvio</div>
+                                        <div class="text-secondary small fs-micro">@inc.DestinatarioEnvio</div>
                                     }
                                 }
                                 @if (!string.IsNullOrEmpty(inc.NumeroRuta) || !string.IsNullOrEmpty(inc.VehiculoMatricula))
                                 {
-                                    <div class="text-secondary small" style="font-size: 0.725rem;">
+                                    <div class="text-secondary small fs-micro">
                                         @if (!string.IsNullOrEmpty(inc.NumeroRuta))
                                         {
                                             <span>Ruta: <strong>@inc.NumeroRuta</strong></span>
                                         }
                                         @if (!string.IsNullOrEmpty(inc.VehiculoMatricula))
                                         {
-                                            <span class="badge bg-dark-subtle text-dark border ms-1 font-monospace" style="font-size: 0.65rem;">@inc.VehiculoMatricula</span>
+                                            <span class="badge bg-dark-subtle text-dark border ms-1 font-monospace fs-micro">@inc.VehiculoMatricula</span>
                                         }
                                     </div>
                                 }
@@ -698,7 +698,7 @@
                     var fechaStr = ent.FechaHora ? new Date(ent.FechaHora).toLocaleString() : '';
                     var d = document.createElement('div');
                     d.className = 'border-bottom pb-2 mb-2 small';
-                    d.innerHTML = '<div class="d-flex justify-content-between align-items-center text-secondary" style="font-size: 0.725rem;">' +
+                    d.innerHTML = '<div class="d-flex justify-content-between align-items-center text-secondary fs-micro">' +
                                   '<span><strong>' + escaparHtmlTexto(ent.Usuario || 'Sistema') + '</strong></span>' +
                                   '<span>' + escaparHtmlTexto(fechaStr) + '</span>' +
                                   '</div>' +

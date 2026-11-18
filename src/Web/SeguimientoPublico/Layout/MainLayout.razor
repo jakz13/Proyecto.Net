@@ -30,16 +30,16 @@
                 <!-- Datos del operador logístico (se muestran solo al ingresar el código del envío, fuera de etiquetas) -->
                 @if (ContextoSeguimiento.TieneOperadorAsignado)
                 {
-                    <div class="d-flex align-items-center gap-2 animacion-fade-in" style="color: var(--color-texto-primario);">
+                    <div class="d-flex align-items-center gap-2 animacion-fade-in operador-header-bloque">
                         @if (!string.IsNullOrEmpty(ContextoSeguimiento.LogoUrl))
                         {
-                            <div class="bg-white p-1 rounded-2 shadow-xs d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
-                                <img src="@ContextoSeguimiento.LogoUrl" alt="@ContextoSeguimiento.NombreOperador" style="width: 100%; height: 100%; object-fit: contain;" />
+                            <div class="bg-white p-1 rounded-2 shadow-xs d-flex align-items-center justify-content-center flex-shrink-0 operador-header-logo">
+                                <img src="@ContextoSeguimiento.LogoUrl" alt="@ContextoSeguimiento.NombreOperador" />
                             </div>
                         }
                         <div class="text-end lh-1">
-                            <div class="small opacity-75" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;">Operador</div>
-                            <div class="fw-bold" style="font-size: 0.95rem;">@ContextoSeguimiento.NombreOperador</div>
+                            <div class="small opacity-75 operador-header-etiqueta">Operador</div>
+                            <div class="fw-bold operador-header-nombre">@ContextoSeguimiento.NombreOperador</div>
                         </div>
                     </div>
                 }

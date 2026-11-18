@@ -239,7 +239,7 @@ else
                                                        id="chk-danado-@bulto.Identificacion"
                                                        onchange="alternarDanado(@System.Text.Json.JsonSerializer.Serialize(bulto.Identificacion))"
                                                        title="Marcar si el bulto arribó con daños físicos">
-                                                <label class="form-check-label small text-danger fw-semibold" for="chk-danado-@bulto.Identificacion" style="font-size: 0.75rem;">
+                                                <label class="form-check-label small text-danger fw-semibold fs-tamano-xs" for="chk-danado-@bulto.Identificacion">
                                                     Dañado / Averiado
                                                 </label>
                                             </div>
@@ -302,7 +302,7 @@ else
                         <!-- Indicador de Estado del Contraste -->
                         <div class="alert alert-info py-2 px-3 small rounded-3 mb-3" id="panelEstadoContraste">
                             <div class="fw-bold mb-1" id="tituloEstadoContraste">Inicie el escaneo de bultos</div>
-                            <div id="mensajeEstadoContraste" style="font-size: 0.78rem;">
+                            <div class="fs-tamano-xs" id="mensajeEstadoContraste">
                                 Escanee los bultos que llegaron físicamente para contrastarlos contra los declarados.
                             </div>
                         </div>
@@ -316,7 +316,7 @@ else
                             <textarea asp-for="Formulario.Observaciones" id="txtObservaciones"
                                       class="form-control form-control-sm" rows="3"
                                       placeholder="Si existen bultos faltantes, dañados o sobrantes, detalle obligatoriamente el motivo para documentar la discrepancia..."></textarea>
-                            <div class="text-muted small mt-1" style="font-size: 0.72rem;">
+                            <div class="text-muted small mt-1 fs-micro">
                                 El envío solo avanza a "En Depósito" si no hay discrepancias, o si el operario las resuelve documentándolas aquí.
                             </div>
                         </div>
@@ -330,7 +330,7 @@ else
                         </button>
 
                         <div class="text-center mt-2">
-                            <span class="text-muted" style="font-size: 0.72rem;">
+                            <span class="text-muted fs-micro">
                                 Pasa a "En Depósito" con o sin discrepancias documentadas.
                             </span>
                         </div>

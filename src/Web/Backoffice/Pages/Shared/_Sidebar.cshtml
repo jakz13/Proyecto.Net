@@ -45,16 +45,13 @@
         <div class="d-flex align-items-center gap-2 overflow-hidden">
             @if (!string.IsNullOrEmpty(operadorActivo.LogoUrl))
             {
-                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 bg-white p-1 shadow-sm overflow-hidden"
-                     style="width: 44px; height: 44px; border: 2px solid var(--color-secundario);">
-                    <img id="sidebarLogoImg" src="@operadorActivo.LogoUrl" alt="@operadorActivo.NombreComercial"
-                         style="width: 100%; height: 100%; object-fit: contain;" />
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 bg-white p-1 shadow-sm overflow-hidden sidebar-logo-caja">
+                    <img id="sidebarLogoImg" src="@operadorActivo.LogoUrl" alt="@operadorActivo.NombreComercial" class="sidebar-logo-img" />
                 </div>
             }
             else
             {
-                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 overflow-hidden shadow-sm"
-                     style="width: 40px; height: 40px; background-color: var(--color-primario); color: var(--color-texto-primario); border: 2px solid var(--color-secundario);">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 overflow-hidden shadow-sm sidebar-avatar-marca">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="1" y="3" width="15" height="13"></rect>
                         <polygon points="16 8 20 8 23 11 23 16 16 16"></polygon>
@@ -66,8 +63,8 @@
             <div class="sidebar-marca-texto text-truncate">
                 <div class="fw-bold text-white small text-truncate" title="@operadorActivo.NombreComercial">@operadorActivo.NombreComercial</div>
                 <div class="d-flex align-items-center gap-1">
-                    <span class="badge" style="background-color: var(--color-secundario); color: var(--color-texto-secundario); font-size: 0.65rem;">Operador</span>
-                    <span style="font-size: 0.72rem; color: #cbd5e1;">Backoffice</span>
+                    <span class="badge badge-marca-secundario fs-micro">Operador</span>
+                    <span class="fs-micro sidebar-texto-sutil">Backoffice</span>
                 </div>
             </div>
         </div>
@@ -384,14 +381,13 @@
     <!-- Pie de Barra Lateral: Perfil y Cierre de Sesión -->
     <div class="sidebar-pie p-3 border-top border-secondary mt-auto">
         <div class="d-flex align-items-center justify-content-between gap-2 overflow-hidden">
-            <div class="sidebar-texto small text-truncate" style="max-width: 140px;">
+            <div class="sidebar-texto small text-truncate sidebar-usuario-bloque">
                 <div class="fw-semibold text-white text-truncate">@User.Identity?.Name</div>
-                <div class="text-truncate" style="font-size: 0.725rem; color: #cbd5e1;">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
+                <div class="text-truncate fs-micro sidebar-texto-sutil">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</div>
             </div>
-            <a asp-page="/Logout" class="btn btn-outline-danger btn-sm p-1 d-inline-flex align-items-center justify-content-center flex-shrink-0"
+            <a asp-page="/Logout" class="btn btn-outline-danger btn-sm p-1 d-inline-flex align-items-center justify-content-center flex-shrink-0 sidebar-btn-salir"
                title="Cerrar Sesión"
-               aria-label="Cerrar Sesión"
-               style="width: 28px; height: 28px;">
+               aria-label="Cerrar Sesión">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                     <polyline points="16 17 21 12 16 7"></polyline>

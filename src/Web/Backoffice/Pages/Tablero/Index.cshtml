@@ -51,21 +51,21 @@
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Rutas en Ejecución</span>
             <div id="metricaRutasEnEjecucion" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRutasEnEjecucion</div>
-            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Hojas de ruta activas hoy</div>
+            <div class="text-secondary small mt-1 fs-micro">Hojas de ruta activas hoy</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Repartidores en Calle</span>
             <div id="metricaRepartidoresEnCalle" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.TotalRepartidoresEnCalle</div>
-            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Personal en reparto activo</div>
+            <div class="text-secondary small mt-1 fs-micro">Personal en reparto activo</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Envíos en Tránsito</span>
             <div id="metricaEnviosEnTransito" class="h3 fw-bold mb-0 text-primary">@Model.Resumen.TotalEnviosEnTransito</div>
-            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Paradas pendientes de entrega</div>
+            <div class="text-secondary small mt-1 fs-micro">Paradas pendientes de entrega</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
@@ -75,17 +75,17 @@
                 <span id="metricaEnviosEnRiesgo">@Model.Resumen.TotalEnviosEnRiesgo</span>
                 @if (true)
                 {
-                    <span id="badgeAtencionRiesgo" class="estado-fallo small fw-semibold" style="font-size: 0.725rem; @(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "" : "display: none;")">Atención requerida</span>
+                    <span id="badgeAtencionRiesgo" class="estado-fallo small fw-semibold fs-micro" style="@(Model.Resumen.TotalEnviosEnRiesgo > 0 ? "" : "display: none;")">Atención requerida</span>
                 }
             </div>
-            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">Demoras estimadas sobre SLA</div>
+            <div class="text-secondary small mt-1 fs-micro">Demoras estimadas sobre SLA</div>
         </div>
     </div>
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm rounded-3 h-100 p-3 bg-white">
             <span class="text-secondary small fw-semibold mb-1">Retiros en domicilio</span>
             <div id="metricaRetirosEnCurso" class="h3 fw-bold mb-0 text-dark">@Model.Resumen.RetirosEnCurso</div>
-            <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
+            <div class="text-secondary small mt-1 fs-micro">
                 <span id="metricaRetirosPendientes">@Model.Resumen.RetirosPendientes</span> pendientes de asignar a una ruta · <a asp-page="/Retiros/Index">ver retiros</a>
             </div>
         </div>
@@ -197,7 +197,7 @@
                                 <tr>
                                     <td>
                                         <div class="fw-bold text-dark font-monospace">@alerta.CodigoSeguimiento</div>
-                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">
+                                        <div class="text-secondary small font-monospace fs-micro">
                                             @alerta.NumeroRuta
                                         </div>
                                     </td>
@@ -206,11 +206,11 @@
                                         <div class="text-secondary small text-truncate" style="max-width: 240px;" title="@alerta.Direccion">
                                             @alerta.Direccion
                                         </div>
-                                        <div class="text-muted small" style="font-size: 0.7rem;">@alerta.Zona</div>
+                                        <div class="text-muted small fs-micro">@alerta.Zona</div>
                                     </td>
                                     <td>
                                         <div class="fw-bold text-dark small">@alerta.FranjaHoraria</div>
-                                        <div class="text-secondary small" style="font-size: 0.725rem;">
+                                        <div class="text-secondary small fs-micro">
                                             Límite: <span class="hora-utc" data-utc="@DateTime.SpecifyKind(alerta.HoraLimiteVentana, DateTimeKind.Utc).ToString("O")">@alerta.HoraLimiteVentana.ToString("HH:mm")</span> hs
                                         </div>
                                     </td>
@@ -218,13 +218,13 @@
                                         <span class="fw-bold @(alerta.NivelRiesgo == "Critico" ? "estado-fallo" : "estado-intermedio")">
                                             +@alerta.MinutosRetrasoEstimado min
                                         </span>
-                                        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
+                                        <div class="text-secondary small mt-1 fs-micro">
                                             Est: <span class="hora-utc" data-utc="@DateTime.SpecifyKind(alerta.HoraEstimadaLlegada, DateTimeKind.Utc).ToString("O")">@alerta.HoraEstimadaLlegada.ToString("HH:mm")</span> hs
                                         </div>
                                     </td>
                                     <td>
                                         <div class="text-dark small">@alerta.CausaRiesgo</div>
-                                        <div class="text-secondary small mt-1" style="font-size: 0.725rem;">
+                                        <div class="text-secondary small mt-1 fs-micro">
                                             Chofer: <strong class="text-dark">@alerta.RepartidorNombre</strong> <span class="ms-1 font-monospace text-secondary fw-semibold">(@alerta.VehiculoMatricula)</span>
                                         </div>
                                     </td>
@@ -298,12 +298,12 @@
                                 <tr>
                                     <td>
                                         <div class="fw-bold text-dark font-monospace">@veh.VehiculoMatricula</div>
-                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.NumeroRuta</div>
-                                        <div class="text-muted small" style="font-size: 0.7rem;">@veh.VehiculoModelo</div>
+                                        <div class="text-secondary small font-monospace fs-micro">@veh.NumeroRuta</div>
+                                        <div class="text-muted small fs-micro">@veh.VehiculoModelo</div>
                                     </td>
                                     <td>
                                         <div class="fw-semibold text-dark small">@veh.RepartidorNombre</div>
-                                        <div class="text-secondary small font-monospace" style="font-size: 0.725rem;">@veh.RepartidorTelefono</div>
+                                        <div class="text-secondary small font-monospace fs-micro">@veh.RepartidorTelefono</div>
                                     </td>
                                     <td>
                                         <div class="fw-semibold text-dark small">@veh.ZonaActual</div>
@@ -353,7 +353,7 @@
                                                 </span>
                                             }
                                         </div>
-                                        <div class="text-secondary small mt-1" style="font-size: 0.7rem;">
+                                        <div class="text-secondary small mt-1 fs-micro">
                                             Bat: <strong class="text-dark">@(veh.NivelBateriaPct > 0 ? veh.NivelBateriaPct + "%" : "No reportado")</strong>
                                         </div>
                                     </td>
@@ -412,15 +412,13 @@
                             @foreach (var unidad in Model.Resumen.Vehiculos)
                             {
                                 <button type="button"
-                                        class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace"
-                                        style="font-size: 0.72rem;"
+                                        class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace fs-micro"
                                         onclick="enfocarUnidadTablero(@System.Text.Json.JsonSerializer.Serialize(unidad.VehiculoMatricula))">
                                     @unidad.VehiculoMatricula
                                 </button>
                             }
                             <button type="button"
-                                    class="btn btn-dark btn-sm py-0 px-2"
-                                    style="font-size: 0.72rem;"
+                                    class="btn btn-dark btn-sm py-0 px-2 fs-micro"
                                     onclick="if(window.MapasUltimaMilla) window.MapasUltimaMilla.ajustarVistaGeneralMapa('mapaTableroFlotaLeaflet');">
                                 Vista general
                             </button>
@@ -429,22 +427,22 @@
                     <div class="card-body p-0 bg-light position-relative flex-grow-1">
                         <div id="mapaTableroFlotaLeaflet" class="um-mapa-leaflet" style="height: 440px;"></div>
                     </div>
-                    <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-3 small" style="font-size: 0.725rem;">
+                    <div class="card-footer bg-white py-2 px-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-3 fs-micro">
                         <div class="d-flex flex-wrap align-items-center gap-3">
                             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span> Depósito Central
+                                <span class="rounded-1 punto-leyenda punto-leyenda-deposito"></span> Depósito Central
                             </span>
                             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span> Camión en movimiento
+                                <span class="rounded-circle punto-leyenda punto-leyenda-exito"></span> Camión en movimiento
                             </span>
                             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B91C1C;"></span> Camión / Parada con riesgo SLA
+                                <span class="rounded-circle punto-leyenda punto-leyenda-error"></span> Camión / Parada con riesgo SLA
                             </span>
                             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #B45309;"></span> Camión detenido
+                                <span class="rounded-circle punto-leyenda punto-leyenda-alerta"></span> Camión detenido
                             </span>
                             <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #475569;"></span> Parada numerada (1..N)
+                                <span class="rounded-circle punto-leyenda punto-leyenda-neutro"></span> Parada numerada (1..N)
                             </span>
                         </div>
                     </div>
@@ -486,7 +484,7 @@
                             </div>
 
                             <div class="p-2 bg-light rounded-2 border mb-3">
-                                <div class="text-secondary small" style="font-size: 0.7rem;">Ubicación:</div>
+                                <div class="text-secondary small fs-micro">Ubicación:</div>
                                 <div class="small fw-semibold text-dark" id="mapaDireccion">--</div>
                                 <div class="small text-primary font-monospace mt-1" id="mapaParadaActual">--</div>
                             </div>

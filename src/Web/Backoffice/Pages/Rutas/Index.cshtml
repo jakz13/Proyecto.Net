@@ -158,23 +158,23 @@
                         <tr>
                             <td>
                                 <div class="fw-bold text-dark font-monospace">@ruta.NumeroRuta</div>
-                                <div class="text-muted small" style="font-size: 0.725rem;">Creada: @ruta.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</div>
+                                <div class="text-muted small fs-micro">Creada: @ruta.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</div>
                             </td>
                             <td>
                                 <div class="small fw-semibold text-dark">@ruta.Fecha.ToString("dd/MM/yyyy")</div>
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark small">@ruta.RepartidorNombre</div>
-                                <div class="text-muted small" style="font-size: 0.75rem;">
+                                <div class="text-muted small fs-metadata">
                                     <span class="badge bg-dark-subtle text-dark border font-monospace me-1">@ruta.VehiculoMatricula</span>
                                     <span>@ruta.VehiculoModelo</span>
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-light text-dark border px-2 py-1 fw-bold font-monospace" style="font-size: 0.8rem;">
+                                <span class="badge bg-light text-dark border px-2 py-1 fw-bold font-monospace fs-tamano-sm">
                                     @ruta.CantidadParadas
                                 </span>
-                                <div class="text-muted" style="font-size: 0.68rem;">paradas</div>
+                                <div class="text-muted fs-micro">paradas</div>
                             </td>
                             <td>
                                 <span class="small text-dark fw-semibold font-monospace">@ruta.PesoTotalKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY)kg / @ruta.CapacidadPesoMaxKg.ToString("N0", UltimaMilla.Backoffice.Formato.UY)kg</span>

@@ -101,7 +101,7 @@
                     <h2 class="h6 fw-bold mb-0 text-dark">Reglas del Cuadro Tarifario Vigente</h2>
                     <partial name="_BotonAyuda" model='"Rige actualmente para calcular la tarifa de todos los envíos procesados a partir de esta fecha."' />
                 </div>
-                <a asp-page="/Tarifas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.775rem;">
+                <a asp-page="/Tarifas/NuevaVersion" class="btn btn-outline-dark btn-sm py-1 px-2 fs-tamano-xs">
                     Crear versión a partir de esta
                 </a>
             </div>
@@ -172,7 +172,7 @@
             </div>
             <div class="panel-estandar-footer text-secondary small d-flex justify-content-between align-items-center">
                 <span>Reglas activas: <strong>@(Model.VersionVigente?.TotalReglas ?? 0)</strong></span>
-                <span style="font-size: 0.725rem;">Moneda: Pesos Uruguayos ($ UYU)</span>
+                <span class="fs-micro">Moneda: Pesos Uruguayos ($ UYU)</span>
             </div>
         </div>
 
@@ -225,7 +225,7 @@
                                         @(hist.Comentario ?? "Sin observaciones registradas")
                                     </td>
                                     <td class="text-end">
-                                        <a asp-page="/Tarifas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.775rem;">
+                                        <a asp-page="/Tarifas/Detalle" asp-route-id="@hist.Id" class="btn btn-outline-secondary btn-sm py-0 px-2 fs-tamano-xs">
                                             Ver Archivo
                                         </a>
                                     </td>

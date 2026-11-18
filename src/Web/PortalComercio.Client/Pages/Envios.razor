@@ -271,19 +271,19 @@
                         </div>
                         <div class="card-body p-0 d-flex flex-column justify-content-between">
                             <div id="mapaSeguimientoPortalComercio" class="um-mapa-leaflet flex-grow-1" style="min-height: 270px;"></div>
-                            <div class="px-3 py-2 bg-white border-top d-flex flex-wrap gap-3 align-items-center justify-content-between" style="font-size: 0.72rem;">
+                            <div class="px-3 py-2 bg-white border-top d-flex flex-wrap gap-3 align-items-center justify-content-between fs-micro">
                                 <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                    <span class="d-inline-block rounded-1" style="width: 10px; height: 10px; background-color: #0F172A;"></span>
+                                    <span class="rounded-1 punto-leyenda punto-leyenda-deposito"></span>
                                     Depósito
                                 </span>
                                 <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                    <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #1D4ED8;"></span>
+                                    <span class="rounded-circle punto-leyenda punto-leyenda-primario"></span>
                                     Parada de entrega
                                 </span>
                                 @if (envioEnSeguimiento.Estado == EstadoEnvioDto.EnTransito || envioEnSeguimiento.Estado == EstadoEnvioDto.AsignadoARuta)
                                 {
                                     <span class="d-inline-flex align-items-center gap-1 text-secondary">
-                                        <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: #15803D;"></span>
+                                        <span class="rounded-circle punto-leyenda punto-leyenda-exito"></span>
                                         Camión de reparto
                                     </span>
                                 }
@@ -323,14 +323,14 @@
                                                 <div class="fw-bold small text-dark">
                                                     <BadgeEstadoEnvio Estado="@evento.NuevoEstado" />
                                                 </div>
-                                                <div class="text-secondary font-monospace" style="font-size: 0.78rem;">
+                                                <div class="text-secondary font-monospace fs-metadata">
                                                     @evento.FechaHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                                 </div>
                                             </div>
                                             <div class="small text-dark mt-1">@evento.DescripcionEvento</div>
                                             @if (!string.IsNullOrWhiteSpace(evento.Usuario))
                                             {
-                                                <div class="text-muted" style="font-size: 0.75rem;">
+                                                <div class="text-muted fs-metadata">
                                                     Registrado por: @evento.Usuario
                                                 </div>
                                             }
@@ -386,7 +386,7 @@
                             <Icono Nombre="webhook" Tamano="14" />
                             <span>Historial de Avisos Webhook Emitidos para este Envío</span>
                         </span>
-                        <a href="avisos" class="small text-decoration-none text-primary fw-semibold" style="font-size: 0.75rem;">
+                        <a href="avisos" class="small text-decoration-none text-primary fw-semibold fs-tamano-xs">
                             Configuración y auditoría general de webhooks →
                         </a>
                     </div>
@@ -400,15 +400,15 @@
                     }
                     else if (avisosDelEnvio.Count == 0)
                     {
-                        <div class="bg-white p-2 rounded-2 border text-muted small" style="font-size: 0.78rem;">
+                        <div class="bg-white p-2 rounded-2 border text-muted small fs-metadata">
                             No se registran avisos webhooks emitidos aún para este paquete.
                         </div>
                     }
                     else
                     {
                         <div class="table-responsive bg-white rounded-2 border">
-                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.76rem;">
-                                <thead class="table-light text-secondary text-uppercase" style="font-size: 0.7rem;">
+                            <table class="table table-sm table-hover align-middle mb-0 fs-tamano-xs">
+                                <thead class="table-light text-secondary text-uppercase fs-micro">
                                     <tr>
                                         <th class="ps-2 py-1">Evento</th>
                                         <th class="py-1">Fecha</th>
@@ -448,8 +448,7 @@
                                                 @if (aviso.Estado != "Entregado")
                                                 {
                                                     <button type="button"
-                                                            class="btn btn-outline-primary btn-sm py-0 px-2 d-inline-flex align-items-center gap-1"
-                                                            style="font-size: 0.72rem;"
+                                                            class="btn btn-outline-primary btn-sm py-0 px-2 d-inline-flex align-items-center gap-1 fs-micro"
                                                             disabled="@(idAvisoReintentandoEnvio == aviso.Id)"
                                                             @onclick="() => ReintentarAvisoEnvioAsync(aviso.Id)">
                                                         @if (idAvisoReintentandoEnvio == aviso.Id)
@@ -465,7 +464,7 @@
                                                 }
                                                 else
                                                 {
-                                                    <span class="text-success small fw-semibold" style="font-size: 0.72rem;">OK</span>
+                                                    <span class="text-success small fw-semibold fs-micro">OK</span>
                                                 }
                                             </td>
                                         </tr>
@@ -525,28 +524,28 @@
                                 <!-- Cabecera de la etiqueta física -->
                                 <div class="d-flex justify-content-between align-items-start border-bottom border-2 border-dark pb-2 mb-2">
                                     <div>
-                                        <div class="fw-bold text-uppercase text-dark" style="font-size: 0.9rem; letter-spacing: 0.03em;">
+                                        <div class="fw-bold text-uppercase text-dark fs-tamano-base">
                                             @etiqueta.OperadorLogistico
                                         </div>
-                                        <div class="text-secondary" style="font-size: 0.72rem;">
+                                        <div class="text-secondary fs-micro">
                                             Admisión: @etiqueta.FechaAdmision.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                         </div>
                                     </div>
-                                    <div class="fw-bold text-uppercase @(esExpress ? "text-danger" : "text-dark")" style="font-size: 0.85rem;">
+                                    <div class="fs-tamano-sm fw-bold text-uppercase @(esExpress ? "text-danger" : "text-dark")">
                                         @(esExpress ? "Express" : "Estándar")
                                     </div>
                                 </div>
 
                                 <!-- Remitente -->
                                 <div class="border-bottom pb-2 mb-2">
-                                    <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Remitente (Comercio)</div>
+                                    <div class="text-uppercase text-secondary fw-bold fs-micro">Remitente (Comercio)</div>
                                     <div class="fw-semibold text-dark small">@etiqueta.ComercioRemitente</div>
                                 </div>
 
                                 <!-- Destinatario y Dirección -->
                                 <div class="border-bottom pb-2 mb-2">
-                                    <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Destinatario y Dirección</div>
-                                    <div class="fw-bold text-dark" style="font-size: 1rem;">@etiqueta.NombreDestinatario</div>
+                                    <div class="text-uppercase text-secondary fw-bold fs-micro">Destinatario y Dirección</div>
+                                    <div class="fw-bold text-dark fs-tamano-h3">@etiqueta.NombreDestinatario</div>
                                     <div class="fw-medium text-dark small">@etiqueta.DireccionDestino</div>
                                     @if (!string.IsNullOrWhiteSpace(etiqueta.TelefonoDestinatario))
                                     {
@@ -561,15 +560,15 @@
                                 <!-- Datos de Bulto y Peso -->
                                 <div class="d-flex justify-content-between border-bottom pb-2 mb-3 small">
                                     <div>
-                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Bulto</div>
+                                        <div class="text-uppercase text-secondary fw-bold fs-micro">Bulto</div>
                                         <div class="fw-bold font-monospace text-dark">@etiqueta.NumeroBulto de @etiqueta.TotalBultos</div>
                                     </div>
                                     <div>
-                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Peso</div>
+                                        <div class="text-uppercase text-secondary fw-bold fs-micro">Peso</div>
                                         <div class="fw-bold font-monospace text-dark">@etiqueta.PesoKg.ToString("F2") kg</div>
                                     </div>
                                     <div class="text-end">
-                                        <div class="text-uppercase text-secondary fw-bold" style="font-size: 0.68rem;">Estado</div>
+                                        <div class="text-uppercase text-secondary fw-bold fs-micro">Estado</div>
                                         <div class="fw-semibold text-dark">Admitido</div>
                                     </div>
                                 </div>
@@ -577,7 +576,7 @@
 
                             <!-- Código de Seguimiento y Código de Barras del Bulto -->
                             <div class="text-center pt-1">
-                                <div class="font-monospace fw-bold text-dark mb-1" style="font-size: 1.05rem; letter-spacing: 0.05em;">
+                                <div class="font-monospace fw-bold text-dark mb-1 fs-tamano-h2 espaciado-etiqueta">
                                     @etiqueta.CodigoSeguimiento
                                 </div>
                                 <svg viewBox="0 0 @anchoSvg 56" width="100%" height="56" aria-label="Código de barras @etiqueta.IdentificacionBulto">
@@ -587,10 +586,10 @@
                                         <rect x="@barra.PosicionX" y="4" width="@barra.Ancho" height="48" fill="#0f172a" />
                                     }
                                 </svg>
-                                <div class="font-monospace fw-semibold text-secondary mt-1" style="font-size: 0.78rem;">
+                                <div class="font-monospace fw-semibold text-secondary mt-1 fs-metadata">
                                     ID Bulto: @etiqueta.IdentificacionBulto
                                 </div>
-                                <div class="text-muted mt-2 pt-2 border-top" style="font-size: 0.7rem;">
+                                <div class="text-muted mt-2 pt-2 border-top fs-micro">
                                     Adherir al bulto físico antes de su entrega en depósito
                                 </div>
                             </div>

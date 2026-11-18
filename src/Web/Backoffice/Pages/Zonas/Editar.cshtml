@@ -92,9 +92,9 @@
                                 </svg>
                                 <span>Agregar Calle o Intersección</span>
                             </label>
-                            <span class="text-muted" style="font-size: 0.7rem;">Montevideo / Canelones</span>
+                            <span class="text-muted fs-micro">Montevideo / Canelones</span>
                         </div>
-                        <p class="text-secondary small mb-2" style="font-size: 0.725rem;">
+                        <p class="text-secondary small mb-2 fs-micro">
                             Escriba esquinas de referencia (ej: <em>18 de Julio y Ejido</em>, <em>Rivera y Soca</em>) para ajustar el polígono:
                         </p>
                         <div class="input-group input-group-sm mb-2">
@@ -122,14 +122,14 @@
 
                         <!-- Lista visual de esquinas añadidas -->
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small text-secondary fw-semibold" style="font-size: 0.725rem;">Esquinas añadidas al perímetro (haga clic en una para quitarla):</span>
+                            <span class="small text-secondary fw-semibold fs-micro">Esquinas añadidas al perímetro (haga clic en una para quitarla):</span>
                             <div class="d-flex gap-1">
-                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="deshacerEsquina()">Deshacer</button>
-                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="limpiarEsquinas()">Limpiar</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fs-micro" onclick="deshacerEsquina()">Deshacer</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 fs-micro" onclick="limpiarEsquinas()">Limpiar</button>
                             </div>
                         </div>
                         <div id="listaEsquinasVisual" class="d-flex flex-wrap gap-1 p-2 bg-white rounded border" style="min-height: 48px; max-height: 120px; overflow-y: auto;">
-                            <span class="text-muted small fst-italic" style="font-size: 0.75rem;" id="textoSinEsquinas">Cargando esquinas del polígono...</span>
+                            <span class="text-muted small fst-italic fs-metadata" id="textoSinEsquinas">Cargando esquinas del polígono...</span>
                         </div>
                     </div>
 
@@ -163,7 +163,7 @@
                 </div>
                 <div class="card-body p-2 bg-white">
                     <div id="mapaZonaLeaflet" class="border rounded-2" style="height: 260px; width: 100%;"></div>
-                    <div class="text-muted small mt-2 d-flex justify-content-between align-items-center px-1" style="font-size: 0.725rem;">
+                    <div class="text-muted small mt-2 d-flex justify-content-between align-items-center px-1 fs-micro">
                         <span>Haga clic en el mapa para trazar o ajustar esquinas.</span>
                         <span class="text-success fw-semibold">● Tiempo real</span>
                     </div>
@@ -183,7 +183,7 @@
                             </svg>
                             <span>2. Franjas Horarias de Entrega</span>
                         </h2>
-                        <span class="text-secondary small" style="font-size: 0.75rem;">
+                        <span class="text-secondary small fs-metadata">
                             Ventanas horarias disponibles para los envíos de esta zona.
                         </span>
                     </div>
@@ -326,13 +326,13 @@
             if (!contenedor) return;
 
             if (!descripciones || descripciones.length === 0) {
-                contenedor.innerHTML = '<span class="text-muted small fst-italic" style="font-size: 0.75rem;" id="textoSinEsquinas">No hay esquinas añadidas. Escriba arriba o haga clic en el mapa.</span>';
+                contenedor.innerHTML = '<span class="text-muted small fst-italic fs-tamano-xs" id="textoSinEsquinas">No hay esquinas añadidas. Escriba arriba o haga clic en el mapa.</span>';
                 return;
             }
 
             var html = '';
             descripciones.forEach(function (item, idx) {
-                html += '<button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-1 px-2 border rounded-pill shadow-xs esquina-item" style="font-size: 0.725rem; background: #fff;" onclick="eliminarEsquinaEspecifica(' + idx + ')" title="Haga clic para quitar esta esquina">' +
+                html += '<button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-1 px-2 border rounded-pill shadow-xs esquina-item chip-esquina-mapa" onclick="eliminarEsquinaEspecifica(' + idx + ')" title="Haga clic para quitar esta esquina">' +
                     '<strong class="text-primary">' + item.indice + '.</strong> ' +
                     '<span>' + item.descripcion + '</span>' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-danger ms-1" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +

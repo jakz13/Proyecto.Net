@@ -87,7 +87,7 @@
                             </label>
                             <input asp-for="Modelo.NombreComercial" class="form-control form-control-sm" placeholder="Ej: TransLogÃ­stica Express" required maxlength="100" />
                             <span asp-validation-for="Modelo.NombreComercial" class="text-danger small"></span>
-                            <div class="form-text" style="font-size: 0.725rem;">
+                            <div class="form-text fs-micro">
                                 Se mostrarÃ¡ en la barra lateral, encabezados, correos y seguimiento al cliente.
                             </div>
                         </div>
@@ -110,13 +110,13 @@
                                              style="width: 52px; height: 52px; object-fit: contain; @(string.IsNullOrEmpty(logoParaVistaPrevia) ? "display:none;" : "")" />
                                     </div>
                                     <div class="col">
-                                        <label class="small text-secondary mb-1 d-block fw-semibold" style="font-size: 0.725rem;">Cargar foto/imagen desde la computadora:</label>
+                                        <label class="small text-secondary mb-1 d-block fw-semibold fs-micro">Cargar foto/imagen desde la computadora:</label>
                                         <input type="file" asp-for="ArchivoLogo" id="inputArchivoLogo" accept="image/*" class="form-control form-control-sm" onchange="previsualizarArchivoLogo(this)" />
                                     </div>
                                 </div>
                                 <div class="mt-2 pt-2 border-top">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-secondary" style="font-size: 0.7rem;">O enlace URL directo a la imagen:</span>
+                                        <span class="text-secondary fs-micro">O enlace URL directo a la imagen:</span>
                                     </div>
                                     <input asp-for="Modelo.LogoUrl" id="inputLogoUrl" class="form-control form-control-sm" placeholder="https://ejemplo.com/logo.png" maxlength="300" oninput="actualizarPreviewUrl(this.value)" />
                                 </div>
@@ -129,14 +129,14 @@
                             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
                                 <span class="fw-bold small text-dark">Paleta Cromática Corporativa</span>
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="text-muted small me-1" style="font-size: 0.75rem;">Paletas sugeridas:</span>
-                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#1D4ED8', '#F97316')">Azul/Naranja</button>
-                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#047857', '#F59E0B')">Verde/Ámbar</button>
-                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#6D28D9', '#EC4899')">Púrpura/Rosa</button>
-                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2" style="font-size: 0.72rem;" onclick="aplicarPaleta('#0F172A', '#0EA5E9')">Grafito/Cian</button>
+                                    <span class="text-muted small me-1 fs-metadata">Paletas sugeridas:</span>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2 fs-micro" onclick="aplicarPaleta('#1D4ED8', '#F97316')">Azul/Naranja</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2 fs-micro" onclick="aplicarPaleta('#047857', '#F59E0B')">Verde/Ámbar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2 fs-micro" onclick="aplicarPaleta('#6D28D9', '#EC4899')">Púrpura/Rosa</button>
+                                    <button type="button" class="btn btn-sm btn-outline-dark py-0 px-2 fs-micro" onclick="aplicarPaleta('#0F172A', '#0EA5E9')">Grafito/Cian</button>
                                 </div>
                             </div>
-                            <div class="text-muted small" style="font-size: 0.725rem;">
+                            <div class="text-muted small fs-micro">
                                 El sistema calcula automáticamente el contraste óptimo de texto (blanco o negro) según el estándar WCAG.
                             </div>
                         </div>
@@ -204,7 +204,7 @@
                         </label>
                         <textarea asp-for="Modelo.MensajeComunicaciones" class="form-control form-control-sm" rows="2" placeholder="Mensaje al pie de notificaciones de despacho y seguimiento..." maxlength="300"></textarea>
                         <span asp-validation-for="Modelo.MensajeComunicaciones" class="text-danger small"></span>
-                        <div class="form-text" style="font-size: 0.725rem;">
+                        <div class="form-text fs-micro">
                             Se añade al pie de los correos automáticos y avisos de estado de envío enviados a los destinatarios.
                         </div>
                     </div>
@@ -214,7 +214,7 @@
                         <div class="col-12">
                             <label asp-for="Modelo.DireccionDeposito" class="form-label small fw-semibold">Dirección del depósito</label>
                             <input asp-for="Modelo.DireccionDeposito" class="form-control form-control-sm" placeholder="Calle, número y ciudad (ej: Av. Italia 3456, Montevideo)" maxlength="300" />
-                            <div class="form-text small" style="font-size: 0.725rem;">
+                            <div class="form-text small fs-micro">
                                 Se ubica en el mapa al guardar. Mientras no la cargue, el sistema no tiene una dirección de depósito.
                             </div>
                             <span asp-validation-for="Modelo.DireccionDeposito" class="text-danger small"></span>

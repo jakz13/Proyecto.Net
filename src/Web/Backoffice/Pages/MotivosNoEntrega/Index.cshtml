@@ -172,7 +172,7 @@
                                         <div class="fw-semibold text-dark small">@motivo.Descripcion</div>
                                         @if (motivo.FechaAlta.Year > 1)
                                         {
-                                            <div class="text-muted" style="font-size: 0.725rem;">
+                                            <div class="text-muted fs-micro">
                                                 Alta: @motivo.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")
                                             </div>
                                         }
@@ -267,7 +267,7 @@
                         </label>
                         <input asp-for="NuevoMotivo.Codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="EJ: CLIENTE_NO_RESPONDE" required maxlength="30" />
                         <span asp-validation-for="NuevoMotivo.Codigo" class="text-danger small"></span>
-                        <div class="form-text" style="font-size: 0.72rem;">
+                        <div class="form-text fs-micro">
                             Identificador único en mayúsculas y guiones bajos. No podrá modificarse tras crearse.
                         </div>
                     </div>
@@ -310,7 +310,7 @@
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Código Mnemotécnico</label>
                         <input type="text" id="editarMotivoCodigo" class="form-control form-control-sm font-monospace bg-light text-muted" readonly />
-                        <div class="form-text" style="font-size: 0.72rem;">El código permanece inmutable para mantener la trazabilidad de auditoría.</div>
+                        <div class="form-text fs-micro">El código permanece inmutable para mantener la trazabilidad de auditoría.</div>
                     </div>
 
                     <div class="mb-3">
