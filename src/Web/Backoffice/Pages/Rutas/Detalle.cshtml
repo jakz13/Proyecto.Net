@@ -238,7 +238,7 @@ else
                     {
                         @foreach (var p in ruta.Paradas)
                         {
-                            <tr class="@(p.Estado == "NoEntregado" ? "table-light opacity-75" : "")">
+                            <tr class="@(p.Estado is "NoEntregado" or "Fallida" or "NoRetirada" ? "table-light opacity-75" : "")">
                                 <td class="text-center">
                                     <span class="badge bg-light text-dark border rounded-circle d-inline-flex align-items-center justify-content-center fw-bold badge-orden-parada">
                                         @p.Orden
@@ -293,7 +293,7 @@ else
                                     {
                                         <span class="estado-intermedio">Entrega Parcial</span>
                                     }
-                                    else if (p.Estado is "EnTransito" or "EnCamino" or "EnSitio")
+                                    else if (p.Estado is "EnTransito" or "EnCamino" or "EnSitio" || (estaDespachada && p.Estado is "Pendiente" or "AsignadoARuta"))
                                     {
                                         <span class="estado-intermedio">En Tránsito</span>
                                     }
@@ -338,7 +338,7 @@ else
                                                 <circle cx="12" cy="10" r="3"></circle>
                                             </svg>
                                         </button>
-                                        @if (!p.EsRetiro && p.EnvioId != Guid.Empty && p.Estado != "NoEntregado")
+                                        @if (!p.EsRetiro && p.EnvioId != Guid.Empty && p.Estado is not ("NoEntregado" or "Fallida" or "Entregado" or "Entregada"))
                                         {
                                             <button type="button" 
                                                     class="btn btn-outline-danger btn-sm p-1 px-2 d-inline-flex align-items-center justify-content-center btn-reasignar"
@@ -360,7 +360,7 @@ else
                                                 </svg>
                                             </button>
                                         }
-                                        else if (!p.EsRetiro)
+                                        else if (!p.EsRetiro && p.Estado is "NoEntregado" or "Fallida")
                                         {
                                             <span class="text-muted small">En retorno</span>
                                         }

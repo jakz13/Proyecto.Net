@@ -81,7 +81,8 @@ public class LoginModel : PageModel
                 new(ClaimTypes.Role, RolSeleccionado),
                 new("operador_id", idOperadorGuid),
                 new("tenant_id", idOperadorGuid),
-                new("codigo_operador", _contextoOperador.OperadorActivo.OperadorId)
+                new("codigo_operador", _contextoOperador.OperadorActivo.OperadorId),
+                new("sid", Guid.NewGuid().ToString("N"))
             };
 
             await IniciarSesionConCookieAsync(claimsDemo);
@@ -107,6 +108,7 @@ public class LoginModel : PageModel
         }
 
         var operador = resultado.OperadorId?.ToString() ?? string.Empty;
+        var sidSesion = EmisorTokenTiempoReal.ExtraerSessionIdDeJwt(resultado.Token);
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, resultado.UsuarioId.ToString()),
@@ -117,6 +119,10 @@ public class LoginModel : PageModel
             // El JWT de la API viaja en la sesión y lo reenvía TokenApiHandler en cada llamada
             new(TokenApiHandler.ClaimToken, resultado.Token)
         };
+        if (!string.IsNullOrWhiteSpace(sidSesion))
+        {
+            claims.Add(new Claim("sid", sidSesion));
+        }
 
         await IniciarSesionConCookieAsync(claims);
         return RedirigirTrasLogin(returnUrl, resultado.Perfil);

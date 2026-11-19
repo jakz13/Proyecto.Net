@@ -263,6 +263,14 @@ public class HttpRutasApi : IRutasApi
                 || (p.RetiroId.HasValue && p.RetiroId.Value != Guid.Empty)
                 || p.CodigoSeguimiento.StartsWith("RET-", StringComparison.OrdinalIgnoreCase);
 
+            var estadoMostrado = string.Equals(p.EstadoParada, "Pendiente", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(p.EstadoEnvio)
+                ? p.EstadoEnvio
+                : string.Equals(p.EstadoParada, "Fallida", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(p.EstadoEnvio, "NoEntregado", StringComparison.OrdinalIgnoreCase)
+                    ? "NoEntregado"
+                    : p.EstadoParada;
+
             return new ParadaRutaDto
             {
                 Id = p.ParadaId,
@@ -279,7 +287,7 @@ public class HttpRutasApi : IRutasApi
                 VolumenM3 = p.VolumenM3,
                 Latitud = p.Latitud,
                 Longitud = p.Longitud,
-                Estado = p.EstadoParada
+                Estado = estadoMostrado
             };
         }).ToList();
 

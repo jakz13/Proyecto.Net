@@ -91,4 +91,57 @@ public class TiempoRealDeTodasLasPantallasTests : IClassFixture<WebApplicationFa
 
         Assert.Contains("EventoDatosCambiaron = \"DatosCambiaron\"", servidor);
     }
+
+    [Fact]
+    public async Task ElTokenDeTiempoReal_ConservaElMismoSidEnTodaLaSesion_ParaNoSerRechazadoPorTableroHub()
+    {
+        var cliente = await SesionComoAsync("Despachador");
+
+        var respuesta1 = await cliente.GetAsync("/tiempo-real/token");
+        var respuesta2 = await cliente.GetAsync("/tiempo-real/token");
+        Assert.Equal(HttpStatusCode.OK, respuesta1.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, respuesta2.StatusCode);
+
+        using var doc1 = System.Text.Json.JsonDocument.Parse(await respuesta1.Content.ReadAsStringAsync());
+        using var doc2 = System.Text.Json.JsonDocument.Parse(await respuesta2.Content.ReadAsStringAsync());
+        var token1 = doc1.RootElement.GetProperty("accessToken").GetString();
+        var token2 = doc2.RootElement.GetProperty("accessToken").GetString();
+
+        var sid1 = UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.ExtraerSessionIdDeJwt(token1);
+        var sid2 = UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.ExtraerSessionIdDeJwt(token2);
+
+        Assert.False(string.IsNullOrWhiteSpace(sid1));
+        Assert.Equal(sid1, sid2);
+    }
+
+    [Fact]
+    public void ElTokenDeTiempoReal_ExtraeElSidDelJwtDeLaApi_CuandoLaCookieNoTieneClaimSidDirecto()
+    {
+        var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+        var servicioJwt = new UltimaMilla.Infrastructure.Services.TokenJwtService(config);
+        var usuarioId = Guid.NewGuid();
+        var operadorId = UltimaMilla.Infrastructure.Persistence.DatabaseSeeder.DefaultOperadorId;
+        var perfilId = UltimaMilla.Infrastructure.Persistence.DatabaseSeeder.DefaultPerfilDespachadorId;
+        var usuario = new UltimaMilla.Domain.Entities.Identidad.Usuario(usuarioId, "Despachador", "desp@test.uy", "hash", perfilId, operadorId: operadorId);
+        var perfil = new UltimaMilla.Domain.Entities.Identidad.Perfil(perfilId, "Despachador", "Despachador");
+
+        var sidEsperado = "sesion-api-fija-123456";
+        var jwtApi = servicioJwt.GenerarToken(usuario, perfil, new[] { "RUTAS_DESPACHO" }, TimeSpan.FromHours(1), sessionId: sidEsperado);
+
+        var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, usuarioId.ToString()),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, "Despachador"),
+            new System.Security.Claims.Claim("operador_id", operadorId.ToString()),
+            new System.Security.Claims.Claim(UltimaMilla.Backoffice.Seguridad.TokenApiHandler.ClaimToken, jwtApi.Token)
+        }, "TestAuth"));
+
+        var emitido = UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.Emitir(principal, config, null, "/hubs/tablero");
+        var json = System.Text.Json.JsonSerializer.Serialize(emitido);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var accessToken = doc.RootElement.GetProperty("accessToken").GetString();
+
+        var sidEmitido = UltimaMilla.Backoffice.Seguridad.EmisorTokenTiempoReal.ExtraerSessionIdDeJwt(accessToken);
+        Assert.Equal(sidEsperado, sidEmitido);
+    }
 }

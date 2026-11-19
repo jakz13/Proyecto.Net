@@ -354,6 +354,7 @@
             conexion.on('RetiroCambioEstado', alRecibirCambioRetiro);
             conexion.on('IncidenciaCambio', alRecibirCambioIncidencia);
             conexion.on('CambioRuta', alRecibirCambioRuta);
+            conexion.on('HitoParada', alRecibirCambioRuta);
             // Cualquier alta, modificación o baja que otra sesión del operador haya hecho (vehículos, repartidores, zonas, tarifas, usuarios...): la pantalla se pone al día sola
             conexion.on('DatosCambiaron', function () {
                 if (paginaPideTiempoReal()) programarActualizacion();
