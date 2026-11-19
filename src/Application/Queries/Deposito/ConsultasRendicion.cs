@@ -44,7 +44,24 @@ public record RutaParaRendicionDetalleDto(
     int BultosEsperadosRetornoCount,
     bool TieneEnviosSinIntento,
     IReadOnlyList<EnvioRendicionDetalleDto> Envios,
-    IReadOnlyList<MotivoInternoRendicionDto> MotivosInternosDisponibles);
+    IReadOnlyList<MotivoInternoRendicionDto> MotivosInternosDisponibles,
+    IReadOnlyList<RetiroRendicionDetalleDto>? Retiros = null);
+
+/// <summary>
+/// Retiro en domicilio de una hoja de ruta mixta. Los bultos retirados vuelven con el repartidor y el operario confirma su recepción en depósito.
+/// </summary>
+public record RetiroRendicionDetalleDto(
+    Guid RetiroId,
+    string CodigoSeguimiento,
+    string Contacto,
+    string Direccion,
+    string EstadoRetiro,
+    int CantidadBultos,
+    decimal PesoKg,
+    bool FueRetirado,
+    bool PendienteDeRecepcion,
+    bool YaRecibidoEnDeposito,
+    IReadOnlyList<string> BultosAEsperar);
 
 public record EnvioRendicionDetalleDto(
     Guid EnvioId,

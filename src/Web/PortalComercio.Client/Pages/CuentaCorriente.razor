@@ -66,10 +66,9 @@ else if (cuenta is not null)
                     <label class="form-label small fw-semibold text-secondary mb-1">Estado Liquidación</label>
                     <select class="form-select form-select-sm" @bind="filtroEstadoLiquidacion">
                         <option value="">Todos los estados</option>
-                        <option value="Emitida">Emitida</option>
-                        <option value="Pagada">Pagada</option>
                         <option value="Pendiente">Pendiente</option>
-                        <option value="Anulada">Anulada</option>
+                        <option value="Aprobada">Aprobada</option>
+                        <option value="Pagada">Pagada</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-1 d-flex">
@@ -270,5 +269,15 @@ else if (cuenta is not null)
         TiempoReal.OperadoresDelComercioCambiaron -= RefrescarNombreOperadorAsync;
     }
 
-    private string Formato(decimal monto) => $"{cuenta?.Moneda ?? "UYU"} {monto.ToString("N2", CultureInfo.GetCultureInfo("es-UY"))}";
+    // Formato uruguayo (1.234,56) armado a mano: en Blazor WebAssembly la cultura "es-UY" puede no estar disponible (datos ICU recortados) y rompería la página
+    private static readonly NumberFormatInfo FormatoNumerico = new()
+    {
+        NumberDecimalSeparator = ",",
+        NumberGroupSeparator = ".",
+        NumberDecimalDigits = 2,
+        NumberGroupSizes = new[] { 3 },
+        NumberNegativePattern = 1
+    };
+
+    private string Formato(decimal monto) => $"{cuenta?.Moneda ?? "UYU"} {monto.ToString("N2", FormatoNumerico)}";
 }

@@ -236,9 +236,16 @@ public class RetiroEnDomicilioApiTests
             firmaDigitalBase64 = "firma", fotoEvidenciaBase64 = "foto"
         }), HttpStatusCode.OK);
 
-        // La rendición recibe en depósito los bultos retirados
+        // El detalle de la rendición muestra el retiro pendiente de recepción en depósito
+        var paraRendir = await Json(await deposito.GetAsync($"/api/deposito/hojas-de-ruta/{rutaId}/rendicion"), HttpStatusCode.OK);
+        var retiroEnRendicion = Assert.Single(paraRendir.GetProperty("retiros").EnumerateArray());
+        Assert.Equal(retiroId, retiroEnRendicion.GetProperty("retiroId").GetGuid());
+        Assert.True(retiroEnRendicion.GetProperty("pendienteDeRecepcion").GetBoolean());
+        Assert.Equal(2, retiroEnRendicion.GetProperty("bultosAEsperar").GetArrayLength());
+
+        // La rendición recibe en depósito los bultos retirados que el operario marcó
         var rendicion = await Json(await deposito.PostAsJsonAsync($"/api/deposito/hojas-de-ruta/{rutaId}/rendicion",
-            new { codigosBultosDevueltos = Array.Empty<string>() }), HttpStatusCode.OK);
+            new { codigosBultosDevueltos = Array.Empty<string>(), retirosRecibidosIds = new[] { retiroId } }), HttpStatusCode.OK);
         Assert.Contains("1 retiro(s)", rendicion.GetProperty("mensaje").GetString());
 
         var enDeposito = await Json(await deposito.GetAsync($"/api/retiros/{retiroId}"), HttpStatusCode.OK);
@@ -339,9 +346,10 @@ public class RetiroEnDomicilioApiTests
         // El despachador saca el retiro mientras el repartidor ya lo tiene descargado en su teléfono (la ruta todavía no salió)
         await Json(await despachador.PostAsJsonAsync($"/api/retiros/{retiroId}/sacar-de-ruta", new { }), HttpStatusCode.OK);
 
-        // Al confirmar la carga la ruta sale sola (la confirmación de carga despacha): ya no hay un despacho aparte
+        // La app confirma la carga (la hoja queda En carga) y el despachador confirma la salida
         await Json(await repartidor.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/carga/confirmar",
             new { codigosBultosCargados = new[] { envio.Bulto }, idempotencyKey = Guid.NewGuid().ToString() }), HttpStatusCode.OK);
+        await Json(await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { }), HttpStatusCode.OK);
 
         // Al recuperar la conexión, la app envía el retiro que sí hizo: prevalece lo físico y el conflicto queda asentado
         var resultado = await Json(await repartidor.PostAsJsonAsync($"/api/mobile/v1/rutas/{rutaId}/paradas/{paradaId}/retiro", new

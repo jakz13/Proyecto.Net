@@ -38,7 +38,24 @@ public record RutaParaRendicionDetalleDto(
     int BultosEsperadosRetornoCount,
     bool TieneEnviosSinIntento,
     IReadOnlyList<EnvioRendicionDto> Envios,
-    IReadOnlyList<MotivoInternoOpcionDto> MotivosInternosDisponibles);
+    IReadOnlyList<MotivoInternoOpcionDto> MotivosInternosDisponibles,
+    IReadOnlyList<RetiroRendicionDto>? Retiros = null);
+
+/// <summary>
+/// Retiro en domicilio de una hoja de ruta mixta: el operario confirma la recepción en depósito de lo que el repartidor retiró.
+/// </summary>
+public record RetiroRendicionDto(
+    Guid RetiroId,
+    string CodigoSeguimiento,
+    string Contacto,
+    string Direccion,
+    string EstadoRetiro,
+    int CantidadBultos,
+    decimal PesoKg,
+    bool FueRetirado,
+    bool PendienteDeRecepcion,
+    bool YaRecibidoEnDeposito,
+    IReadOnlyList<string> BultosAEsperar);
 
 /// <summary>
 /// Información de un envío de la hoja de ruta durante la rendición.
@@ -77,7 +94,8 @@ public record MotivoInternoOpcionDto(
 public record RendirHojaDeRutaRequestDto(
     IReadOnlyList<string> CodigosBultosDevueltos,
     string? MotivoInternoCodigo = null,
-    string? Observaciones = null);
+    string? Observaciones = null,
+    IReadOnlyList<Guid>? RetirosRecibidosIds = null);
 
 /// <summary>
 /// Resultado del proceso de rendición de la hoja de ruta.
@@ -93,4 +111,6 @@ public record ResultadoRendicionRutaDto(
     IReadOnlyList<string> EnviosPendientes,
     IReadOnlyList<string> CodigosSobrantes,
     bool Idempotente,
-    string Mensaje);
+    string Mensaje,
+    int RetirosRecibidos = 0,
+    int RetirosSinRecibir = 0);

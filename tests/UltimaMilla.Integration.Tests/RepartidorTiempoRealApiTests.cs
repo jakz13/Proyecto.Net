@@ -129,7 +129,16 @@ public class RepartidorTiempoRealApiTests
     public void LasEscriturasHechasDesdeElMovilNoSeReenvianALosDemasRepartidores(string area, bool avisaAlMovil)
         => Assert.Equal(avisaAlMovil, CambiosEnTiempoRealMiddleware.DebeAvisarAlMovil(area));
 
+    [Theory]
+    [InlineData("/api/mobile/v1/entregas", "mobile")]
+    [InlineData("/api/mobile/v1/deposito/recepcionar", "deposito")]
+    [InlineData("/api/mobile/v2/Deposito/recepcionar", "deposito")]
+    [InlineData("/api/deposito/recepcion", "deposito")]
+    [InlineData("/api/comercio/envios/importar", "comercio")]
+    public void ElAreaDeLaEscrituraSeDeduceDeLaRuta_YLaRecepcionMovilEsDelDeposito(string ruta, string area)
+        => Assert.Equal(area, CambiosEnTiempoRealMiddleware.AreaDe(new PathString(ruta)));
+
     [Fact]
-    public void ElAreaDeUnaEscrituraMovilSeDeduceComoMobile()
-        => Assert.Equal("mobile", CambiosEnTiempoRealMiddleware.AreaDe(new PathString("/api/mobile/v1/entregas")));
+    public void LaRecepcionEnDepositoHechaDesdeUnMovil_SeReenviaALosOtrosOperarios()
+        => Assert.True(CambiosEnTiempoRealMiddleware.DebeAvisarAlMovil(CambiosEnTiempoRealMiddleware.AreaDe(new PathString("/api/mobile/v1/deposito/recepcionar"))));
 }

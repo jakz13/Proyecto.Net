@@ -984,7 +984,8 @@ public class SyncService : ISyncService, IDisposable
                                 bool ok = await ProcesarRespuestaHttpAsync(op, response, "ConfirmarCarga", detallesErrores, cancellationToken);
                                 if (ok)
                                 {
-                                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnTransito");
+                                    // Confirmar la carga deja la hoja "En carga"; el despacho lo fija el servidor y llega al descargar la ruta
+                                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(targetRutaId, "EnCarga");
                                     exitosas++;
                                 }
                                 else

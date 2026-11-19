@@ -232,8 +232,14 @@ public class PersistenciaEntregaParcialTests
         });
         Assert.Equal(HttpStatusCode.OK, cargaResp.StatusCode);
         var cargaJson = await cargaResp.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("EnTransito", cargaJson.GetProperty("estadoRuta").GetString());
-        Assert.Equal(2, cargaJson.GetProperty("enviosEnTransito").GetInt32());
+        // Confirmar la carga desde la app deja la hoja "En carga": no despacha. La salida la confirma el despachador/operario.
+        Assert.Equal("EnCarga", cargaJson.GetProperty("estadoRuta").GetString());
+        Assert.Equal(0, cargaJson.GetProperty("enviosEnTransito").GetInt32());
+
+        var despacho = await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { });
+        Assert.Equal(HttpStatusCode.OK, despacho.StatusCode);
+        var despachoJson = await despacho.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, despachoJson.GetProperty("enviosEnTransito").GetInt32());
 
         // La consulta móvil activa NO debe incluir aB2 (ya perdido en carga) en codigosBultos y sí informar el conteo faltante
         var activaResp = await repartidor.GetAsync("/api/mobile/v1/rutas/activa");

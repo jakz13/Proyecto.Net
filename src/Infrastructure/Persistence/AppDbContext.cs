@@ -281,6 +281,10 @@ public class AppDbContext : DbContext
             builder.ToTable("IntentosEntrega");
             builder.HasKey(i => i.Id);
             builder.Property(i => i.Resultado).IsRequired().HasMaxLength(50);
+            builder.HasOne<ReglaOperativa>()
+                   .WithMany()
+                   .HasForeignKey(i => i.ReglaOperativaId)
+                   .OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(i => i.PruebaDeEntrega)
                    .WithOne()
                    .HasForeignKey<PruebaDeEntrega>(p => p.IntentoEntregaId)

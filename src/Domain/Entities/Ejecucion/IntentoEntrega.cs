@@ -14,6 +14,12 @@ public class IntentoEntrega : AggregateRoot
     public double? Longitud { get; private set; }
     public string OrigenDatos { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Versión exacta de la regla operativa con la que se procesó el intento (trazabilidad).
+    /// Es null en intentos anteriores a la trazabilidad o cuando el operador no tenía regla publicada.
+    /// </summary>
+    public Guid? ReglaOperativaId { get; private set; }
+
     public PruebaDeEntrega? PruebaDeEntrega { get; private set; }
 
     protected IntentoEntrega() { }
@@ -26,7 +32,8 @@ public class IntentoEntrega : AggregateRoot
         string origenDatos,
         Guid? motivoNoEntregaId = null,
         double? latitud = null,
-        double? longitud = null) : base(id)
+        double? longitud = null,
+        Guid? reglaOperativaId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new DomainValidationException("El identificador del intento de entrega no puede ser vacío.");
@@ -50,6 +57,7 @@ public class IntentoEntrega : AggregateRoot
         MotivoNoEntregaId = motivoNoEntregaId;
         Latitud = latitud;
         Longitud = longitud;
+        ReglaOperativaId = reglaOperativaId;
         Timestamp = DateTime.UtcNow;
     }
 

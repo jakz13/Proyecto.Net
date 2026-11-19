@@ -536,6 +536,81 @@ else
             </div>
         </div>
 
+        @if (Model.RutaDetalle.Retiros is { Count: > 0 } retirosDeLaRuta)
+        {
+            <!-- Retiros en domicilio de la hoja: lo retirado vuelve con el repartidor y el operario confirma su recepción en depósito -->
+            <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4" id="tarjetaRetirosRendicion">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h3 class="h6 fw-bold mb-0 text-dark">Retiros en Domicilio</h3>
+                    <div class="text-secondary small">
+                        Confirme los retiros cuyos bultos recibe en depósito. Un retiro no marcado queda como retirado, sin recibir.
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light border-top border-bottom text-secondary small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Retiro</th>
+                                <th>Estado</th>
+                                <th>Bultos a esperar</th>
+                                <th class="pe-4 text-end">Recepción en depósito</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var retiro in retirosDeLaRuta)
+                            {
+                                <tr>
+                                    <td class="ps-4" style="max-width: 260px;">
+                                        <div class="fw-semibold text-dark font-monospace">@retiro.CodigoSeguimiento</div>
+                                        <div class="text-dark small">@retiro.Contacto</div>
+                                        <div class="text-secondary small text-truncate" title="@retiro.Direccion">@retiro.Direccion</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@retiro.EstadoRetiro</div>
+                                        @if (!retiro.FueRetirado)
+                                        {
+                                            <div class="text-warning-emphasis small fw-medium">No se retiró en el domicilio</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var codigo in retiro.BultosAEsperar)
+                                            {
+                                                <span class="badge text-bg-light border font-monospace">@codigo</span>
+                                            }
+                                        </div>
+                                        <div class="text-muted small mt-1">@retiro.CantidadBultos bulto(s) · @retiro.PesoKg.ToString("N1", UltimaMilla.Backoffice.Formato.UY) kg</div>
+                                    </td>
+                                    <td class="pe-4 text-end">
+                                        @if (retiro.YaRecibidoEnDeposito)
+                                        {
+                                            <span class="text-success small fw-medium">Recibido en depósito</span>
+                                        }
+                                        else if (retiro.PendienteDeRecepcion && Model.RutaDetalle.Estado != "Rendida")
+                                        {
+                                            <div class="form-check d-inline-flex align-items-center gap-2 mb-0">
+                                                <input class="form-check-input mt-0" type="checkbox" name="RetirosRecibidosIds"
+                                                       value="@retiro.RetiroId" id="chk_retiro_@retiro.RetiroId" checked />
+                                                <label class="form-check-label small fw-semibold" for="chk_retiro_@retiro.RetiroId">Recibí los bultos</label>
+                                            </div>
+                                        }
+                                        else if (retiro.PendienteDeRecepcion)
+                                        {
+                                            <span class="text-warning-emphasis small fw-medium">Retirado, sin recibir</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Sin bultos que recibir</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
         @if (Model.RutaDetalle.Estado != "Rendida")
         {
             <!-- Datos de Cierre de Rendición -->

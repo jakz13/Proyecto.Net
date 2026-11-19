@@ -64,7 +64,7 @@ Se ejecuta de forma continua: cada solicitud HTTP, cada mensaje procesado por el
    | `um_cola_mensajes_pendientes` | Gauge | Worker (consulta cantidad de mensajes listos en la cola de RabbitMQ y de `OutboxMessage` sin publicar) | Profundidad de la cola |
    | `um_sync_eventos_pendientes` | Gauge | API/Worker: eventos recibidos desde la app móvil que aún no fueron procesados (outbox pendiente de origen móvil) | Sincronizaciones pendientes |
    | `um_sync_eventos_recibidos_total` | Counter | API (endpoints de sincronización móvil) | Volumen de sincronización |
-   | `um_avisos_comercio_fallidos` | Gauge | Worker (cantidad de `AvisoComercio` en estado Fallido) | Avisos a comercios fallidos |
+   | `um_avisos_comercio_fallidos` | Gauge | Worker y API (cantidad de `AvisoComercio` en estado Reintentando, Fallido o Agotado; un aviso descartado o entregado deja de contar) | Avisos a comercios fallidos |
    | `um_avisos_comercio_intentos_total{resultado="ok\|error"}` | Counter | Worker (cada intento de entrega) | Tasa de avisos fallidos |
    | `um_cache_aciertos_total` / `um_cache_fallos_total` | Counter | `DistributedCacheService` (aciertos cuando `GetStringAsync` devuelve dato; fallos cuando devuelve nulo) | Relación de aciertos del caché = aciertos / (aciertos + fallos) |
 

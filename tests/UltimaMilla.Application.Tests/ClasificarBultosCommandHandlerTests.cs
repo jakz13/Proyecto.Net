@@ -285,4 +285,60 @@ public class ClasificarBultosCommandHandlerTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Ejecutar(envio.Id, Dto(1)));
     }
+
+    // --- Zona detectada automáticamente ---
+
+    private sealed class DireccionesFake : UltimaMilla.Application.Ports.IDireccionRepository
+    {
+        public List<Direccion> Direcciones { get; } = new();
+        public Task AddAsync(Direccion direccion, CancellationToken cancellationToken = default) { Direcciones.Add(direccion); return Task.CompletedTask; }
+        public Task<List<Direccion>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Direcciones.Where(d => ids.Contains(d.Id)).ToList());
+    }
+
+    [Fact]
+    public async Task BultoSinZona_TomaLaZonaQueCubreLaDireccionDeEntrega()
+    {
+        var zonaId = Guid.NewGuid();
+        var direccion = new Direccion(Guid.NewGuid(), "Alfredo Stutz", "1366", "Montevideo", zonaId);
+        var direcciones = new DireccionesFake();
+        direcciones.Direcciones.Add(direccion);
+
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-ZONAAUTO1", direccion.Id, null, null,
+            "Alfredo Stutz 1366", "Cliente", _tenant.OperadorId);
+        envio.AgregarBulto("TRK-ZONAAUTO1-B01", 1m, 10m, 10m, 10m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-ZONAAUTO1-B01" }, null, null, Guid.NewGuid());
+        _envios.Envios.Add(envio);
+
+        var handler = new ClasificarBultosCommandHandler(_envios, _uow, _tenant, _outbox, direcciones);
+        var resultado = await handler.Handle(
+            new ClasificarBultosCommand(envio.Id, new[] { new ClasificacionBultoDto("TRK-ZONAAUTO1-B01", "Normal") }),
+            CancellationToken.None);
+
+        Assert.True(resultado.ListoParaHojaDeRuta);
+        Assert.Equal(zonaId, envio.Bultos.Single().ZonaClasificadaId);
+    }
+
+    [Fact]
+    public async Task ZonaIndicadaPorElOperario_PrevaleceSobreLaDetectada()
+    {
+        var zonaDireccion = Guid.NewGuid();
+        var zonaElegida = Guid.NewGuid();
+        var direccion = new Direccion(Guid.NewGuid(), "Alfredo Stutz", "1366", "Montevideo", zonaDireccion);
+        var direcciones = new DireccionesFake();
+        direcciones.Direcciones.Add(direccion);
+
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-ZONAAUTO2", direccion.Id, null, null,
+            "Alfredo Stutz 1366", "Cliente", _tenant.OperadorId);
+        envio.AgregarBulto("TRK-ZONAAUTO2-B01", 1m, 10m, 10m, 10m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-ZONAAUTO2-B01" }, null, null, Guid.NewGuid());
+        _envios.Envios.Add(envio);
+
+        var handler = new ClasificarBultosCommandHandler(_envios, _uow, _tenant, _outbox, direcciones);
+        await handler.Handle(
+            new ClasificarBultosCommand(envio.Id, new[] { new ClasificacionBultoDto("TRK-ZONAAUTO2-B01", "Normal", zonaElegida) }),
+            CancellationToken.None);
+
+        Assert.Equal(zonaElegida, envio.Bultos.Single().ZonaClasificadaId);
+    }
 }

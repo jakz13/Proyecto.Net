@@ -94,7 +94,19 @@ public class RutaDeOtroRepartidorApiTests
         // El dueño sí puede
         Assert.Equal(HttpStatusCode.OK, (await duenio.Sesion.PostAsJsonAsync($"{baseRuta}/carga/confirmar",
             new { codigosBultosCargados = new[] { bulto }, idempotencyKey = Guid.NewGuid().ToString() })).StatusCode);
+        // La carga deja la hoja "En carga": las paradas se navegan cuando el despachador la despacha
+        Assert.Equal(HttpStatusCode.OK, (await despachador.PostAsJsonAsync($"/api/planificacion/hojas-de-ruta/{rutaId}/despacho", new { })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await duenio.Sesion.GetAsync($"{baseRuta}/paradas")).StatusCode);
+
+        // Finalizar desde la app NO rinde la hoja: queda "Finalizada" esperando la rendición del operario en el depósito
+        var finalizada = await duenio.Sesion.PostAsJsonAsync($"{baseRuta}/finalizar", new { codigosBultosDevueltos = new[] { bulto } });
+        Assert.Equal(HttpStatusCode.OK, finalizada.StatusCode);
+        var finalizadaJson = await finalizada.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Finalizada", finalizadaJson.GetProperty("estadoRuta").GetString());
+
+        var paraRendir = await deposito.GetAsync($"/api/deposito/hojas-de-ruta/{rutaId}/rendicion");
+        Assert.Equal(HttpStatusCode.OK, paraRendir.StatusCode);
+        Assert.Equal("Finalizada", (await paraRendir.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("estado").GetString());
     }
 
     [FactPostgres]
