@@ -174,17 +174,7 @@ public class RegistrarIntentoFallidoCommandHandler : IRequestHandler<RegistrarIn
 
         // 6. Obtención de la Regla Operativa vigente para evaluación de SLA y máximos de reintento
         var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(ruta.OperadorId, cancellationToken)
-            ?? new ReglaOperativa(
-                Guid.NewGuid(),
-                ruta.OperadorId,
-                1,
-                _clock.UtcNow.AddYears(-1),
-                maxIntentosEntrega: 3,
-                plazoEntreIntentos: TimeSpan.FromHours(24),
-                tipoPruebaEntregaExigida: "Firma digital del receptor",
-                politicaDevolucion: "Retorno automático a depósito",
-                plazoComprometidoEstandar: TimeSpan.FromHours(48),
-                plazoComprometidoUrgente: TimeSpan.FromHours(24));
+            ?? ReglaOperativa.PorDefecto(ruta.OperadorId, _clock.UtcNow, "Retorno automático a depósito");
 
         var fechaDispositivoUtc = request.FechaHoraDispositivoUtc ?? _clock.UtcNow;
 

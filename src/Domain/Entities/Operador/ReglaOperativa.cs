@@ -61,6 +61,24 @@ public class ReglaOperativa : Entity, IMustHaveTenant
 
     protected ReglaOperativa() { }
 
+    // Solo en memoria: marca la regla de contingencia que no existe en la base.
+    private bool _porDefecto;
+
+    /// <summary>True si es la regla de contingencia (el operador no tiene ninguna publicada); no se persiste ni se referencia.</summary>
+    public bool EsPorDefecto => _porDefecto;
+
+    /// <summary>Regla de contingencia para operadores sin regla publicada. No existe en la base.</summary>
+    public static ReglaOperativa PorDefecto(Guid operadorId, DateTime ahoraUtc, string politicaDevolucion = "Retorno a depósito central")
+        => new(
+            Guid.NewGuid(), operadorId, 1, ahoraUtc.AddYears(-1),
+            maxIntentosEntrega: 3,
+            plazoEntreIntentos: TimeSpan.FromHours(24),
+            tipoPruebaEntregaExigida: "Firma digital del receptor",
+            politicaDevolucion: politicaDevolucion,
+            plazoComprometidoEstandar: TimeSpan.FromHours(48),
+            plazoComprometidoUrgente: TimeSpan.FromHours(24))
+        { _porDefecto = true };
+
     public ReglaOperativa(
         Guid id,
         Guid operadorId,

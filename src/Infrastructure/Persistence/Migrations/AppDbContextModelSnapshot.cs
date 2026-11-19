@@ -322,6 +322,9 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ParadaId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ReglaOperativaId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Resultado")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -333,6 +336,8 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EnvioId");
+
+                    b.HasIndex("ReglaOperativaId");
 
                     b.ToTable("IntentosEntrega", (string)null);
                 });
@@ -2125,6 +2130,11 @@ namespace UltimaMilla.Infrastructure.Persistence.Migrations
                         .HasForeignKey("EnvioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("UltimaMilla.Domain.Entities.Operador.ReglaOperativa", null)
+                        .WithMany()
+                        .HasForeignKey("ReglaOperativaId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("UltimaMilla.Domain.Entities.Ejecucion.PruebaDeEntrega", b =>

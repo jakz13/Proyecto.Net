@@ -869,7 +869,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             origenDatos: "MobileApp",
             motivoNoEntregaId: null,
             latitud: latitud,
-            longitud: longitud);
+            longitud: longitud,
+            reglaOperativaId: reglaOperativa.EsPorDefecto ? null : reglaOperativa.Id);
 
         intento.AdjuntarPruebaEntrega(prueba);
         _intentosEntrega.Add(intento);
@@ -1079,7 +1080,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             origenDatos: "MobileApp",
             motivoNoEntregaId: motivoPrincipalId,
             latitud: latitud,
-            longitud: longitud);
+            longitud: longitud,
+            reglaOperativaId: reglaOperativa.EsPorDefecto ? null : reglaOperativa.Id);
 
         intento.AdjuntarPruebaEntrega(prueba);
         _intentosEntrega.Add(intento);
@@ -1179,7 +1181,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
             origenDatos: "MobileApp",
             motivoNoEntregaId: motivo.Id,
             latitud: latitud,
-            longitud: longitud);
+            longitud: longitud,
+            reglaOperativaId: reglaOperativa.EsPorDefecto ? null : reglaOperativa.Id);
 
         if (!string.IsNullOrWhiteSpace(fotoEvidenciaBase64))
         {

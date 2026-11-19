@@ -90,17 +90,7 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
             ?? throw new NotFoundException($"Envío '{request.EnvioId}' no encontrado.");
 
         var reglaOperativa = await _envioRepository.GetReglaOperativaVigenteAsync(ruta.OperadorId, cancellationToken)
-            ?? new ReglaOperativa(
-                Guid.NewGuid(),
-                ruta.OperadorId,
-                1,
-                _clock.UtcNow.AddYears(-1),
-                maxIntentosEntrega: 3,
-                plazoEntreIntentos: TimeSpan.FromHours(24),
-                tipoPruebaEntregaExigida: "Firma digital del receptor",
-                politicaDevolucion: "Retorno a depósito central",
-                plazoComprometidoEstandar: TimeSpan.FromHours(48),
-                plazoComprometidoUrgente: TimeSpan.FromHours(24));
+            ?? ReglaOperativa.PorDefecto(ruta.OperadorId, _clock.UtcNow);
 
         // Idempotencia offline: si el envío ya está totalmente entregado, o si los mismos bultos solicitados ya están entregados en esta parada
         var solicitadosNormalizados = (request.CodigosBultosEntregados ?? Array.Empty<string>())
