@@ -590,16 +590,16 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Volumen de eventos de sincronización recibidos desde la app móvil e intentos de entrega de webhooks a comercios.",
+      "description": "Eventos por intervalo (no acumulados): sincronizaciones recibidas desde la app móvil e intentos de entrega de webhooks a comercios, con resultado ok o error. Se calcula con increase() porque los contadores viven en memoria de cada proceso y vuelven a 0 al reiniciar (por ejemplo, en cada despliegue): la suma cruda perdía lo ocurrido antes del reinicio.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 2
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1
           },
           "unit": "short"
         },
@@ -631,8 +631,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(um_sync_eventos_recibidos_total)",
-          "legendFormat": "Eventos de sincronización móvil recibidos (total)",
+          "expr": "sum(increase(um_sync_eventos_recibidos_total[$__rate_interval]))",
+          "legendFormat": "Eventos de sincronización móvil recibidos",
           "refId": "A"
         },
         {
@@ -640,7 +640,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (resultado) (um_avisos_comercio_intentos_total)",
+          "expr": "sum by (resultado) (increase(um_avisos_comercio_intentos_total[$__rate_interval]))",
           "legendFormat": "Intentos de aviso a comercios ({{resultado}})",
           "refId": "B"
         }
