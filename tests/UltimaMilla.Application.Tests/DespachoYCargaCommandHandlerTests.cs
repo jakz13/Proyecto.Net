@@ -59,6 +59,18 @@ public class DespachoYCargaCommandHandlerTests
         return envio;
     }
 
+    private Envio CrearEnvioSinClasificar()
+    {
+        _secuencia++;
+        var codigo = $"TRK-DESP{_secuencia:0000}";
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", codigo,
+            direccionEntregaId: Guid.NewGuid(), operadorId: _tenant.OperadorId);
+        envio.AgregarBulto($"{codigo}-B01", 2m, 10m, 10m, 10m);
+        envio.RecepcionarEnDeposito(new List<string> { $"{codigo}-B01" }, null, null, Guid.NewGuid());
+        _envios.Envios.Add(envio);
+        return envio;
+    }
+
     /// <summary>Arma y libera una ruta con los envíos indicados directamente sobre el dominio.</summary>
     private HojaDeRuta CrearRutaLiberada(params Envio[] envios)
     {
@@ -462,5 +474,36 @@ public class DespachoYCargaCommandHandlerTests
         _tenant.UsuarioId = null;
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Despachar(ruta));
+    }
+
+    // ---- barrera: un envío sin clasificar nunca sale a la calle ----
+
+    [Fact]
+    public async Task Despacho_EnvioSinClasificar_NoPasaATransitoYVuelveADeposito()
+    {
+        var clasificado = CrearEnvioClasificado();
+        var sinClasificar = CrearEnvioSinClasificar();
+        var ruta = CrearRutaLiberada(clasificado, sinClasificar);
+        await CargarSoloEscaneo(ruta, CodigosDe(clasificado, sinClasificar));
+
+        var resultado = await Despachar(ruta);
+
+        Assert.Equal(EstadoEnvio.EnTransito, clasificado.EstadoActual);
+        Assert.Equal(EstadoEnvio.EnDeposito, sinClasificar.EstadoActual);
+        Assert.Equal(1, resultado.EnviosEnTransito);
+        Assert.Contains(resultado.EnviosRetirados, r => r.EnvioId == sinClasificar.Id);
+    }
+
+    [Fact]
+    public async Task ConfirmarCargaAutomatica_EnvioSinClasificar_NoPasaATransito()
+    {
+        var clasificado = CrearEnvioClasificado();
+        var sinClasificar = CrearEnvioSinClasificar();
+        var ruta = CrearRutaLiberada(clasificado, sinClasificar);
+
+        await Cargar(ruta, CodigosDe(clasificado, sinClasificar), despacharAutomaticamente: true);
+
+        Assert.Equal(EstadoEnvio.EnTransito, clasificado.EstadoActual);
+        Assert.Equal(EstadoEnvio.EnDeposito, sinClasificar.EstadoActual);
     }
 }

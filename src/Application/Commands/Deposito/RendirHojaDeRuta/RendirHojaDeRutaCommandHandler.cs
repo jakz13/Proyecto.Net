@@ -181,7 +181,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
 
         // Hoja de ruta mixta: los bultos retirados en domicilio llegan al depósito con el repartidor, y un retiro
         // que nunca se visitó vuelve a quedar pendiente de asignación. Se resuelve antes de cerrar la ruta, que marca las paradas no visitadas.
-        var retirosRecibidos = await ProcesarRetirosAlRendirAsync(ruta, usuarioId, cancellationToken);
+        var (retirosRecibidos, retirosSinRecibir) = await ProcesarRetirosAlRendirAsync(ruta, usuarioId, request.RetirosRecibidosIds, cancellationToken);
 
         ruta.Rendir();
 
@@ -216,27 +216,35 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             }
         }
 
-        var sufijoRetiros = retirosRecibidos > 0 ? $" Se recibieron {retirosRecibidos} retiro(s) en depósito." : string.Empty;
+        var sufijoRetiros = (retirosRecibidos > 0 ? $" Se recibieron {retirosRecibidos} retiro(s) en depósito." : string.Empty)
+            + (retirosSinRecibir > 0 ? $" {retirosSinRecibir} retiro(s) retirado(s) siguen sin recibirse en depósito." : string.Empty);
 
         return new RendicionResultDto(
             ruta.Id, ruta.Estado, entregados, devueltos, pendientes,
             reintegrados, enDevolucion, enviosPendientes, sobrantes, false,
             (pendientes == 0 && sobrantes.Count == 0
                 ? "Rendición registrada sin diferencias. El repartidor puede despachar otra hoja de ruta."
-                : $"Rendición registrada con diferencias: {pendientes} bulto(s) pendiente(s) y {sobrantes.Count} código(s) sobrante(s).") + sufijoRetiros);
+                : $"Rendición registrada con diferencias: {pendientes} bulto(s) pendiente(s) y {sobrantes.Count} código(s) sobrante(s).") + sufijoRetiros,
+            retirosRecibidos, retirosSinRecibir);
     }
 
-    /// <summary>Devuelve la cantidad de retiros que quedaron recibidos en depósito.</summary>
-    private async Task<int> ProcesarRetirosAlRendirAsync(HojaDeRuta ruta, Guid usuarioId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Devuelve cuántos retiros quedaron recibidos en depósito y cuántos, ya retirados en el domicilio, el operario no recibió.
+    /// Con <paramref name="recibidosIds"/> nulo se reciben todos los retirados; con la lista, solo los indicados.
+    /// </summary>
+    private async Task<(int Recibidos, int SinRecibir)> ProcesarRetirosAlRendirAsync(
+        HojaDeRuta ruta, Guid usuarioId, IReadOnlyList<Guid>? recibidosIds, CancellationToken cancellationToken)
     {
         if (_retiroRepository is null)
-            return 0;
+            return (0, 0);
 
         var idsRetiros = ruta.Paradas.Where(p => p.Estado != "Cancelada").IdsDeRetiros().Distinct().ToList();
         if (idsRetiros.Count == 0)
-            return 0;
+            return (0, 0);
 
+        var aceptados = recibidosIds?.ToHashSet();
         var recibidos = 0;
+        var sinRecibir = 0;
         var retiros = (await _retiroRepository.GetByIdsAsync(idsRetiros, cancellationToken))
             .Where(r => r.OperadorId == _currentTenant.OperadorId);
 
@@ -245,8 +253,15 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             switch (retiro.EstadoActual)
             {
                 case EstadoRetiro.Retirado:
-                    retiro.RecibirEnDeposito(usuarioId);
-                    recibidos++;
+                    if (aceptados is null || aceptados.Contains(retiro.Id))
+                    {
+                        retiro.RecibirEnDeposito(usuarioId);
+                        recibidos++;
+                    }
+                    else
+                    {
+                        sinRecibir++;
+                    }
                     break;
 
                 case EstadoRetiro.AsignadoARuta:
@@ -257,7 +272,7 @@ public class RendirHojaDeRutaCommandHandler : IRequestHandler<RendirHojaDeRutaCo
             await _retiroRepository.UpdateAsync(retiro, cancellationToken);
         }
 
-        return recibidos;
+        return (recibidos, sinRecibir);
     }
 
     /// <summary>Bultos que salieron en el vehículo con esta ruta (entregados, en tránsito, pendientes o en retorno).</summary>

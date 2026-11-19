@@ -1268,14 +1268,8 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
                 .Concat(BultosSobrantes.Select(s => s.CodigoBulto))
                 .ToList();
 
-            var enviosConCargaCount = BultosCargadosLista
-                .Where(b => !b.EsSobrante)
-                .Select(b => b.EnvioId != Guid.Empty ? b.EnvioId : b.Id)
-                .Distinct()
-                .Count();
-
-            var puedeDespacharEnTransito = enviosConCargaCount > 0 || faltantes == 0;
-
+            // Confirmar la carga NO despacha: la hoja queda "En carga" y la despacha el despachador/operario desde el depósito.
+            // El estado "Despachada" (y luego "En tránsito" al iniciar el recorrido) lo fija el servidor y la app lo recibe al descargar la ruta.
             var idempotencyKey = $"CARGA-{HojaDeRutaId:N}";
             var observaciones = (faltantes > 0 || sobrantes > 0)
                 ? $"Discrepancia de carga: {faltantes} faltantes, {sobrantes} sobrantes. Motivo: {MotivoDiscrepanciaSeleccionado}. {DetalleDocumentalDiscrepanciaInput} {MensajeDiscrepancia}".Trim()
@@ -1284,13 +1278,9 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
             if (_localDatabaseService is not null)
             {
                 await _localDatabaseService.ConfirmarCargaLocalAsync(HojaDeRutaId, codigosCargados);
-                if (puedeDespacharEnTransito)
-                {
-                    await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(HojaDeRutaId, "EnTransito");
-                }
             }
 
-            EstadoHojaDeRuta = puedeDespacharEnTransito ? "EnTransito" : "EnCarga";
+            EstadoHojaDeRuta = "EnCarga";
 
             var payload = new ConfirmarCargaOfflinePayload
             {
@@ -1326,10 +1316,6 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
                             await _localDatabaseService.MarcarComoSincronizadoAsync(opId);
                         }
 
-                        if (_localDatabaseService is not null && puedeDespacharEnTransito)
-                        {
-                            await _localDatabaseService.ActualizarEstadoHojaDeRutaAsync(HojaDeRutaId, "EnTransito");
-                        }
                     }
                     else if (_syncService is not null)
                     {
@@ -1340,11 +1326,6 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
                 {
                     System.Diagnostics.Debug.WriteLine($"[CargaVehiculoViewModel] Confirmación de carga en cola: {ex.Message}");
                 }
-            }
-
-            if (puedeDespacharEnTransito && BultosPendientes.Count > 0)
-            {
-                BultosPendientes.Clear();
             }
 
             if (_trackingService is not null && EstadoHojaDeRuta is "EnTransito" or "Despachada")
@@ -1368,10 +1349,7 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
             }
 
             ActualizarConteos();
-            MostrarAvisoRapido(
-                EstadoHojaDeRuta == "EnTransito"
-                    ? "Carga confirmada y hoja de ruta en tránsito"
-                    : "Carga registrada con éxito");
+            MostrarAvisoRapido("Carga registrada. Esperando que el depósito despache la ruta.");
 
             if (Shell.Current != null && EstadoHojaDeRuta is "EnTransito" or "Despachada")
             {

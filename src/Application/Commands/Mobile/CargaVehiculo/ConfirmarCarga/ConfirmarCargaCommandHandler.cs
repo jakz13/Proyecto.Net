@@ -150,6 +150,13 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
 
             foreach (var envio in envios.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))
             {
+                // Barrera de seguridad: un envío sin clasificar en depósito no sale a reparto, vuelve a depósito
+                if (!envio.EstaClasificado)
+                {
+                    aRetirar.Add((envio, new List<Bulto>()));
+                    continue;
+                }
+
                 var esperados = envio.Bultos.Where(b => b.EstaDisponibleParaRuta).ToList();
                 var bultosCargadosDelEnvio = esperados.Where(b => ruta.BultoFueCargado(b.Id)).ToList();
                 var bultosNoCargados = esperados.Where(b => !ruta.BultoFueCargado(b.Id)).ToList();
@@ -172,9 +179,11 @@ public class ConfirmarCargaCommandHandler : IRequestHandler<ConfirmarCargaComman
                 foreach (var (envio, bultosNoCargados) in aRetirar)
                 {
                     var codigosFaltantes = bultosNoCargados.Select(b => b.Identificacion).ToList();
-                    var motivoFaltante = string.IsNullOrWhiteSpace(request.ObservacionesDiscrepancia)
-                        ? $"Envío retirado del despacho por bulto(s) faltante(s) en la carga: {string.Join(", ", codigosFaltantes)}."
-                        : $"Envío retirado del despacho por bulto(s) faltante(s) en la carga ({string.Join(", ", codigosFaltantes)}). Observaciones: {request.ObservacionesDiscrepancia.Trim()}";
+                    var motivoFaltante = !envio.EstaClasificado
+                        ? "Envío retirado del despacho: no fue clasificado por el depósito."
+                        : string.IsNullOrWhiteSpace(request.ObservacionesDiscrepancia)
+                            ? $"Envío retirado del despacho por bulto(s) faltante(s) en la carga: {string.Join(", ", codigosFaltantes)}."
+                            : $"Envío retirado del despacho por bulto(s) faltante(s) en la carga ({string.Join(", ", codigosFaltantes)}). Observaciones: {request.ObservacionesDiscrepancia.Trim()}";
 
                     envio.DesasignarDeRutaPorFaltante(motivoFaltante, usuarioId);
                     ruta.DesasignarEnvioFaltante(envio.Id);

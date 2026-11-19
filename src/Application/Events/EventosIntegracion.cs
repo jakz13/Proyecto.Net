@@ -31,6 +31,7 @@ public static class EventosIntegracion
         public const string RutaArmada = "RutaArmadaIntegrationEvent";
         public const string CargaVehiculoRegistrada = "CargaVehiculoRegistradaIntegrationEvent";
         public const string RutaIniciada = "RutaIniciadaIntegrationEvent";
+        public const string RutaFinalizada = "RutaFinalizadaIntegrationEvent";
 
         // Incidencias
         public const string IncidenciaAbierta = "IncidenciaAbiertaIntegrationEvent";

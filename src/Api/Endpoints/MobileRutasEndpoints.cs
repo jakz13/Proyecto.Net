@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using UltimaMilla.Application.Commands.Deposito.RendirHojaDeRuta;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ConfirmarCarga;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.IniciarRecorrido;
 using UltimaMilla.Application.Commands.Mobile.CargaVehiculo.ValidarEscaneoCarga;
@@ -9,6 +8,7 @@ using UltimaMilla.Application.Commands.Mobile.DevolucionEnCalle.RegistrarRetiroD
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaExitosa;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarEntregaParcial;
 using UltimaMilla.Application.Commands.Mobile.Entrega.RegistrarIntentoFallido;
+using UltimaMilla.Application.Commands.Mobile.FinalizarRuta;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.RegistrarEventoGeocerca;
 using UltimaMilla.Application.Commands.Mobile.Navegacion.SeleccionarParadaActual;
 using UltimaMilla.Application.DTOs.Mobile;
@@ -179,10 +179,10 @@ public static class MobileRutasEndpoints
         {
             try
             {
-                var command = new RendirHojaDeRutaCommand(
+                // La app solo finaliza y declara lo que devuelve: la rendición la hace el operario en el depósito (Backoffice)
+                var command = new FinalizarHojaDeRutaCommand(
                     hojaDeRutaId,
                     request?.CodigosBultosDevueltos ?? new List<string>(),
-                    request?.MotivoInternoCodigo,
                     request?.Observaciones ?? "Finalización de hoja de ruta por retorno a depósito desde la aplicación móvil.");
 
                 var resultado = await mediator.Send(command, ct);
@@ -209,8 +209,8 @@ public static class MobileRutasEndpoints
         group.MapPost("/finalizar", finalizarRutaHandler)
             .WithName("FinalizarHojaDeRuta")
             .WithSummary("Finalizar hoja de ruta al completar paradas o retornar a depósito")
-            .WithDescription("Rinde y cierra la hoja de ruta desde la app móvil, liberando al repartidor para asumir un nuevo recorrido.")
-            .Produces<RendicionResultDto>(StatusCodes.Status200OK)
+            .WithDescription("Da por terminado el recorrido desde la app móvil y declara los bultos que vuelven. La hoja queda 'Finalizada' a la espera de la rendición del operario en el depósito, que es quien la cierra (Rendida) y libera al repartidor.")
+            .Produces<FinalizacionResultDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
@@ -270,7 +270,9 @@ public static class MobileRutasEndpoints
                     hojaDeRutaId,
                     request.CodigosBultosCargados,
                     request.IdempotencyKey,
-                    request.ObservacionesDiscrepancia);
+                    request.ObservacionesDiscrepancia,
+                    // Confirmar la carga deja la hoja "En carga": el despacho lo confirma el operario/despachador en Backoffice
+                    DespacharAutomaticamente: false);
 
                 var resultado = await mediator.Send(command, ct);
                 return Results.Ok(resultado);
@@ -291,8 +293,8 @@ public static class MobileRutasEndpoints
 
         group.MapPost("/carga/confirmar", confirmarCargaHandler)
             .WithName("ConfirmarCarga")
-            .WithSummary("Confirmar la carga del vehículo y despachar la hoja de ruta")
-            .WithDescription("Registra los bultos cargados en el vehículo, desvincula envíos incompletos devolviéndolos a depósito y despacha automáticamente la hoja de ruta y los envíos completos a EnTránsito.")
+            .WithSummary("Confirmar la carga del vehículo (la hoja queda En carga)")
+            .WithDescription("Registra los bultos cargados en el vehículo y deja la hoja de ruta en 'EnCarga'. El despacho (y el paso de los envíos a EnTránsito) lo confirma después el operario o despachador en el depósito.")
             .Produces<ConfirmarCargaResultDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)

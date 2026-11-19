@@ -1,6 +1,7 @@
 using MediatR;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Planificacion;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
 
@@ -18,6 +19,7 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
     private readonly IRepartidorRepository _repartidorRepository;
     private readonly IMotivoNoEntregaRepository _motivoNoEntregaRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IRetiroRepository? _retiroRepository;
 
     public ObtenerRutaParaRendicionQueryHandler(
         IRutaRepository rutaRepository,
@@ -25,8 +27,10 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
         IVehiculoRepository vehiculoRepository,
         IRepartidorRepository repartidorRepository,
         IMotivoNoEntregaRepository motivoNoEntregaRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IRetiroRepository? retiroRepository = null)
     {
+        _retiroRepository = retiroRepository;
         _rutaRepository = rutaRepository;
         _envioRepository = envioRepository;
         _vehiculoRepository = vehiculoRepository;
@@ -125,6 +129,8 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
                 bultosDto));
         }
 
+        var retiros = await ListarRetirosDeLaRutaAsync(ruta, cancellationToken);
+
         var tieneEnviosSinIntento = envios.Any(e => e.EstadoActual == EstadoEnvio.EnTransito);
         var numeroRuta = $"HR-{ruta.Fecha:yyyyMMdd}-{ruta.Id.ToString()[..4].ToUpperInvariant()}";
         var totalParadas = ruta.Paradas.Count(p => p.Estado != "Cancelada");
@@ -145,6 +151,37 @@ public class ObtenerRutaParaRendicionQueryHandler : IRequestHandler<ObtenerRutaP
             bultosEsperadosRetornoTotal,
             tieneEnviosSinIntento,
             listaEnviosDto,
-            motivosInternos);
+            motivosInternos,
+            retiros);
+    }
+
+    /// <summary>Retiros en domicilio de la hoja (si es mixta): lo retirado vuelve con el repartidor y el operario confirma su recepción.</summary>
+    private async Task<IReadOnlyList<RetiroRendicionDetalleDto>> ListarRetirosDeLaRutaAsync(
+        HojaDeRuta ruta, CancellationToken cancellationToken)
+    {
+        if (_retiroRepository is null)
+            return Array.Empty<RetiroRendicionDetalleDto>();
+
+        var ids = ruta.Paradas.Where(p => p.Estado != "Cancelada").IdsDeRetiros().Distinct().ToList();
+        if (ids.Count == 0)
+            return Array.Empty<RetiroRendicionDetalleDto>();
+
+        var retiros = await _retiroRepository.GetByIdsAsync(ids, cancellationToken);
+        return retiros
+            .Where(r => r.OperadorId == _currentTenant.OperadorId)
+            .OrderBy(r => r.CodigoSeguimientoPublico)
+            .Select(r => new RetiroRendicionDetalleDto(
+                r.Id,
+                r.CodigoSeguimientoPublico,
+                r.NombreContacto,
+                r.DireccionRetiro,
+                r.EstadoActual.ToString(),
+                r.Bultos.Count,
+                r.PesoTotal,
+                FueRetirado: r.EstadoActual is EstadoRetiro.Retirado or EstadoRetiro.EnDeposito or EstadoRetiro.EntregadoAlComercio,
+                PendienteDeRecepcion: r.EstadoActual == EstadoRetiro.Retirado,
+                YaRecibidoEnDeposito: r.EstadoActual is EstadoRetiro.EnDeposito or EstadoRetiro.EntregadoAlComercio,
+                BultosAEsperar: r.Bultos.Select(b => b.Identificacion).OrderBy(c => c).ToList()))
+            .ToList();
     }
 }

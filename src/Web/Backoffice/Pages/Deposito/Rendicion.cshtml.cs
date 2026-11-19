@@ -41,6 +41,10 @@ public class RendicionModel : PageModel
     [BindProperty]
     public List<string> CodigosBultosDevueltos { get; set; } = new();
 
+    /// <summary>Retiros en domicilio que el operario marcó como recibidos en depósito (hoja de ruta mixta).</summary>
+    [BindProperty]
+    public List<Guid> RetirosRecibidosIds { get; set; } = new();
+
     [BindProperty]
     public string? MotivoInternoCodigo { get; set; }
 
@@ -95,7 +99,8 @@ public class RendicionModel : PageModel
             var solicitud = new RendirHojaDeRutaRequestDto(
                 codigosFiltrados,
                 string.IsNullOrWhiteSpace(MotivoInternoCodigo) ? null : MotivoInternoCodigo.Trim(),
-                string.IsNullOrWhiteSpace(Observaciones) ? null : Observaciones.Trim());
+                string.IsNullOrWhiteSpace(Observaciones) ? null : Observaciones.Trim(),
+                (RetirosRecibidosIds ?? new List<Guid>()).Where(g => g != Guid.Empty).Distinct().ToList());
 
             ResultadoRendicion = await _depositoApi.RendirHojaDeRutaAsync(Id.Value, solicitud);
             MensajeExito = ResultadoRendicion.Mensaje;

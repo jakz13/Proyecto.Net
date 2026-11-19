@@ -98,48 +98,6 @@ public class HttpRutasApi : IRutasApi
         }).ToList();
     }
 
-    private async Task AsegurarEnviosEnDepositoClasificadosAsync(IReadOnlyDictionary<Guid, ZonaCoberturaDto> zonas, CancellationToken cancelacion)
-    {
-        try
-        {
-            var respDeposito = await _http.GetAsync("/api/deposito/envios-en-deposito", cancelacion);
-            if (!respDeposito.IsSuccessStatusCode)
-                return;
-
-            var enDeposito = await respDeposito.Content.ReadFromJsonAsync<List<EnvioEnDepositoApi>>(CatalogosHttp.OpcionesJson, cancelacion);
-            if (enDeposito is null || enDeposito.Count == 0)
-                return;
-
-            var primeraZonaActiva = zonas.Values.FirstOrDefault(z => z.Activa)?.Id;
-
-            foreach (var envio in enDeposito.Where(e => !e.EstaClasificado && e.Bultos is { Count: > 0 }))
-            {
-                var bultosSinClasificar = envio.Bultos!
-                    .Where(b => !b.EstaClasificado)
-                    .Select(b => new
-                    {
-                        CodigoBulto = b.Identificacion,
-                        Prioridad = string.Equals(envio.ModalidadServicio, "Express", StringComparison.OrdinalIgnoreCase) ? "Alta" : "Normal",
-                        ZonaCoberturaId = b.ZonaClasificadaId ?? primeraZonaActiva,
-                        Tipo = b.TipoClasificacion ?? "Estándar"
-                    })
-                    .ToList();
-
-                if (bultosSinClasificar.Count > 0)
-                {
-                    await _http.PostAsJsonAsync($"/api/deposito/envios/{envio.EnvioId}/clasificacion", new
-                    {
-                        Bultos = bultosSinClasificar
-                    }, CatalogosHttp.OpcionesJson, cancelacion);
-                }
-            }
-        }
-        catch
-        {
-            // Continuar con los envíos ya clasificados si falla la sincronización auxiliar
-        }
-    }
-
     public async Task<ResultadoArmadoRutaDto> ValidarArmadoRutaAsync(ArmarHojaDeRutaDto dto, CancellationToken cancelacion = default)
     {
         var respuesta = await _http.PostAsJsonAsync($"{RutaPlanificacion}/validacion", CuerpoArmado(dto), cancelacion);

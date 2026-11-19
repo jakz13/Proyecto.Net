@@ -145,7 +145,8 @@ public static class DepositoEndpoints
                     hojaDeRutaId,
                     request.CodigosBultosDevueltos ?? new List<string>(),
                     request.MotivoInternoCodigo,
-                    request.Observaciones);
+                    request.Observaciones,
+                    request.RetirosRecibidosIds);
 
                 return Results.Ok(await mediator.Send(command, ct));
             }
@@ -262,7 +263,8 @@ public static class DepositoEndpoints
 public record RendirHojaDeRutaRequest(
     List<string>? CodigosBultosDevueltos,
     string? MotivoInternoCodigo = null,
-    string? Observaciones = null);
+    string? Observaciones = null,
+    List<Guid>? RetirosRecibidosIds = null);
 
 public record ClasificarBultosRequest(List<ClasificacionBultoDto>? Bultos);
 

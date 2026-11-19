@@ -179,4 +179,28 @@ public class ListarEnviosEnDepositoQueryHandlerTests
 
         Assert.Equal(zonaId, Assert.Single(resultado).ZonaDestinoId);
     }
+
+    [Fact]
+    public async Task Handle_SinZonaGuardada_DetectaLaZonaQueContieneLasCoordenadasDeLaDireccion()
+    {
+        var zonas = new UltimaMilla.Application.Tests.Fakes.FakeZonaCoberturaRepository();
+        var zona = new UltimaMilla.Domain.Entities.Operador.ZonaCobertura(
+            Guid.NewGuid(), _tenant.OperadorId, "Centro", "[[-34.95, -56.25], [-34.95, -56.05], [-34.85, -56.15]]");
+        zonas.Zonas.Add(zona);
+
+        var direccion = new Direccion(Guid.NewGuid(), "Alfredo Stutz", "1366", "Montevideo", null, -34.92, -56.15, null);
+        var direcciones = new DireccionesFake();
+        direcciones.Direcciones.Add(direccion);
+
+        var envio = new Envio(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Estandar", "TRK-ZONAGEO01", direccion.Id, null, null,
+            "Alfredo Stutz 1366", "Cliente", _tenant.OperadorId);
+        envio.AgregarBulto("TRK-ZONAGEO01-B01", 2m, 15m, 15m, 15m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-ZONAGEO01-B01" }, null, null, Guid.NewGuid());
+        _envios.Envios.Add(envio);
+
+        var handler = new ListarEnviosEnDepositoQueryHandler(_envios, _tenant, direcciones, zonas);
+        var resultado = await handler.Handle(new ListarEnviosEnDepositoQuery(), CancellationToken.None);
+
+        Assert.Equal(zona.Id, Assert.Single(resultado).ZonaDestinoId);
+    }
 }
