@@ -789,6 +789,15 @@ public class LocalDatabaseService : ILocalDatabaseService
 
                 foreach (var sobrante in disponibles.Where(b => !b.VerificadoEnEntrega && (!b.VerificadoEnCarga || b.FaltanteEnCarga)))
                     conn.Delete(sobrante);
+
+                // En una entrega el servidor manda exactamente los bultos vigentes: un bulto local que sobra (repetido o con un código viejo)
+                // no existe en el envío, aunque estuviera marcado como cargado. Sin esto, el panel mostraba 2 bultos para un envío de 1.
+                // Los retiros y las paradas con una operación pendiente en la cola se dejan como están.
+                if (!esRetiro && !tieneOperacionPendienteLocal)
+                {
+                    foreach (var sobrante in disponibles.Where(b => !b.VerificadoEnEntrega && !b.FaltanteEnCarga))
+                        conn.Delete(sobrante);
+                }
             }
 
             // 4. Catálogo de motivos de no entrega: el del operador, tal como lo manda el servidor
@@ -1079,6 +1088,15 @@ public class LocalDatabaseService : ILocalDatabaseService
             var bultosVisibles = (!esRetiro && !enPrecarga)
                 ? bultos.Where(b => !b.FaltanteEnCarga).ToList()
                 : bultos;
+
+            // Un envío no tiene dos bultos con el mismo código: si el dispositivo guardó filas repetidas, se muestra una sola
+            if (!esRetiro)
+            {
+                bultosVisibles = bultosVisibles
+                    .GroupBy(b => (b.Codigo ?? string.Empty).Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.OrderByDescending(b => b.VerificadoEnEntrega).ThenByDescending(b => b.VerificadoEnCarga).First())
+                    .ToList();
+            }
 
             var bultoItems = bultosVisibles.Select(b => new BultoItemViewModel
             {
