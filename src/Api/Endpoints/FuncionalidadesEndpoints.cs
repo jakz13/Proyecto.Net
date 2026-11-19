@@ -140,6 +140,7 @@ public static class FuncionalidadesEndpoints
             [FromServices] ICurrentTenant tenant,
             [FromServices] IHubContext<TableroHub> hub,
             [FromServices] IHubContext<SeguimientoHub> hubSeguimiento,
+            [FromServices] IHubContext<OperacionHub> hubOperacion,
             CancellationToken ct) =>
         {
             try
@@ -166,6 +167,17 @@ public static class FuncionalidadesEndpoints
                     catch
                     {
                         // Un fallo del transporte no deshace un cambio que ya se guardó: las pantallas lo verán en la próxima consulta
+                    }
+
+                    // La app del repartidor escucha el hub de operación: vuelve a pedir sus funcionalidades (menús y botones habilitados) sin esperar a su próximo sync
+                    try
+                    {
+                        await hubOperacion.Clients.Group(OperacionHub.GrupoOperador(operadorId)).SendAsync(
+                            EventoFuncionalidadesCambiaron, new { clave, habilitada = request.Habilitada, timestamp = DateTime.UtcNow }, CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // Idem: no deshace el cambio
                     }
 
                     // El seguimiento público (sin sesión) vuelve a consultar y muestra u oculta el botón de reprogramar sin recargar

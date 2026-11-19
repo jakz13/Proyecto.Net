@@ -15,14 +15,17 @@ public class EnviarInstruccionRepartidorCommandHandler : IRequestHandler<EnviarI
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentTenant _currentTenant;
     private readonly IClock _clock;
+    private readonly ITableroRealtimeNotifier? _tableroNotifier;
 
     public EnviarInstruccionRepartidorCommandHandler(
         IRepartidorRepository repartidorRepository,
         IOutboxStorage outboxStorage,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IClock clock)
+        IClock clock,
+        ITableroRealtimeNotifier? tableroNotifier = null)
     {
+        _tableroNotifier = tableroNotifier;
         _repartidorRepository = repartidorRepository;
         _outboxStorage = outboxStorage;
         _unitOfWork = unitOfWork;
@@ -64,6 +67,19 @@ public class EnviarInstruccionRepartidorCommandHandler : IRequestHandler<EnviarI
 
         await _outboxStorage.SaveAsync(outboxMessage, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // El outbox queda como registro; la app del repartidor se entera ya (antes el mensaje se guardaba y nadie lo entregaba)
+        if (_tableroNotifier is not null)
+        {
+            try
+            {
+                await _tableroNotifier.NotificarInstruccionARepartidorAsync(repartidor.OperadorId, repartidor.Id, request.Mensaje, cancellationToken);
+            }
+            catch
+            {
+                // El fallo de transporte no invalida la instrucción ya registrada
+            }
+        }
 
         return true;
     }

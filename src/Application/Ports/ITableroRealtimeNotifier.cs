@@ -43,6 +43,22 @@ public interface ITableroRealtimeNotifier
     /// Avisa a las sesiones de un comercio que cambió la lista de operadores con los que trabaja (alta de un vínculo nuevo, baja o suspensión).
     /// Se emite al comercio (por su identificador, común a todos sus operadores), nunca a otros.
     /// </summary>
+    /// <summary>Instrucción del despachador a un repartidor: llega a su app como notificación operativa en el momento.</summary>
+    Task NotificarInstruccionARepartidorAsync(Guid operadorId, Guid repartidorId, string mensaje, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    /// <summary>Algo que el personal cambió y que el comercio ve en su portal (liquidaciones, cuenta corriente, su vínculo con el operador): solo se avisa a las sesiones de ese comercio con ese operador.</summary>
+    Task NotificarCambioDeComercioAsync(Guid comercioOperadorId, string area, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    /// <summary>Algo cambió en el operador sin que lo originara una petición de la API (por ejemplo el Worker): se avisa a las sesiones de su personal.</summary>
+    Task NotificarDatosCambiaronAsync(Guid operadorId, string area, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    /// <summary>Cambio hecho por la plataforma (altas de operadores, funcionalidades): se avisa a las sesiones de la plataforma.</summary>
+    Task NotificarCambioDePlataformaAsync(string area, CancellationToken ct = default)
+        => Task.CompletedTask;
+
     Task NotificarOperadoresDelComercioAsync(Guid comercioId, CancellationToken ct = default)
         => Task.CompletedTask;
 

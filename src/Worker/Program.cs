@@ -64,6 +64,9 @@ builder.Services.Configure<WorkerOptions>(builder.Configuration.GetSection(Worke
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// El worker no tiene los hubs de SignalR ni habla con la API: los cambios que hace los deja como avisos en la cola de tiempo real y la API los difunde
+builder.Services.AddSingleton<UltimaMilla.Application.Ports.ITableroRealtimeNotifier, UltimaMilla.Infrastructure.Messaging.ColaTiempoRealNotifier>();
+
 builder.Services.AddHostedService<OutboxPublisherBackgroundService>();
 builder.Services.AddHostedService<EventConsumerBackgroundService>();
 builder.Services.AddHostedService<ScheduledJobsBackgroundService>();

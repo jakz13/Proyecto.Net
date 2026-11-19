@@ -14,11 +14,15 @@ public class AsignarPerfilUsuarioCommandHandler : IRequestHandler<AsignarPerfilU
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
 
+    private readonly ISesionRealtimeNotifier? _sesionNotifier;
+
     public AsignarPerfilUsuarioCommandHandler(
         IUsuarioRepository usuarioRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        ISesionRealtimeNotifier? sesionNotifier = null)
     {
+        _sesionNotifier = sesionNotifier;
         _usuarioRepositorio = usuarioRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
@@ -57,6 +61,19 @@ public class AsignarPerfilUsuarioCommandHandler : IRequestHandler<AsignarPerfilU
             perfil.Nombre,
             cancellationToken: cancellationToken);
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+
+        // Con otro perfil cambian sus permisos y su menú: la sesión abierta se cierra para que vuelva a entrar con el perfil nuevo
+        if (_sesionNotifier is not null)
+        {
+            try
+            {
+                await _sesionNotifier.NotificarSesionRevocadaAsync(usuario.Id, "El administrador cambió su perfil. Vuelva a iniciar sesión.", cancellationToken);
+            }
+            catch
+            {
+                // El fallo de transporte no deshace el cambio ya guardado
+            }
+        }
     }
 }
 

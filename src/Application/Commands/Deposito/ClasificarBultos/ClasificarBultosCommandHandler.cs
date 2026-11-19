@@ -2,6 +2,7 @@ using MediatR;
 using UltimaMilla.Application.Events;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Application.Services;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Enums;
 using UltimaMilla.Domain.Exceptions;
@@ -15,16 +16,23 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
     private readonly ICurrentTenant _currentTenant;
     private readonly IOutboxStorage _outboxStorage;
 
+    private readonly IDireccionRepository? _direccionRepository;
+    private readonly VerificadorCobertura? _verificadorCobertura;
+
     public ClasificarBultosCommandHandler(
         IEnvioRepository envioRepository,
         IUnitOfWork unitOfWork,
         ICurrentTenant currentTenant,
-        IOutboxStorage outboxStorage)
+        IOutboxStorage outboxStorage,
+        IDireccionRepository? direccionRepository = null,
+        VerificadorCobertura? verificadorCobertura = null)
     {
         _envioRepository = envioRepository;
         _unitOfWork = unitOfWork;
         _currentTenant = currentTenant;
         _outboxStorage = outboxStorage;
+        _direccionRepository = direccionRepository;
+        _verificadorCobertura = verificadorCobertura;
     }
 
     public async Task<ClasificacionResultDto> Handle(ClasificarBultosCommand request, CancellationToken cancellationToken)
@@ -49,6 +57,16 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
 
         var clasificaciones = request.Bultos.Select(Convertir).ToList();
 
+        // La zona se detecta sola: al bulto sin zona se le pone la que cubre la dirección de entrega (si hay varias, cualquiera de ellas)
+        if (clasificaciones.Any(c => c.ZonaCoberturaId is null))
+        {
+            var zonaDetectada = await DetectarZonaDeEntregaAsync(envio, cancellationToken);
+            if (zonaDetectada is not null)
+                clasificaciones = clasificaciones
+                    .Select(c => c.ZonaCoberturaId is null ? c with { ZonaCoberturaId = zonaDetectada } : c)
+                    .ToList();
+        }
+
         envio.NormalizarBultosEnDeposito();
         envio.ClasificarBultos(clasificaciones, usuarioId);
 
@@ -71,6 +89,35 @@ public class ClasificarBultosCommandHandler : IRequestHandler<ClasificarBultosCo
             recibidos.Count - pendientes.Count,
             pendientes,
             envio.EstaClasificado);
+    }
+
+    private async Task<Guid?> DetectarZonaDeEntregaAsync(Envio envio, CancellationToken cancellationToken)
+    {
+        if (_direccionRepository is null || envio.DireccionEntregaId is not { } direccionId)
+            return null;
+
+        var direccion = (await _direccionRepository.GetByIdsAsync(new[] { direccionId }, cancellationToken)).FirstOrDefault();
+        if (direccion is null)
+            return null;
+
+        if (direccion.ZonaCoberturaId is { } zonaGuardada)
+            return zonaGuardada;
+
+        if (_verificadorCobertura is null)
+            return null;
+
+        try
+        {
+            var cobertura = await _verificadorCobertura.VerificarAsync(
+                envio.OperadorId, direccion.Calle, direccion.Numero, direccion.Ciudad,
+                null, direccion.Latitud, direccion.Longitud, cancellationToken);
+            return cobertura.ZonaCoberturaId;
+        }
+        catch (DomainValidationException)
+        {
+            // Fuera de cobertura o sin poder ubicarla: queda sin zona y la validación de la clasificación lo informa
+            return null;
+        }
     }
 
     private static ClasificacionBulto Convertir(ClasificacionBultoDto dto)

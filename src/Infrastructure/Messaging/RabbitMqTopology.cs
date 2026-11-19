@@ -14,6 +14,10 @@ public static class RabbitMqTopology
     public const string ColaWorker = "ultimamilla.eventos.worker";
     public const string ColaFallidos = "ultimamilla.eventos.fallidos";
 
+    // Avisos de tiempo real del worker hacia la API. Va aparte de ultimamilla.eventos: esa cola del worker está enlazada con "#" y recibiría estos avisos como si fueran eventos de negocio
+    public const string ExchangeTiempoReal = "ultimamilla.tiemporeal";
+    public const string ColaTiempoRealApi = "ultimamilla.tiemporeal.api";
+
     public const string CabeceraIntento = "x-intento";
     public const string CabeceraAgregadoOrigen = "agregado-origen";
     public const string CabeceraAgregadoId = "agregado-id";
@@ -64,5 +68,23 @@ public static class RabbitMqTopology
                 },
                 cancellationToken: cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// El worker no habla con los navegadores ni con la API por HTTP: deja un aviso en esta cola y la API lo lee y lo difunde por SignalR.
+    /// La cola es una sola y compartida: cada aviso lo toma UNA instancia de la API y el respaldo Redis lo reparte a los clientes de las dos
+    /// (con una cola por instancia cada cliente lo recibiría duplicado). Un aviso de tiempo real vencido no sirve: expira a los 30 segundos y la cola tiene tope.
+    /// </summary>
+    public static async Task DeclararTiempoRealAsync(IChannel canal, CancellationToken cancellationToken)
+    {
+        await canal.ExchangeDeclareAsync(ExchangeTiempoReal, ExchangeType.Fanout, durable: true, autoDelete: false, cancellationToken: cancellationToken);
+        await canal.QueueDeclareAsync(
+            ColaTiempoRealApi,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?> { ["x-message-ttl"] = 30_000, ["x-max-length"] = 5_000, ["x-overflow"] = "drop-head" },
+            cancellationToken: cancellationToken);
+        await canal.QueueBindAsync(ColaTiempoRealApi, ExchangeTiempoReal, string.Empty, cancellationToken: cancellationToken);
     }
 }

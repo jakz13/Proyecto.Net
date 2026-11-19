@@ -41,6 +41,12 @@ public interface IRealtimeTrackingService : IAsyncDisposable
     event EventHandler? RutaActualizadaEnTiempoReal;
 
     /// <summary>
+    /// Evento disparado en el momento en que la API avisa que algo cambió (con el nombre del área: "envios", "deposito", etc.), antes de volver a pedir nada.
+    /// Lo usan las pantallas que listan datos del servidor y no solo la ruta, por ejemplo la recepción en depósito.
+    /// </summary>
+    event EventHandler<string>? DatosCambiaronEnTiempoReal;
+
+    /// <summary>
     /// Inicia la conexión con el Hub de SignalR de forma asíncrona y segura.
     /// </summary>
     Task StartAsync(CancellationToken cancellationToken = default);

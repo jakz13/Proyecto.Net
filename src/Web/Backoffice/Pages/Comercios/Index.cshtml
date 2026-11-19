@@ -207,7 +207,8 @@
                                             @if (comercio.Activo)
                                             {
                                                 <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fs-tamano-xs" title="Dar de baja lógica"
-                                                        onclick="return confirm('¿Está seguro de que desea dar de baja este comercio? No podrá despachar nuevos envíos.');">
+                                                        data-confirmar-titulo="Dar de baja comercio" data-confirmar-boton="Sí, dar de baja"
+                                                        data-confirmar="¿Está seguro de que desea dar de baja este comercio? No podrá despachar nuevos envíos.">
                                                     Dar de baja
                                                 </button>
                                             }
@@ -383,7 +384,8 @@ else
                                             @if (usuario.Activo)
                                             {
                                                 <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fs-tamano-xs" title="Dar de baja usuario"
-                                                        onclick="return confirm('¿Está seguro de que desea inactivar este usuario? No podrá iniciar sesión en la plataforma.');">
+                                                        data-confirmar-titulo="Inactivar usuario" data-confirmar-boton="Sí, inactivar"
+                                                        data-confirmar="¿Está seguro de que desea inactivar este usuario? No podrá iniciar sesión en la plataforma.">
                                                     Dar de baja
                                                 </button>
                                             }

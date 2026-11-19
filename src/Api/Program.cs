@@ -219,6 +219,8 @@ if (!string.IsNullOrWhiteSpace(redisBackplane))
 }
 
 builder.Services.AddScoped<ITableroRealtimeNotifier, SignalRTableroNotifier>();
+// Lo que hace el worker (otro proceso, que solo se comunica por la cola) llega a los navegadores a través de esta lectura de la cola de tiempo real
+builder.Services.AddHostedService<TiempoRealConsumerBackgroundService>();
 builder.Services.AddScoped<UltimaMilla.Application.Ports.ISesionRealtimeNotifier, UltimaMilla.Api.Services.SignalRSesionNotifier>();
 
 // Puntos de verificación de salud para el balanceador: /live (proceso), /ready (base de datos) y /health (todo)

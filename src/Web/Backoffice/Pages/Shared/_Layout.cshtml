@@ -64,7 +64,51 @@
         </main>
     </div>
 
+    <!-- Panel de confirmación reutilizable: cualquier botón de envío con data-confirmar="texto" lo abre en lugar del confirm() del navegador -->
+    <div class="modal fade" id="modalConfirmacionGlobal" tabindex="-1" aria-labelledby="tituloConfirmacionGlobal" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h2 class="modal-title h6 fw-bold" id="tituloConfirmacionGlobal">Confirmar acción</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body small">
+                    <p class="mb-0" id="textoConfirmacionGlobal"></p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-dark btn-sm" id="botonConfirmacionGlobal">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="~/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            var modalEl = document.getElementById('modalConfirmacionGlobal');
+            var pendiente = null;
+            document.addEventListener('click', function (e) {
+                var boton = e.target.closest('[data-confirmar]');
+                if (!boton || !modalEl || !window.bootstrap) return;
+                if (boton.dataset.confirmado === '1') { delete boton.dataset.confirmado; return; }
+                e.preventDefault();
+                pendiente = boton;
+                document.getElementById('tituloConfirmacionGlobal').textContent = boton.dataset.confirmarTitulo || 'Confirmar acción';
+                document.getElementById('textoConfirmacionGlobal').textContent = boton.dataset.confirmar;
+                var si = document.getElementById('botonConfirmacionGlobal');
+                si.textContent = boton.dataset.confirmarBoton || 'Confirmar';
+                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            });
+            document.getElementById('botonConfirmacionGlobal').addEventListener('click', function () {
+                var boton = pendiente; pendiente = null;
+                if (!boton) return;
+                window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                boton.dataset.confirmado = '1';
+                boton.click();
+            });
+        })();
+    </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="~/js/mapas-leaflet.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

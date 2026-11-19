@@ -38,6 +38,9 @@ public class TableroHub : Hub
     private const string ClaimRelacionComercio = "comercio_operador_id";
     private const string ClaimComercio = "comercio_id";
 
+    /// <summary>Sesiones del administrador de la plataforma: reciben los cambios de operadores y funcionalidades.</summary>
+    public const string GrupoPlataforma = "plataforma";
+
     public static string GrupoOperador(Guid operadorId) => $"operador_{operadorId}";
 
     /// <summary>Grupo de un comercio dentro de su operador: recibe solo los eventos de sus propios envíos.</summary>
@@ -105,6 +108,8 @@ public class TableroHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, grupo);
         await Groups.AddToGroupAsync(Context.ConnectionId, GrupoIdentidadOperador(operadorId));
+        if (Context.User?.IsInRole(UltimaMilla.Api.Auth.PoliticasApi.RolPlataforma) == true)
+            await Groups.AddToGroupAsync(Context.ConnectionId, GrupoPlataforma);
         await Clients.Caller.SendAsync("ConectadoTablero", new { OperadorId = operadorId, Grupo = grupo });
         await base.OnConnectedAsync();
     }

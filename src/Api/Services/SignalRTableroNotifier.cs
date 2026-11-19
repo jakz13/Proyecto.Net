@@ -48,6 +48,15 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         _scopeFactory = scopeFactory;
     }
 
+    private readonly HashSet<string> _avisosEmitidos = new();
+
+    /// <summary>Verdadero la primera vez que se pide un aviso con esta clave en la petición actual (este servicio es uno por petición).</summary>
+    private bool RegistrarAvisoUnico(string clave)
+    {
+        lock (_avisosEmitidos)
+            return _avisosEmitidos.Add(clave);
+    }
+
     public Task NotificarCambioRutaAsync(Guid operadorId, Guid hojaDeRutaId, string estado, CancellationToken ct = default)
         => NotificarCambioRutaConDetalleAsync(operadorId, hojaDeRutaId, estado, detalle: null, ct);
 
@@ -66,6 +75,10 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         }
 
         var estadoNormalizado = estado.Trim();
+
+        // El mismo cambio avisado por SaveChanges y por el caso de uso se emite una sola vez por petición (el que lleva detalle sí se emite)
+        if (!RegistrarAvisoUnico($"R|{hojaDeRutaId}|{estadoNormalizado}|{detalle ?? string.Empty}"))
+            return;
 
         try
         {
@@ -177,6 +190,9 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
             return;
         }
 
+        if (!RegistrarAvisoUnico($"P|{paradaId}|{estadoParada.Trim()}"))
+            return;
+
         try
         {
             var grupo = TableroHub.GrupoOperador(operadorId);
@@ -230,6 +246,68 @@ public class SignalRTableroNotifier : ITableroRealtimeNotifier
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al emitir {Evento} del vehículo {VehiculoId} (operador {OperadorId}).", EventoPosicionVehiculo, vehiculoId, operadorId);
+        }
+    }
+
+    public async Task NotificarInstruccionARepartidorAsync(Guid operadorId, Guid repartidorId, string mensaje, CancellationToken ct = default)
+    {
+        if (_operacionHub is null || repartidorId == Guid.Empty || string.IsNullOrWhiteSpace(mensaje))
+            return;
+
+        try
+        {
+            // Es el evento que la app del repartidor ya sabe mostrar como notificación operativa de alta prioridad
+            await _operacionHub.Clients.Group(OperacionHub.GrupoRepartidor(repartidorId))
+                .SendAsync("NotificacionOperativa", "Instrucción de la central", mensaje.Trim(), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al enviar la instrucción al repartidor {RepartidorId} (operador {OperadorId}).", repartidorId, operadorId);
+        }
+    }
+
+    public async Task NotificarCambioDeComercioAsync(Guid comercioOperadorId, string area, CancellationToken ct = default)
+    {
+        if (comercioOperadorId == Guid.Empty)
+            return;
+
+        try
+        {
+            await _hubContext.Clients.Group(TableroHub.GrupoComercio(comercioOperadorId))
+                .SendAsync(CambiosEnTiempoRealMiddleware.EventoDatosCambiaron, new { area, accion = "PUT", timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al avisar el cambio {Area} al comercio {ComercioOperadorId}.", area, comercioOperadorId);
+        }
+    }
+
+    public async Task NotificarDatosCambiaronAsync(Guid operadorId, string area, CancellationToken ct = default)
+    {
+        if (operadorId == Guid.Empty)
+            return;
+
+        try
+        {
+            await _hubContext.Clients.Group(TableroHub.GrupoOperador(operadorId))
+                .SendAsync(CambiosEnTiempoRealMiddleware.EventoDatosCambiaron, new { area, accion = "PUT", timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al avisar el cambio {Area} del operador {OperadorId}.", area, operadorId);
+        }
+    }
+
+    public async Task NotificarCambioDePlataformaAsync(string area, CancellationToken ct = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group(TableroHub.GrupoPlataforma)
+                .SendAsync(CambiosEnTiempoRealMiddleware.EventoDatosCambiaron, new { area, accion = "POST", timestamp = DateTime.UtcNow }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalRTableroNotifier: fallo al avisar el cambio {Area} a la plataforma.", area);
         }
     }
 

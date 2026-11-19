@@ -12,6 +12,7 @@ namespace UltimaMilla.Application.Commands.Planificacion.DespacharHojaDeRuta;
 public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDeRutaCommand, DespachoResultDto>
 {
     private const string MotivoNoCargado = "Los bultos del envío no fueron cargados en el vehículo.";
+    private const string MotivoSinClasificar = "El envío no fue clasificado por el depósito: no puede salir a reparto.";
 
     private readonly IRutaRepository _rutaRepository;
     private readonly IEnvioRepository _envioRepository;
@@ -96,8 +97,17 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         // Solo si ningún bulto del envío subió al vehículo, el envío se retira de la ruta y vuelve a depósito.
         var aDespachar = new List<(Envio Envio, List<Bulto> Faltantes)>();
         var aRetirar = new List<Envio>();
+        var motivosRetiro = new Dictionary<Guid, string>();
         foreach (var envio in envios.Where(e => e.EstadoActual == EstadoEnvio.AsignadoARuta))
         {
+            // Barrera de seguridad: un envío que el depósito no clasificó no sale a la calle, vuelve a depósito
+            if (!envio.EstaClasificado)
+            {
+                aRetirar.Add(envio);
+                motivosRetiro[envio.Id] = MotivoSinClasificar;
+                continue;
+            }
+
             var esperados = envio.Bultos.Where(b => b.EstaDisponibleParaRuta).ToList();
             var cargadosDelEnvio = esperados.Where(b => ruta.BultoFueCargado(b.Id)).ToList();
             var noCargadosDelEnvio = esperados.Where(b => !ruta.BultoFueCargado(b.Id)).ToList();
@@ -115,14 +125,15 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         var mensajes = new List<OutboxMessage>();
         foreach (var envio in aRetirar)
         {
-            envio.DesasignarDeRutaPorFaltante(MotivoNoCargado, usuarioId);
+            var motivoRetiro = motivosRetiro.GetValueOrDefault(envio.Id, MotivoNoCargado);
+            envio.DesasignarDeRutaPorFaltante(motivoRetiro, usuarioId);
             ruta.DesasignarEnvioFaltante(envio.Id);
 
             mensajes.Add(CrearMensaje(nameof(Envio), envio.Id, "EnvioDesasignadoPorFaltanteIntegrationEvent", new
             {
                 EnvioId = envio.Id,
                 HojaDeRutaId = ruta.Id,
-                Motivo = "FaltanteEnCarga",
+                Motivo = motivosRetiro.ContainsKey(envio.Id) ? "SinClasificar" : "FaltanteEnCarga",
                 Timestamp = _clock.UtcNow
             }));
         }
@@ -177,7 +188,7 @@ public class DespacharHojaDeRutaCommandHandler : IRequestHandler<DespacharHojaDe
         }
 
         var retirados = aRetirar
-            .Select(e => new EnvioRetiradoDto(e.Id, e.CodigoSeguimientoPublico, MotivoNoCargado))
+            .Select(e => new EnvioRetiradoDto(e.Id, e.CodigoSeguimientoPublico, motivosRetiro.GetValueOrDefault(e.Id, MotivoNoCargado)))
             .ToList();
 
         return new DespachoResultDto(

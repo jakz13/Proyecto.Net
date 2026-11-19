@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using UltimaMilla.Mobile.Models.DTOs;
 using UltimaMilla.Mobile.Services.Auth;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Theme;
 using UltimaMilla.Mobile.Views.Carga;
@@ -329,7 +330,7 @@ public partial class RecepcionDepositoViewModel : ObservableObject
         (TieneDiscrepancias || ModoDiscrepanciaActivo) &&
         !string.IsNullOrWhiteSpace(ObservacionesDiscrepancia);
 
-    public RecepcionDepositoViewModel() : this(null, null, null, null)
+    public RecepcionDepositoViewModel() : this(null, null, null, null, null)
     {
     }
 
@@ -337,12 +338,62 @@ public partial class RecepcionDepositoViewModel : ObservableObject
         ISyncService? syncService,
         IAuthService? authService,
         ILogger<RecepcionDepositoViewModel>? logger = null,
-        IOperadorThemeService? themeService = null)
+        IOperadorThemeService? themeService = null,
+        IRealtimeTrackingService? realtimeTrackingService = null)
     {
+        _realtimeTrackingService = realtimeTrackingService;
         _syncService = syncService;
         _authService = authService;
         _logger = logger;
         _themeService = themeService;
+    }
+
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
+    private CancellationTokenSource? _refrescoPendiente;
+    private bool _vigilando;
+
+    /// <summary>Mientras la pantalla está a la vista, la lista de envíos admitidos se pone al día sola cuando otro operario, un comercio o el despachador cambian algo.</summary>
+    public void IniciarVigilancia()
+    {
+        if (_realtimeTrackingService is null || _vigilando)
+            return;
+
+        _realtimeTrackingService.DatosCambiaronEnTiempoReal += OnDatosCambiaron;
+        _vigilando = true;
+    }
+
+    public void DetenerVigilancia()
+    {
+        if (_realtimeTrackingService is not null && _vigilando)
+            _realtimeTrackingService.DatosCambiaronEnTiempoReal -= OnDatosCambiaron;
+        _vigilando = false;
+        _refrescoPendiente?.Cancel();
+    }
+
+    private async void OnDatosCambiaron(object? sender, string area)
+    {
+        // Solo lo que afecta a los envíos del depósito; varios avisos seguidos se juntan en una sola consulta
+        if (area is not ("envios" or "deposito" or "retiros" or "rutas" or "planificacion" or "comercios" or ""))
+            return;
+
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(1200, cts.Token);
+            if (IsBusy || EscaneandoConCamara)
+                return;
+
+            await MainThread.InvokeOnMainThreadAsync(CargarEnviosAdmitidosAsync);
+        }
+        catch (OperationCanceledException)
+        {
+            // Llegó otro aviso: ese se encarga
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "No se pudo refrescar la recepción en depósito tras un aviso en tiempo real.");
+        }
     }
 
     public async Task InicializarAsync()

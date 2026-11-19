@@ -30,6 +30,22 @@ public sealed class CambiosEnTiempoRealMiddleware
         if (!EsCambioDeDatos(contexto.Request.Method, contexto.Request.Path, contexto.Response.StatusCode))
             return;
 
+        // Lo que hace la plataforma (altas de operadores, funcionalidades) se avisa a sus sesiones, que no tienen por qué pertenecer a un operador
+        if (contexto.Request.Path.StartsWithSegments("/api/plataforma"))
+        {
+            try
+            {
+                await hub.Clients.Group(TableroHub.GrupoPlataforma).SendAsync(
+                    EventoDatosCambiaron,
+                    new { area = "plataforma", accion = contexto.Request.Method, timestamp = DateTime.UtcNow },
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "No se pudo emitir el aviso de datos cambiados a la plataforma.");
+            }
+        }
+
         // Sin operador resuelto (petición anónima o de un proceso sin inquilino) no hay a quién avisar
         var operadorId = tenant.OperadorId;
         if (operadorId == Guid.Empty)

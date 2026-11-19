@@ -13,12 +13,15 @@ public class CambiarEstadoUsuarioCommandHandler : IRequestHandler<CambiarEstadoU
     private readonly IUsuarioRepository _usuarioRepositorio;
     private readonly ICurrentTenant _inquilinoActual;
     private readonly IUnitOfWork _unidadDeTrabajo;
+    private readonly ISesionRealtimeNotifier? _sesionNotifier;
 
     public CambiarEstadoUsuarioCommandHandler(
         IUsuarioRepository usuarioRepositorio,
         ICurrentTenant inquilinoActual,
-        IUnitOfWork unidadDeTrabajo)
+        IUnitOfWork unidadDeTrabajo,
+        ISesionRealtimeNotifier? sesionNotifier = null)
     {
+        _sesionNotifier = sesionNotifier;
         _usuarioRepositorio = usuarioRepositorio;
         _inquilinoActual = inquilinoActual;
         _unidadDeTrabajo = unidadDeTrabajo;
@@ -58,6 +61,19 @@ public class CambiarEstadoUsuarioCommandHandler : IRequestHandler<CambiarEstadoU
                 cancellationToken: cancellationToken);
         }
         await _unidadDeTrabajo.SaveChangesAsync(cancellationToken);
+
+        // Un usuario suspendido deja de operar en el momento, no recién cuando su próxima petición falle
+        if (!solicitud.Activo && _sesionNotifier is not null)
+        {
+            try
+            {
+                await _sesionNotifier.NotificarSesionRevocadaAsync(usuario.Id, "Su cuenta fue suspendida por el administrador. Se cerró su sesión.", cancellationToken);
+            }
+            catch
+            {
+                // El fallo de transporte no deshace la suspensión ya guardada
+            }
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 @page "/avisos"
 @inject IAvisosComercioApi AvisosApi
+@inject TiempoRealEnviosServicio TiempoReal
+@implements IDisposable
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthStateProvider
 
@@ -546,6 +548,47 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarDatosCompletosAsync();
+    }
+
+    private CancellationTokenSource? _refrescoPendiente;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            TiempoReal.EnvioCambioEstado += AlCambiarAlgo;
+            await TiempoReal.IniciarAsync();
+        }
+    }
+
+    /// <summary>
+    /// Un aviso entregado, fallido o reintentado (lo hace el worker) o cualquier cambio del envío vuelve a pedir SOLO el historial: la configuración
+    /// que el usuario puede estar editando no se toca.
+    /// </summary>
+    private async Task AlCambiarAlgo(string codigoSeguimiento, string estado)
+    {
+        _refrescoPendiente?.Cancel();
+        var cts = _refrescoPendiente = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(800, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            await FiltrarHistorialAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TiempoReal.EnvioCambioEstado -= AlCambiarAlgo;
+        _refrescoPendiente?.Cancel();
     }
 
     private async Task CargarDatosCompletosAsync()

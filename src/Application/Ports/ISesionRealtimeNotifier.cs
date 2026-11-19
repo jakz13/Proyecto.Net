@@ -13,5 +13,8 @@ public interface ISesionRealtimeNotifier
         Guid usuarioId,
         string nuevoSessionId,
         CancellationToken cancellationToken = default);
-}
 
+    /// <summary>Cierra en el momento las sesiones abiertas de un usuario (suspendido o con otro perfil) con un mensaje que explica por qué.</summary>
+    Task NotificarSesionRevocadaAsync(Guid usuarioId, string mensaje, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+}

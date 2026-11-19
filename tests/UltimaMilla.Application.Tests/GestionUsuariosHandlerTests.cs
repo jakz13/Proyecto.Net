@@ -702,4 +702,52 @@ public class GestionUsuariosHandlerTests
         Assert.Equal(comercioExistente.Id, resultado.ComercioId);
         Assert.Equal(_inquilinoActual.OperadorId, resultado.OperadorId);
     }
+
+    // ==================================================
+    // 5. Sesión revocada en el momento (suspensión y cambio de perfil)
+    // ==================================================
+
+    private sealed class SesionNotifierEspia : UltimaMilla.Application.Ports.ISesionRealtimeNotifier
+    {
+        public List<(Guid UsuarioId, string Mensaje)> Revocadas { get; } = new();
+
+        public Task NotificarSesionDesplazadaAsync(Guid usuarioId, string nuevoSessionId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task NotificarSesionRevocadaAsync(Guid usuarioId, string mensaje, CancellationToken cancellationToken = default)
+        {
+            Revocadas.Add((usuarioId, mensaje));
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task CambiarEstadoUsuario_AlSuspender_CierraSusSesionesAbiertas_PeroAlReactivarNo()
+    {
+        var usuario = new Usuario(Guid.NewGuid(), "U1", "u1@test.com", "hash", _perfilAdmin.Id, _inquilinoActual.OperadorId);
+        _usuarioRepositorio.Usuarios.Add(usuario);
+        var espia = new SesionNotifierEspia();
+        var handler = new CambiarEstadoUsuarioCommandHandler(_usuarioRepositorio, _inquilinoActual, _unidadDeTrabajo, espia);
+
+        await handler.Handle(new CambiarEstadoUsuarioCommand(usuario.Id, false), CancellationToken.None);
+        var revocada = Assert.Single(espia.Revocadas);
+        Assert.Equal(usuario.Id, revocada.UsuarioId);
+        Assert.Contains("suspendida", revocada.Mensaje);
+
+        await handler.Handle(new CambiarEstadoUsuarioCommand(usuario.Id, true), CancellationToken.None);
+        Assert.Single(espia.Revocadas);
+    }
+
+    [Fact]
+    public async Task AsignarPerfilUsuario_AlCambiarElPerfil_CierraSusSesionesAbiertas()
+    {
+        var usuario = new Usuario(Guid.NewGuid(), "U1", "u1@test.com", "hash", _perfilAdmin.Id, _inquilinoActual.OperadorId);
+        _usuarioRepositorio.Usuarios.Add(usuario);
+        var espia = new SesionNotifierEspia();
+        var handler = new AsignarPerfilUsuarioCommandHandler(_usuarioRepositorio, _inquilinoActual, _unidadDeTrabajo, espia);
+
+        await handler.Handle(new AsignarPerfilUsuarioCommand(usuario.Id, _perfilOperador.Id), CancellationToken.None);
+
+        Assert.Equal(usuario.Id, Assert.Single(espia.Revocadas).UsuarioId);
+    }
 }

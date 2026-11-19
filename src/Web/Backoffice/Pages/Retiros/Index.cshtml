@@ -108,7 +108,7 @@ else
                                 @if ((r.Estado is "Solicitado" or "NoRetirado") && UltimaMilla.Backoffice.Seguridad.PermisosBackoffice.PuedeOperar(User))
                                 {
                                     <input type="hidden" name="motivo" value="Cancelado por el operador" />
-                                    <button class="btn btn-sm btn-outline-danger" asp-page-handler="Cancelar" onclick="return confirm('¿Cancelar este retiro?');">Cancelar</button>
+                                    <button class="btn btn-sm btn-outline-danger" asp-page-handler="Cancelar" data-confirmar-titulo="Cancelar retiro" data-confirmar-boton="Sí, cancelar" data-confirmar="¿Cancelar este retiro?">Cancelar</button>
                                 }
                             </form>
                         </td>

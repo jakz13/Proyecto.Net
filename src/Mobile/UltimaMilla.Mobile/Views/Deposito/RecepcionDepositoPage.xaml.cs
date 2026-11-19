@@ -17,10 +17,18 @@ public partial class RecepcionDepositoPage : ContentPage
     {
         base.OnAppearing();
 
+        _viewModel.IniciarVigilancia();
+
         if (!_viewModel.EscaneandoConCamara)
         {
             await _viewModel.InicializarAsync();
         }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _viewModel.DetenerVigilancia();
     }
 }
 

@@ -33,6 +33,11 @@ x-api: &api
     # Postgres admite 40 conexiones: cada API usa como máximo 14 (2 x 14 = 28) y el worker 6; con el máximo por defecto (100) la carga agotaba las conexiones y respondía 5xx
     ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ultimamilla;Username=postgres;Password=${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD};Maximum Pool Size=14;Timeout=20
     ConnectionStrings__Redis: redis:6379
+    # La API lee de la cola los avisos de tiempo real que deja el worker (el worker se comunica solo por la cola)
+    RabbitMq__HostName: rabbitmq
+    RabbitMq__Port: "5672"
+    RabbitMq__UserName: ultimamilla
+    RabbitMq__Password: ${RABBITMQ_PASSWORD:?definir RABBITMQ_PASSWORD}
     Cors__AllowedOrigins__0: https://${DOMINIO:?definir DOMINIO}
     Cors__AllowedOrigins__1: https://${DOMINIO_COMERCIO:?definir DOMINIO_COMERCIO}
     # Sin identidad por defecto: solo se acepta un JWT válido emitido por /api/v1/auth/login

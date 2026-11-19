@@ -29,6 +29,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     public event EventHandler<bool>? ConnectionStateChanged;
     public event EventHandler? RutaActualizadaEnTiempoReal;
+    public event EventHandler<string>? DatosCambiaronEnTiempoReal;
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
     public HubConnectionState State => _hubConnection?.State ?? HubConnectionState.Disconnected;
@@ -189,7 +190,23 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
         // Aviso genérico de la API: algo cambió en el operador (una hoja rendida, un envío reasignado o cancelado, etc.). Se vuelve a pedir la ruta
         // sin esperar a la próxima acción del repartidor; varios avisos seguidos se juntan en una sola descarga.
-        _hubConnection.On<JsonElement>("DatosCambiaron", _ => ProgramarRefrescoPorAvisoGenerico());
+        _hubConnection.On<JsonElement>("DatosCambiaron", datos =>
+        {
+            var area = LeerPropiedadString(datos, "area", "Area") ?? string.Empty;
+            try
+            {
+                DatosCambiaronEnTiempoReal?.Invoke(this, area);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "SignalR: una pantalla falló al reaccionar a DatosCambiaron.");
+            }
+
+            ProgramarRefrescoPorAvisoGenerico();
+        });
+
+        // La plataforma habilitó o deshabilitó una funcionalidad del operador: la descarga de rutas trae también las funcionalidades vigentes
+        _hubConnection.On<JsonElement>("FuncionalidadesCambiaron", _ => ProgramarRefrescoPorAvisoGenerico());
 
         _hubConnection.On<JsonElement>("IdentidadVisualActualizada", async (_) =>
         {

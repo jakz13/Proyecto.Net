@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UltimaMilla.Mobile.Data;
 using UltimaMilla.Mobile.Models.Sync;
+using UltimaMilla.Mobile.Services.Realtime;
 using UltimaMilla.Mobile.Services.Sync;
 using UltimaMilla.Mobile.Services.Tracking;
 using UltimaMilla.Mobile.Views.Components;
@@ -105,11 +106,46 @@ public partial class DetalleParadaViewModel : ObservableObject, ICorporateAvisoM
     {
     }
 
-    public DetalleParadaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null)
+    public DetalleParadaViewModel(ILocalDatabaseService? localDatabaseService, ISyncService? syncService = null, IRealtimeTrackingService? realtimeTrackingService = null)
     {
         _localDatabaseService = localDatabaseService;
         _syncService = syncService;
+        _realtimeTrackingService = realtimeTrackingService;
     }
+
+    private readonly IRealtimeTrackingService? _realtimeTrackingService;
+    private bool _vigilando;
+
+    /// <summary>Mientras el detalle está a la vista, el estado de la hoja y los bultos se vuelven a leer cuando la central cambia la ruta (rendida, reasignada, etc.).</summary>
+    public void IniciarVigilancia()
+    {
+        if (_realtimeTrackingService is null || _vigilando)
+            return;
+
+        _realtimeTrackingService.RutaActualizadaEnTiempoReal += OnRutaActualizada;
+        _vigilando = true;
+        _ = CargarDatosParadaAsync(Parada);
+    }
+
+    public void DetenerVigilancia()
+    {
+        if (_realtimeTrackingService is not null && _vigilando)
+            _realtimeTrackingService.RutaActualizadaEnTiempoReal -= OnRutaActualizada;
+        _vigilando = false;
+    }
+
+    private void OnRutaActualizada(object? sender, EventArgs e)
+        => MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await CargarDatosParadaAsync(Parada);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DetalleParadaViewModel] No se pudo refrescar tras el aviso: {ex.Message}");
+            }
+        });
 
     partial void OnParadaChanged(ParadaItemViewModel? value)
     {

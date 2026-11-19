@@ -10,12 +10,15 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
     private readonly ICurrentTenant _currentTenant;
 
     private readonly IDireccionRepository? _direccionRepository;
+    private readonly IZonaCoberturaRepository? _zonaRepository;
 
     public ListarEnviosEnDepositoQueryHandler(
         IEnvioRepository envioRepository,
         ICurrentTenant currentTenant,
-        IDireccionRepository? direccionRepository = null)
+        IDireccionRepository? direccionRepository = null,
+        IZonaCoberturaRepository? zonaRepository = null)
     {
+        _zonaRepository = zonaRepository;
         _envioRepository = envioRepository ?? throw new ArgumentNullException(nameof(envioRepository));
         _currentTenant = currentTenant ?? throw new ArgumentNullException(nameof(currentTenant));
         _direccionRepository = direccionRepository;
@@ -36,7 +39,16 @@ public class ListarEnviosEnDepositoQueryHandler : IRequestHandler<ListarEnviosEn
             if (ids.Count > 0)
             {
                 var direcciones = await _direccionRepository.GetByIdsAsync(ids, cancellationToken);
-                zonaPorDireccion = direcciones.ToDictionary(d => d.Id, d => (Guid?)d.ZonaCoberturaId);
+                // Si la dirección no guardó zona pero tiene coordenadas, se detecta cuál de las zonas activas la contiene
+                var activas = direcciones.Any(d => d.ZonaCoberturaId is null && d.Latitud.HasValue && d.Longitud.HasValue) && _zonaRepository is not null
+                    ? await _zonaRepository.ListarZonasDelOperadorAsync(operadorId, null, true, cancellationToken)
+                    : Array.Empty<Domain.Entities.Operador.ZonaCobertura>();
+                zonaPorDireccion = direcciones.ToDictionary(
+                    d => d.Id,
+                    d => d.ZonaCoberturaId
+                         ?? (d.Latitud.HasValue && d.Longitud.HasValue
+                             ? activas.FirstOrDefault(z => z.Contiene(d.Latitud.Value, d.Longitud.Value))?.Id
+                             : null));
             }
         }
 

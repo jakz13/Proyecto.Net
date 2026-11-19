@@ -50,12 +50,24 @@ public sealed class SignalRSesionNotifier : ISesionRealtimeNotifier
             cancellationToken);
     }
 
+    public async Task NotificarSesionRevocadaAsync(Guid usuarioId, string mensaje, CancellationToken cancellationToken = default)
+    {
+        if (usuarioId == Guid.Empty || string.IsNullOrWhiteSpace(mensaje))
+            return;
+
+        // Con un identificador de sesión que ninguna conexión tiene, se alcanzan todas las del usuario
+        const string todasLasSesiones = "sesion-revocada";
+        await NotificarHubAsync(_operacionHub, RegistroConexionesHub.HubOperacion, usuarioId, todasLasSesiones, cancellationToken, mensaje);
+        await NotificarHubAsync(_tableroHub, RegistroConexionesHub.HubTablero, usuarioId, todasLasSesiones, cancellationToken, mensaje);
+    }
+
     private async Task NotificarHubAsync<THub>(
         IHubContext<THub> hubContext,
         string hubNombre,
         Guid usuarioId,
         string nuevoSessionId,
-        CancellationToken cancellationToken) where THub : Hub
+        CancellationToken cancellationToken,
+        string? mensaje = null) where THub : Hub
     {
         var conexiones = RegistroConexionesHub.ObtenerConexionesDesplazadas(
             hubNombre,
@@ -69,7 +81,7 @@ public sealed class SignalRSesionNotifier : ISesionRealtimeNotifier
         {
             await hubContext.Clients.Clients(conexiones).SendAsync(
                 EventoSesionDesplazada,
-                SesionUnicaActivaMiddleware.MensajeSesionDesplazada,
+                mensaje ?? SesionUnicaActivaMiddleware.MensajeSesionDesplazada,
                 cancellationToken);
         }
         catch (Exception ex)

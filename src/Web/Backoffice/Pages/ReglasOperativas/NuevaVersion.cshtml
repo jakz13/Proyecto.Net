@@ -186,7 +186,8 @@
         <div class="panel-estandar-footer d-flex justify-content-end gap-2">
             <a asp-page="/ReglasOperativas/Index" class="btn btn-outline-secondary btn-sm">Cancelar</a>
             <button type="submit" class="btn btn-dark btn-sm px-4 d-inline-flex align-items-center gap-1 shadow-sm"
-                    onclick="return confirm('¿Confirma la publicación de esta nueva versión de reglas operativas? La versión anterior cerrará su vigencia y los nuevos envíos se regirán bajo estos parámetros.');">
+                    data-confirmar-titulo="Publicar nueva versión" data-confirmar-boton="Sí, publicar"
+                    data-confirmar="¿Confirma la publicación de esta nueva versión de reglas operativas? La versión anterior cerrará su vigencia y los nuevos envíos se regirán bajo estos parámetros.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>

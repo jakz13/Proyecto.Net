@@ -84,9 +84,9 @@ public class RepartidorTiempoRealApiTests
             await notificador.NotificarCambioRutaAsync(DatabaseSeeder.DefaultOperadorId, rutaId, "Rendida");
         }
 
-        Assert.True(await EsperarAsync(() => recibidos.Any(r => r.GetProperty("hojaDeRutaId").GetGuid() == rutaId)),
+        // Antes llega el aviso de la hoja recién creada (estado Borrador, que ahora emite SaveChanges): lo que importa es que también llegue "Rendida"
+        Assert.True(await EsperarAsync(() => recibidos.Any(r => r.GetProperty("hojaDeRutaId").GetGuid() == rutaId && r.GetProperty("estado").GetString() == "Rendida")),
             "El repartidor no recibió el aviso de ruta rendida.");
-        Assert.Equal("Rendida", recibidos.First(r => r.GetProperty("hojaDeRutaId").GetGuid() == rutaId).GetProperty("estado").GetString());
     }
 
     [FactPostgres]

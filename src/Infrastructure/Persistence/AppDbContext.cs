@@ -760,7 +760,13 @@ public class AppDbContext : DbContext
         var cambiosDeEstado = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeEnvios();
         var cambiosDeRetiros = _tiempoReal is null ? null : CapturarCambiosDeEstadoDeRetiros();
         var cambiosDeIncidencias = _tiempoReal is null ? null : CapturarCambiosDeIncidencias();
+        var cambiosDeRutas = _tiempoReal is null ? null : CapturarCambiosDeRutas();
+        var cambiosDeComercios = _tiempoReal is null ? null : CapturarCambiosVisiblesAlComercio();
         var guardados = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (_tiempoReal is not null && cambiosDeRutas is { Count: > 0 })
+            await NotificarCambiosDeRutasAsync(cambiosDeRutas);
+        if (_tiempoReal is not null && cambiosDeComercios is { Count: > 0 })
+            await NotificarCambiosVisiblesAlComercioAsync(cambiosDeComercios);
         if (_tiempoReal is not null && cambiosDeEstado is { Count: > 0 })
             await NotificarCambiosDeEstadoAsync(cambiosDeEstado);
         if (_tiempoReal is not null && cambiosDeRetiros is { Count: > 0 })
@@ -769,6 +775,134 @@ public class AppDbContext : DbContext
             await NotificarCambiosDeIncidenciasAsync(cambiosDeIncidencias);
 
         return guardados;
+    }
+
+    /// <summary>
+    /// Lo que el personal modifica y el comercio ve en su portal (liquidaciones, cuenta corriente, su vínculo con el operador) se avisa solo a ese comercio:
+    /// el aviso general del middleware llega únicamente al personal del operador cuando escribe el personal.
+    /// </summary>
+    private sealed record CambioDeDatos(Guid OperadorId, Guid ComercioOperadorId, string Area, Guid? EnvioId = null);
+
+    private List<CambioDeDatos> CapturarCambiosVisiblesAlComercio()
+    {
+        var cambios = new List<CambioDeDatos>();
+        static bool Cambio(EntityState e) => e is EntityState.Added or EntityState.Modified;
+
+        foreach (var e in ChangeTracker.Entries<Liquidacion>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(Guid.Empty, e.Entity.ComercioOperadorId, "liquidaciones"));
+        foreach (var e in ChangeTracker.Entries<CuentaCorriente>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(Guid.Empty, e.Entity.ComercioOperadorId, "cuenta-corriente"));
+        foreach (var e in ChangeTracker.Entries<ComercioOperador>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(e.Entity.OperadorId, e.Entity.Id, "comercios"));
+
+        // Lo que hace el Worker (avisos a comercios, reintentos, cola de fallidos, cierre diario, indicadores) no pasa por una petición de la API:
+        // sin estos avisos las pantallas de mensajería, indicadores y avisos del portal quedaban con datos viejos hasta recargar
+        foreach (var e in ChangeTracker.Entries<AvisoComercio>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(Guid.Empty, Guid.Empty, "avisos", e.Entity.EnvioId));
+        foreach (var e in ChangeTracker.Entries<MensajeFallidoCola>().Where(e => Cambio(e.State) && e.Entity.OperadorId is { } op && op != Guid.Empty))
+            cambios.Add(new CambioDeDatos(e.Entity.OperadorId!.Value, Guid.Empty, "mensajeria"));
+        foreach (var e in ChangeTracker.Entries<IndicadorCumplimiento>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(e.Entity.OperadorId, Guid.Empty, "indicadores"));
+        foreach (var e in ChangeTracker.Entries<CierreDiarioOperacion>().Where(e => Cambio(e.State)))
+            cambios.Add(new CambioDeDatos(e.Entity.OperadorId, Guid.Empty, "indicadores"));
+
+        return cambios.Distinct().ToList();
+    }
+
+    private async Task NotificarCambiosVisiblesAlComercioAsync(List<CambioDeDatos> cambios)
+    {
+        foreach (var cambio in cambios)
+        {
+            try
+            {
+                var operadorId = cambio.OperadorId;
+                var relacion = cambio.ComercioOperadorId;
+
+                // El aviso a un comercio no lleva operador ni vínculo: salen del envío al que pertenece
+                if (cambio.EnvioId is { } envioId)
+                {
+                    var origen = await Set<Envio>().IgnoreQueryFilters().AsNoTracking()
+                        .Where(x => x.Id == envioId)
+                        .Select(x => new { x.OperadorId, x.ComercioOperadorId })
+                        .FirstOrDefaultAsync();
+                    if (origen is null)
+                        continue;
+                    operadorId = origen.OperadorId;
+                    relacion = origen.ComercioOperadorId;
+                }
+
+                if (relacion != Guid.Empty)
+                    await _tiempoReal!.NotificarCambioDeComercioAsync(relacion, cambio.Area);
+                if (operadorId != Guid.Empty)
+                    await _tiempoReal!.NotificarDatosCambiaronAsync(operadorId, cambio.Area);
+            }
+            catch
+            {
+                // Best effort: la vista se pondrá al día en el próximo refresco
+            }
+        }
+    }
+
+    private sealed record CambioRuta(Guid OperadorId, Guid HojaDeRutaId, string Estado, Guid? ParadaId, string? EstadoParada);
+
+    /// <summary>
+    /// Una hoja de ruta que se crea o cambia de estado, y una parada que cambia de estado, se avisan sin depender de que cada caso de uso se acuerde de hacerlo
+    /// (antes solo avisaban los que llamaban al notificador a mano: los que se olvidaban dejaban al tablero y a la app del repartidor con datos viejos).
+    /// El notificador descarta el aviso repetido si el caso de uso también lo emite.
+    /// </summary>
+    private List<CambioRuta> CapturarCambiosDeRutas()
+    {
+        var cambios = new List<CambioRuta>();
+        var operadorDelProceso = _currentTenant is { IsAuthenticated: true } ? _currentTenant.OperadorId : Guid.Empty;
+        var operadoresPorRuta = new Dictionary<Guid, Guid>();
+
+        foreach (var entrada in ChangeTracker.Entries<HojaDeRuta>())
+        {
+            var huboCambio = entrada.State == EntityState.Added
+                || (entrada.State == EntityState.Modified
+                    && !Equals(entrada.Property(r => r.Estado).OriginalValue, entrada.Property(r => r.Estado).CurrentValue));
+            if (!huboCambio)
+                continue;
+
+            var ruta = entrada.Entity;
+            operadoresPorRuta[ruta.Id] = ruta.OperadorId;
+            cambios.Add(new CambioRuta(ruta.OperadorId, ruta.Id, ruta.Estado, null, null));
+        }
+
+        foreach (var entrada in ChangeTracker.Entries<Parada>())
+        {
+            var huboCambio = entrada.State == EntityState.Modified
+                && !Equals(entrada.Property(p => p.Estado).OriginalValue, entrada.Property(p => p.Estado).CurrentValue);
+            if (!huboCambio)
+                continue;
+
+            var parada = entrada.Entity;
+            var operadorId = operadoresPorRuta.TryGetValue(parada.HojaDeRutaId, out var delaRuta) ? delaRuta : operadorDelProceso;
+            if (operadorId == Guid.Empty)
+                continue;
+
+            cambios.Add(new CambioRuta(operadorId, parada.HojaDeRutaId, string.Empty, parada.Id, parada.Estado));
+        }
+
+        return cambios;
+    }
+
+    private async Task NotificarCambiosDeRutasAsync(List<CambioRuta> cambios)
+    {
+        foreach (var cambio in cambios)
+        {
+            try
+            {
+                if (cambio.ParadaId is { } paradaId)
+                    await _tiempoReal!.NotificarHitoParadaAsync(cambio.OperadorId, cambio.HojaDeRutaId, paradaId, cambio.EstadoParada!);
+                else
+                    await _tiempoReal!.NotificarCambioRutaAsync(cambio.OperadorId, cambio.HojaDeRutaId, cambio.Estado);
+            }
+            catch
+            {
+                // Best effort: la vista se pondrá al día en el próximo refresco
+            }
+        }
     }
 
     private sealed record CambioIncidencia(Guid OperadorId, Guid IncidenciaId, string Tipo, string Severidad, string Estado);
