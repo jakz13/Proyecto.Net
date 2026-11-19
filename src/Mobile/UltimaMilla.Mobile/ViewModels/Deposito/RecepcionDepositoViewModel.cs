@@ -372,10 +372,8 @@ public partial class RecepcionDepositoViewModel : ObservableObject
 
     private async void OnDatosCambiaron(object? sender, string area)
     {
-        // Solo lo que afecta a los envíos del depósito; varios avisos seguidos se juntan en una sola consulta
-        if (area is not ("envios" or "deposito" or "retiros" or "rutas" or "planificacion" or "comercios" or ""))
-            return;
-
+        // Cualquier cambio puede afectar a la lista (una importación del comercio, un alta por la API, otra recepción): no se filtra por área.
+        // Varios avisos seguidos se juntan en una sola consulta
         _refrescoPendiente?.Cancel();
         var cts = _refrescoPendiente = new CancellationTokenSource();
         try

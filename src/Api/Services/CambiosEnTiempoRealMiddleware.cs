@@ -110,6 +110,14 @@ public sealed class CambiosEnTiempoRealMiddleware
         var indice = 1;   // después de "api"
         while (indice < segmentos.Length - 1 && segmentos[indice].Length > 1 && segmentos[indice][0] == 'v' && segmentos[indice].Skip(1).All(char.IsDigit))
             indice++;
+
+        // La recepción en depósito hecha desde el móvil (/api/mobile/v1/deposito/...) cambia lo que ven los demás operarios y la central: es del área "deposito", no del propio móvil
+        if (indice + 2 < segmentos.Length
+            && segmentos[indice].Equals("mobile", StringComparison.OrdinalIgnoreCase)
+            && segmentos[indice + 1].Length > 1 && segmentos[indice + 1][0] == 'v' && segmentos[indice + 1].Skip(1).All(char.IsDigit)
+            && segmentos[indice + 2].Equals("deposito", StringComparison.OrdinalIgnoreCase))
+            return "deposito";
+
         return indice < segmentos.Length ? segmentos[indice].ToLowerInvariant() : "general";
     }
 }
