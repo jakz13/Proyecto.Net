@@ -1,4 +1,5 @@
 using UltimaMilla.Application.Commands.Comercio.ConfigurarAvisos;
+using UltimaMilla.Application.Ports;
 using UltimaMilla.Application.Queries.Comercio.ObtenerConfiguracionAvisos;
 using UltimaMilla.Application.Tests.Fakes;
 using UltimaMilla.Domain.Entities.Seguimiento;
@@ -25,8 +26,23 @@ public class ConfigurarAvisosHandlerTests
     private ConfigurarAvisosCommandHandler CrearConfigurarHandler() =>
         new(_suscripcionesRepo, _tenant, _unitOfWork);
 
+    private readonly EmisorWebhookDePrueba _emisor = new();
+
     private ProbarWebhookCommandHandler CrearProbarHandler() =>
-        new(_suscripcionesRepo, _tenant);
+        new(_suscripcionesRepo, _tenant, _emisor);
+
+    /// <summary>Emisor falso: registra lo que se envió y responde lo que cada prueba le indique.</summary>
+    private sealed class EmisorWebhookDePrueba : IWebhookSender
+    {
+        public List<(string Url, string Payload, string Firma)> Llamadas { get; } = new();
+        public ResultadoWebhook Respuesta { get; set; } = new(true, 200, "HTTP 200 OK");
+
+        public Task<ResultadoWebhook> EnviarAsync(string urlWebhook, string payload, string firma, Guid avisoId, CancellationToken cancellationToken = default)
+        {
+            Llamadas.Add((urlWebhook, payload, firma));
+            return Task.FromResult(Respuesta);
+        }
+    }
 
     private ObtenerConfiguracionAvisosQueryHandler CrearObtenerHandler() =>
         new(_suscripcionesRepo, _tenant, _avisosRepo);
@@ -198,6 +214,52 @@ public class ConfigurarAvisosHandlerTests
         Assert.Equal(200, resultado.CodigoHttp);
         Assert.False(string.IsNullOrWhiteSpace(resultado.FirmaGenerada));
         Assert.Contains("ping", resultado.PayloadEnviado.ToLowerInvariant());
+
+        // Hace una llamada real: lo que se muestra es exactamente lo que salió hacia el comercio
+        var llamada = Assert.Single(_emisor.Llamadas);
+        Assert.Equal("https://mi-tienda.com/api/test-webhook", llamada.Url);
+        Assert.Equal(resultado.PayloadEnviado, llamada.Payload);
+        Assert.Equal(resultado.FirmaGenerada, llamada.Firma);
+    }
+
+    [Fact]
+    public async Task ProbarWebhook_ElComercioResponde500_ElPingMuestraElFalloEnVezDeUnExitoInventado()
+    {
+        // Antes el ping devolvía siempre "HTTP 200 OK" sin enviar nada: un comercio con el receptor caído nunca se enteraba
+        _emisor.Respuesta = new ResultadoWebhook(false, 500, "HTTP 500 Internal Server Error");
+        var handler = CrearProbarHandler();
+
+        var resultado = await handler.Handle(new ProbarWebhookCommand("https://mi-tienda.com/api/test-webhook"), CancellationToken.None);
+
+        Assert.False(resultado.Exitoso);
+        Assert.Equal(500, resultado.CodigoHttp);
+        Assert.Contains("500", resultado.Mensaje);
+    }
+
+    [Fact]
+    public async Task ProbarWebhook_DestinoInalcanzable_ReportaElErrorSinCodigoHttp()
+    {
+        _emisor.Respuesta = new ResultadoWebhook(false, null, "Destino no permitido: la URL del aviso apunta a una dirección interna.");
+        var handler = CrearProbarHandler();
+
+        var resultado = await handler.Handle(new ProbarWebhookCommand("https://mi-tienda.com/api/test-webhook"), CancellationToken.None);
+
+        Assert.False(resultado.Exitoso);
+        Assert.Equal(0, resultado.CodigoHttp);
+        Assert.Contains("dirección interna", resultado.Mensaje);
+    }
+
+    [Fact]
+    public async Task ProbarWebhook_ComercioConSuscripcion_FirmaConSuClaveRealParaQueElReceptorPuedaValidar()
+    {
+        var comercioId = _tenant.ComercioOperadorId ?? Guid.NewGuid();
+        _tenant.ComercioOperadorId = comercioId;
+        await _suscripcionesRepo.AddAsync(new SuscripcionAviso(Guid.NewGuid(), comercioId, "EnvioAdmitido", "https://comercio.com/hook", "clave-real-del-comercio"));
+        var handler = CrearProbarHandler();
+
+        var resultado = await handler.Handle(new ProbarWebhookCommand("https://otra-url.com/hook"), CancellationToken.None);
+
+        Assert.True(UltimaMilla.Application.Messaging.FirmaWebhook.EsValida("clave-real-del-comercio", resultado.PayloadEnviado, resultado.FirmaGenerada));
     }
 
     [Fact]

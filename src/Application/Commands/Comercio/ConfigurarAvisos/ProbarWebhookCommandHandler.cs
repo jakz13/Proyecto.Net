@@ -1,23 +1,33 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using MediatR;
+using UltimaMilla.Application.Messaging;
 using UltimaMilla.Application.Ports;
 using UltimaMilla.Domain.Exceptions;
 
 namespace UltimaMilla.Application.Commands.Comercio.ConfigurarAvisos;
 
+/// <summary>
+/// Ping de diagnóstico: hace una llamada HTTP real y firmada al webhook del comercio, por el mismo camino que usan los avisos
+/// (mismas reglas de destino, mismo tiempo de espera, sin seguir redirecciones), y devuelve lo que el comercio respondió.
+/// No crea un aviso ni cuenta en las métricas de entrega: es una prueba, no un evento del negocio.
+/// </summary>
 public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand, ProbarWebhookResultDto>
 {
+    /// <summary>Clave con la que se firma el ping cuando el comercio todavía no configuró ninguna suscripción.</summary>
+    private const string ClaveFirmaDeDemostracion = "demo-firma-hmac-sha256";
+
     private readonly ISuscripcionAvisoRepository _suscripcionRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IWebhookSender _webhookSender;
 
     public ProbarWebhookCommandHandler(
         ISuscripcionAvisoRepository suscripcionRepository,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IWebhookSender webhookSender)
     {
         _suscripcionRepository = suscripcionRepository;
         _currentTenant = currentTenant;
+        _webhookSender = webhookSender;
     }
 
     public async Task<ProbarWebhookResultDto> Handle(ProbarWebhookCommand request, CancellationToken cancellationToken)
@@ -30,23 +40,24 @@ public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand,
             throw new UnauthorizedAccessException("Se requiere una sesión activa de comercio para probar el webhook.");
         }
 
-        string urlDestino;
-        string claveFirma = "demo-firma-hmac-sha256";
+        var suscripciones = await _suscripcionRepository.ListarPorComercioOperadorAsync(comercioOperadorId.Value, cancellationToken);
 
+        // Se firma con la clave real del comercio para que el receptor pueda validar el ping igual que un aviso verdadero
+        var claveFirma = suscripciones.Count > 0 ? suscripciones[0].ClaveFirma : ClaveFirmaDeDemostracion;
+
+        string urlDestino;
         if (!string.IsNullOrWhiteSpace(request.UrlWebhookOpcional))
         {
             urlDestino = request.UrlWebhookOpcional.Trim();
         }
         else
         {
-            var suscripciones = await _suscripcionRepository.ListarPorComercioOperadorAsync(comercioOperadorId.Value, cancellationToken);
             if (suscripciones.Count == 0)
             {
                 throw new DomainValidationException("No hay una URL de webhook configurada para probar. Guarde una configuración primero.");
             }
 
             urlDestino = suscripciones[0].UrlWebhook;
-            claveFirma = suscripciones[0].ClaveFirma;
         }
 
         if (!Uri.TryCreate(urlDestino, UriKind.Absolute, out var uriValida) ||
@@ -71,19 +82,21 @@ public class ProbarWebhookCommandHandler : IRequestHandler<ProbarWebhookCommand,
         };
 
         var payloadJson = JsonSerializer.Serialize(datosPayload, new JsonSerializerOptions { WriteIndented = true });
+        var firma = FirmaWebhook.Calcular(claveFirma, payloadJson);
 
-        // Genera firma HMAC SHA-256 sobre el payload
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(claveFirma));
-        var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadJson));
-        var firmaHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        // El puerto no lanza por fallas de red: devuelve el resultado, sea éxito, código de error del comercio o destino no alcanzable
+        var resultado = await _webhookSender.EnviarAsync(urlDestino, payloadJson, firma, Guid.NewGuid(), cancellationToken);
+
+        var mensaje = resultado.Exitoso
+            ? $"'{urlDestino}' respondió {resultado.Detalle}. Verifique en su sistema que el mensaje llegó y que la firma se validó."
+            : $"El envío a '{urlDestino}' no se completó: {resultado.Detalle}";
 
         return new ProbarWebhookResultDto(
-            Exitoso: true,
-            CodigoHttp: 200,
-            Mensaje: $"Prueba de webhook completada correctamente hacia '{urlDestino}'. El receptor validó la firma y respondió HTTP 200 OK.",
+            Exitoso: resultado.Exitoso,
+            CodigoHttp: resultado.CodigoHttp ?? 0,
+            Mensaje: mensaje,
             PayloadEnviado: payloadJson,
-            FirmaGenerada: $"sha256={firmaHex}",
+            FirmaGenerada: firma,
             Timestamp: timestampUtc);
     }
 }
-

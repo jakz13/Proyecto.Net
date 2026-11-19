@@ -85,6 +85,30 @@ public class AvisoComercio : Entity
         Estado = "Entregado";
     }
 
+    /// <summary>Estados en los que el aviso ya no se reintenta solo y espera una decisión humana: es lo que muestra la cola de fallidos.</summary>
+    public static bool EsEstadoDeColaDeFallidos(string estado) => estado is "Agotado" or "Fallido";
+
+    /// <summary>
+    /// El administrador resuelve el aviso sin reenviarlo (el comercio ya no existe, la integración se dio de baja, etc.).
+    /// Se conserva para auditoría y deja de contar como aviso fallido.
+    /// </summary>
+    public void Descartar(string motivo)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new DomainValidationException("El motivo de descarte es obligatorio.");
+
+        if (!EsEstadoDeColaDeFallidos(Estado))
+            throw new DomainValidationException($"Solo se puede descartar un aviso agotado o fallido; este está en estado '{Estado}'.");
+
+        var detalle = $"[Descartado el {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC. Motivo: {motivo.Trim()}] {UltimaRespuestaHttp}".Trim();
+        UltimaRespuestaHttp = detalle.Length <= LargoMaximoRespuesta ? detalle : detalle[..LargoMaximoRespuesta];
+        ProximoReintento = null;
+        Estado = "Descartado";
+    }
+
+    /// <summary>Coincide con el largo máximo de la columna de la última respuesta HTTP.</summary>
+    private const int LargoMaximoRespuesta = 1000;
+
     /// <summary>Habilita el reenvío manual desde operación o soporte cuando el aviso quedó fallido o agotado.</summary>
     public void PrepararReenvioManual()
     {
