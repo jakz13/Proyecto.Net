@@ -23,6 +23,11 @@ public class MotivoNoEntregaDto
     public bool Activo { get; set; }
 
     /// <summary>
+    /// Motivo de uso interno del despachador (reasignar o retirar envíos en ruta): no se ofrece al repartidor.
+    /// </summary>
+    public bool EsInterno { get; set; }
+
+    /// <summary>
     /// Fecha de alta en el sistema.
     /// </summary>
     public DateTime FechaAlta { get; set; }

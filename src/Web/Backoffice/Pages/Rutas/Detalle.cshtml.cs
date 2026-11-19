@@ -148,7 +148,8 @@ public class DetalleModel : PageModel
 
         // 2. Obtener catálogo oficial de motivos de no entrega activos
         var motivos = await _motivosNoEntregaApi.ListarMotivosAsync();
-        MotivosCatalogo = motivos.Where(m => m.Activo).ToList();
+        // Solo los internos activos sirven para retirar un envío de una ruta en la calle; los demás los rechaza la API
+        MotivosCatalogo = motivos.Where(m => m.Activo && m.EsInterno).ToList();
 
         // 3. Obtener log histórico de eventos de reasignación
         HistorialEventos = await _rutasApi.ListarEventosReasignacionAsync(id);

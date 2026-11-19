@@ -20,4 +20,7 @@ public class CrearMotivoNoEntregaDto
     /// Si inicia activo de inmediato para sincronización con la app móvil.
     /// </summary>
     public bool IniciarActivo { get; set; } = true;
+
+    /// <summary>Motivo interno del despachador (reasignaciones y retiros en ruta); no se ofrece al repartidor.</summary>
+    public bool EsInterno { get; set; }
 }
