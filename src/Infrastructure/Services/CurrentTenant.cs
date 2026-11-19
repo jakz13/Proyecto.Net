@@ -92,7 +92,12 @@ public class CurrentTenant : ICurrentTenant
             if (Guid.TryParse(header, out var headerId))
                 return headerId;
 
-            // Comercio demo por defecto, igual que el operador y el usuario: solo para desarrollo y demo
+            // Un usuario autenticado sin comercio es personal del operador (despachador, operario…): ve todos los comercios de su operador.
+            // Devolver el comercio demo aquí dejaba vacío el listado de envíos de cualquier operador distinto del demo.
+            if (user?.Identity?.IsAuthenticated ?? false)
+                return null;
+
+            // Comercio demo por defecto, igual que el operador y el usuario: solo para desarrollo y demo sin sesión
             return ComercioOperadorDemoDefault;
         }
     }
