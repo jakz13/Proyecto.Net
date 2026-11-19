@@ -310,12 +310,12 @@ public class HojaDeRuta : AggregateRoot, IMustHaveTenant, IHasConcurrencyToken
         return parada;
     }
 
-    public Parada RegistrarEntregaParcialEnParada(Guid paradaId)
+    public Parada RegistrarEntregaParcialEnParada(Guid paradaId, bool resolverConflicto = false)
     {
         var parada = _paradas.FirstOrDefault(p => p.Id == paradaId)
             ?? throw new DomainValidationException($"La parada con id '{paradaId}' no pertenece a esta hoja de ruta.");
 
-        parada.RegistrarEntregaParcial();
+        parada.RegistrarEntregaParcial(resolverConflicto);
         SelloModificacion = Guid.NewGuid();
 
         VerificarYActualizarFinDeRuta();

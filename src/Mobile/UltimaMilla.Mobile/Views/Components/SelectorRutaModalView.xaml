@@ -87,38 +87,46 @@
                                     </Border.GestureRecognizers>
 
                                     <VerticalStackLayout Spacing="6">
-                                        <!-- Fila 1: Número de ruta + indicador Activa + Badge de estado -->
-                                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
-                                            <HorizontalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center">
-                                                <Label Text="{Binding NumeroRuta}"
-                                                       FontSize="14.5"
-                                                       FontAttributes="Bold"
-                                                       TextColor="#0F172A"
-                                                       VerticalOptions="Center" />
-                                                <Border IsVisible="{Binding EsSeleccionada}"
-                                                        BackgroundColor="{DynamicResource PrimaryColor}"
-                                                        StrokeThickness="0"
-                                                        StrokeShape="RoundRectangle 6"
-                                                        Padding="7,2"
-                                                        VerticalOptions="Center">
-                                                    <Label Text="Activa"
-                                                           FontSize="9.5"
-                                                           FontAttributes="Bold"
-                                                           TextColor="#FFFFFF" />
-                                                </Border>
-                                            </HorizontalStackLayout>
+                                        <!-- Fila 1: Número de ruta + indicador Activa + Badge de estado en columnas independientes -->
+                                        <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="6" VerticalOptions="Center">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding NumeroRuta}"
+                                                   FontSize="14.5"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#0F172A"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1"
+                                                   VerticalOptions="Center" />
 
                                             <Border Grid.Column="1"
+                                                    IsVisible="{Binding EsSeleccionada}"
+                                                    BackgroundColor="#DCFCE7"
+                                                    Stroke="#86EFAC"
+                                                    StrokeThickness="1"
+                                                    StrokeShape="RoundRectangle 8"
+                                                    Padding="8,3"
+                                                    VerticalOptions="Center">
+                                                <Label Text="Activa"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#15803D"
+                                                       MaxLines="1"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+
+                                            <Border Grid.Column="2"
                                                     BackgroundColor="{Binding EstadoBgColor}"
                                                     Stroke="{Binding EstadoBorderColor}"
                                                     StrokeThickness="1"
-                                                    StrokeShape="RoundRectangle 6"
+                                                    StrokeShape="RoundRectangle 8"
                                                     Padding="8,3"
                                                     VerticalOptions="Center">
                                                 <Label Text="{Binding EstadoDescripcion}"
                                                        FontSize="10"
                                                        FontAttributes="Bold"
-                                                       TextColor="{Binding EstadoTextColor}" />
+                                                       TextColor="{Binding EstadoTextColor}"
+                                                       MaxLines="1"
+                                                       VerticalOptions="Center" />
                                             </Border>
                                         </Grid>
 

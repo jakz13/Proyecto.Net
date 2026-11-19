@@ -126,7 +126,7 @@ public partial class HojaDeRutaSelectorItem : ObservableObject
         bool esSeleccionada = false)
     {
         var total = paradas is { Count: > 0 } ? paradas.Count : ruta.TotalParadas;
-        var completadas = paradas?.Count(p => p.Estado is "Entregado" or "Fallido" or "EnDevolucion") ?? 0;
+        var completadas = paradas?.Count(p => p.Estado is "Entregado" or "EntregadaParcialmente" or "Retirado" or "Retirada" or "Fallido" or "EnDevolucion" or "NoRetirado" or "NoRetirada") ?? 0;
         var pendientes = Math.Max(0, total - completadas);
         var descEstado = DescribirEstado(ruta.Estado);
 

@@ -424,23 +424,61 @@ public class LocalDatabaseService : ILocalDatabaseService
         return aEliminar.Count;
     }
 
+    private static bool EsEstadoRutaInactivaOCerrada(string? estado) =>
+        !string.IsNullOrWhiteSpace(estado) && (
+            estado.Equals("Rendida", StringComparison.OrdinalIgnoreCase) ||
+            estado.Equals("Cerrada", StringComparison.OrdinalIgnoreCase) ||
+            estado.Equals("Finalizada", StringComparison.OrdinalIgnoreCase) ||
+            estado.Equals("Cancelada", StringComparison.OrdinalIgnoreCase));
+
+    private static void EliminarDatosRutaEnTransaccion(SQLiteConnection conn, Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId == Guid.Empty)
+            return;
+
+        var paradas = conn.Table<ParadaLocal>()
+            .Where(p => p.HojaDeRutaId == hojaDeRutaId)
+            .ToList();
+
+        foreach (var parada in paradas)
+        {
+            foreach (var bulto in conn.Table<BultoLocal>().Where(b => b.ParadaId == parada.Id).ToList())
+            {
+                conn.Delete(bulto);
+            }
+
+            foreach (var envio in conn.Table<EnvioLocal>().Where(e => e.ParadaId == parada.Id).ToList())
+            {
+                conn.Delete(envio);
+            }
+
+            conn.Delete(parada);
+        }
+
+        var ruta = conn.Find<HojaDeRutaLocal>(hojaDeRutaId);
+        if (ruta != null)
+        {
+            conn.Delete(ruta);
+        }
+    }
+
     public async Task MarcarRutasAusentesComoRendidasAsync(IEnumerable<Guid> idsRutasActivasServidor)
     {
         await InitAsync();
         var activas = idsRutasActivasServidor.Where(id => id != Guid.Empty).ToHashSet();
         var rutasLocales = await Db.Table<HojaDeRutaLocal>().ToListAsync();
-        var ausentes = rutasLocales
-            .Where(r => !activas.Contains(r.Id) && r.Estado is not ("Rendida" or "Cerrada"))
+        var ausentesOCerradas = rutasLocales
+            .Where(r => !activas.Contains(r.Id) || EsEstadoRutaInactivaOCerrada(r.Estado))
             .ToList();
 
-        if (ausentes.Count == 0)
+        if (ausentesOCerradas.Count == 0)
             return;
 
         var pendientes = await Db.Table<OperacionOfflineLocal>()
             .Where(o => !o.Sincronizado)
             .ToListAsync();
 
-        foreach (var ruta in ausentes)
+        foreach (var ruta in ausentesOCerradas)
         {
             var idConGuiones = ruta.Id.ToString("D");
             var idSinGuiones = ruta.Id.ToString("N");
@@ -450,25 +488,35 @@ public class LocalDatabaseService : ILocalDatabaseService
                              o.PayloadJson.Contains(idSinGuiones, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            // Si quedan entregas/incidencias/retiros pendientes de sincronizar, no cerrar localmente
+            // Si quedan entregas/incidencias/retiros/cargas pendientes de sincronizar, no eliminar la ruta localmente
             // hasta que la cola termine de procesarse contra el backend.
-            bool tieneOperacionesCriticasPendientes = opsDeRuta.Any(o =>
+            bool tieneOperacionesEntregaPendientes = opsDeRuta.Any(o =>
                 o.TipoOperacion is TiposOperacionOffline.EntregaExitosa
                     or TiposOperacionOffline.EntregaParcial
                     or TiposOperacionOffline.FalloEntrega
                     or TiposOperacionOffline.RetiroRealizado
                     or TiposOperacionOffline.RetiroNoRealizado
                     or TiposOperacionOffline.RetiroDevolucion
-                    or TiposOperacionOffline.ConfirmarCarga
-                    or TiposOperacionOffline.FinalizarHojaDeRuta);
+                    or TiposOperacionOffline.ConfirmarCarga);
 
-            if (tieneOperacionesCriticasPendientes)
+            if (tieneOperacionesEntregaPendientes && !EsEstadoRutaInactivaOCerrada(ruta.Estado))
                 continue;
 
-            ruta.Estado = "Rendida";
-            await Db.UpdateAsync(ruta);
+            await Db.RunInTransactionAsync(conn =>
+            {
+                EliminarDatosRutaEnTransaccion(conn, ruta.Id);
+            });
 
-            foreach (var opResidual in opsDeRuta)
+            try
+            {
+                Preferences.Default.Remove($"FirmaRuta_{ruta.Id:N}");
+                Preferences.Default.Remove($"RutaOrdenOptimizadoLocal_{ruta.Id:N}");
+            }
+            catch
+            {
+            }
+
+            foreach (var opResidual in opsDeRuta.Where(o => o.TipoOperacion != TiposOperacionOffline.FinalizarHojaDeRuta))
             {
                 await Db.DeleteAsync(opResidual);
             }
@@ -499,6 +547,12 @@ public class LocalDatabaseService : ILocalDatabaseService
 
         await Db.RunInTransactionAsync(conn =>
         {
+            if (EsEstadoRutaInactivaOCerrada(estadoRuta))
+            {
+                EliminarDatosRutaEnTransaccion(conn, hojaDeRutaId);
+                return;
+            }
+
             // 1. Hoja de ruta: el estado y el número los manda siempre el servidor
             var ruta = conn.Find<HojaDeRutaLocal>(hojaDeRutaId);
             if (ruta == null)
@@ -517,11 +571,8 @@ public class LocalDatabaseService : ILocalDatabaseService
             }
             else
             {
-                // "Cerrada" es el cierre que hizo el repartidor en el dispositivo: el servidor solo dice "Finalizada" (todas las paradas
-                // completadas) o "Rendida", y eso no debe reabrir una ruta que él ya cerró.
-                var yaCerradaPorElRepartidor = ruta.Estado == "Cerrada" && estadoRuta is "Finalizada" or "Rendida";
                 var yaEnTransitoPorElRepartidor = ruta.Estado == "EnTransito" && estadoRuta is "Liberada" or "EnCarga" or "Despachada";
-                if (!string.IsNullOrWhiteSpace(estadoRuta) && !yaCerradaPorElRepartidor && !yaEnTransitoPorElRepartidor)
+                if (!string.IsNullOrWhiteSpace(estadoRuta) && !yaEnTransitoPorElRepartidor)
                     ruta.Estado = estadoRuta;
                 if (!string.IsNullOrWhiteSpace(numeroRuta))
                     ruta.NumeroRuta = numeroRuta;
@@ -532,23 +583,6 @@ public class LocalDatabaseService : ILocalDatabaseService
                 ruta.TotalParadas = paradas.Count;
                 ruta.FechaDescargaUtc = DateTime.UtcNow;
                 conn.Update(ruta);
-            }
-
-            if (ruta.Estado is "Rendida" or "Cerrada")
-            {
-                var idConGuiones = hojaDeRutaId.ToString("D");
-                var idSinGuiones = hojaDeRutaId.ToString("N");
-                var obsoletasOps = conn.Table<OperacionOfflineLocal>()
-                    .Where(o => !o.Sincronizado)
-                    .ToList()
-                    .Where(o => !string.IsNullOrWhiteSpace(o.PayloadJson) &&
-                                (o.PayloadJson.Contains(idConGuiones, StringComparison.OrdinalIgnoreCase) ||
-                                 o.PayloadJson.Contains(idSinGuiones, StringComparison.OrdinalIgnoreCase)))
-                    .ToList();
-                foreach (var op in obsoletasOps)
-                {
-                    conn.Delete(op);
-                }
             }
 
             bool rutaYaDespachada = ruta.Estado is "Despachada" or "EnTransito" or "Finalizada" or "Cerrada" or "Rendida";
@@ -563,7 +597,23 @@ public class LocalDatabaseService : ILocalDatabaseService
             var obsoletas = conn.Table<ParadaLocal>()
                 .Where(p => p.HojaDeRutaId == hojaDeRutaId)
                 .ToList()
-                .Where(p => !idsServidor.Contains(p.Id) && p.Estado == "Pendiente")
+                .Where(p =>
+                {
+                    if (idsServidor.Contains(p.Id))
+                        return false;
+
+                    if (p.Estado is "Entregado" or "EntregadaParcialmente" or "Retirado" or "Retirada")
+                        return false;
+
+                    var pConGuiones = p.Id.ToString("D");
+                    var pSinGuiones = p.Id.ToString("N");
+                    bool tieneOpPendiente = operacionesPendientesCola.Any(o =>
+                        !string.IsNullOrWhiteSpace(o.PayloadJson) &&
+                        (o.PayloadJson.Contains(pConGuiones, StringComparison.OrdinalIgnoreCase) ||
+                         o.PayloadJson.Contains(pSinGuiones, StringComparison.OrdinalIgnoreCase)));
+
+                    return !tieneOpPendiente;
+                })
                 .ToList();
             foreach (var obsoleta in obsoletas)
             {
@@ -770,6 +820,18 @@ public class LocalDatabaseService : ILocalDatabaseService
             .OrderByDescending(r => r.FechaDescargaUtc)
             .ToListAsync();
 
+        var inactivas = rutas.Where(r => EsEstadoRutaInactivaOCerrada(r.Estado)).ToList();
+        if (inactivas.Count > 0)
+        {
+            await Db.RunInTransactionAsync(conn =>
+            {
+                foreach (var inactiva in inactivas)
+                {
+                    EliminarDatosRutaEnTransaccion(conn, inactiva.Id);
+                }
+            });
+        }
+
         int PrioridadEstado(string estado) => estado switch
         {
             "EnTransito" => 1,
@@ -777,11 +839,11 @@ public class LocalDatabaseService : ILocalDatabaseService
             "EnCarga" => 3,
             "Liberada" => 4,
             "Borrador" => 5,
-            "Cerrada" or "Rendida" => 10,
             _ => 10
         };
 
         return rutas
+            .Where(r => !EsEstadoRutaInactivaOCerrada(r.Estado))
             .OrderBy(r => PrioridadEstado(r.Estado))
             .ThenByDescending(r => r.FechaDescargaUtc)
             .ToList();
@@ -794,6 +856,9 @@ public class LocalDatabaseService : ILocalDatabaseService
 
         foreach (var ruta in rutasLocales)
         {
+            if (EsEstadoRutaInactivaOCerrada(ruta.Estado))
+                continue;
+
             var paradas = await ObtenerParadasLocalesPorRutaAsync(ruta.Id);
             resultado.Add(HojaDeRutaSelectorItem.Crear(
                 ruta,
@@ -925,20 +990,30 @@ public class LocalDatabaseService : ILocalDatabaseService
     public async Task FinalizarHojaDeRutaLocalAsync(Guid hojaDeRutaId)
     {
         await InitAsync();
-        var ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId);
-        if (ruta == null)
+        var targetId = hojaDeRutaId;
+        if (targetId == Guid.Empty)
         {
-            ruta = await Db.Table<HojaDeRutaLocal>()
+            var ultima = await Db.Table<HojaDeRutaLocal>()
                 .OrderByDescending(r => r.FechaDescargaUtc)
                 .FirstOrDefaultAsync();
+            if (ultima == null)
+                return;
+            targetId = ultima.Id;
         }
 
-        if (ruta != null)
+        // Eliminar inmediatamente la hoja de ruta rendida y sus paradas/envíos/bultos locales de SQLite
+        await Db.RunInTransactionAsync(conn =>
         {
-            // Cierre explícito del repartidor (botón "Finalizar Hoja de Ruta"): recién entonces la ruta sale de la pantalla del día
-            ruta.Estado = "Cerrada";
-            await Db.UpdateAsync(ruta);
-            await ActualizarFirmaRutaLocalEnPreferenciasAsync(ruta.Id);
+            EliminarDatosRutaEnTransaccion(conn, targetId);
+        });
+
+        try
+        {
+            Preferences.Default.Remove($"FirmaRuta_{targetId:N}");
+            Preferences.Default.Remove($"RutaOrdenOptimizadoLocal_{targetId:N}");
+        }
+        catch
+        {
         }
     }
 
@@ -951,24 +1026,21 @@ public class LocalDatabaseService : ILocalDatabaseService
         if (hojaDeRutaId.HasValue && hojaDeRutaId.Value != Guid.Empty)
         {
             ruta = await Db.FindAsync<HojaDeRutaLocal>(hojaDeRutaId.Value);
-            if (ruta != null && ruta.Estado is "Rendida" or "Cerrada")
+            if (ruta != null && EsEstadoRutaInactivaOCerrada(ruta.Estado))
             {
+                await FinalizarHojaDeRutaLocalAsync(ruta.Id);
                 ruta = null;
             }
         }
         else
         {
-            var todas = await Db.Table<HojaDeRutaLocal>()
-                .OrderByDescending(r => r.FechaDescargaUtc)
-                .ToListAsync();
+            var todas = await ListarHojasDeRutaLocalesAsync();
 
             // Prioridad de ruta activa: EnTransito > Despachada > EnCarga > Liberada
             ruta = todas.FirstOrDefault(r => r.Estado == "EnTransito")
                 ?? todas.FirstOrDefault(r => r.Estado == "Despachada")
                 ?? todas.FirstOrDefault(r => r.Estado == "EnCarga")
-                ?? todas.FirstOrDefault(r => r.Estado == "Liberada")
-                // Con todas las paradas completadas el servidor la marca "Finalizada": sigue visible hasta que el repartidor la cierre
-                ?? todas.FirstOrDefault(r => r.Estado == "Finalizada");
+                ?? todas.FirstOrDefault(r => r.Estado == "Liberada");
         }
 
         if (ruta == null)

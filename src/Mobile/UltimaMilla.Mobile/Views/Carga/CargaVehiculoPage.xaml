@@ -148,7 +148,7 @@
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding AbrirSelectorRutaCommand}" />
                                     </Border.GestureRecognizers>
-                                    <Grid ColumnDefinitions="Auto, *, Auto, Auto" ColumnSpacing="8" VerticalOptions="Center">
+                                    <Grid ColumnDefinitions="Auto, *, Auto, Auto" ColumnSpacing="6" VerticalOptions="Center">
                                         <Label Grid.Column="0"
                                                Text="RUTA"
                                                FontSize="10.5"
@@ -161,30 +161,35 @@
                                                FontAttributes="Bold"
                                                TextColor="#0F172A"
                                                LineBreakMode="TailTruncation"
+                                               MaxLines="1"
                                                VerticalOptions="Center" />
                                         <Border Grid.Column="2"
                                                 BackgroundColor="{Binding HojaDeRutaSeleccionada.EstadoBgColor}"
                                                 Stroke="{Binding HojaDeRutaSeleccionada.EstadoBorderColor}"
                                                 StrokeThickness="1"
-                                                StrokeShape="RoundRectangle 6"
-                                                Padding="7,2"
+                                                StrokeShape="RoundRectangle 8"
+                                                Padding="8,3"
                                                 VerticalOptions="Center">
                                             <Label Text="{Binding HojaDeRutaSeleccionada.EstadoDescripcion}"
                                                    FontSize="10"
                                                    FontAttributes="Bold"
-                                                   TextColor="{Binding HojaDeRutaSeleccionada.EstadoTextColor}" />
+                                                   TextColor="{Binding HojaDeRutaSeleccionada.EstadoTextColor}"
+                                                   MaxLines="1"
+                                                   VerticalOptions="Center" />
                                         </Border>
                                         <Border Grid.Column="3"
                                                 BackgroundColor="{DynamicResource PrimaryLight}"
                                                 Stroke="{DynamicResource PrimaryColor}"
                                                 StrokeThickness="1"
-                                                StrokeShape="RoundRectangle 6"
-                                                Padding="8,4"
+                                                StrokeShape="RoundRectangle 8"
+                                                Padding="8,3"
                                                 VerticalOptions="Center">
                                             <Label Text="Cambiar"
                                                    FontSize="10.5"
                                                    FontAttributes="Bold"
-                                                   TextColor="{DynamicResource PrimaryColor}" />
+                                                   TextColor="{DynamicResource PrimaryColor}"
+                                                   MaxLines="1"
+                                                   VerticalOptions="Center" />
                                         </Border>
                                     </Grid>
                                 </Border>

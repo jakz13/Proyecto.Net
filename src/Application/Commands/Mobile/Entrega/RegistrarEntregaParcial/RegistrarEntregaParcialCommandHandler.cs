@@ -4,6 +4,7 @@ using UltimaMilla.Application.Common;
 using UltimaMilla.Application.DTOs.Mobile;
 using UltimaMilla.Application.Exceptions;
 using UltimaMilla.Application.Ports;
+using UltimaMilla.Domain.Entities.Ejecucion;
 using UltimaMilla.Domain.Entities.Envios;
 using UltimaMilla.Domain.Entities.Mensajeria;
 using UltimaMilla.Domain.Entities.Operador;
@@ -149,6 +150,39 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
             ruta.AsegurarEnTransitoParaOperacionEnCalle();
         }
 
+        bool huboConflicto = (envio.EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
+            || parada.Estado == "Cancelada";
+        if (huboConflicto)
+        {
+            if (ruta.Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
+            {
+                ruta.AsegurarEnTransitoParaOperacionEnCalle();
+            }
+
+            if (envio.HojaDeRutaId.HasValue && envio.HojaDeRutaId.Value != ruta.Id)
+            {
+                var otraRuta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(envio.HojaDeRutaId.Value, cancellationToken);
+                if (otraRuta is not null)
+                {
+                    otraRuta.DesasignarEnvioFaltante(envio.Id);
+                    await _rutaRepository.UpdateAsync(otraRuta, cancellationToken);
+                }
+            }
+
+            envio.VincularHojaDeRutaPorConflicto(ruta.Id);
+
+            var conflicto = new ConflictoSincronizacion(
+                Guid.NewGuid(),
+                nameof(Envio),
+                envio.Id,
+                estadoServidor: envio.EstadoActual.ToString(),
+                estadoDispositivo: EstadoEnvio.EntregadoParcialmente.ToString(),
+                politicaAplicada: "PrevaleceEntregaFisicaConEvidencia",
+                resolucion: $"Entrega parcial física completada offline con prueba por el repartidor mientras el servidor mantenía el envío en estado '{envio.EstadoActual}'. Prevalece la entrega real.");
+
+            await _envioRepository.RegistrarConflictoAsync(conflicto, cancellationToken);
+        }
+
         var inputsNoEntregados = new List<BultoNoEntregadoInput>();
         foreach (var item in request.BultosNoEntregados ?? Array.Empty<BultoNoEntregadoRequestDto>())
         {
@@ -180,12 +214,13 @@ public class RegistrarEntregaParcialCommandHandler : IRequestHandler<RegistrarEn
             request.Latitud,
             request.Longitud,
             fechaDispositivoUtc,
-            _currentTenant.UsuarioId);
+            _currentTenant.UsuarioId,
+            resolverConflictoReasignacion: huboConflicto);
 
         if (resultado.EstadoFinalEnvio == EstadoEnvio.Entregado)
-            ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+            ruta.RegistrarEntregaExitosaEnParada(parada.Id, resolverConflicto: huboConflicto);
         else
-            ruta.RegistrarEntregaParcialEnParada(parada.Id);
+            ruta.RegistrarEntregaParcialEnParada(parada.Id, resolverConflicto: huboConflicto);
 
         var payloadEvento = JsonSerializer.Serialize(new
         {

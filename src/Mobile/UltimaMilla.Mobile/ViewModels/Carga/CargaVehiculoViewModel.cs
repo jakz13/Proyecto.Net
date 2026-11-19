@@ -557,7 +557,9 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
             return;
         }
 
-        var itemsSelector = await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(HojaDeRutaSeleccionada?.Id);
+        var itemsSelector = (await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(HojaDeRutaSeleccionada?.Id))
+            .Where(r => r.Estado is not ("Rendida" or "Cerrada" or "Finalizada" or "Cancelada"))
+            .ToList();
         HojasDeRutaDisponibles.Clear();
 
         foreach (var item in itemsSelector)
@@ -566,6 +568,10 @@ public partial class CargaVehiculoViewModel : ObservableObject, ISelectorRutaMod
         }
 
         TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
+        if (HojasDeRutaDisponibles.Count == 0)
+        {
+            MostrarModalSelectorRuta = false;
+        }
 
         var rutaParaCarga = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "Liberada" or "EnCarga")
             ?? HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "Despachada" or "EnTransito")

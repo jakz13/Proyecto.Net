@@ -383,7 +383,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         try
         {
             var syncService = ObtenerSyncService();
-            if (syncService is not null)
+            if (syncService is not null && syncService.IsOnline)
             {
                 await syncService.DescargarYActualizarRutasDelServidorAsync();
                 RutaActualizadaEnTiempoReal?.Invoke(this, EventArgs.Empty);
@@ -420,6 +420,9 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
+        if (ObtenerSyncService()?.IsOfflineSimulado == true)
+            return;
+
         var tokenDisponible = _serviceProvider?.GetService<IAuthService>()?.AccessToken
             ?? AuthDelegatingHandler.CurrentTokenInMemory;
 
@@ -444,7 +447,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_isDisposed)
+        if (_isDisposed || ObtenerSyncService()?.IsOfflineSimulado == true)
             return;
 
         bool sesionNoAutorizada = false;
@@ -534,7 +537,7 @@ public class RealtimeTrackingService : IRealtimeTrackingService
         double? velocidadKmh = null,
         int? bateriaPct = null)
     {
-        if (_isDisposed)
+        if (_isDisposed || ObtenerSyncService()?.IsOfflineSimulado == true)
             return;
 
         try

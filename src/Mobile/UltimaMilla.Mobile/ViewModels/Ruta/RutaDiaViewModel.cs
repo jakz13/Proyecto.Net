@@ -873,7 +873,11 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
         if (_localDatabaseService == null)
             return;
 
-        var itemsSelector = await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(HojaDeRutaSeleccionada?.Id);
+        var idSeleccionPrevia = HojaDeRutaSeleccionada?.Id;
+        var itemsSelector = (await _localDatabaseService.ListarHojasDeRutaParaSelectorAsync(idSeleccionPrevia))
+            .Where(r => r.Estado is not ("Rendida" or "Cerrada" or "Finalizada" or "Cancelada"))
+            .ToList();
+
         HojasDeRutaDisponibles.Clear();
 
         foreach (var item in itemsSelector)
@@ -882,8 +886,16 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
         }
 
         TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
+        if (HojasDeRutaDisponibles.Count == 0)
+        {
+            MostrarModalSelectorRuta = false;
+        }
 
-        var rutaActiva = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada" or "Finalizada");
+        var rutaActiva = (idSeleccionPrevia.HasValue
+                ? HojasDeRutaDisponibles.FirstOrDefault(r => r.Id == idSeleccionPrevia.Value)
+                : null)
+            ?? HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is "EnTransito" or "Despachada" or "EnCarga" or "Liberada")
+            ?? HojasDeRutaDisponibles.FirstOrDefault();
 
         _actualizandoSelector = true;
         try
@@ -891,20 +903,9 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
             if (rutaActiva != null)
             {
                 SinRutaAsignada = false;
+                HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, rutaActiva.Id);
                 HojaDeRutaSeleccionada = rutaActiva;
                 await CargarRutaEspecificaAsync(rutaActiva.Id);
-            }
-            else if (HojasDeRutaDisponibles.Count > 0 && HojasDeRutaDisponibles.All(r => r.Estado is "Cerrada" or "Rendida"))
-            {
-                SinRutaAsignada = true;
-                Paradas.Clear();
-                EstadoHojaDeRuta = HojasDeRutaDisponibles.First().Estado;
-                HojaDeRutaSeleccionada = HojasDeRutaDisponibles.First();
-                RecalcularProgreso();
-                if (_trackingService is { IsTrackingActive: true })
-                {
-                    await _trackingService.DetenerTrackingAsync();
-                }
             }
             else
             {
@@ -995,13 +996,13 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
 
             var rutaId = HojaDeRutaSeleccionada?.Id;
             var local = await _localDatabaseService.ObtenerRutaActivaLocalAsync(rutaId);
-            if (local == null || local.Ruta == null || local.Ruta.Estado is "Cerrada" or "Rendida" || selectorDesactualizado)
+            if (local == null || local.Ruta == null || local.Ruta.Estado is "Cerrada" or "Rendida" or "Finalizada" or "Cancelada" || selectorDesactualizado)
             {
                 await CargarRutasDesdeSQLiteAsync();
                 if (rutaId.HasValue && HojasDeRutaDisponibles.Any(h => h.Id == rutaId.Value))
                 {
                     var seleccionada = HojasDeRutaDisponibles.First(h => h.Id == rutaId.Value);
-                    if (seleccionada.Estado is not ("Cerrada" or "Rendida") && HojaDeRutaSeleccionada?.Id != seleccionada.Id)
+                    if (seleccionada.Estado is not ("Cerrada" or "Rendida" or "Finalizada" or "Cancelada") && HojaDeRutaSeleccionada?.Id != seleccionada.Id)
                     {
                         HojaDeRutaSeleccionada = seleccionada;
                     }
@@ -1228,6 +1229,19 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
                 await _trackingService.DetenerTrackingAsync();
             }
 
+            // 1. Quitar de inmediato la hoja de ruta rendida de la colección en memoria del modal selector
+            MostrarModalSelectorRuta = false;
+            if (rutaId != Guid.Empty)
+            {
+                var itemRendida = HojasDeRutaDisponibles.FirstOrDefault(r => r.Id == rutaId);
+                if (itemRendida != null)
+                {
+                    HojasDeRutaDisponibles.Remove(itemRendida);
+                }
+            }
+            TieneMultiplesRutas = HojasDeRutaDisponibles.Count > 1;
+
+            // 2. Encolar rendición y eliminar la ruta y sus paradas de SQLite local
             if (_syncService != null && rutaId != Guid.Empty)
             {
                 await _syncService.FinalizarHojaDeRutaAsync(rutaId, bultosRetorno, "Rendición de hoja de ruta completada en depósito");
@@ -1237,10 +1251,34 @@ public partial class RutaDiaViewModel : ObservableObject, IDisposable, ISelector
                 await _localDatabaseService.FinalizarHojaDeRutaLocalAsync(rutaId);
             }
 
-            EstadoHojaDeRuta = "Cerrada";
+            // 3. Reasignar automáticamente la siguiente ruta activa o limpiar a estado vacío
+            _actualizandoSelector = true;
+            try
+            {
+                var siguienteRuta = HojasDeRutaDisponibles.FirstOrDefault(r => r.Estado is not ("Rendida" or "Cerrada" or "Finalizada" or "Cancelada"));
+                if (siguienteRuta != null)
+                {
+                    HojaDeRutaSelectorItem.ActualizarSeleccion(HojasDeRutaDisponibles, siguienteRuta.Id);
+                    HojaDeRutaSeleccionada = siguienteRuta;
+                    SinRutaAsignada = false;
+                }
+                else
+                {
+                    HojaDeRutaSeleccionada = null;
+                    Paradas.Clear();
+                    SinRutaAsignada = true;
+                    EstadoHojaDeRuta = "SinRuta";
+                    RecalcularProgreso();
+                }
+            }
+            finally
+            {
+                _actualizandoSelector = false;
+            }
+
             MostrarAvisoRapido("Hoja de ruta finalizada y rendida en depósito");
 
-            // Consultar inmediatamente nuevas rutas asignadas en el servidor
+            // 4. Consultar inmediatamente las rutas activas restantes en el servidor y recargar SQLite
             if (_syncService != null && _syncService.IsOnline)
             {
                 await _syncService.DescargarYActualizarRutasDelServidorAsync();

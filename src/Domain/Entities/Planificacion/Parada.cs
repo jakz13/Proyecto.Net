@@ -130,9 +130,9 @@ public class Parada : Entity
         Estado = "Entregada";
     }
 
-    public void RegistrarEntregaParcial()
+    public void RegistrarEntregaParcial(bool forzarPorConflicto = false)
     {
-        if (Estado == "Cancelada")
+        if (Estado == "Cancelada" && !forzarPorConflicto)
             throw new DomainValidationException("No se puede registrar entrega parcial en una parada cancelada.");
 
         Estado = "EntregadaParcialmente";

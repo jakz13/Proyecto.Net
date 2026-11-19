@@ -157,7 +157,27 @@ public class SyncService : ISyncService, IDisposable
     {
         await NotificarCambioEstadoAsync();
 
-        // Recuperación instantánea al restablecerse la conectividad: reconecta SignalR y drena la cola offline sin esperas
+        if (!IsOnline)
+        {
+            var realtimeOffline = _serviceProvider?.GetService<IRealtimeTrackingService>();
+            if (realtimeOffline is { IsConnected: true })
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await realtimeOffline.StopAsync(_autoSyncCts.Token);
+                    }
+                    catch
+                    {
+                    }
+                });
+            }
+            return;
+        }
+
+        // Recuperación instantánea al restablecerse la conectividad: drena primero la cola offline (para resolver
+        // conflictos en el servidor antes de descargar rutas) y luego reconecta SignalR y refresca las rutas.
         if (IsOnline && !string.IsNullOrWhiteSpace(_authService.AccessToken))
         {
             _ = Task.Run(async () =>
@@ -167,13 +187,13 @@ public class SyncService : ISyncService, IDisposable
                     var ct = _autoSyncCts.Token;
                     _logger.LogInformation("Conexión restablecida. Drenando cola pendiente y reconectando SignalR en tiempo real.");
 
+                    await ReintentarColaPendienteSilenciosamenteAsync(ct);
+
                     var realtime = _serviceProvider?.GetService<IRealtimeTrackingService>();
-                    if (realtime is not null && !realtime.IsConnected)
+                    if (realtime is not null && !realtime.IsConnected && IsOnline)
                     {
                         await realtime.StartAsync(ct);
                     }
-
-                    await ReintentarColaPendienteSilenciosamenteAsync(ct);
 
                     if (_themeService is not null)
                     {
@@ -316,6 +336,20 @@ public class SyncService : ISyncService, IDisposable
             return rutasDescargadas;
         }
 
+        // Si existen operaciones offline pendientes en la cola local, drenarlas primero para que el servidor
+        // procese entregas/incidencias y resuelva cualquier conflicto antes de descargar el estado de las rutas.
+        if (!IsSyncing && await _localDatabaseService.ObtenerCantidadPendientesAsync() > 0)
+        {
+            try
+            {
+                await SincronizarOperacionesPendientesAsync(cancellationToken);
+            }
+            catch (Exception exSyncPrevia)
+            {
+                _logger.LogDebug(exSyncPrevia, "Sincronización previa a descarga de rutas omitida por error transitorio.");
+            }
+        }
+
         await _downloadRoutesSemaphore.WaitAsync(cancellationToken);
         try
         {
@@ -342,9 +376,12 @@ public class SyncService : ISyncService, IDisposable
                 if (lista != null)
                 {
                     servidorRespondioLista = true;
-                    if (lista.Count > 0)
+                    var activasFiltradas = lista
+                        .Where(r => r.HojaDeRutaId != Guid.Empty && !EsEstadoTerminalRuta(r.Estado) && !string.Equals(r.Estado, "Cancelada", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    if (activasFiltradas.Count > 0)
                     {
-                        rutasDescargadas.AddRange(lista);
+                        rutasDescargadas.AddRange(activasFiltradas);
                     }
                     else if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
                     {
@@ -359,14 +396,19 @@ public class SyncService : ISyncService, IDisposable
                 if (responseActiva.IsSuccessStatusCode)
                 {
                     var rutaUnica = await responseActiva.Content.ReadFromJsonAsync<RutaActivaRepartidorDto>(JsonOptions, cancellationToken);
-                    if (rutaUnica != null && rutaUnica.HojaDeRutaId != Guid.Empty)
+                    if (rutaUnica != null && rutaUnica.HojaDeRutaId != Guid.Empty && !EsEstadoTerminalRuta(rutaUnica.Estado) && !string.Equals(rutaUnica.Estado, "Cancelada", StringComparison.OrdinalIgnoreCase))
                     {
+                        servidorRespondioLista = true;
                         rutasDescargadas.Add(rutaUnica);
                     }
                 }
-                else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound && await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                else if (responseActiva.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                    servidorRespondioLista = true;
+                    if (await _localDatabaseService.ObtenerCantidadPendientesAsync() == 0)
+                    {
+                        await _localDatabaseService.LimpiarDatosDeRutaAsync();
+                    }
                 }
             }
 
@@ -689,8 +731,6 @@ public class SyncService : ISyncService, IDisposable
         string? observaciones = null,
         CancellationToken cancellationToken = default)
     {
-        await _localDatabaseService.FinalizarHojaDeRutaLocalAsync(hojaDeRutaId);
-
         var idempotencyKey = $"FIN-RUTA-{hojaDeRutaId:N}-{DateTime.UtcNow.Ticks}";
         var payload = new FinalizarHojaDeRutaOfflinePayload
         {
@@ -700,6 +740,18 @@ public class SyncService : ISyncService, IDisposable
             IdempotencyKey = idempotencyKey,
             FechaFinalizacionUtc = DateTime.UtcNow
         };
+
+        // 1. Encolar primero la operación con su payload completo en OperacionOfflineLocal
+        // para garantizar que no se pierda información si el dispositivo está sin señal.
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        var opId = await _localDatabaseService.EncolarOperacionAsync(TiposOperacionOffline.FinalizarHojaDeRuta, json);
+
+        // 2. Eliminar inmediatamente la hoja de ruta rendida y sus paradas de SQLite local.
+        await _localDatabaseService.FinalizarHojaDeRutaLocalAsync(hojaDeRutaId);
+        if (UltimaRutaDescargada?.HojaDeRutaId == hojaDeRutaId)
+        {
+            UltimaRutaDescargada = null;
+        }
 
         bool sincronizadoOnline = false;
 
@@ -738,12 +790,10 @@ public class SyncService : ISyncService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo sincronizar la finalización de ruta en línea. Se encolará para sincronización posterior.");
+                _logger.LogWarning(ex, "No se pudo sincronizar la finalización de ruta en línea. Queda encolada para sincronización posterior.");
             }
         }
 
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        var opId = await _localDatabaseService.EncolarOperacionAsync(TiposOperacionOffline.FinalizarHojaDeRuta, json);
         if (sincronizadoOnline)
         {
             await _localDatabaseService.MarcarComoSincronizadoAsync(opId);

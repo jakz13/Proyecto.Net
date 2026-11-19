@@ -809,11 +809,11 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         if (EstadoActual != EstadoEnvio.EnTransito)
         {
-            if (EstadoActual == EstadoEnvio.AsignadoARuta && HojaDeRutaId.HasValue)
+            if (!resolverConflictoReasignacion && EstadoActual == EstadoEnvio.AsignadoARuta && HojaDeRutaId.HasValue)
             {
                 DespacharEnRuta(HojaDeRutaId.Value, responsableUsuarioId, "Promoción automática a EnTransito al registrar entrega con evidencia en calle");
             }
-            else if (resolverConflictoReasignacion && EstadoActual is EstadoEnvio.AsignadoARuta or EstadoEnvio.NoEntregado or EstadoEnvio.Reprogramado or EstadoEnvio.EnDevolucion)
+            else if (resolverConflictoReasignacion && EstadoActual != EstadoEnvio.Entregado)
             {
                 // En conflicto de sincronización offline-first, prevalece la entrega física real con prueba POD
             }
@@ -828,7 +828,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         reglaOperativa.ValidarPruebaEntrega(firmaDigitalBase64, fotoEvidenciaBase64, documentoReceptor);
 
-        if (_bultos.Any(b => b.EstadoBulto == MaquinaEstadosBulto.FaltanteEnCarga))
+        if (!resolverConflictoReasignacion && _bultos.Any(b => b.EstadoBulto == MaquinaEstadosBulto.FaltanteEnCarga))
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} tiene bultos faltantes desde la carga en depósito; debe registrarse como entrega parcial.");
 
         var bultosPorEntregar = _bultos
@@ -904,19 +904,20 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         double? latitud,
         double? longitud,
         DateTime fechaHoraDispositivoUtc,
-        Guid? responsableUsuarioId = null)
+        Guid? responsableUsuarioId = null,
+        bool resolverConflictoReasignacion = false)
     {
         if (paradaId == Guid.Empty)
             throw new DomainValidationException("El identificador de la parada no puede ser vacío.");
 
         ArgumentNullException.ThrowIfNull(reglaOperativa);
 
-        if (EstadoActual == EstadoEnvio.AsignadoARuta && HojaDeRutaId.HasValue)
+        if (!resolverConflictoReasignacion && EstadoActual == EstadoEnvio.AsignadoARuta && HojaDeRutaId.HasValue)
         {
             DespacharEnRuta(HojaDeRutaId.Value, responsableUsuarioId, "Promoción automática a EnTransito al registrar entrega parcial en calle");
         }
 
-        if (EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
+        if (!resolverConflictoReasignacion && EstadoActual is not (EstadoEnvio.EnTransito or EstadoEnvio.EntregadoParcialmente))
             throw new DomainValidationException($"El envío {CodigoSeguimientoPublico} no puede registrar entrega de bultos porque su estado actual es '{EstadoActual}' (se requiere '{EstadoEnvio.EnTransito}' o '{EstadoEnvio.EntregadoParcialmente}').");
 
         if (_bultos.Count == 0)
@@ -1040,7 +1041,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         foreach (var bulto in entregadosEnEstaVisita)
         {
-            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado)
+            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.FaltanteEnCarga or MaquinaEstadosBulto.EnRetornoADeposito)
                 bulto.MarcarCargadoEnVehiculo();
 
             if (bulto.EstadoBulto is MaquinaEstadosBulto.NoEntregado or MaquinaEstadosBulto.PendienteReenvio)
@@ -1061,7 +1062,7 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
 
         foreach (var (bulto, info) in noEntregadosEnEstaVisita)
         {
-            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado)
+            if (bulto.EstadoBulto is MaquinaEstadosBulto.Ingresado or MaquinaEstadosBulto.Recibido or MaquinaEstadosBulto.Danado or MaquinaEstadosBulto.FaltanteEnCarga or MaquinaEstadosBulto.EnRetornoADeposito or MaquinaEstadosBulto.PendienteReenvio or MaquinaEstadosBulto.NoEntregado)
                 bulto.MarcarCargadoEnVehiculo();
 
             bulto.MarcarNoEntregado(info.Motivo.Codigo, destinoBultoPendiente);
@@ -1119,7 +1120,8 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
                 "MobileApp",
                 latitud,
                 longitud,
-                payload: payloadEvento);
+                payload: payloadEvento,
+                forzarPorConflicto: resolverConflictoReasignacion);
         }
         else
         {
@@ -1354,6 +1356,15 @@ public class Envio : AggregateRoot, IMustHaveTenant, IMustHaveComercioTenant, IH
         _eventos.Add(nuevoEvento);
         SelloModificacion = Guid.NewGuid();
         return nuevoEvento;
+    }
+
+    public void VincularHojaDeRutaPorConflicto(Guid hojaDeRutaId)
+    {
+        if (hojaDeRutaId != Guid.Empty && HojaDeRutaId != hojaDeRutaId)
+        {
+            HojaDeRutaId = hojaDeRutaId;
+            SelloModificacion = Guid.NewGuid();
+        }
     }
 }
 

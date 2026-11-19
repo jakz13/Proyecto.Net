@@ -124,6 +124,23 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
             || parada.Estado == "Cancelada";
         if (huboConflicto)
         {
+            if (ruta.Estado is "Liberada" or "Planificada" or "EnCarga" or "Despachada")
+            {
+                ruta.AsegurarEnTransitoParaOperacionEnCalle();
+            }
+
+            if (envio.HojaDeRutaId.HasValue && envio.HojaDeRutaId.Value != ruta.Id)
+            {
+                var otraRuta = await _rutaRepository.GetByIdWithParadasYAsignacionesAsync(envio.HojaDeRutaId.Value, cancellationToken);
+                if (otraRuta is not null)
+                {
+                    otraRuta.DesasignarEnvioFaltante(envio.Id);
+                    await _rutaRepository.UpdateAsync(otraRuta, cancellationToken);
+                }
+            }
+
+            envio.VincularHojaDeRutaPorConflicto(ruta.Id);
+
             var conflicto = new ConflictoSincronizacion(
                 Guid.NewGuid(),
                 nameof(Envio),
@@ -196,12 +213,13 @@ public class RegistrarEntregaExitosaCommandHandler : IRequestHandler<RegistrarEn
                 request.Latitud,
                 request.Longitud,
                 fechaDispositivoUtc,
-                _currentTenant.UsuarioId);
+                _currentTenant.UsuarioId,
+                resolverConflictoReasignacion: huboConflicto);
 
             if (resultadoParcial.EstadoFinalEnvio == EstadoEnvio.Entregado)
-                ruta.RegistrarEntregaExitosaEnParada(parada.Id);
+                ruta.RegistrarEntregaExitosaEnParada(parada.Id, resolverConflicto: huboConflicto);
             else
-                ruta.RegistrarEntregaParcialEnParada(parada.Id);
+                ruta.RegistrarEntregaParcialEnParada(parada.Id, resolverConflicto: huboConflicto);
 
             codigosEntregadosResult = resultadoParcial.CodigosEntregadosEnVisita;
             codigosNoEntregadosResult = resultadoParcial.CodigosNoEntregadosEnVisita;

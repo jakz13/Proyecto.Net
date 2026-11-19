@@ -581,6 +581,75 @@ public class ControlCargaYEntregaEnPuertaTests
         Assert.Equal("Finalizada", ruta.Estado);
     }
 
+    [Fact]
+    public async Task RegistrarEntregaExitosa_EnvioRetiradoDeRutaEnDepositoYParadaCancelada_PrevaleceEntregaFisicaYRegistraConflicto()
+    {
+        var ruta = new HojaDeRuta(HojaDeRutaId, OperadorId, DateOnly.FromDateTime(DateTime.UtcNow), "EnCarga");
+        ruta.AgregarParada(Parada1Id, Envio1Id, 1, Direccion1Id, null, "Pendiente");
+        ruta.RegistrarAsignacion(Envio1Id, UsuarioRepartidorId);
+
+        var envio = new Envio(
+            Envio1Id,
+            ComercioId,
+            "Av. 18 de Julio 1450, Centro, Montevideo",
+            "Martín Rodríguez",
+            "TRK-36B87B024C",
+            OperadorId);
+        envio.AgregarBulto("TRK-36B87B024C-B01", 1.2m);
+        envio.AgregarBulto("TRK-36B87B024C-B02", 1.4m);
+        envio.RecepcionarEnDeposito(new[] { "TRK-36B87B024C-B01", "TRK-36B87B024C-B02" }, null, null, UsuarioRepartidorId);
+        envio.ClasificarBultos(new[]
+        {
+            new ClasificacionBulto("TRK-36B87B024C-B01", PrioridadBulto.Normal),
+            new ClasificacionBulto("TRK-36B87B024C-B02", PrioridadBulto.Normal)
+        }, UsuarioRepartidorId);
+        envio.AsignarRuta(HojaDeRutaId);
+
+        // El despachador retira/cancela el envío de la ruta mientras el repartidor estaba offline y lo entregó con evidencia
+        ruta.RetirarEnvio(Envio1Id);
+        envio.RetirarDeRuta("AveriaVehiculo · Despachador: Despachador Turno Mañana", UsuarioRepartidorId);
+
+        Assert.Equal(EstadoEnvio.EnDeposito, envio.EstadoActual);
+        Assert.Null(envio.HojaDeRutaId);
+        Assert.Equal("Cancelada", ruta.Paradas.Single().Estado);
+
+        var rutaRepo = new FakeRutaRepository();
+        rutaRepo.Rutas.Add(ruta);
+        var envioRepo = new FakeEnvioRepository();
+        envioRepo.Envios.Add(envio);
+        var outbox = new FakeOutboxStorage();
+        var uow = new FakeUnitOfWork();
+        var cache = new FakeCacheService();
+        var clock = new FakeClock();
+        var tenant = new FakeCurrentTenant { OperadorId = OperadorId, UsuarioId = UsuarioRepartidorId };
+
+        var handler = new RegistrarEntregaExitosaCommandHandler(envioRepo, rutaRepo, uow, outbox, cache, tenant, clock);
+        var command = new RegistrarEntregaExitosaCommand(
+            HojaDeRutaId,
+            Parada1Id,
+            Envio1Id,
+            "IDEMP-CONFLICTO-RETIRO-001",
+            "Martín Rodríguez",
+            "41234567",
+            FirmaDigitalBase64: "firma_base_64",
+            FotoEvidenciaBase64: "foto_base_64",
+            Latitud: -34.9058,
+            Longitud: -56.1885,
+            FechaHoraDispositivoUtc: clock.UtcNow);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal("Entregado", result.EstadoEnvio);
+        Assert.Equal(EstadoEnvio.Entregado, envio.EstadoActual);
+        Assert.Equal(HojaDeRutaId, envio.HojaDeRutaId);
+        Assert.Equal("Entregada", ruta.Paradas.Single().Estado);
+        var conflicto = Assert.Single(envioRepo.Conflictos);
+        Assert.Equal(Envio1Id, conflicto.EntidadId);
+        Assert.Equal("EnDeposito", conflicto.EstadoServidor);
+        Assert.Equal("Entregado", conflicto.EstadoDispositivo);
+        Assert.Equal("PrevaleceEntregaFisicaConEvidencia", conflicto.PoliticaAplicada);
+    }
+
     private sealed class FakeCacheService : IDistributedCacheService
     {
         public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) =>
